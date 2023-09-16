@@ -6,7 +6,7 @@
  */
 
 import { type DocumentFormat, type DocumentResource } from "TYPES/lib/document"
-import { type StudyContext } from "TYPES/lib/studies"
+import { type StudyContext } from "TYPES/lib/study"
 import GenericResource from "LIB/core/GenericResource"
 import { nullPromise } from 'LIB/util/general'
 

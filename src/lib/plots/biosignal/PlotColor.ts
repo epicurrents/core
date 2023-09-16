@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { WebGlCompatibleColor } from "TYPES/lib/plots";
+import { WebGlCompatibleColor } from "TYPES/lib/plot";
 
 export class PlotColor implements WebGlCompatibleColor {
     protected _a: number

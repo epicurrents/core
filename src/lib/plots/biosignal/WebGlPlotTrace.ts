@@ -5,11 +5,11 @@
  * @license    Apache-2.0
  */
 
-import { 
+import {
     type BiosignalPlot,
     type WebGlCompatibleColor,
     type WebGlTrace
-} from "TYPES/lib/plots"
+} from "TYPES/lib/plot"
 import Log from 'scoped-ts-log'
 
 const SCOPE = 'WebGlPlotTrace'

@@ -11,9 +11,9 @@ import {
     type AssetService,
     type CommissionMap,
     type CommissionPromise,
-    type LoaderWorkerMessage,
-    type LoaderWorkerResponse,
-} from "TYPES/lib/services"
+    type WorkerMessage,
+    type WorkerResponse,
+} from "TYPES/lib/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"
 import GenericAsset from "LIB/core/GenericAsset"
@@ -121,7 +121,7 @@ export default class GenericService extends GenericAsset implements AssetService
         props?: Map<string, any>,
         callbacks?: { resolve: ((value?: any) => void), reject: ((reason: string) => void) },
         overwriteRequest = false
-    ): LoaderWorkerResponse {
+    ): WorkerResponse {
         if (!this._worker) {
             return {
                 promise: nullPromise,
@@ -143,7 +143,7 @@ export default class GenericService extends GenericAsset implements AssetService
         const msgData = safeObjectFrom({
             action: action,
             rn: requestNum
-        }) as LoaderWorkerMessage
+        }) as WorkerMessage
         if (props) {
             for (const [key, value] of props)  {
                 msgData[key] = value
@@ -159,6 +159,7 @@ export default class GenericService extends GenericAsset implements AssetService
         }
         commMap.set(requestNum, {
             rn: requestNum,
+            success: false,
             reject: commission.reject,
             resolve: commission.resolve,
         })

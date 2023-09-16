@@ -7,10 +7,10 @@
 
 import { AppSettings, BaseModuleSettings, SettingsColor } from "../config"
 import { DatasetLoader, MediaDataset } from "./dataset"
-import { FileSystemItem, LoaderMode } from "./loaders"
-import { BiosignalPlot } from "./plots"
-import { AssetService } from "./services"
-import { OrderedLoadingProtocol, StudyContext, StudyLoader } from "./studies"
+import { FileSystemItem, LoaderMode } from "./loader"
+import { BiosignalPlot } from "./plot"
+import { AssetService } from "./service"
+import { OrderedLoadingProtocol, StudyContext, StudyLoader } from "./study"
 
 /**
  * The most basic type defining properties that must exist in every asset.

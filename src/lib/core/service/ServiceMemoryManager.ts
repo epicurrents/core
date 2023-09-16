@@ -6,10 +6,10 @@
  */
 
 import { type ManagedService, type MemoryManager } from "TYPES/lib/core"
-import { type WorkerCommission, type WorkerMessage } from "TYPES/lib/loaders"
+import { type WorkerCommission, type WorkerMessage } from "TYPES/lib/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"
-import { AssetService } from "TYPES/lib/services"
+import { AssetService } from "TYPES/lib/service"
 import { GB_BYTES, NUMERIC_ERROR_VALUE } from "LIB/util/constants"
 import { nullPromise } from "LIB/util/general"
 
@@ -311,7 +311,7 @@ export default class ServiceMemoryManager implements MemoryManager {
             ])
         )
         const result = await commission.promise
-        if (result.success) {
+        if (result?.success) {
             for (const rearranged of result.rearrange) {
                 const managed = this._managed.get(rearranged.id)
                 if (!managed) {

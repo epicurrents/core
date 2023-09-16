@@ -6,7 +6,7 @@
  */
 
 import { RuntimeAppModule, SafeObject, StudyLoadProtocolContext, StudyLoaderContext } from "TYPES/lib/core"
-import { BiosignalPlot } from "TYPES/lib/plots"
+import { BiosignalPlot } from "TYPES/lib/plot"
 
 const SCOPE = 'runtime-app-module'
 

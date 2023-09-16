@@ -16,7 +16,7 @@ import MixedMediaDataset from 'LIB/datasets/MixedMediaDataset'
 import { GenericOnnxService } from 'LIB/onnx'
 import NeonatalSeizureDatasetLoader from 'LIB/core/dataset/loaders/NeonatalSeizureDatasetLoader'
 import GenericStudyLoader from 'LIB/core/study/loaders/GenericStudyLoader'
-import { FileSystemItem, LoaderMode } from 'TYPES/lib/loaders'
+import { FileSystemItem, LoaderMode } from 'TYPES/lib/loader'
 import RuntimeStateManager from './runtime'
 import { BaseDataset } from 'TYPES/lib/dataset'
 
@@ -27,7 +27,7 @@ import * as EMG from "./lib/emg"
 import * as NCS from "./lib/ncs"
 import GenericAsset from 'LIB/core/GenericAsset'
 import { ResourceModuleContext } from 'COMPONENTS/store'
-import { AssetService } from 'TYPES/lib/services'
+import { AssetService } from 'TYPES/lib/service'
 export { DOC, EEG, EMG, NCS }
 
 const SCOPE = 'index'

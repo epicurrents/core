@@ -9,11 +9,11 @@
  * In the end it would probably be the easiest solution to just use one of those libraries.
  */
 
-import { 
+import {
     type BiosignalPlot,
     type BiosignalPlotConfig,
     type BiosignalTrace,
-} from "TYPES/lib/plots"
+} from "TYPES/lib/plot"
 import Log from 'scoped-ts-log'
 
 const SCOPE = "SignalPlot"

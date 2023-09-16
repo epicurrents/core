@@ -10,7 +10,6 @@ import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
-    type BiosignalType,
     type HighlightContext,
     type MontageChannel,
     type SignalCachePart,
@@ -223,7 +222,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             return derivedSignals
         }
         const response = await this._service.getSignals(range, config)
-        if (!response.signals || !response.signals.length) {
+        if (!response?.signals || !response.signals.length) {
             Log.error(`Could not get signals for requested range [${range[0]}, ${range[1]}]`, SCOPE)
             return null
         }
@@ -245,10 +244,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
                 })
                 continue
             }
-            derivedSignals.signals.push({
-                data: response.signals[i],
-                samplingRate: response.signals[i].samplingRate
-            })
+            derivedSignals.signals.push(response.signals[i])
         }
         return derivedSignals
     }
@@ -374,7 +370,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
     }
 
-    setHighpassFilter (target: BiosignalType | number, value: number) {
+    setHighpassFilter (target: string | number, value: number) {
         if (typeof target === 'number') {
             this._channels[target].highpassFilter = value
         } else {
@@ -387,7 +383,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         })
     }
 
-    setLowpassFilter (target: BiosignalType | number, value: number) {
+    setLowpassFilter (target: string | number, value: number) {
         if (typeof target === 'number') {
             this._channels[target].lowpassFilter = value
         } else {
@@ -400,7 +396,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         })
     }
 
-    setNotchFilter (target: BiosignalType | number, value: number) {
+    setNotchFilter (target: string | number, value: number) {
         if (typeof target === 'number') {
             this._channels[target].notchFilter = value
         } else {

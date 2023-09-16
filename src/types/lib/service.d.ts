@@ -91,21 +91,36 @@ type CommissionMap = Map<number, CommissionPromise>
 /**
  * Commission promise properties.
  */
-type CommissionPromise = { rn: number, resolve: (value?: any) => any,  reject?: (reason: any) => void }
+type CommissionPromise = Omit<{ [prop: string]: any}, "rn" | "success" | "reject" | "resolve">  & {
+    /** Unique request number for this commission. */
+    rn: number
+    /** Was the commission success or not. */
+    success: boolean
+    /** Any other props returned by the worker. */
 
-export type DocumentServiceReject = (reason: string) => void
-export type DocumentServiceResolve = (response: DocumentServiceResponse) => void
-export type DocumentServiceResponse = {
-    html: string
-}
-export type OnnxServiceReject = (reason: string) => void
-export type OnnxServiceResolve = (result: any) => void
-export type PythonResponse = {
-    result: any
-    success: true
-} | {
-    error: any
-    success: false
+    /** Callback for commission completion. */
+    resolve: (value?: any) => any
+    /** Possible callback for an unexpected error. */
+    reject?: (reason: any) => void
+} | null
+/**
+ * Details of the commission given to the worker.
+ */
+export type WorkerCommission = {
+    /** The Promise that will be fulfilled when the commission is complete. */
+    promise: Promise<CommissionPromise>
+    /** Unique number to identify this commission by. */
+    requestNum: number
+    /**
+     * Method to call if the commission fails.
+     * @param reason - Reason for the failure.
+     */
+    reject? (reason: string): void
+    /**
+     * Method to call if the commission succeeds.
+     * @param value - The results of the commission.
+     */
+    resolve? (value: any): void
 }
 type WorkerMessage = {
     action: string

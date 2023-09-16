@@ -6,14 +6,13 @@
  */
 
 import {
-    type BiosignalChannel,
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
     type SignaCacheResponse,
 } from "TYPES/lib/biosignal"
 import { type MemoryManager } from "TYPES/lib/core"
-import { type StudyContext } from "TYPES/lib/studies"
+import { type StudyContext } from "TYPES/lib/study"
 import Log from 'scoped-ts-log'
 import GenericService from "LIB/core/service/GenericService"
 import { NUMERIC_ERROR_VALUE } from "LIB/util/constants"

@@ -13,7 +13,6 @@ import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
-    type BiosignalType,
     type SignaCacheResponse,
     type VideoAttachment
 } from "TYPES/lib/biosignal"
@@ -21,7 +20,7 @@ import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
 import GenericResource from "LIB/core/GenericResource"
 import { BiosignalService } from "LIB/core/biosignal"
-import { StudyContext } from "TYPES/lib/studies"
+import { StudyContext } from "TYPES/lib/study"
 import { nullPromise } from "LIB/util/general"
 import { shouldDisplayChannel } from "LIB/util/montage"
 
@@ -453,7 +452,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.sensitivity = value
     }
 
-    setHighpassFilter (value: number | null, target = 'eeg' as BiosignalType | number, scope: string = 'recording') {
+    setHighpassFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
         } else if (value < 0 || value === this._filters.highpass) {
@@ -464,7 +463,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             this._activeMontage.setHighpassFilter(target, value)
         } else if (typeof target === 'string') {
             if (scope === 'recording') {
-                if (target === 'eeg') {
+                if (!target) {
                     this._filters.highpass = value
                 }
             } else if (this._activeMontage) {
@@ -475,7 +474,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.onPropertyUpdate('highpass-filter')
     }
 
-    setLowpassFilter (value: number | null, target = 'eeg' as BiosignalType | number, scope: string = 'recording') {
+    setLowpassFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
         } else if (value < 0 || value === this._filters.lowpass) {
@@ -486,7 +485,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             this._activeMontage.setLowpassFilter(target, value)
         } else if (typeof target === 'string') {
             if (scope === 'recording') {
-                if (target === 'eeg') {
+                if (!target) {
                     this._filters.lowpass = value
                 }
             } else if (this._activeMontage) {
@@ -497,7 +496,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.onPropertyUpdate('lowpass-filter')
     }
 
-    setNotchFilter (value: number | null, target = 'eeg' as BiosignalType | number, scope: string = 'recording') {
+    setNotchFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
         } else if (value < 0 || value === this._filters.notch) {
@@ -508,7 +507,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             this._activeMontage.setNotchFilter(target, value)
         } else if (typeof target === 'string') {
             if (scope === 'recording') {
-                if (target === 'eeg') {
+                if (!target) {
                     this._filters.notch = value
                 }
             } else if (this._activeMontage) {

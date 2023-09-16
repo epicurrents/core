@@ -12,7 +12,7 @@ import {
     type BiosignalChannel,
     type BiosignalChannelMarker,
     type BiosignalCursor,
-    type BiosinalPolarity,
+    type SignalPolarity,
 } from "TYPES/lib/biosignal"
 import GenericAsset from "LIB/core/GenericAsset"
 
@@ -139,7 +139,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     get displayPolarity () {
         return this._displayPolarity
     }
-    set displayPolarity (value: BiosinalPolarity) {
+    set displayPolarity (value: SignalPolarity) {
         this._displayPolarity = value
         this.onPropertyUpdate('display-polarity')
     }

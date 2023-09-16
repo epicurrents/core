@@ -11,7 +11,7 @@ import {
     type BiosignalResource,
     type SignaCacheResponse,
 } from "TYPES/lib/biosignal"
-import { StudyContext } from "TYPES/lib/studies"
+import { StudyContext } from "TYPES/lib/study"
 import { MemoryManager } from "TYPES/lib/core"
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"

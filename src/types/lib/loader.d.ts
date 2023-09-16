@@ -6,11 +6,11 @@
  */
 
 import { MemoryManager } from "./core"
-import { 
+import {
     StudyContext,
     StudyContextFile,
     StudyLoader,
-} from "./studies"
+} from "./study"
 
 export interface FileDecoder {
     /** Decoded input data. */
@@ -181,23 +181,4 @@ export type WavSignalChannel = {
     unit: string
     /** Number of signal datapoints. */
     sampleCount: number
-}
-/**
- * Details of the commission given to the worker.
- */
-type WorkerCommission = {
-    /** The Promise that will be fulfilled when the commission is complete. */
-    promise: Promise<any>
-    /** Unique number to identify this commission by. */
-    requestNum: number
-    /**
-     * Method to call if the commission fails.
-     * @param reason - Reason for the failure.
-     */
-    reject? (reason: string): void
-    /**
-     * Method to call if the commission succeeds.
-     * @param value - The results of the commission.
-     */
-    resolve? (value: any): void
 }

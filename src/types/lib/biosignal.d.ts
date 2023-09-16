@@ -6,14 +6,14 @@
  */
 
 import { BaseAsset, DataResource, SafeObject } from './core'
-import { LoadDirection } from './loaders'
-import { 
+import { LoadDirection } from './loader'
+import {
     AsymmetricMutex,
     MutexExportProperties,
     MutexMetaField,
 } from 'asymmetric-io-mutex'
 import { SettingsColor } from '../config'
-import { StudyContext } from './studies'
+import { StudyContext } from './study'
 
 /**
  * Annotation for a single moment or period of time in a biosignal RESOURCE.

@@ -6,7 +6,7 @@
  */
 
 import { DataResource, MemoryManager } from "./core"
-import { FileSystemItem, FileFormatLoader } from "./loaders"
+import { FileSystemItem, FileFormatLoader } from "./loader"
 
 
 export interface OrderedLoadingProtocol {

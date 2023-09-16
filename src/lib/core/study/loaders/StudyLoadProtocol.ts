@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { FileSystemItem } from "TYPES/lib/loaders"
+import { FileSystemItem } from "TYPES/lib/loader"
 import GenericStudyLoader from "./GenericStudyLoader"
-import { StudyContextCollection, StudyContext } from "TYPES/lib/studies"
+import { StudyContextCollection, StudyContext } from "TYPES/lib/study"
 import Log from "scoped-ts-log"
 import StudyCollection from "../StudyCollection"
 
@@ -31,6 +31,8 @@ export interface OrderedLoadingProtocol {
      */
     removeLoader (loader: GenericStudyLoader | number): void
 }
+
+const SCOPE = "StudyLoadProtocol"
 
 /**
  * Protocol that tries to match an ordered list of loaders against the given

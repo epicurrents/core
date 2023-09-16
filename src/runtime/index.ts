@@ -6,16 +6,16 @@
  */
 
 import { type AppSettings, type SettingsColor } from 'TYPES/config'
-import { 
+import {
     type DataResource,
     type RuntimeResourceModule,
     type RuntimeState,
     type StateManager
 } from 'TYPES/lib/core'
 import { type DatasetLoader, type MediaDataset } from 'TYPES/lib/dataset'
-import { type FileSystemItem, type StudyLoader } from 'TYPES/lib/loaders'
-import { type AssetService } from 'TYPES/lib/services'
-import { type StudyContext } from 'TYPES/lib/studies'
+import { type FileSystemItem } from 'TYPES/lib/loader'
+import { type AssetService } from 'TYPES/lib/service'
+import { type StudyContext, type StudyLoader } from 'TYPES/lib/study'
 import Log from 'scoped-ts-log'
 import SETTINGS from 'CONFIG/Settings'
 import { MixedMediaDataset } from 'LIB/core/dataset'

@@ -7,7 +7,7 @@
 
 import { BiosignalResource } from "./biosignal"
 import { BaseAsset } from "./core"
-import { AssetService } from "./services"
+import { AssetService } from "./service"
 
 /**
  * An ONNX model that is available in this scope.
@@ -82,4 +82,13 @@ export interface OnnxService extends AssetService {
      * @returns True if successful, false otherwise.
      */
     setSourceResource (resource: BiosignalResource | null, childScope?: string): boolean
+}
+export type OnnxServiceReject = (reason: string) => void
+export type OnnxServiceResolve = (result: any) => void
+export type PythonResponse = {
+    result: any
+    success: true
+} | {
+    error: any
+    success: false
 }

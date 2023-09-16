@@ -6,8 +6,8 @@
  */
 
 import { BaseAsset, DataResource } from "./core"
-import { FileSystemItem } from "./loaders"
-import { StudyContext } from "./studies"
+import { FileSystemItem } from "./loader"
+import { StudyContext } from "./study"
 
 /**
  * Base type for all datasets.

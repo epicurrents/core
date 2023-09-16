@@ -26,3 +26,9 @@ export interface DocumentResource extends DataResource {
     /** Reduce page number by one, if there is a preceding page. */
     prevPage (): void
 }
+
+export type DocumentServiceReject = (reason: string) => void
+export type DocumentServiceResolve = (response: DocumentServiceResponse) => void
+export type DocumentServiceResponse = {
+    html: string
+}

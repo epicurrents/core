@@ -6,7 +6,7 @@
  */
 
 import { type MediaDataset } from "TYPES/lib/dataset"
-import { type StudyContext } from "TYPES/lib/studies"
+import { type StudyContext } from "TYPES/lib/study"
 import GenericDataset from "LIB/core/dataset/GenericDataset"
 import GenericResource from "LIB/core/GenericResource"
 
@@ -59,13 +59,13 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         super.addResource(resource)
     }
     getMainProperties(): Map<string, { [key: string]: string | number } | null> {
-        return new Map<string, { [key: string]: string | number } | null>([ 
+        return new Map<string, { [key: string]: string | number } | null>([
             [
                 this._resources.length.toString(),
-                { 
+                {
                     icon: 'number',
                     n: this._resources.length,
-                    title: '{n} resources' 
+                    title: '{n} resources'
                 },
             ]
         ])
