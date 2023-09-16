@@ -1,0 +1,8 @@
+.env
+.npmrc
+.vscode
+node_modules
+build/*
+tests/coverage
+
+._*
