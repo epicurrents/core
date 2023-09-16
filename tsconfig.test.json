@@ -14,7 +14,7 @@
       "CONFIG/*": ["src/config/*"],
       "LIB/*": ["src/lib/*"],
       "RUNTIME*": ["src/runtime/index.ts"],
-      "TYPES/*": ["src/types/*"],
+      "TYPES/*": ["types/*"],
       "ROOT/*": ["src/*"],
     } ,
     "typeRoots": [

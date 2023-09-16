@@ -42,7 +42,7 @@ module.exports = {
             'LIB': path.resolve(__dirname, 'src/lib/'),
             'ROOT': path.resolve(__dirname, 'src/'),
             'RUNTIME': path.resolve(__dirname, 'src/runtime/'),
-            'TYPES': path.resolve(__dirname, 'src/types/')
+            'TYPES': path.resolve(__dirname, 'types/')
         },
         symlinks: false
     },

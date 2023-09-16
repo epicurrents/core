@@ -25,7 +25,7 @@ module.exports = {
                     "CONFIG/*": ["src/config/*"],
                     "LIB/*": ["src/lib/*"],
                     "RUNTIME*": ["src/runtime/index.ts"],
-                    "TYPES/*": ["src/types/*"],
+                    "TYPES/*": ["src/*"],
                     "ROOT/*": ["src/*"],
                 }
             }
@@ -42,7 +42,7 @@ module.exports = {
         "^LIB/(.*)$": "<rootDir>/src/lib/$1",
         "^ROOT/(.*)$": "<rootDir>/src/$1",
         "^RUNTIME/(.*)$": "<rootDir>/src/runtime/$1",
-        "^TYPES/(.*)$": "<rootDir>/src/types/$1",
+        "^TYPES/(.*)$": "<rootDir>/types/$1",
     },
     modulePaths: [
         "<rootDir>/src/",
