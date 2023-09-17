@@ -85,6 +85,10 @@ export type FileFormatLoaderSpecs = {
     /** Patterns to match the filename against. */
     matchPatters: RegExp[]
 }
+export interface FileReader {
+    readFilesFromSource(source: any): Promise<FileSystemItem|undefined>
+}
+
 export type FileSystemItemType = 'directory' | 'file'
 /**
  * A FileSystemItem describes data storage structure in local and

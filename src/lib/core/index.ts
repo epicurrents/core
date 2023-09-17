@@ -17,6 +17,13 @@ import {
     GenericDocumentResource,
 } from "./document"
 import {
+    FileSystemDirectory,
+    FileSystemFile,
+    GenericFileLoader,
+    LocalFileReader,
+    MixedFileSystemItem,
+} from "./loader"
+import {
     BiosignalAudio,
 } from "./media"
 import {
@@ -34,6 +41,8 @@ export {
     BiosignalMutex,
     BiosignalService,
     BiosignalServiceSAB,
+    FileSystemDirectory,
+    FileSystemFile,
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
@@ -41,8 +50,11 @@ export {
     GenericBiosignalResourceSAB,
     GenericDataset,
     GenericDocumentResource,
+    GenericFileLoader,
     GenericService,
     GenericStudyLoader,
+    LocalFileReader,
+    MixedFileSystemItem,
     MixedMediaDataset,
     MontageServiceSAB,
     ServiceMemoryManager,

@@ -1,5 +1,5 @@
 /**
- * EpiCurrest core main script.
+ * EpiCurrest application main script.
  * @package    epicurrents-core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
@@ -23,9 +23,8 @@ import GenericStudyLoader from 'LIB/core/study/loaders/GenericStudyLoader'
 import { FileSystemItem, LoaderMode } from 'TYPES/loader'
 import RuntimeStateManager from './runtime'
 import { BaseDataset } from 'TYPES/dataset'
-
-// Temporary module import-exports
 import GenericAsset from 'LIB/core/GenericAsset'
+import { MixedFileSystemItem } from 'LIB/core/loader'
 import { AssetService } from 'TYPES/service'
 
 const SCOPE = 'index'

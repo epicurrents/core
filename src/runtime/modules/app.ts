@@ -1,12 +1,13 @@
 /**
  * Runtime app module.
  * @package    epicurrents-core
- * @copyright  2021 Sampsa Lohi
+ * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */
 
-import { RuntimeAppModule, SafeObject, StudyLoaderProtocolContext, StudyLoaderContext } from "TYPES/core"
-import { BiosignalPlot } from "TYPES/plot"
+import { type RuntimeAppModule, type SafeObject } from "TYPES/core"
+import { type BiosignalPlot } from "TYPES/plot"
+import { type StudyLoaderContext, type StudyLoaderProtocolContext } from "TYPES/study"
 
 const SCOPE = 'runtime-app-module'
 
