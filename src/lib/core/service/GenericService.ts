@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { MemoryManager } from "TYPES/lib/core"
+import { MemoryManager } from "TYPES/core"
 import {
     type ActionWatcher,
     type AssetService,
@@ -13,7 +13,7 @@ import {
     type CommissionPromise,
     type WorkerMessage,
     type WorkerResponse,
-} from "TYPES/lib/service"
+} from "TYPES/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"
 import GenericAsset from "LIB/core/GenericAsset"

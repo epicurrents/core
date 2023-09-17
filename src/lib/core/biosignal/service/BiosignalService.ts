@@ -9,10 +9,10 @@ import {
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
-    type SignaCacheResponse,
-} from "TYPES/lib/biosignal"
-import { type MemoryManager } from "TYPES/lib/core"
-import { type StudyContext } from "TYPES/lib/study"
+} from "TYPES/biosignal"
+import { type MemoryManager } from "TYPES/core"
+import { type SignalCacheResponse } from "TYPES/service"
+import { type StudyContext } from "TYPES/study"
 import Log from 'scoped-ts-log'
 import GenericService from "LIB/core/service/GenericService"
 import { NUMERIC_ERROR_VALUE } from "LIB/util/constants"
@@ -76,7 +76,7 @@ export default class BiosignalService extends GenericService implements Biosigna
                     signals: data.signals,
                     annotations: data.annotations,
                     dataGaps: data.dataGaps,
-                } as SignaCacheResponse)
+                } as SignalCacheResponse)
             }
             return true
         } else if (data.action === 'get-signals') {
@@ -90,7 +90,7 @@ export default class BiosignalService extends GenericService implements Biosigna
                     signals: data.signals,
                     annotations: data.annotations,
                     dataGaps: data.dataGaps,
-                } as SignaCacheResponse)
+                } as SignalCacheResponse)
             }
             return true
         } else if (data.action === 'setup-study') {
@@ -121,7 +121,7 @@ export default class BiosignalService extends GenericService implements Biosigna
         return true
     }
 
-    async cacheSignalsFromUrl (): Promise<SignaCacheResponse> {
+    async cacheSignalsFromUrl (): Promise<SignalCacheResponse> {
         if (this._loadingStudy) {
             const studyLoad = new Promise<boolean>(success => {
                 this._awaitStudySetup.push(success)
@@ -134,7 +134,7 @@ export default class BiosignalService extends GenericService implements Biosigna
         return commission.promise
     }
 
-    async getSignals (range: number[], config?: any): Promise<SignaCacheResponse> {
+    async getSignals (range: number[], config?: any): Promise<SignalCacheResponse> {
         if (!(await this._isStudyReady())) {
             return null
         }

@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource, type MemoryManager } from 'TYPES/lib/core'
-import { type FileFormatLoader, type FileSystemItem } from "TYPES/lib/loader"
-import { type StudyContext, type StudyLoader } from 'TYPES/lib/study'
+import { type DataResource, type MemoryManager } from 'TYPES/core'
+import { type FileFormatLoader, type FileSystemItem } from "TYPES/loader"
+import { type StudyContext, type StudyLoader } from 'TYPES/study'
 import Log from 'scoped-ts-log'
 import ServiceMemoryManager from 'LIB/core/service/ServiceMemoryManager'
 import StudyCollection from '../StudyCollection'

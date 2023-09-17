@@ -5,20 +5,20 @@
  * @license    Apache-2.0
  */
 
-import { 
+import {
+    BiosignalMontage,
     type BiosignalChannel,
     type BiosignalFilters,
     type FftAnalysisResult,
     type MontageChannel,
-    type SignalCachePart 
-} from 'TYPES/lib/biosignal'
+} from 'TYPES/biosignal'
+import { type SignalCachePart } from 'TYPES/service'
 import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
-import BiosignalMutex from 'LIB/mutexes/BiosignalMutex'
+import { BiosignalMutex } from 'LIB/core/biosignal'
 import { LTTB } from 'downsample'
-import { EegMontage } from 'LIB/eeg'
 import { NUMERIC_ERROR_VALUE } from './constants'
 
 const SCOPE = 'util:signal'
@@ -239,7 +239,17 @@ export const fftAnalysis = (signal: Float32Array, samplingRate: number): FftAnal
  * @param end - range end in seconds
  * @param config - possible configuration
  */
-export const calculateReferencedSignals = async (source: BiosignalMutex, sourceChannels: BiosignalChannel[], start: number, end: number, config?: any) => {
+export const calculateReferencedSignals = async (
+    source: BiosignalMutex,
+    sourceChannels: BiosignalChannel[],
+    start: number,
+    end: number,
+    config: {
+        filterPaddingSeconds: number
+        exclude?: number[]
+        include?: number[]
+    }
+) => {
     // Check that cache has the part that we need
     const inputRangeStart = await source.inputRangeStart
     const inputRangeEnd = await source.inputRangeEnd
@@ -279,7 +289,7 @@ export const calculateReferencedSignals = async (source: BiosignalMutex, sourceC
             paddingStart, paddingEnd,
             rangeStart, rangeEnd,
             signalStart, signalEnd,
-        } = getFilterPadding([relStart, relEnd] || [], activeSig.length, chan)
+        } = getFilterPadding([relStart, relEnd] || [], activeSig.length, chan, config)
         const activeRange = activeSig.subarray(signalStart, signalEnd)
         // Need to calculate signal relative to reference(s), one datapoint at a time.
         // Check that active signal and all reference signals have the same length.
@@ -397,11 +407,12 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
 
 /**
  * Get filter properties for the given signal range.
- * @param range - requested signal range in seconds
- * @param sigLen - total signal length
- * @param channel - channel properties
- * @param filters - active general filters as BiosignalFilters (optional)
- * @returns padding properties as
+ * @param range - Requested signal range in seconds.
+ * @param sigLen - Total signal length.
+ * @param channel - Channel properties.
+ * @param config - Configuration properties for the biosignal in question.
+ * @param filters - Active general filters as BiosignalFilters (optional).
+ * @returns Padding properties as
  * ```
  * Object<{
  *      // Number of filter-added datapoints
@@ -429,6 +440,9 @@ export const getFilterPadding = (
     range: number[],
     sigLen: number,
     channel: BiosignalChannel,
+    config: {
+        filterPaddingSeconds: number
+    },
     filters?: BiosignalFilters,
 ) => {
     // If range is falsy, just use the whole signal
@@ -452,7 +466,7 @@ export const getFilterPadding = (
     let filtSize = 0
     let filtPad = [0, 0]
     if (!filters || shouldFilterSignal(filters, channel)) {
-        filtSize = Math.round(channel.samplingRate*SETTINGS.eeg.filterPaddingSeconds)
+        filtSize = Math.round(channel.samplingRate*config.filterPaddingSeconds)
         filtPad = chanRange === null
                   // Always add full padding on both ends if the whole signal is requested
                   ? [filtSize, filtSize]
@@ -551,16 +565,16 @@ export const isContinuousSignal = (...signalParts: SignalCachePart[]) => {
 
 /**
  * Maps given signals to corresponding sampling rates.
- * @param signals signals as Float32Array
- * @param montage montage name
+ * @param signals - Signals as Float32Array.
+ * @param montage - Current montage.
  * @returns ```
  * { data: signals[i], samplingRate: channelSamplingRate[i] }
  * ```
  */
-export const mapSignalsToSamplingRates = (signals: Float32Array[], montage: EegMontage) => {
+export const mapSignalsToSamplingRates = (signals: Float32Array[], montage: BiosignalMontage) => {
     let i = 0
     return signals.map((sig) => {
-        return { data: sig, samplingRate: montage.channels[i++].samplingRate }
+        return { data: sig, samplingRate: montage.channels[i++]?.samplingRate || 0 }
     })
 }
 

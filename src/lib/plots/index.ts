@@ -1,8 +1,13 @@
-import WebGlPlot from "./biosignal/WebGlPlot"
-import { WebGlPlotTrace } from './biosignal/WebGlPlotTrace'
-import { PlotColor as BiosignalPlotColor } from './biosignal/PlotColor'
+import {
+    CanvasPlot,
+    PlotColor,
+    WebGlPlot,
+    WebGlPlotTrace,
+} from './biosignal'
 
 export {
-    BiosignalPlotColor,
-    WebGlPlot, WebGlPlotTrace,
+    CanvasPlot,
+    PlotColor,
+    WebGlPlot,
+    WebGlPlotTrace,
 }

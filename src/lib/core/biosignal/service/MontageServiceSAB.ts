@@ -6,11 +6,11 @@
  */
 
 import {
-    SignaCacheResponse,
     type BiosignalMontageService,
     type MontageChannel,
-} from "TYPES/lib/biosignal"
-import { MemoryManager } from "TYPES/lib/core"
+} from "TYPES/biosignal"
+import { type MemoryManager } from "TYPES/core"
+import { type SignalCacheResponse } from "TYPES/service"
 import Log from 'scoped-ts-log'
 import BiosignalMutex from "./BiosignalMutex"
 import GenericService from "LIB/core/service/GenericService"
@@ -112,7 +112,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 undefined,
                 config?.overwriteRequest === true ? true : false
             )
-            return signals.promise as Promise<SignaCacheResponse>
+            return signals.promise as Promise<SignalCacheResponse>
         //}
     }
 

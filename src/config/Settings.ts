@@ -26,7 +26,7 @@ const clonableSettings = () => {
     const outSettings = {} as AppSettings
     for (const mod in SETTINGS) {
         if (mod === '_CLONABLE') {
-            // Avoid infinite call stack
+            // Avoid infinite call stack.
             continue
         }
         const clonable = {} as any
@@ -36,6 +36,16 @@ const clonableSettings = () => {
             }
         }
         outSettings[mod as keyof AppSettings] = clonable
+    }
+    // Modules.
+    for (const [key, mod] of _modules) {
+        const clonable = {} as any
+        for (const [field, value] of Object.entries(mod)) {
+            if (!field.startsWith('_')) {
+                clonable[field] = value
+            }
+        }
+        outSettings.modules[key] = clonable
     }
     return outSettings
 }

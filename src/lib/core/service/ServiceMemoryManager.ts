@@ -5,11 +5,11 @@
  * @license    Apache-2.0
  */
 
-import { type ManagedService, type MemoryManager } from "TYPES/lib/core"
-import { type WorkerCommission, type WorkerMessage } from "TYPES/lib/service"
+import { type ManagedService, type MemoryManager } from "TYPES/core"
+import { type WorkerCommission, type WorkerMessage } from "TYPES/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"
-import { AssetService } from "TYPES/lib/service"
+import { AssetService } from "TYPES/service"
 import { GB_BYTES, NUMERIC_ERROR_VALUE } from "LIB/util/constants"
 import { nullPromise } from "LIB/util/general"
 

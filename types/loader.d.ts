@@ -106,12 +106,12 @@ export interface FileSystemItem {
     /** Possible url to the file object (if this is a file). */
     url?: string
 }
-export type LoaderMode = 'file' | 'folder' | 'study'
 /**
  * Identifiers for indicating the direction in which to continue when
  * loading continuous data.
  */
 export type LoadDirection = 'backward' | 'alternate' | 'forward'
+export type LoaderMode = 'file' | 'folder' | 'study'
 export type SuccessReject = (reason: string) => void
 export type SuccessResolve = (response: SuccessResponse) => void
 export type SuccessResponse = boolean
@@ -158,27 +158,4 @@ export interface TextFileParser {
      * @return true if source was parsed
      */
     parseSource (source: ArrayBuffer, study: StudyContext): Promise<boolean>
-}
-/**
- * A channel containing WAV signal.
- */
-export type WavSignalChannel = {
-    /** Channel label. */
-    label: string
-    /** Unique, identifying name. */
-    name: string
-    /** Signal type. */
-    type: string
-    /** Signal sampling rate. */
-    samplingRate: number
-    /** A multiplier to signal amplitude. */
-    amplification: number
-    /** Channel-specific sensitivity. */
-    sensitivity: number
-    /** Actual signal data. */
-    signal: Float32Array
-    /** Physical unit of the signal. */
-    unit: string
-    /** Number of signal datapoints. */
-    sampleCount: number
 }

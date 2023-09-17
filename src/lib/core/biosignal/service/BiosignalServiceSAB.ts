@@ -9,10 +9,10 @@ import {
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
-    type SignaCacheResponse,
-} from "TYPES/lib/biosignal"
-import { StudyContext } from "TYPES/lib/study"
-import { MemoryManager } from "TYPES/lib/core"
+} from "TYPES/biosignal"
+import { type MemoryManager } from "TYPES/core"
+import { type SignalCacheResponse } from "TYPES/service"
+import { type StudyContext } from "TYPES/study"
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
 import GenericService from "LIB/core/service/GenericService"
@@ -81,7 +81,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
     /**
      * Start the process of caching raw signals from the preset URL.
      */
-    async cacheSignalsFromUrl (): Promise<SignaCacheResponse> {
+    async cacheSignalsFromUrl (): Promise<SignalCacheResponse> {
         if (!(await this._isStudyReady())) {
             return null
         }
@@ -89,7 +89,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
         return commission.promise
     }
 
-    async getSignals (range: number[], config?: any): Promise<SignaCacheResponse> {
+    async getSignals (range: number[], config?: any): Promise<SignalCacheResponse> {
         if (!(await this._isStudyReady())) {
             return null
         }
@@ -141,7 +141,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
                     signals: data.signals,
                     annotations: data.annotations,
                     dataGaps: data.dataGaps,
-                } as SignaCacheResponse)
+                } as SignalCacheResponse)
             }
             return true
         } else if (data.action === 'setup-study') {

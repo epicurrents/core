@@ -5,13 +5,13 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource } from "TYPES/lib/core"
+import { type DataResource } from "TYPES/core"
 import {
     type BaseDataset,
     type DatasetCredentials,
     type ResourceSortingInstructions,
     type ResourceSortingScheme
-} from "TYPES/lib/dataset"
+} from "TYPES/dataset"
 import Log from "scoped-ts-log"
 import GenericAsset from "../GenericAsset"
 

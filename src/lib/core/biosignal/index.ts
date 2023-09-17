@@ -1,13 +1,19 @@
-import BiosignalService from "./service/BiosignalService"
-import BiosignalServiceSAB from "./service/BiosignalServiceSAB"
-import GenericBiosignalChannel from "./components/GenericBiosignalChannel"
-import GenericBiosignalHeaders from "./components/GenericBiosignalHeaders"
-import GenericBiosignalMontage from "./components/GenericBiosignalMontage"
 import GenericBiosignalResource from "./GenericBiosignalResource"
 import GenericBiosignalResourceSAB from "./GenericBiosignalResourceSAB"
-import MontageServiceSAB from "./service/MontageServiceSAB"
+import {
+    GenericBiosignalChannel,
+    GenericBiosignalHeaders,
+    GenericBiosignalMontage,
+} from "./components"
+import {
+    BiosignalMutex,
+    BiosignalService,
+    BiosignalServiceSAB,
+    MontageServiceSAB,
+} from "./service"
 
 export {
+    BiosignalMutex,
     BiosignalService,
     BiosignalServiceSAB,
     GenericBiosignalChannel,

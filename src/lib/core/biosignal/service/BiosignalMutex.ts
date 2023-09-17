@@ -5,12 +5,9 @@
  * @license    Apache-2.0
  */
 
+import { type SignalCacheMutex, type SignalCachePart } from "TYPES/service"
 import Log from 'scoped-ts-log'
 import IOMutex, { type MutexExportProperties } from "asymmetric-io-mutex"
-import {
-    type SignalCacheMutex,
-    type SignalCachePart,
-} from "TYPES/lib/biosignal"
 import { concatFloat32Arrays } from "LIB/util/signal"
 import { NUMERIC_ERROR_VALUE } from 'LIB/util/constants'
 

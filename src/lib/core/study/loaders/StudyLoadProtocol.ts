@@ -5,32 +5,11 @@
  * @license    Apache-2.0
  */
 
-import { FileSystemItem } from "TYPES/lib/loader"
+import { type FileSystemItem } from "TYPES/loader"
+import { type StudyContext, type OrderedLoadingProtocol } from "TYPES/study"
 import GenericStudyLoader from "./GenericStudyLoader"
-import { StudyContextCollection, StudyContext } from "TYPES/lib/study"
 import Log from "scoped-ts-log"
 import StudyCollection from "../StudyCollection"
-
-export interface OrderedLoadingProtocol {
-    /**
-     * Add a new loader to the array of loaders to try.
-     * @param loader - StudyLoader to add.
-     * @param position - Optional array position for the new loader (will be appended by default).
-     */
-    addLoader (loader: GenericStudyLoader, position?: number): void
-    /**
-     * Load the given item and return the contained studies as a StudyCollection.
-     * @param item - A MixedFileSystemItem containing the study or collection of studies.
-     * @param singleStudy - Treat all files as part of a single study (default false).
-     * @returns StudyCollection
-     */
-    loadStudies (item: FileSystemItem, singleStudy: boolean): Promise<StudyContextCollection>
-    /**
-     * Remove a loader from the array of loaders to try.
-     * @param loader - The StudyLoader to remove or array index of the loader.
-     */
-    removeLoader (loader: GenericStudyLoader | number): void
-}
 
 const SCOPE = "StudyLoadProtocol"
 

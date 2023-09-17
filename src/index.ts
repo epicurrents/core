@@ -6,29 +6,27 @@
  */
 
 import Log from 'scoped-ts-log'
-import { EpiCurrentsApplication, InterfaceModule, InterfaceModuleConstructor, DataResource, RuntimeResourceModule, ResourceModule } from 'TYPES/lib/core'
-import { EdfFileLoader, MarkdownFileLoader, MixedFileSystemItem, PdfFileLoader } from './loaders/file-loaders'
-import { sleep } from 'LIB/util/general'
+import {
+    type EpiCurrentsApplication,
+    type InterfaceModule,
+    type InterfaceModuleConstructor,
+    type InterfaceResourceModuleContext,
+    type DataResource,
+    type ResourceModule,
+} from 'TYPES/core'
 import SETTINGS from 'CONFIG/Settings'
 import ServiceMemoryManager from 'LIB/core/service/ServiceMemoryManager'
 
-import MixedMediaDataset from 'LIB/datasets/MixedMediaDataset'
+import MixedMediaDataset from 'LIB/core/dataset/MixedMediaDataset'
 import { GenericOnnxService } from 'LIB/onnx'
-import NeonatalSeizureDatasetLoader from 'LIB/core/dataset/loaders/NeonatalSeizureDatasetLoader'
 import GenericStudyLoader from 'LIB/core/study/loaders/GenericStudyLoader'
-import { FileSystemItem, LoaderMode } from 'TYPES/lib/loader'
+import { FileSystemItem, LoaderMode } from 'TYPES/loader'
 import RuntimeStateManager from './runtime'
-import { BaseDataset } from 'TYPES/lib/dataset'
+import { BaseDataset } from 'TYPES/dataset'
 
 // Temporary module import-exports
-import * as DOC from "./lib/doc"
-import * as EEG from "./lib/eeg"
-import * as EMG from "./lib/emg"
-import * as NCS from "./lib/ncs"
 import GenericAsset from 'LIB/core/GenericAsset'
-import { ResourceModuleContext } from 'COMPONENTS/store'
-import { AssetService } from 'TYPES/lib/service'
-export { DOC, EEG, EMG, NCS }
+import { AssetService } from 'TYPES/service'
 
 const SCOPE = 'index'
 let INSTANCE_NUM = 1
@@ -37,7 +35,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
     // Properties
     #app = null as null | InterfaceModule
     #interface = null as null | InterfaceModuleConstructor
-    #interfaceModules = new Map<string, ResourceModuleContext>()
+    #interfaceModules = new Map<string, InterfaceResourceModuleContext>()
     #memoryManager = null as null | ServiceMemoryManager
     #state = new RuntimeStateManager()
 
@@ -112,7 +110,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
         }
     }
     createDataset (name?: string) {
-        const setName = name || T(`Dataset {n}`, null, { n: this.#state.APP.datasets.length + 1 })
+        const setName = name || `Dataset ${this.#state.APP.datasets.length + 1 }`
         const newSet = new MixedMediaDataset(setName)
         this.#state.addDataset(newSet)
         return newSet
@@ -160,60 +158,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
      * @param folder - `MixedFileSystemItem` containing the dataset files.
      * @param name - Optional name for the dataset.
      */
-    loadDataset = async (loader: BaseDataset, folder: MixedFileSystemItem | string[], name?: string, context?: string) => {
-        // This is just a test implementation
-        const datasetLoader = new NeonatalSeizureDatasetLoader()
-        datasetLoader.registerFileLoader(new EdfFileLoader())
-        datasetLoader.registerFileLoader(new MarkdownFileLoader())
-        datasetLoader.registerFileLoader(new PdfFileLoader())
-        const dataset = await this.createDataset(name)
-        if (!dataset) {
-            Log.error(`Failed to create a dataset for ${name || 'dataset loader'}.`, SCOPE)
-            return
-        } else {
-            this.#state.setActiveDataset(dataset)
-            //this.store?.dispatch('set-active-dataset', dataset)
-        }
-        datasetLoader.loadDataset(
-            Array.isArray(folder) ? MixedFileSystemItem.UrlsToFsItem(...folder) : folder,
-            async (study) => {
-                if (!this.#memoryManager) {
-                    Log.error(`Could not load study for a dataset, loader manager is not initialized.`, 'index')
-                    return
-                }
-                if (study.type === 'htm') {
-                    //if (study.format === 'markdown') {
-                    //    const MarkdownDocument = (await import(/* webpackChunkName: "document_markdown" */'LIB/document/MarkdownDocument')).default
-                    //    const doc = new MarkdownDocument(study.name, study)
-                    //    this.#state.addResource('DOC', doc)
-                    //    //this.store?.dispatch('add-resource', { resource: doc, scope: scope })
-                    //}
-                } else if (study.type === 'pdf') {
-                    const PdfDocument = (await import(/* webpackChunkName: "document_pdf" */'LIB/doc/PdfDocument')).default
-                    const doc = new PdfDocument(study.name, study)
-                    this.#state.addResource('DOC', doc)
-                    //this.store?.dispatch('add-resource', { resource: doc, scope: scope })
-                } else if (study.type === 'eeg') {
-                    const EegRecordingSAB = (await import(/* webpackChunkName: "biosignal_eeg" */'LIB/eeg/EegRecordingSAB')).default
-                    //const eeg = new EegRecordingSAB(study.name, study.meta.channels, study.meta.recording, this.#memoryManager)
-                    //console.warn(study.meta.annotations)
-                    //if (study.meta.annotations?.length) {
-                    //    for (const annotation of study.meta.annotations) {
-                    //        eeg.addAnnotation(annotation)
-                    //    }
-                    //}
-                    //this.#state.addResource('EEG', eeg)
-                    //this.store?.dispatch('add-resource', { resource: eeg, scope: scope })
-                    //eeg.prepare().then(() => {
-                    //}).catch(e => {
-                    //    console.error(e)
-                    //})
-                }
-                // Datasets can be huge, let the UI refresh between items
-                await Promise.all([sleep(10)])
-            }
-        )
-        return dataset
+    loadDataset = async (loader: BaseDataset, folder: FileSystemItem | string[], name?: string, context?: string) => {
     }
     /**
      * Load a study from the given file, folder or URL.

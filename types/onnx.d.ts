@@ -85,10 +85,3 @@ export interface OnnxService extends AssetService {
 }
 export type OnnxServiceReject = (reason: string) => void
 export type OnnxServiceResolve = (result: any) => void
-export type PythonResponse = {
-    result: any
-    success: true
-} | {
-    error: any
-    success: false
-}

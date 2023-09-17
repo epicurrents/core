@@ -6,6 +6,7 @@
  */
 
 import { BiosignalChannel } from "./biosignal"
+import { SettingsColor } from "./config"
 
 export interface BiosignalPlot {
     /**
@@ -133,6 +134,52 @@ export type BiosignalTrace = {
     setSensitivity (value: number): void
 }
 /**
+ * Context for a set of signal highlights.
+ */
+export type HighlightContext = {
+    /** Actual highlights in this context. */
+    highlights: SignalHighlight[]
+    /** Highlight properties for the navigation bar. */
+    naviDisplay: {
+        /**
+         * Type of the display on the navigator. Apart from the `bg-color` option the
+         * vertical (y) position of the graph is determined by the result of the
+         * reference equation.
+         * * `bg-color`: Apply a color gradient to the navigator background.
+         * * `bar`: A vertical bar.
+         * * `curve`: A curve with a colored area under it.
+         * * `line`: A simple line.
+         */
+        type: 'bg-color' | 'bar' | 'curve' | 'line'
+        /**
+         * Algorithms to apply to the reference result (default none = linear reference).
+         * * `abs`: Take an absolute of the final result.
+         * * `invert`: Invert the result relative to the reference value. Example: `ref 1: invert(0.2) = 0.8`.
+         * * `log`: Use a logarithmic scale in the reference equation.
+         */
+        algorithms?: ('abs' | 'invert' | 'log')[]
+        /** Default color to apply to the navigator display (can be overridden by the highlight). */
+        color: SettingsColor
+        /**
+         * Interval at which to check the number of matching highlights as either
+         * * a number, or
+         * * a function that takes an increasing integer (0, 1, 2, ...) and returns the next interval value.
+         */
+        interval?: number | ((i: number) => number)
+        /** Reference for the highlight value (default 1). */
+        ref?: number
+    } | null
+    plotDisplay: {
+        /** Default color to apply to highlights in this context (can be overridden by the highlight). */
+        color: SettingsColor
+        type: 'background' | 'overlay'
+        /** Reference for the highlight value (default 1). */
+        ref?: number
+     } | null
+     /** Is this set of highlights visible. */
+    visible: boolean
+}
+/**
  * Signal part selected for closer inspection.
  */
 export type PlotTraceSelection = {
@@ -157,6 +204,37 @@ export type PlotTraceSelection = {
     minValue: number
     range: number[]
     signal: Float32Array | null
+}
+/**
+ * Highlight applied to the backdrop of a signal channel/channels.
+ */
+export type SignalHighlight = {
+    /** List of channels that this highlight applies to (empty list means general highlight). */
+    channels: number[]
+    /** End time in recording seconds. */
+    end: number
+    /** Descriptive label for the highlight. */
+    label: string
+    /** Start time in recording seconds. */
+    start: number
+    /** Is this highlight part of the actual detection or a sliding "collar" around it. */
+    type: "collar" | "detection"
+    /** Should this highlight be visible. */
+    visible: boolean
+    /** Should this highlight be shown in the background. */
+    background?: boolean
+    /** Length of possible preceding and following collars. */
+    collarLength?: number
+    /** Optional override color for this highlight. */
+    color?: SettingsColor
+    /** Does this highlight have another, instantly following highlight. */
+    hasNext?: boolean
+    /** Does this highlight have another, instantly preceding highlight. */
+    hasPrevious?: boolean
+    /** Additional opacity multiplier for the highlight as a value or gradient range. */
+    opacity?: number | number[]
+    /** Optional numeric value for highlight (to compare with ref). */
+    value?: number
 }
 /**
  * A point of interest on the signal.

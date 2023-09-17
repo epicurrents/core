@@ -9,12 +9,12 @@ import {
     type BiosignalPlot,
     type WebGlCompatibleColor,
     type WebGlTrace
-} from "TYPES/lib/plot"
+} from "TYPES/plot"
 import Log from 'scoped-ts-log'
 
 const SCOPE = 'WebGlPlotTrace'
 
-export class WebGlPlotTrace implements WebGlTrace {
+export default class WebGlPlotTrace implements WebGlTrace {
     protected _amplification = 1
     protected _buffer = 0 as WebGLBuffer
     protected _color: WebGlCompatibleColor

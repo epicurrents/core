@@ -10,13 +10,11 @@ import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
-    type HighlightContext,
     type MontageChannel,
-    type SignalCachePart,
-    type SignaCacheResponse,
-    type SignalHighlight,
-} from 'TYPES/lib/biosignal'
-import { type MemoryManager } from 'TYPES/lib/core'
+} from 'TYPES/biosignal'
+import { type MemoryManager } from 'TYPES/core'
+import { type HighlightContext, type SignalHighlight } from 'TYPES/plot'
+import { type SignalCachePart, type SignalCacheResponse } from 'TYPES/service'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 import {
     combineAllSignalParts,
@@ -187,7 +185,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
     }
 
-    async getAllSignals (range: number[], config?: any): Promise<SignaCacheResponse> {
+    async getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse> {
         // Check if we have the requested signals in cache
         const derivedSignals = {
             start: range[0],
@@ -249,7 +247,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return derivedSignals
     }
 
-    async getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignaCacheResponse> {
+    async getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse> {
         // This is just an alias for getAllSignals with a channel filter
         if (!config) {
             // Initialize config

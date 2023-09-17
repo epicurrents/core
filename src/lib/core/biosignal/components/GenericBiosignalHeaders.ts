@@ -10,7 +10,7 @@ import {
     type BiosignalAnnotation,
     type BiosignalHeaderRecord,
     type BiosignalHeaderSignal,
-} from 'TYPES/lib/biosignal'
+} from 'TYPES/biosignal'
 
 const SCOPE = 'GenericBiosignalHeaders'
 

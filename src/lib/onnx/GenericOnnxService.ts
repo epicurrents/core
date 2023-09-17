@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { type BiosignalResource } from 'TYPES/lib/biosignal'
-import { type BaseAsset } from 'TYPES/lib/core'
-import { type OnnxService, type AvailableModel } from 'TYPES/lib/onnx'
+import { type BiosignalResource } from 'TYPES/biosignal'
+import { type BaseAsset } from 'TYPES/core'
+import { type OnnxService, type AvailableModel } from 'TYPES/onnx'
 import Log from 'scoped-ts-log'
 import GenericService from 'LIB/core/service/GenericService'
 

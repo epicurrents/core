@@ -1,7 +1,7 @@
-import GenericDatase from "./GenericDataset"
+import GenericDataset from "./GenericDataset"
 import MixedMediaDataset from "./MixedMediaDataset"
 
 export {
-    GenericDatase,
+    GenericDataset,
     MixedMediaDataset,
 }

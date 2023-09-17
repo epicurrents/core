@@ -13,7 +13,7 @@ import {
     type BiosignalChannelMarker,
     type BiosignalCursor,
     type SignalPolarity,
-} from "TYPES/lib/biosignal"
+} from "TYPES/biosignal"
 import GenericAsset from "LIB/core/GenericAsset"
 
 const SCOPE = "GenericBiosignalChannel"
@@ -25,7 +25,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         horizontal: [] as BiosignalCursor[],
         vertical: [] as BiosignalCursor[],
     }
-    protected _avgRef: boolean
+    protected _averaged: boolean
     protected _displayPolarity: -1 | 0 | 1 = 0
     protected _highpassFilter: number | null = null
     protected _label: string
@@ -51,7 +51,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
 
     constructor (
         name: string, label: string, type: string,
-        active: number, reference: number[], avgRef: boolean,
+        active: number, reference: number[], averaged: boolean,
         samplingRate: number, unit: string, visible: boolean,
         extraProperties: {
             amplification?: number, sensitivity?: number,
@@ -66,7 +66,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         this._type = type // override the checking in generic asset for now... need to make this more dynamic
         this._label = label
         this._active = active
-        this._avgRef = avgRef
+        this._averaged = averaged
         this._reference = reference
         this._samplingRate = samplingRate
         this._laterality = extraProperties.laterality || ''
@@ -122,11 +122,11 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         return this._amplification
     }
 
-    get avgRef () {
-        return this._avgRef
+    get averaged () {
+        return this._averaged
     }
-    set avgRef (value: boolean) {
-        this._avgRef = value
+    set averaged (value: boolean) {
+        this._averaged = value
     }
 
     get cursors () {

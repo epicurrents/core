@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { RuntimeAppModule, SafeObject, StudyLoadProtocolContext, StudyLoaderContext } from "TYPES/lib/core"
-import { BiosignalPlot } from "TYPES/lib/plot"
+import { RuntimeAppModule, SafeObject, StudyLoaderProtocolContext, StudyLoaderContext } from "TYPES/core"
+import { BiosignalPlot } from "TYPES/plot"
 
 const SCOPE = 'runtime-app-module'
 
@@ -30,7 +30,7 @@ const APP: SafeObject & RuntimeAppModule = {
     settingsOpen: false,
     showOverlay: false,
     studyLoaders: new Map<string, StudyLoaderContext>(),
-    studyLoadProtocols: new Map<string, StudyLoadProtocolContext>(),
+    studyLoadProtocols: new Map<string, StudyLoaderProtocolContext>(),
     userSettings: {
         'screenPPI': 'ScreenPpiCalibrator',
     },

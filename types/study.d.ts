@@ -3,10 +3,13 @@
  * @package    epicurrents-core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
+ * @remarks
+ * I admit that the names of the types in this file are not the most imaginative and could benefit
+ * from some renovation.
  */
 
 import { DataResource, MemoryManager } from "./core"
-import { FileSystemItem, FileFormatLoader } from "./loader"
+import { FileSystemItem, FileFormatLoader, LoaderMode } from "./loader"
 
 
 export interface OrderedLoadingProtocol {
@@ -43,26 +46,6 @@ export interface StudyCollection {
     /** Alternative to date, an order number to sort collections. */
     order?: number
 }
-export type StudyFileContext = {
-    file: File | null
-    /** File format, e.g. edf, dicom. */
-    format: string | null
-    mime: string | null
-    name: string
-    type: string
-    url: string
-}
-
-/**
- * A collection of studies.
- */
-export interface StudyContextCollection {
-    /** Descriptive name for this collection. */
-    name: string
-    studies: StudyContext[]
-    /** Possible date of the studies in this collection. */
-    date: Date | null
-}
 /**
  * A generic study.
  */
@@ -83,6 +66,16 @@ export interface StudyContextCollection {
     type: string
     /** Study object definition version. */
     version: string
+}
+/**
+ * A collection of studies.
+ */
+export interface StudyContextCollection {
+    /** Descriptive name for this collection. */
+    name: string
+    studies: StudyContext[]
+    /** Possible date of the studies in this collection. */
+    date: Date | null
 }
 /**
  * The file (data source) for this study context.
@@ -124,8 +117,23 @@ export type StudyContextFile = {
      */
     url: string
 }
-export type StudyContextFileRole = 'data' | 'media' | 'meta'
 
+export type StudyContextFileRole = 'data' | 'media' | 'meta'
+/**
+ * Context containing a study file and relevant metadata.
+ */
+export type StudyFileContext = {
+    file: File | null
+    /** File format, e.g. edf, dicom. */
+    format: string | null
+    mime: string | null
+    name: string
+    type: string
+    url: string
+}
+/**
+ * Base interface for classes that are used to load and form studies from various data resources.
+ */
 export interface StudyLoader {
     resourceScope: string
     /** Resource scopes supported by this loader. */
@@ -197,4 +205,34 @@ export interface StudyLoader {
      * @returns Array index of the resource if loaded next.
      */
     useStudy (study: StudyContext, config?: object): Promise<number>
+}
+/**
+ * Context for a study loader.
+ */
+export type StudyLoaderContext = {
+    /** Label for the loader (to be displayed in the UI). */
+    label: string
+    /** Mode to use (file, folder). */
+    mode: LoaderMode
+    /** The loader itself. */
+    loader: StudyLoader
+    /** Study scopes supported by this loader. */
+    scopes: string[]
+    /** Study tyles supported by this loader. */
+    types: string[]
+}
+/**
+ * Context for a study load protocol.
+ */
+export type StudyLoaderProtocolContext = {
+    /** Label for the protocol (to be displayed in the UI). */
+    label: string
+    /** Mode to use (file, folder). */
+    mode: LoaderMode
+    /** The protocol itself. */
+    protocol: OrderedLoadingProtocol
+    /** Study scopes supported by this loader. */
+    scopes: string[]
+    /** Study tyles supported by this loader. */
+    types: string[]
 }

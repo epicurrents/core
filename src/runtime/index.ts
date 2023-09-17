@@ -11,11 +11,11 @@ import {
     type RuntimeResourceModule,
     type RuntimeState,
     type StateManager
-} from 'TYPES/lib/core'
-import { type DatasetLoader, type MediaDataset } from 'TYPES/lib/dataset'
-import { type FileSystemItem } from 'TYPES/lib/loader'
-import { type AssetService } from 'TYPES/lib/service'
-import { type StudyContext, type StudyLoader } from 'TYPES/lib/study'
+} from 'TYPES/core'
+import { type DatasetLoader, type MediaDataset } from 'TYPES/dataset'
+import { type FileSystemItem } from 'TYPES/loader'
+import { type AssetService } from 'TYPES/service'
+import { type StudyContext, type StudyLoader } from 'TYPES/study'
 import Log from 'scoped-ts-log'
 import SETTINGS from 'CONFIG/Settings'
 import { MixedMediaDataset } from 'LIB/core/dataset'

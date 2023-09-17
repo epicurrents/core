@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { type MediaDataset } from "TYPES/lib/dataset"
-import { type StudyContext } from "TYPES/lib/study"
+import { type MediaDataset } from "TYPES/dataset"
+import { type StudyContext } from "TYPES/study"
 import GenericDataset from "LIB/core/dataset/GenericDataset"
 import GenericResource from "LIB/core/GenericResource"
 

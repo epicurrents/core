@@ -5,12 +5,21 @@
  * @license    Apache-2.0
  */
 
-import { AppSettings, BaseModuleSettings, SettingsColor } from "../config"
+import {
+    AppSettings,
+    BaseModuleSettings,
+    SettingsColor,
+} from "./config"
 import { DatasetLoader, MediaDataset } from "./dataset"
-import { FileSystemItem, LoaderMode } from "./loader"
+import { FileSystemItem } from "./loader"
 import { BiosignalPlot } from "./plot"
 import { AssetService } from "./service"
-import { OrderedLoadingProtocol, StudyContext, StudyLoader } from "./study"
+import {
+    StudyContext,
+    StudyLoaderProtocolContext,
+    StudyLoader,
+    StudyLoaderContext,
+} from "./study"
 
 /**
  * The most basic type defining properties that must exist in every asset.
@@ -114,6 +123,19 @@ export interface InterfaceModule {
     registerService (name: string, service: AssetService): void
 }
 /**
+ * Common definition for an interface module constructor.
+ */
+export interface InterfaceModuleConstructor {
+    new (
+        epicvApp: EpiCurrentsApplication,
+        state?: StateManager,
+        containerId?: string,
+        appId?: string,
+        locale?: string,
+        modules?: string[],
+    ): InterfaceModule
+}
+/**
  * Resource module properties for an application interface.
  */
 export type InterfaceResourceModule = RuntimeResourceModule & {
@@ -126,22 +148,9 @@ export type InterfaceResourceModuleContext = {
     /** Properties to override in the main application runtime. */
     runtime: InterfaceResourceModule
     /** Actions for an action-mutation state manager. */
-    actions?: SafeObject // TODO: Better typing.
+    actions?: NullProtoObject // TODO: Better typing.
     /** Mutations for an action-mutation state manager. */
-    mutations?: SafeObject // TODO: Better typing.
-}
-/**
- * Common definition for an interface module constructor.
- */
-export interface InterfaceModuleConstructor {
-    new (
-        epicvApp: EpiCurrentsApplication,
-        state?: StateManager,
-        containerId?: string,
-        appId?: string,
-        locale?: string,
-        modules?: string[],
-    ): InterfaceModule
+    mutations?: NullProtoObject // TODO: Better typing.
 }
 /**
  * A service that is managed by the application memory manager.
@@ -229,6 +238,12 @@ export interface MemoryManager {
  */
 export type MouseInteraction = 'drag'
 /**
+ * Object with the __proto__ property pointing to null.
+ */
+export type NullProtoObject = {
+    __proto__: null
+}
+/**
  * Module containing the required runtime and settings properties for a given resource type.
  */
 export type ResourceModule = {
@@ -238,7 +253,7 @@ export type ResourceModule = {
 /**
  * This is the main application runtime module, which has a unique structure.
  */
-export type RuntimeAppModule = SafeObject & {
+export type RuntimeAppModule = NullProtoObject & {
     activeDataset: MediaDataset | null
     activeScope: string
     activeType: string
@@ -259,13 +274,13 @@ export type RuntimeAppModule = SafeObject & {
     settingsOpen: boolean
     showOverlay: boolean
     studyLoaders: Map<string, StudyLoaderContext>
-    studyLoadProtocols: Map<string, StudyLoadProtocolContext>
+    studyLoadProtocols: Map<string, StudyLoaderProtocolContext>
     userSettings: {
         [setting: string]: string
     }
 }
 
-export type RuntimeResourceModule = SafeObject & {
+export type RuntimeResourceModule = NullProtoObject & {
     moduleName: {
         code: string
         full: string
@@ -285,7 +300,7 @@ export type RuntimeResourceModule = SafeObject & {
 /**
  * The main runtime state of the application.
  */
-export type RuntimeState = SafeObject & {
+export type RuntimeState = NullProtoObject & {
     APP: RuntimeAppModule
 } & {
     MODULES: Map<string, RuntimeResourceModule>
@@ -293,13 +308,10 @@ export type RuntimeState = SafeObject & {
     SETTINGS: AppSettings
 }
 /**
- * An object with the property (pointer) __propto__ removed. This will prevent using the object
- * in prototype pollution attacks.
+ * An object with the property (pointer) __proto__ removed. This will prevent using any objects
+ * based on this type in prototype pollution attacks.
  */
-export type SafeObject = {
-    __proto__: null
-}
-export type SafeObjectMap = Omit<{ [name: string]: any }, "__proto__"> & SafeObject
+export type SafeObject = Omit<{ [name: string]: any }, "__proto__"> & NullProtoObject
 /**
  * Statemanager is the instance that manages application runtime state.
  * In addition to the actual modules, it also includes shorthands for
@@ -421,34 +433,4 @@ export interface StateManager {
      * @param value - The new value.
      */
     setSettingsValue (field: string, value: string | number | boolean | SettingsColor | Object): void
-}
-/**
- * Context for a study loader.
- */
-export type StudyLoaderContext = {
-    /** Label for the loader (to be displayed in the UI). */
-    label: string
-    /** Mode to use (file, folder). */
-    mode: LoaderMode
-    /** The loader itself. */
-    loader: StudyLoader
-    /** Study scopes supported by this loader. */
-    scopes: string[]
-    /** Study tyles supported by this loader. */
-    types: string[]
-}
-/**
- * Context for a study load protocol.
- */
-export type StudyLoadProtocolContext = {
-    /** Label for the protocol (to be displayed in the UI). */
-    label: string
-    /** Mode to use (file, folder). */
-    mode: LoaderMode
-    /** The protocol itself. */
-    protocol: OrderedLoadingProtocol
-    /** Study scopes supported by this loader. */
-    scopes: string[]
-    /** Study tyles supported by this loader. */
-    types: string[]
 }

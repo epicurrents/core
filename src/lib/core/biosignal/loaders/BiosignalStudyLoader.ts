@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { type VideoAttachment } from "TYPES/lib/biosignal"
-import { type FileFormatLoader } from "TYPES/lib/loader"
-import { type StudyContext } from 'TYPES/lib/study'
+import { type VideoAttachment } from "TYPES/biosignal"
+import { type FileFormatLoader } from "TYPES/loader"
+import { type StudyContext } from 'TYPES/study'
 import GenericStudyLoader from "LIB/core/study/loaders/GenericStudyLoader"
 
 const SCOPE = 'BiosignalStudyLoader'

@@ -5,8 +5,47 @@
  * @license    Apache-2.0
  */
 
-import { BiosignalAnnotation } from "./lib/biosignal"
+import { BiosignalAnnotation } from "./biosignal"
 
+export interface AppSettings {
+    _CLONABLE: BaseModuleSettings & AppSettings
+    app: BaseModuleSettings & {
+        /** Maximum number of bytes to load in one chunk. This will be
+         * rounded down to the nearest whole data record size - 1
+         * (because one data record may be added for signal interpolation).
+         * If the size of a single data record is larger than dataChunkSize,
+         * the value will be rounded up to match one data record.
+        . */
+        dataChunkSize: number
+        fontawesomeLib: string
+        iconLib: string
+        isMainComponent: boolean
+        /** Messages ≥ this level will be logged. */
+        logThreshold: string
+        /** Load files of this size directly. */
+        maxDirectLoadSize: number
+        /**
+         * Maximum amount of raw EEG signal data to cache in bytes.
+         * Signal data type conversion must be taken into account, so if
+         * data is loaded as 16 bit EDF and cached as 32 bit float array,
+         * only half this amount of EDF signal data can be loaded.
+         */
+        maxLoadCacheSize: number
+        screenPPI: number
+        theme: string
+    }
+    modules: { [name: string]: BaseModuleSettings }
+    services: BaseModuleSettings & {
+        MNE: boolean
+        ONNX: boolean
+    },
+    addPropertyUpdateHandler: (field: string, handler: (value?: any) => any, caller?: string) => void
+    getFieldValue: (field: string, depth?: number) => SettingsValue
+    registerModule: (name: string, moduleSettings: BaseModuleSettings) => void
+    removeAllPropertyUpdateHandlersFor: (caller: string) => void
+    removeAllPropertyUpdateHandlers: () => void
+    removePropertyUpdateHandler: (field: string, handler: ((value?: any) => any)) => void
+}
 type BaseModuleSettings = {
     /**
      * An object defining the composition of the settings menu of
@@ -66,26 +105,6 @@ type BaseModuleSettings = {
      */
     _userDefinable?: { [field: string]: any }
 }
-/**
- * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.
- */
-export type SettingsColor = [number, number, number, number]
-type CircleStyles = {
-    color: SettingsColor
-    dasharray?: number[]
-    radius: number
-    show?: boolean
-    style: string
-    width: number
-}
-type LineStyles = {
-    color: SettingsColor
-    dasharray?: number[]
-    show?: boolean
-    style: string
-    width: number
-}
-export type SettingsValue = SettingsColor | boolean | number | string | undefined
 export type CommonBiosignalSettings = {
     annotations: {
         color: SettingsColor
@@ -98,10 +117,10 @@ export type CommonBiosignalSettings = {
     /** Should antialiasing be used when drawing tha trace. */
     antialiasing: boolean
     border: {
-        bottom?: LineStyles
-        left?: LineStyles
-        right?: LineStyles
-        top?: LineStyles
+        bottom?: PlotLineStyles
+        left?: PlotLineStyles
+        right?: PlotLineStyles
+        top?: PlotLineStyles
     }
     channelSpacing: number
     defaultMontages: { [setup: string]: [string, string][] }
@@ -137,8 +156,8 @@ export type CommonBiosignalSettings = {
         }
     }
     groupSpacing: number
-    majorGrid: LineStyles
-    minorGrid: LineStyles
+    majorGrid: PlotLineStyles
+    minorGrid: PlotLineStyles
     montages: {
         /** Maximum number of montages to keep cached. */
         cacheMax: number
@@ -171,349 +190,24 @@ export type CommonBiosignalSettings = {
     }
     yPadding: number
 }
+export type PlotCircleStyles = {
+    color: SettingsColor
+    dasharray?: number[]
+    radius: number
+    show?: boolean
+    style: string
+    width: number
+}
+export type PlotLineStyles = {
+    color: SettingsColor
+    dasharray?: number[]
+    show?: boolean
+    style: string
+    width: number
+}
+/**
+ * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.
+ */
+export type SettingsColor = [number, number, number, number]
+export type SettingsValue = SettingsColor | boolean | number | string | undefined
 type ValueConstructor = BooleanConstructor | NumberConstructor | StringConstructor
-export interface AppSettings {
-    _CLONABLE: BaseModuleSettings & AppSettings
-    app: BaseModuleSettings & {
-        /** Maximum number of bytes to load in one chunk. This will be
-         * rounded down to the nearest whole data record size - 1
-         * (because one data record may be added for signal interpolation).
-         * If the size of a single data record is larger than dataChunkSize,
-         * the value will be rounded up to match one data record.
-        . */
-        dataChunkSize: number
-        fontawesomeLib: string
-        iconLib: string
-        isMainComponent: boolean
-        /** Messages ≥ this level will be logged. */
-        logThreshold: keyof typeof Log.LEVELS
-        /** Load files of this size directly. */
-        maxDirectLoadSize: number
-        /**
-         * Maximum amount of raw EEG signal data to cache in bytes.
-         * Signal data type conversion must be taken into account, so if
-         * data is loaded as 16 bit EDF and cached as 32 bit float array,
-         * only half this amount of EDF signal data can be loaded.
-         */
-        maxLoadCacheSize: number
-        screenPPI: number
-        theme: string
-    }
-    modules: { [name: string]: BaseModuleSettings }
-    services: BaseModuleSettings & {
-        MNE: boolean
-        ONNX: boolean
-    },
-    addPropertyUpdateHandler: (field: string, handler: (value?: any) => any, caller?: string) => void
-    getFieldValue: (field: string, depth?: number) => SettingsValue
-    registerModule: (name: string, moduleSettings: BaseModuleSettings) => void
-    removeAllPropertyUpdateHandlersFor: (caller: string) => void
-    removeAllPropertyUpdateHandlers: () => void
-    removePropertyUpdateHandler: (field: string, handler: ((value?: any) => any)) => void
-}
-export type EegModuleSettings = BaseModuleSettings & CommonBiosignalSettings & {
-    continuousBrowseDelay: number
-    continuousBrowseInterval: number
-    cursor: {
-        color: SettingsColor
-        width: number
-    }
-    excludeActiveFromAvg: boolean
-    fft: {
-        frequencyBands: { name: string, upperLimit: number }[]
-    }
-    highlights: {
-        /** Display a fading collar before and after a highlight. */
-        showCollars: boolean
-    }
-    isoelLine: LineStyles
-    labelMatchers: {
-        /** All possible signal labels that should be classified as EEG. */
-        eeg: string[]
-        /** All possible signal labels that should be classified as EKG. */
-        ekg: string[]
-        /** All possible signal labels that should be classified as EMG. */
-        emg: string[]
-        /** All possible signal labels that should be classified as EOG. */
-        eog: string[]
-        /** All possible signal labels that should be classified as respiration. */
-        res: string[]
-    }
-    /**
-     * Maximum length of new signals in the cache to load in one go when running
-     * a new montage signal cache cycle (measured in seconds of signal data).
-     * Setting this value too high may cause cache cycles to run quite slow.
-     */
-    maxNewSignalCacheCycleLength: number
-    /**
-     * Minimum length of new signals in the cache in order to trigger a montage
-     * signal cache cycle (measured in seconds of signal data). Setting this value
-     * lower will increase overhead from padding and setting it higher will
-     * cause cycles to run at greater intervals when loading new signal data.
-     */
-    minNewSignalCacheCycleLength: number
-    navigator: {
-        annotationColor: SettingsColor
-        borderColor: SettingsColor
-        cachedColor: SettingsColor
-        gapColor: SettingsColor
-        loadedColor: SettingsColor
-        loadingColor: SettingsColor
-        theme: string
-        tickColor: SettingsColor
-        viewBoxColor: SettingsColor
-    }
-    tools: {
-        cursorLine: LineStyles
-        excludeArea: LineStyles
-        guideLine: LineStyles
-        guideLineSymbol: {
-            color: SettingsColor
-        }
-        highlightArea: {
-            color: SettingsColor
-        }
-        poiMarkerCircle: CircleStyles
-        poiMarkerLine: LineStyles
-        signals: LineStyles[]
-        signalBaseline: LineStyles
-    },
-    trace: {
-        color: {
-            eeg: SettingsColor
-                sin: SettingsColor
-                dex: SettingsColor
-                mid: SettingsColor
-            ekg: SettingsColor
-            emg: SettingsColor
-            eog: SettingsColor
-            res: SettingsColor
-            meta: SettingsColor
-            default: SettingsColor
-        }
-        colorSides: boolean
-        selections: {
-            color: SettingsColor
-        }
-        theme: string
-        width: {
-            eeg: number
-            ekg: number
-            eog: number
-        }
-    }
-}
-export type EmgModuleSettings = BaseModuleSettings & CommonBiosignalSettings & {
-    cursor: {
-        active: LineStyles
-        focused: LineStyles
-        inactive: LineStyles
-    }
-    defaultTriggerValue: number
-    scaleUnit: 'div' | 'page'
-    findingGroups: string[]
-    findingTypes: {
-        [group: string]: {
-            default: string | number
-            label: string
-            name: string
-            values: string[] | number[]
-        }
-    }
-    jitter: {
-        highlight: {
-            borderColor: SettingsColor
-            borderWidth: number
-            fillColor: SettingsColor
-            height: number
-        }
-        pair: {
-            borderColor: SettingsColor
-            borderWidth: number
-            fillColor: SettingsColor
-            size: number
-        }
-        rowHeight: number
-        trigger: {
-            borderColor: SettingsColor
-            borderWidth: number
-            fillColor: SettingsColor
-            size: number
-        }
-        upcoming: {
-            borderColor: SettingsColor
-            borderWidth: number
-            fillColor: SettingsColor
-            size: number
-        }
-    }
-    markerColor: SettingsColor
-    markerSize: number
-    masterAxis: 'x' | 'y'
-    navigator: {
-        borderColor: SettingsColor
-        signalColor: SettingsColor
-        theme: string
-        tickColor: SettingsColor
-        outOfViewBackground: SettingsColor
-        outOfViewSignal: SettingsColor
-    }
-    results: {
-        display: boolean
-        width: number
-    }
-    trace: {
-        color: SettingsColor
-        theme: string
-        width: number
-    }
-    xDivCount: number
-    yDivCount: number
-}
-export type MegModuleSettings = BaseModuleSettings & CommonBiosignalSettings & {
-    continuousBrowseDelay: number
-    continuousBrowseInterval: number
-    cursor: {
-        color: SettingsColor
-        width: number
-    }
-    excludeActiveFromAvg: boolean
-    fft: {
-        frequencyBands: { name: string, upperLimit: number }[]
-    }
-    isoelLine: LineStyles
-    /**
-     * Maximum length of new signals in the cache to load in one go when running
-     * a new montage signal cache cycle (measured in seconds of signal data).
-     * Setting this value too high may cause cache cycles to run quite slow.
-     */
-    maxNewSignalCacheCycleLength: number
-    /**
-     * Minimum length of new signals in the cache in order to trigger a montage
-     * signal cache cycle (measured in seconds of signal data). Setting this value
-     * lower will increase overhead from padding and setting it higher will
-     * cause cycles to run at greater intervals when loading new signal data.
-     */
-    minNewSignalCacheCycleLength: number
-    navigator: {
-        annotationColor: SettingsColor
-        borderColor: SettingsColor
-        cachedColor: SettingsColor
-        gapColor: SettingsColor
-        loadedColor: SettingsColor
-        loadingColor: SettingsColor
-        theme: string
-        tickColor: SettingsColor
-        viewBoxColor: SettingsColor
-    }
-    tools: {
-        cursorLine: LineStyles
-        excludeArea: LineStyles
-        guideLine: LineStyles
-        guideLineSymbol: {
-            color: SettingsColor
-        }
-        highlightArea: {
-            color: SettingsColor
-        }
-        poiMarkerCircle: CircleStyles
-        poiMarkerLine: LineStyles
-        signals: LineStyles[]
-        signalBaseline: LineStyles
-    },
-    trace: {
-        color: {
-            eeg: SettingsColor
-                sin: SettingsColor
-                dex: SettingsColor
-                mid: SettingsColor
-            ekg: SettingsColor
-            emg: SettingsColor
-            eog: SettingsColor
-            res: SettingsColor
-            meta: SettingsColor
-            default: SettingsColor
-        }
-        colorSides: boolean
-        selections: {
-            color: SettingsColor
-        }
-        theme: string
-        width: {
-            eeg: number
-            ekg: number
-            eog: number
-        }
-    }
-}
-export type NcsModuleSettings = BaseModuleSettings & CommonBiosignalSettings & {
-    cursor: {
-        active: LineStyles
-        focused: LineStyles
-        inactive: LineStyles
-    }
-    defaultTimebase: {
-        f: {
-            div: number
-            page: number
-        }
-        h: {
-            div: number
-            page: number
-        }
-        m: {
-            div: number
-            page: number
-        }
-        s: {
-            div: number
-            page: number
-        }
-        u: {
-            div: number
-            page: number
-        }
-    }
-    defaultSensitivity: {
-        f: {
-            div: number
-            page: number
-        }
-        h: {
-            div: number
-            page: number
-        }
-        m: {
-            div: number
-            page: number
-        }
-        s: {
-            div: number
-            page: number
-        }
-        u: {
-            div: number
-            page: number
-        }
-    }
-    scaleUnit: 'div' | 'page'
-    marker: {
-        active: LineStyles | CircleStyles
-        focused: LineStyles | CircleStyles
-        inactive: LineStyles | CircleStyles
-    }
-    markerColor: SettingsColor
-    markerSize: number
-    masterAxis: 'x' | 'y' | null
-    results: {
-        display: boolean
-        width: number
-    }
-    trace: {
-        color: SettingsColor
-        theme: string
-        width: number
-    }
-    xDivCount: number
-    yDivCount: number
-}

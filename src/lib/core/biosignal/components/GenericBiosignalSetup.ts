@@ -1,0 +1,161 @@
+/**
+ * Generic biosignal setup.
+ * @package    epicurrents-core
+ * @copyright  2023 Sampsa Lohi
+ * @license    Apache-2.0
+ */
+
+import { SetupChannel, BiosignalSetup } from 'TYPES/biosignal'
+
+export default class GenericBiosignalSetup implements BiosignalSetup {
+    protected _id: string
+    protected _name: string
+    protected _channels: SetupChannel[] = []
+    protected _missing: SetupChannel[] = []
+    protected _unmatched: SetupChannel[] = []
+
+    constructor (id: string, channels?: any[], config?: any) {
+        this._id = id
+        this._name = id
+        if (config?.skipConfig) {
+            // Config wil be done in child class
+            return
+        }
+        if (channels && config) {
+            this.loadConfig(channels, config)
+        }
+    }
+    // Getters and setters
+    get channels () {
+        return this._channels
+    }
+    set channels (channels: SetupChannel[]) {
+        this._channels = channels
+    }
+    get id () {
+        return this._id
+    }
+    get missingChannels () {
+        return this._missing
+    }
+    set missingChannels (channels: SetupChannel[]) {
+        this._missing = channels
+    }
+    get name () {
+        return this._name
+    }
+    set name (name: string) {
+        this._name = name
+    }
+    get unmatchedSignals () {
+        return this._unmatched
+    }
+    set unmatchedSignals (signals: SetupChannel[]) {
+        this._unmatched = signals
+    }
+
+    ///////////////////////////////////////////////////
+    //                   METHODS                     //
+    ///////////////////////////////////////////////////
+
+    /**
+     * Load setup configuration from an external config object.
+     * @param recordSignals - Channel descriptions of the biosignal recording.
+     * @param config - Configuration object for the setup.
+     */
+    loadConfig (recordSignals: any[], config: any) {
+        // Helper method for producing a prototype channel
+        const getChannel = (index: number, config?: any) => {
+            return {
+                amplification: config?.amplification || 1,
+                averaged: config?.averageRef || false,
+                displayPolarity: config?.displayPolarity || 0,
+                index: index,
+                label: config?.label || '--',
+                laterality: config?.laterality || '',
+                name: config?.name || '',
+                samplingRate: config?.samplingRate || 0,
+                type: config?.type || undefined,
+                unit: config?.unit || '--',
+            } as SetupChannel
+        }
+        // Use config name if present
+        this._name = config.label || this._name
+        // Try to match config channels to record signals
+        if (config.channels) {
+            config_loop:
+            for (const chan of config.channels) {
+                // First try matching exact names
+                if (chan.name) {
+                    for (let i=0; i<recordSignals.length; i++) {
+                        if (chan.name === recordSignals[i].name) {
+                            this._channels.push(
+                                getChannel(i, {
+                                    amplification: chan.amplification,
+                                    averaged: chan.averageRef,
+                                    displayPolarity: chan.polarity,
+                                    label: chan.label,
+                                    laterality: chan.laterality || '',
+                                    name: chan.name,
+                                    samplingRate: recordSignals[i].samplingRate,
+                                    type: chan.type,
+                                    unit: chan.unit,
+                                })
+                            )
+                            continue config_loop
+                        }
+                    }
+                }
+                // No match, try pattern
+                if (chan.pattern) {
+                    for (let i=0; i<recordSignals.length; i++) {
+                        if (recordSignals[i].name.match(new RegExp(chan.pattern, 'i')) !== null) {
+                            this._channels.push(
+                                getChannel(i, {
+                                    amplification: chan.amplification,
+                                    averaged: chan.averageRef,
+                                    displayPolarity: chan.polarity,
+                                    label: chan.label,
+                                    laterality: chan.laterality || '',
+                                    name: chan.name,
+                                    samplingRate: recordSignals[i].samplingRate,
+                                    type: chan.type,
+                                    unit: chan.unit,
+                                })
+                            )
+                            continue config_loop
+                        }
+                    }
+                }
+                // Channel is missing from recording
+                this._missing.push(
+                    getChannel(-1, {
+                        amplification: 1,
+                        averaged: chan.averageRef,
+                        label: chan.label,
+                        laterality: chan.laterality || '',
+                        name: chan.name,
+                        type: chan.type,
+                        unit: chan.unit,
+                    })
+                )
+            }
+            // Lastly, check if there are any extra channels not present in the config
+            record_loop:
+            for (let i=0; i<recordSignals.length; i++) {
+                for (const chan of this._channels) {
+                    if (chan.index === i) {
+                        continue record_loop
+                    }
+                }
+                // Channel is missing from config
+                this._unmatched.push(
+                    getChannel(-1, {
+                        label: recordSignals[i].label,
+                        name: recordSignals[i].name,
+                    })
+                )
+            }
+        }
+    }
+}

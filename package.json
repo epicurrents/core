@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "EpiCurrents core",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "build": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
     "dev": "node node_modules/webpack/bin/webpack.js --progress --watch --config webpack.dev.js",

@@ -13,14 +13,14 @@ import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
-    type SignaCacheResponse,
     type VideoAttachment
-} from "TYPES/lib/biosignal"
+} from "TYPES/biosignal"
+import { type SignalCacheResponse } from "TYPES/service"
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
 import GenericResource from "LIB/core/GenericResource"
 import { BiosignalService } from "LIB/core/biosignal"
-import { StudyContext } from "TYPES/lib/study"
+import { StudyContext } from "TYPES/study"
 import { nullPromise } from "LIB/util/general"
 import { shouldDisplayChannel } from "LIB/util/montage"
 
@@ -323,7 +323,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.onPropertyUpdate('annotations')
     }
 
-    getAllSignals (range: number[], config?: any): Promise<SignaCacheResponse | null> {
+    getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse | null> {
         if (!this._activeMontage) {
             return this.getAllRawSignals(range, config)
         }
@@ -332,7 +332,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         })
     }
 
-    getAllRawSignals (range: number[], config?: any): Promise<SignaCacheResponse | null> {
+    getAllRawSignals (range: number[], config?: any): Promise<SignalCacheResponse | null> {
         return this._service?.getSignals(range, config) || nullPromise
     }
 
@@ -360,7 +360,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return null
     }
 
-    getChannelSignal(channel: string | number, range: number[], config?: any): Promise<SignaCacheResponse | null> {
+    getChannelSignal(channel: string | number, range: number[], config?: any): Promise<SignalCacheResponse | null> {
         if (!this._activeMontage) {
             return this.getRawChannelSignal(channel, range, config)
         }
@@ -369,7 +369,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         })
     }
 
-    async getRawChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignaCacheResponse | null> {
+    async getRawChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse | null> {
         if (!config) {
             // Initialize config.
             config = { include: [] as number[] }

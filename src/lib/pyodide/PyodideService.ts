@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type AssetService } from 'TYPES/lib/service'
+import { type AssetService } from 'TYPES/service'
 import Log from 'scoped-ts-log'
 import GenericService from 'LIB/core/service/GenericService'
 

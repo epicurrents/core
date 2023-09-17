@@ -5,13 +5,12 @@
  * @license    Apache-2.0
  */
 
-import { 
+import {
     type BiosignalChannel,
     type BiosignalSetup,
-    type BiosignalType,
     type MontageChannel,
     type SetupChannel,
-} from "TYPES/lib/biosignal"
+} from "TYPES/biosignal"
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
 import { NUMERIC_ERROR_VALUE } from "./constants"
@@ -34,12 +33,12 @@ const SCOPE = 'util:montage'
  *               }
  *               ```
  *
- *               `channelSpacing` and `groupSpacing` values are used to calculate padding between individual channels 
+ *               `channelSpacing` and `groupSpacing` values are used to calculate padding between individual channels
  *                 and logical channel groups. The values of these two parameters are normalized, so only their
  *                 relative difference matters.\
- *               `yPadding` is the extra amount of padding (relative to channelSpacing) to add above the first channel 
+ *               `yPadding` is the extra amount of padding (relative to channelSpacing) to add above the first channel
  *                 and below the last channel.\
- *               `layout` is an array of logical channel group sizes. The number of channels in each element are 
+ *               `layout` is an array of logical channel group sizes. The number of channels in each element are
  *                 considered a part of the same group.
  *
  * @example
@@ -134,7 +133,7 @@ export const calculateSignalOffsets = (
             // Check that number of layout channels hasn't exceeded number of actual channels.
             if (chan === undefined) {
                 Log.warn(
-                    `Number of layout channels (${chanIdx + 1}) exceeds the number of channels in the EEG record ` + 
+                    `Number of layout channels (${chanIdx + 1}) exceeds the number of channels in the EEG record ` +
                     `(${channels.length})!`,
                 SCOPE)
                 continue
@@ -190,13 +189,31 @@ export const getIncludedChannels = <T extends Array<unknown>>(
 
 /**
  * Map the derived channels in this montage to the signal channels of the given setup.
+ * @param setup - Setup describing the data source.
+ * @param config - Biosignal config of the appropriate type and channel layout properties. Expected fields are:
+ *                 - `channelSpacing` number - Relative spacing between consecutive channels (default 1).
+ *                 - `groupSpacing` number - Relative spacing between consecutive groups (default 1).
+ *                 - `isRaw` boolean - Is this a raw setup (default yes).
+ *                 - `layout` number[] - Channel layout as number of channels per each group (default no layout).
+ *                 - `yPadding` number - Relative extra padding at the ends of the y-axis (default 0).
  */
-export const mapMontageChannels = (setup: BiosignalSetup, config?: any): MontageChannel[] => {
+export const mapMontageChannels = (
+    setup: BiosignalSetup,
+    config?: {
+        channels: SetupChannel[]
+        channelSpacing: number
+        groupSpacing: number
+        isRaw: boolean
+        layout: number[]
+        names: string[]
+        yPadding: number
+    }
+): MontageChannel[] => {
     /** Valid properties for the prototype channel. */
     type ChannelProperties = {
         active?: number
         amplification?: number
-        avgRef?: boolean
+        averaged?: boolean
         displayPolarity?: -1 | 0 | 1
         height?: number
         label?: string
@@ -225,11 +242,11 @@ export const mapMontageChannels = (setup: BiosignalSetup, config?: any): Montage
         const newChan = {
             name: props?.name || '--',
             label: props?.label || '',
-            type: (props?.type || '') as BiosignalType,
+            type: (props?.type || ''),
             laterality: props?.laterality || '',
             active: typeof props?.active === 'number' ? props.active : NUMERIC_ERROR_VALUE,
             reference: props?.reference || [],
-            avgRef: props?.avgRef || false,
+            averaged: props?.averaged || false,
             samplingRate: props?.samplingRate || 0,
             sampleCount: props?.sampleCount || 0,
             amplification: props?.amplification || 1,
@@ -325,7 +342,7 @@ export const mapMontageChannels = (setup: BiosignalSetup, config?: any): Montage
                         laterality: chan.laterality || actChan.laterality,
                         active: actChan.index,
                         reference: refs,
-                        avgRef: chan.averaged,
+                        averaged: chan.averaged,
                         samplingRate: actChan.samplingRate,
                         amplification: actChan.amplification,
                         displayPolarity: chan.polarity || actChan.displayPolarity,
@@ -354,11 +371,11 @@ export const mapMontageChannels = (setup: BiosignalSetup, config?: any): Montage
     calculateSignalOffsets(
         channels,
         {
-            channelSpacing: config.channelSpacing || SETTINGS.eeg.channelSpacing,
-            groupSpacing: config.groupSpacing || SETTINGS.eeg.groupSpacing,
+            channelSpacing: config.channelSpacing || 1,
+            groupSpacing: config.groupSpacing || 1,
             isRaw: false,
             layout: config.layout || [],
-            yPadding: config.yPadding || SETTINGS.eeg.yPadding,
+            yPadding: config.yPadding || 0,
         }
     )
     return channels
@@ -366,15 +383,27 @@ export const mapMontageChannels = (setup: BiosignalSetup, config?: any): Montage
 
 /**
  * Check if the given channel should be displayed on the trace.
+ * @param channel - The channel to check.
+ * @param useRaw - Consider the montage to contain raw signals.
+ * @param config - Additional configuration, specifically:
+ *                 - `showHiddenChannels` boolean - Show an empty space where a hidden channel should be.
+ *                 - `showMissingChannels` boolean - Show an empty space where a missing channel should be.
  */
-export const shouldDisplayChannel = (channel: BiosignalChannel | null, useRaw: boolean) => {
+export const shouldDisplayChannel = (
+    channel: BiosignalChannel | null,
+    useRaw: boolean,
+    config?: {
+        showHiddenChannels: boolean
+        showMissingChannels: boolean
+    }
+) => {
     if (!channel || !channel.type || channel.type === 'meta') {
         return false
     } else if (useRaw) {
         return true
-    } else if ((channel as MontageChannel).active === NUMERIC_ERROR_VALUE && !SETTINGS.eeg.showMissingChannels) {
+    } else if ((channel as MontageChannel).active === NUMERIC_ERROR_VALUE && (config && !config.showMissingChannels)) {
         return false
-    } else if (!(channel as MontageChannel).visible && !SETTINGS.eeg.showHiddenChannels) {
+    } else if (!(channel as MontageChannel).visible && (config && !config.showHiddenChannels)) {
         return false
     }
     return true

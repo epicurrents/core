@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type AudioRecording } from 'TYPES/lib/media'
+import { type AudioRecording } from 'TYPES/media'
 import Log from 'scoped-ts-log'
 
 const SCOPE = 'BiosignalAudio'
@@ -21,7 +21,7 @@ const SCOPE = 'BiosignalAudio'
  */
 const SAMPLE_MAX_VALUE = 50_000
 
-export class BiosignalAudio implements AudioRecording {
+export default class BiosignalAudio implements AudioRecording {
     protected _audio: AudioContext | null = null
     protected _buffer: AudioBuffer | null = null
     protected _compressor: DynamicsCompressorNode | null = null

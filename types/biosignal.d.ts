@@ -12,11 +12,13 @@ import {
     MutexExportProperties,
     MutexMetaField,
 } from 'asymmetric-io-mutex'
-import { SettingsColor } from '../config'
+import { SettingsColor } from './config'
 import { StudyContext } from './study'
+import { HighlightContext, SignalHighlight } from './plot'
+import { SignalCacheResponse, SignalCachePart } from './service'
 
 /**
- * Annotation for a single moment or period of time in a biosignal RESOURCE.
+ * Annotation for a single moment or period of time in a biosignal resource.
  */
 export interface BiosignalAnnotation {
     /** Author of this annotation. */
@@ -58,7 +60,7 @@ export interface BiosignalChannel extends BaseAsset {
     /** Channel base amplification, mostly used if the channel has a different unit value (e.g. mV instead of uV). */
     amplification: number
     /** Is this channel average referenced. */
-    avgRef: boolean
+    averaged: boolean
     /** Channel-specific cursors. */
     cursors: {
         horizontal: BiosignalCursor[]
@@ -213,7 +215,7 @@ export interface BiosignalDataField extends MutexMetaField {
     name: 'data' | 'samplingRate' | 'validStart' | 'validEnd'
 }
 export type BiosignalDataReject = (reason: string) => void
-export type BiosignalDataResolve = (response: SignaCacheResponse) => void
+export type BiosignalDataResolve = (response: SignalCacheResponse) => void
 /**
  * A service that loads raw biosignal data from the source file and returns it for caching.
  */
@@ -223,7 +225,7 @@ export interface BiosignalDataService {
     /**
      * Start the process of caching raw signals from the preset URL.
      */
-    cacheSignalsFromUrl (): Promise<SignaCacheResponse>
+    cacheSignalsFromUrl (): Promise<SignalCacheResponse>
     /**
     * Load montage signals within the given range.
     * @param range - Range in seconds [start (included), end (excluded)]
@@ -422,7 +424,7 @@ export interface BiosignalMontage extends BaseAsset {
     * with the same setup can be processed by the same montage. The main idea behind this is to allow loading
     * only chuncks of large files at a time and processing only those parts.
     */
-    getAllSignals (range: number[], config?: any): Promise<SignaCacheResponse>
+    getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse>
     /**
      * Get the derived signal of a single montage channel.
      * @param channel - Index or name of the montage channel.
@@ -430,7 +432,7 @@ export interface BiosignalMontage extends BaseAsset {
      * @param config - Optional configuration (TODO: config definitions).
      * @return Promise with the requested signal as the first member of the signals array.
      */
-    getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignaCacheResponse>
+    getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse>
     /**
      * Map the channels that have been loaded into the setup of this montage.
      * Mapping will match the source signals and derivations into proper montage channels.
@@ -540,7 +542,7 @@ export interface BiosignalMontageService {
      * @param config - Optional configuration (TODO: Config definitions).
      * @return Promise for the loaded signals as SignalResponse.
      */
-    getSignals (range: number[], config?: any): Promise<SignaCacheResponse>
+    getSignals (range: number[], config?: any): Promise<SignalCacheResponse>
     /**
      * Handle messages from the worker.
      * @param message - The message from the web worker.
@@ -618,7 +620,7 @@ export interface BiosignalResource extends DataResource {
      */
     addAnnotations (...items: BiosignalAnnotation[]): void
     /**
-     * Add the given `cursors` to this RESOURCE.
+     * Add the given `cursors` to this resource.
      * @param cursors - Cursors to add.
      */
     addCursors (...cursors: any[]): void
@@ -633,14 +635,14 @@ export interface BiosignalResource extends DataResource {
      * @param config - Optional config (TODO: Config definitions).
      * @returns Signals in range as Float32Array[].
      */
-    getAllRawSignals (range: number[], config?: any): Promise<SignaCacheResponse>
+    getAllRawSignals (range: number[], config?: any): Promise<SignalCacheResponse>
     /**
      * Get signals from the active recording for the given range.
      * @param range - Signal range to return in seconds `[start (included), end (excluded)]`.
      * @param config - Additional config to apply (optional; TODO: Config definitions).
      * @returns Signals from requested range or null.
      */
-    getAllSignals (range: number[], config?: any): Promise<SignaCacheResponse>
+    getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse>
     /**
      * Get the index of the channel at given y-position. Each channel is considered
      * to take one channels spacing worth of space vertically.
@@ -653,9 +655,9 @@ export interface BiosignalResource extends DataResource {
      * @param channel - Index or name of the montage channel.
      * @param range - Range of the signal in seconds.
      * @param config - Optional configuration.
-     * @return SignaCacheResponse, with the requested signal as the first member of the signals array, or null.
+     * @return SignalCacheResponse, with the requested signal as the first member of the signals array, or null.
      */
-    getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignaCacheResponse>
+    getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse>
     /**
      * Release all buffers referenced by this resource.
      */
@@ -705,7 +707,7 @@ export interface BiosignalResource extends DataResource {
  */
 export type BiosignalScope = 'eeg'
 /**
- * Setup for interpreting a particular signal RESOURCE.
+ * Setup for interpreting a particular signal resource.
  */
 export interface BiosignalSetup {
     /** Channel configuration for each matched raw signal. */
@@ -738,59 +740,13 @@ export type FftAnalysisResult = {
     resolution: number
 }
 /**
- * Context for a set of signal highlights.
- */
-export type HighlightContext = {
-    /** Actual highlights in this context. */
-    highlights: SignalHighlight[]
-    /** Highlight properties for the navigation bar. */
-    naviDisplay: {
-        /**
-         * Type of the display on the navigator. Apart from the `bg-color` option the
-         * vertical (y) position of the graph is determined by the result of the
-         * reference equation.
-         * * `bg-color`: Apply a color gradient to the navigator background.
-         * * `bar`: A vertical bar.
-         * * `curve`: A curve with a colored area under it.
-         * * `line`: A simple line.
-         */
-        type: 'bg-color' | 'bar' | 'curve' | 'line'
-        /**
-         * Algorithms to apply to the reference result (default none = linear reference).
-         * * `abs`: Take an absolute of the final result.
-         * * `invert`: Invert the result relative to the reference value. Example: `ref 1: invert(0.2) = 0.8`.
-         * * `log`: Use a logarithmic scale in the reference equation.
-         */
-        algorithms?: ('abs' | 'invert' | 'log')[]
-        /** Default color to apply to the navigator display (can be overridden by the highlight). */
-        color: SettingsColor
-        /**
-         * Interval at which to check the number of matching highlights as either
-         * * a number, or
-         * * a function that takes an increasing integer (0, 1, 2, ...) and returns the next interval value.
-         */
-        interval?: number | ((i: number) => number)
-        /** Reference for the highlight value (default 1). */
-        ref?: number
-    } | null
-    plotDisplay: {
-        /** Default color to apply to highlights in this context (can be overridden by the highlight). */
-        color: SettingsColor
-        type: 'background' | 'overlay'
-        /** Reference for the highlight value (default 1). */
-        ref?: number
-     } | null
-     /** Is this set of highlights visible. */
-    visible: boolean
-}
-/**
  * A single channel in an biosignal montage configuration.
  */
 export interface MontageChannel extends BiosignalChannel {
     /** Index of the active channel. */
     active: number
     /** Does this channel use a common average reference. */
-    avgRef: boolean
+    averaged: boolean
     /** Set of reference channel indices; multiple channels will be averaged. */
     reference: number[]
 }
@@ -799,208 +755,13 @@ export interface MontageChannel extends BiosignalChannel {
  */
 export interface SetupChannel extends BiosignalChannel {
     /** Set to true if the raw signal uses average reference, so it is not applied twice. */
-    avgRef: boolean
+    averaged: boolean
     /** Index of the matched raw signal. */
     index: number
+    /** Non-default polarity of this channel's signal. */
+    polarity?: SignalPolarity
 }
 
-export interface SignalCacheMutex extends AsymmetricMutex {
-    /**
-     * The input signals allocated range.
-     */
-    readonly inputRangeAllocated: Promise<number | null>
-    /**
-     * The input signals range end.
-     */
-    readonly inputRangeEnd: Promise<number | null>
-    /**
-     * The input signals range start.
-     */
-    readonly inputRangeStart: Promise<number | null>
-    /**
-     * The output signals allocated range.
-     */
-    readonly outputRangeAllocated: Promise<number | null>
-    /**
-     * The output signals range end.
-     */
-    readonly outputRangeEnd: Promise<number | null>
-    /**
-     * The output signals range start.
-     */
-    readonly outputRangeStart: Promise<number | null>
-    /**
-     * Properties of the input signals.
-     */
-    readonly inputSignalProperties: Promise<{ [field: string]: number }[] | null>
-    /**
-     * Get up-to-date input signal data.
-     */
-    readonly inputSignals: Promise<Float32Array[]>
-    /**
-     * Get the entire data arrays holding input signal properties and data.
-     */
-    readonly inputSignalViews: Promise<Float32Array[]| null>
-    /**
-     * The raw buffers holding the output signals.
-     */
-    readonly outputSignalArrays: SharedArrayBuffer
-    /**
-     * Properties of the output signals.
-     */
-    readonly outputSignalProperties: Promise<{ [field: string]: number }[] | null>
-    /**
-     * Contains up-to-date output signal data.
-     */
-    readonly outputSignals: Promise<Float32Array[]>
-    /**
-     * Contains sampling rates for each of the output signals.
-     */
-    readonly outputSignalSamplingRates: Promise<number>[]
-    /**
-     * Contains the updated ranges for each of the output signals.
-     */
-    readonly outputSignalUpdatedRanges: Promise<{ start: number, end: number }>[]
-    /**
-     * Entire data arrays holding output signal properties and data.
-     */
-    readonly outputSingalViews: Promise<Float32Array[] | null>
-    /**
-     * Properties of this mutex needed to be used as input for another mutex.
-     */
-    readonly propertiesForCoupling: MutexExportProperties
-    /**
-     * Get the output signal properties and cached signal data formatted as
-     * a SignalCachePart object.
-     * @returns SignalCachePart object, where
-     *          - start is the buffer range start (in seconds)
-     *          - end is the buffer range end (in seconds)
-     *          - signals[i].start is the updated signal data start index
-     *          - signals[i].end is the updated signal data end index
-     */
-    asCachePart(): Promise<SignalCachePart>
-    /**
-     * Clear the cached signals, setting all data values to zero.
-     * @remarks
-     * Public methods can only access the output signals.
-     */
-    clearSignals(): void
-    /**
-     * Initialize the signal buffers. Possible signal data contained in the SignalCachePart is ignored
-     * here and must be passed again with insertSignals to be saved.
-     * @param cacheProps - an object containing the signal cache properties.
-     * @param dataLength - length of the signal data in seconds.
-     * @param buffer - Data buffer.
-     * @param bufferStart - 32-bit starting index of this mutex withing the buffer (optional, defaults to zero).
-     */
-    initSignalBuffers(
-        cacheProps: SignalCachePart,
-        dataLength: number,
-        buffer: SharedArrayBuffer,
-        bufferStart?: number
-    ): void
-    /**
-     * Insert new signal data to the existing buffer.
-     * This will overwrite possible overlapping signal data.
-     * @param signalPart - Cache part with new signals to insert.
-     */
-    insertSignals(signalPart: SignalCachePart): Promise<void>
-    /**
-     * Invalidate all output signals by setting the updated ranges to 0-0.
-     * @param channels - Array of channels to invalidate (default all).
-     */
-    invalidateOutputSignals(channels?: number[]): Promise<void>
-    /**
-     * Get the buffered signals as Float32Arrays.
-     * @return Promise containing the signals.
-     */
-    readSignals(): Promise<Float32Array[]>
-    /**
-     * Set buffered signal range start and end. Possible already buffered signals will
-     * be adjusted into the new range.
-     *
-     * If there is pre-existing data in the buffer, this method must be called before
-     * assigning new signals!
-     *
-     * @param rangeStart - Start of the buffered singal range (in seconds).
-     * @param rangeEnd - End of the buffered singal range (in seconds).
-     */
-    setSignalRange(rangeStart: number, rangeEnd: number): any;
-    /**
-     * Replace the buffered signals with new signal arrays. Both the number of signals and
-     * the length of individual signal arrays must match those of the existing signals.
-     * @param signals New signals as Float32Arrays.
-     * @returns success of the operation as true/false
-     */
-    writeSignals(signals: Float32Array[]): {};
-}
-
-/**
- * A single continuous part of signal data in the cache.
- */
-export type SignalCachePart = {
-    /** In seconds. */
-    start: number
-    /** In seconds. */
-    end: number
-    signals: {
-        data: Float32Array
-        samplingRate: number
-        originalSamplingRate?: number
-        /** As array index. */
-        start?: number
-        /** As array index. */
-        end?: number
-    }[]
-}
-
-export type SignalCacheProcess = {
-    /** Should we continue this loading process. */
-    continue: boolean
-    /** Load direction (1 forward, -1 backward, 0 alternate between following and preceding part). */
-    direction: LoadDirection
-    /** Start time of LOADED DATA in recording. */
-    start: number
-    /** End time of LOADED data in recording. */
-    end: number
-    /** Just for compatibility with SignalCachePart type, not supposed to contain anything. */
-    signals: any[],
-    /** Target start and end times of the loading process. */
-    target: SignalCachePart
-}
-
-export type SignaCacheResponse = SignalCachePart | null
-/**
- * Highlight applied to the backdrop of a signal channel/channels.
- */
-export type SignalHighlight = {
-    /** List of channels that this highlight applies to (empty list means general highlight). */
-    channels: number[]
-    /** End time in recording seconds. */
-    end: number
-    /** Descriptive label for the highlight. */
-    label: string
-    /** Start time in recording seconds. */
-    start: number
-    /** Is this highlight part of the actual detection or a sliding "collar" around it. */
-    type: "collar" | "detection"
-    /** Should this highlight be visible. */
-    visible: boolean
-    /** Should this highlight be shown in the background. */
-    background?: boolean
-    /** Length of possible preceding and following collars. */
-    collarLength?: number
-    /** Optional override color for this highlight. */
-    color?: SettingsColor
-    /** Does this highlight have another, instantly following highlight. */
-    hasNext?: boolean
-    /** Does this highlight have another, instantly preceding highlight. */
-    hasPrevious?: boolean
-    /** Additional opacity multiplier for the highlight as a value or gradient range. */
-    opacity?: number | number[]
-    /** Optional numeric value for highlight (to compare with ref). */
-    value?: number
-}
 /** Signal polarity as -1, 1 or 0 (= don't override default). */
 export type SignalPolarity = -1 | 0 | 1
 /**
