@@ -5,6 +5,103 @@
  * @license    Apache-2.0
  */
 
+//////////////////////////////////////////////////////////////////
+//                    MODULE IMPORT/EXPORTS                     //
+//////////////////////////////////////////////////////////////////
+
+import {
+    BiosignalAudio,
+    BiosignalMutex,
+    BiosignalService,
+    BiosignalServiceSAB,
+    FileSystemDirectory,
+    FileSystemFile,
+    GenericBiosignalChannel,
+    GenericBiosignalHeaders,
+    GenericBiosignalMontage,
+    GenericBiosignalResource,
+    GenericBiosignalResourceSAB,
+    GenericDataset,
+    GenericDocumentResource,
+    GenericFileLoader,
+    GenericService,
+    GenericStudyLoader,
+    LocalFileReader,
+    MixedFileSystemItem,
+    MixedMediaDataset,
+    MontageServiceSAB,
+    ServiceMemoryManager,
+    StudyCollection,
+    studyContextTemplate,
+} from "./core"
+export {
+    BiosignalAudio,
+    BiosignalMutex,
+    BiosignalService,
+    BiosignalServiceSAB,
+    FileSystemDirectory,
+    FileSystemFile,
+    GenericBiosignalChannel,
+    GenericBiosignalHeaders,
+    GenericBiosignalMontage,
+    GenericBiosignalResource,
+    GenericBiosignalResourceSAB,
+    GenericDataset,
+    GenericDocumentResource,
+    GenericFileLoader,
+    GenericService,
+    GenericStudyLoader,
+    LocalFileReader,
+    MixedFileSystemItem,
+    MixedMediaDataset,
+    MontageServiceSAB,
+    ServiceMemoryManager,
+    StudyCollection,
+    studyContextTemplate,
+}
+import {
+    GenericOnnxService,
+} from "./onnx"
+export {
+    GenericOnnxService,
+}
+import {
+    CanvasPlot,
+    PlotColor,
+    WebGlPlot,
+    WebGlPlotTrace,
+} from "./plots"
+export {
+    CanvasPlot,
+    PlotColor,
+    WebGlPlot,
+    WebGlPlotTrace,
+}
+import {
+    PyodideRunner,
+    PyodideService,
+} from "./pyodide"
+export {
+    PyodideRunner,
+    PyodideService
+}
+import * as util from "./util"
+export { util }
+import {
+    log,
+    type RelayLogMessage,
+    syncSettings,
+} from "./workers"
+export {
+    log as workerLog,
+    RelayLogMessage,
+    syncSettings,
+}
+
+//////////////////////////////////////////////////////////////////
+//                            CLASS                             //
+//////////////////////////////////////////////////////////////////
+
 import Log from 'scoped-ts-log'
 import {
     type EpiCurrentsApplication,
@@ -14,16 +111,11 @@ import {
     type ResourceModule,
 } from 'TYPES/core'
 import SETTINGS from 'CONFIG/Settings'
-import ServiceMemoryManager from 'LIB/core/service/ServiceMemoryManager'
 
-import MixedMediaDataset from 'LIB/core/dataset/MixedMediaDataset'
-import { GenericOnnxService } from 'LIB/onnx'
-import GenericStudyLoader from 'LIB/core/study/loaders/GenericStudyLoader'
 import { FileSystemItem, LoaderMode } from 'TYPES/loader'
 import RuntimeStateManager from './runtime'
 import { BaseDataset } from 'TYPES/dataset'
-import GenericAsset from 'LIB/core/GenericAsset'
-import { MixedFileSystemItem } from 'LIB/core/loader'
+import GenericAsset from './core/GenericAsset'
 import { AssetService } from 'TYPES/service'
 
 const SCOPE = 'index'

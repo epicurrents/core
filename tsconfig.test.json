@@ -12,10 +12,12 @@
     "baseUrl": "./",
     "paths": {
       "CONFIG/*": ["src/config/*"],
-      "LIB/*": ["src/lib/*"],
-      "RUNTIME*": ["src/runtime/index.ts"],
-      "TYPES/*": ["types/*"],
+      "CORE/*": ["src/core/*"],
       "ROOT/*": ["src/*"],
+      "RUNTIME*": ["src/runtime/index.ts"],
+      "SRC/*": ["src/lib/*"],
+      "TYPES/*": ["types/*"],
+      "UTIL/*": ["src/util/*"],
     } ,
     "typeRoots": [
       "./node_modules/@types",

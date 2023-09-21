@@ -39,10 +39,12 @@ module.exports = {
         extensions: ['.ts', '.js', '.json'],
         alias: {
             'CONFIG': path.resolve(__dirname, 'src/config/'),
-            'LIB': path.resolve(__dirname, 'src/lib/'),
-            'ROOT': path.resolve(__dirname, 'src/'),
+            'CORE': path.resolve(__dirname, 'src/core/'),
+            'ROOT': path.resolve(__dirname, './'),
             'RUNTIME': path.resolve(__dirname, 'src/runtime/'),
-            'TYPES': path.resolve(__dirname, 'types/')
+            'SRC': path.resolve(__dirname, 'src/'),
+            'TYPES': path.resolve(__dirname, 'types/'),
+            'UTIL': path.resolve(__dirname, 'src/util/'),
         },
         symlinks: false
     },

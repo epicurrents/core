@@ -23,10 +23,12 @@ module.exports = {
                 "baseUrl": "./",
                 "paths": {
                     "CONFIG/*": ["src/config/*"],
-                    "LIB/*": ["src/lib/*"],
+                    "CORE/*": ["src/core/*"],
+                    "ROOT/*": ["./*"],
                     "RUNTIME*": ["src/runtime/index.ts"],
-                    "TYPES/*": ["src/*"],
-                    "ROOT/*": ["src/*"],
+                    "SRC/*": ["src/*"],
+                    "TYPES/*": ["types/*"],
+                    "TYPES/*": ["src/util/*"],
                 }
             }
         },
@@ -39,10 +41,12 @@ module.exports = {
     moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",
         "^CONFIG/(.*)$": "<rootDir>/src/config/$1",
-        "^LIB/(.*)$": "<rootDir>/src/lib/$1",
-        "^ROOT/(.*)$": "<rootDir>/src/$1",
+        "^CORE/(.*)$": "<rootDir>/src/core/$1",
+        "^ROOT/(.*)$": "<rootDir>/$1",
         "^RUNTIME/(.*)$": "<rootDir>/src/runtime/$1",
+        "^SRC/(.*)$": "<rootDir>/src/$1",
         "^TYPES/(.*)$": "<rootDir>/types/$1",
+        "^UTIL/(.*)$": "<rootDir>/src/util/$1",
     },
     modulePaths: [
         "<rootDir>/src/",

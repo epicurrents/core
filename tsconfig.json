@@ -47,11 +47,13 @@
     "baseUrl": "./",                          /* Base directory to resolve non-absolute module names. */
     "paths": {                                /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
       "CONFIG/*": ["src/config/*"],
-      "LIB/*": ["src/lib/*"],
+      "CORE/*": ["src/core/*"],
       "RUNTIME*": ["src/runtime/index.ts"],
+      "SRC/*": ["src/*"],
       "TYPES/*": ["types/*"],
+      "UTIL/*": ["src/util/*"],
       /* The root forder is matched last as a catch-it-all */
-      "ROOT/*": ["src/*"],
+      "ROOT/*": ["./*"],
     } ,
     // "rootDirs": [],                        /* List of root folders whose combined content represents the structure of the project at runtime. */
     "typeRoots": [                            /* List of folders to include type definitions from. */

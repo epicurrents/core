@@ -6,7 +6,7 @@
  */
 
 import { AppSettings, BaseModuleSettings, SettingsValue } from "TYPES/config"
-import { MB_BYTES } from "LIB/util/constants"
+import { MB_BYTES } from "UTIL/constants"
 import Log from "scoped-ts-log"
 
 const SCOPE = 'Settings'
