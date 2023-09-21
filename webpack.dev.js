@@ -1,7 +1,7 @@
 const path = require('path')
 const { merge } = require('webpack-merge')
 const common = require('./webpack.config.js')
-const dotenv = require('dotenv').config()
+const Dotenv = require('dotenv-webpack')
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const CircularDependencyPlugin = require('circular-dependency-plugin')
 
@@ -55,7 +55,7 @@ module.exports = merge(common, {
             // set the current working directory for displaying module paths
             cwd: process.cwd(),
         }),
-        new dotenv()
+        new Dotenv()
     ],
     stats: {
         errorDetails: true
