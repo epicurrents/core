@@ -15,9 +15,8 @@ import { type SignalCachePart } from 'TYPES/service'
 import BiosignalMutex from '../service/BiosignalMutex'
 import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
 import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
-import { concatFloat32Arrays, filterSignal, getFilterPadding, shouldFilterSignal } from 'LIB/util/signal'
+import { concatFloat32Arrays, filterSignal, getFilterPadding, mapMontageChannels, shouldDisplayChannel, shouldFilterSignal } from 'LIB/util/signal'
 import { NUMERIC_ERROR_VALUE } from 'LIB/util/constants'
-import { mapMontageChannels, shouldDisplayChannel } from 'LIB/util/montage'
 import { log } from 'LIB/workers/DefaultWorker'
 
 const SCOPE = "MontageWorker"

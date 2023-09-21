@@ -10,7 +10,6 @@ import {
     type EpiCurrentsApplication,
     type InterfaceModule,
     type InterfaceModuleConstructor,
-    type InterfaceResourceModuleContext,
     type DataResource,
     type ResourceModule,
 } from 'TYPES/core'
@@ -34,7 +33,6 @@ export class EpiCurrents implements EpiCurrentsApplication {
     // Properties
     #app = null as null | InterfaceModule
     #interface = null as null | InterfaceModuleConstructor
-    #interfaceModules = new Map<string, InterfaceResourceModuleContext>()
     #memoryManager = null as null | ServiceMemoryManager
     #state = new RuntimeStateManager()
 

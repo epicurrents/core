@@ -6,17 +6,18 @@
  */
 
 import {
-    BiosignalMontage,
     type BiosignalChannel,
     type BiosignalFilters,
+    type BiosignalMontage,
+    type BiosignalSetup,
     type FftAnalysisResult,
     type MontageChannel,
+    type SetupChannel,
 } from 'TYPES/biosignal'
 import { type SignalCachePart } from 'TYPES/service'
 import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
 import Log from 'scoped-ts-log'
-import SETTINGS from "CONFIG/Settings"
 import { BiosignalMutex } from 'LIB/core/biosignal'
 import { LTTB } from 'downsample'
 import { NUMERIC_ERROR_VALUE } from './constants'
@@ -24,6 +25,253 @@ import { NUMERIC_ERROR_VALUE } from './constants'
 const SCOPE = 'util:signal'
 const iirCalculator = new Fili.CalcCascades()
 
+/**
+ * Get the list of active channels from raw source channels.
+ * @param source - Source mutex.
+ * @param sourceChannels - Raw source recording channels.
+ * @param start - Range start in seconds.
+ * @param end - Range end in seconds.
+ * @param config - Possible configuration.
+ * @remarks
+ * This used to be a helper method in a removed feature. It is kept here in case the feature
+ * in question or a similar feature is added.
+ */
+const calculateReferencedSignals = async (
+    source: BiosignalMutex,
+    sourceChannels: BiosignalChannel[],
+    start: number,
+    end: number,
+    config: {
+        filterPaddingSeconds: number
+        exclude?: number[]
+        include?: number[]
+    }
+) => {
+    // Check that cache has the part that we need
+    const inputRangeStart = await source.inputRangeStart
+    const inputRangeEnd = await source.inputRangeEnd
+    if (
+        inputRangeStart === null || start < inputRangeStart ||
+        inputRangeEnd === null || end > inputRangeEnd
+    ) {
+        // TODO: Signal that the required part must be loaded by the file loader first
+        Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
+        return
+    }
+    const relStart = start - inputRangeStart
+    const relEnd = end - inputRangeStart
+    // Only calculate avera once
+    const avgMap = null as null | Float32Array
+    // Filter channels, if needed
+    const channels = (config?.include?.length || config?.exclude?.length)
+                     ? [] as MontageChannel[] : sourceChannels
+    // Prioritize include -> only process those channels
+    if (config?.include?.length) {
+        for (const c of config.include) {
+            if (sourceChannels[c].active !== NUMERIC_ERROR_VALUE) {
+                channels.push(sourceChannels[c])
+            }
+        }
+    } else if (config?.exclude?.length) {
+        for (let i=0; i<sourceChannels.length; i++) {
+            if (config.exclude.indexOf(i) === -1 && sourceChannels[i].active !== NUMERIC_ERROR_VALUE) {
+                channels.push(sourceChannels[i])
+            }
+        }
+    }
+    for (const chan of channels) {
+        const activeSig = (await source.inputSignals)[chan.active]
+        const {
+            filterLen, filterStart, filterEnd,
+            paddingStart, paddingEnd,
+            rangeStart, rangeEnd,
+            signalStart, signalEnd,
+        } = getFilterPadding([relStart, relEnd] || [], activeSig.length, chan, config)
+        const activeRange = activeSig.subarray(signalStart, signalEnd)
+        // Need to calculate signal relative to reference(s), one datapoint at a time.
+        // Check that active signal and all reference signals have the same length.
+        const refSignals = [] as Float32Array[]
+        for (const ref of chan.reference) {
+            const refSig = (await source.inputSignals)[chan.active]
+            if (activeSig.length === refSig.length) {
+                refSignals.push(refSig.subarray(signalStart, signalEnd))
+            }
+        }
+        // We must preserve space for padding on both ends of the signal array.
+        const derivSig = new Float32Array(filterEnd - filterStart)
+        let j = 0
+        for (let n=filterStart; n<filterEnd; n++) {
+            // Just add zero if we are outside tha actual signal range
+            if (n < 0 || n >= activeRange.length) {
+                derivSig.set([0], j)
+                j++
+                continue
+            }
+            // Check if the average for this particular datapoint has already been calculated
+            if (!avgMap) {
+                const avgMap = new Float32Array(derivSig.length).fill(0.0)
+                for (const ref of refSignals) {
+                    if (refSignals.length > 1) {
+                        // Calculate average reference and cache it
+                        for (let i=0; i<ref.length; i++) {
+                            avgMap[i] += ref[i]/refSignals.length
+                        }
+                    } else if (refSignals.length === 1) {
+                        avgMap.set(ref)
+                    }
+                }
+            }
+            j++
+        }
+        chan.signal = new Float32Array(activeRange.map((val: number, idx: number) => {
+            return val - (avgMap ? avgMap[idx] : 0)
+        }))
+    }
+}
+
+/**
+ * Calculate and update signal offsets (from trace baseline) for given channels using the given layout configuration.
+ * Will place each channel an equal distance from each other if configuration is omitted.
+ * @param config - optional layout configuration in the form of
+ *
+ *               ```
+ *               {
+ *                  channelSpacing: number,
+ *                  displayHidden: boolean, // optional
+ *                  displayMissing: boolean, // optional
+ *                  groupSpacing: number,
+ *                  layout: number[],
+ *                  yPadding: number,
+ *               }
+ *               ```
+ *
+ *               `channelSpacing` and `groupSpacing` values are used to calculate padding between individual channels
+ *                 and logical channel groups. The values of these two parameters are normalized, so only their
+ *                 relative difference matters.\
+ *               `yPadding` is the extra amount of padding (relative to channelSpacing) to add above the first channel
+ *                 and below the last channel.\
+ *               `layout` is an array of logical channel group sizes. The number of channels in each element are
+ *                 considered a part of the same group.
+ *
+ * @example
+ * calculateSignalOffsets({
+ *      channelSpacing: 1,
+ *      groupSpacing: 2,
+ *      yPadding: 1,
+ *      layout: [ 4, 4, 4, 4, 2]
+ * })
+ * // will produce five logical groups, the first four containing four channels and the last two channels,
+ * // with each group separated by 2 times the amount of spacing of the individual channels inside each group.
+ */
+export const calculateSignalOffsets = (
+    channels: BiosignalChannel[],
+    config?: {
+        channelSpacing: number,
+        groupSpacing: number,
+        isRaw: boolean,
+        layout: number[],
+        yPadding: number,
+   }
+) => {
+   // Check if this is an 'as recorded' montage.
+   if (!config || config?.isRaw) {
+       // Remove channels that are not displayed.
+       channels = channels.filter(chan => shouldDisplayChannel(chan, true))
+       const layoutH = channels.length + 1
+       const chanHeight = 1/channels.length
+       let i = 0
+       for (const chan of channels) {
+           const baseline = 1.0 - ((i + 1)/layoutH)
+           chan.offset = {
+               baseline: baseline,
+               bottom: baseline - 0.5*chanHeight,
+               top: baseline + 0.5*chanHeight
+           }
+           i++
+       }
+       return
+   }
+   // Calculate channel offsets from the provided config.
+   let nGroups = 0
+   let nChannels = 0
+   let nChanTotal = 0
+   // Grab layout from default config if not provided.
+   const configLayout = config.layout
+   const layout = []
+   for (const group of configLayout) {
+       let nGroup = 0
+       // Remove missing and hidden channels from the layout.
+       for (let i=nChanTotal; i<nChanTotal+group; i++) {
+           if (shouldDisplayChannel(channels[i], false)) {
+               nGroup++
+           }
+       }
+       nChannels += nGroup
+       nChanTotal += group
+       // Don't add empty groups.
+       if (nGroup) {
+           nGroups++
+           layout.push(nGroup)
+       }
+   }
+   // Check if the number of non-meta channels matches the constructed layout.
+   const nSignalChannels = channels.filter((chan) => { return chan.type && chan.type !== 'meta' }).length
+   if (nChannels !== nSignalChannels) {
+       Log.warn("The number of channels does not match config layout!", SCOPE)
+   }
+   // Calculate total trace height, starting with top and bottom margins.
+   let layoutH = 2*config.yPadding
+   // Add channel heights.
+   layoutH += (nChannels - (nGroups - 1) - 1)*config.channelSpacing
+   // Add group heights.
+   layoutH += (nGroups - 1)*config.groupSpacing
+   // Go through the signals and add their respective offsets.
+   // First trace is y-padding away from the top.
+   let yPos = 1.0 - config.yPadding/layoutH
+   let chanIdx = 0
+   const chanHeight = config.channelSpacing/layoutH
+   // Save into a variable if group spacing has been applied.
+   // We cannot determine it by checking if this is the first channel in the group, because
+   // the first channel may be missing or hidden for some other reason.
+   let groupSpacing = true
+   for (let i=0; i<configLayout.length; i++) {
+       // Top and bottom margins are applied automatically, so skip first visible group spacing.
+       if (i && !groupSpacing) {
+           yPos -= (1/layoutH)*config.groupSpacing
+           groupSpacing = true
+       }
+       for (let j=0; j<configLayout[i]; j++) {
+           const chan = channels[chanIdx] as MontageChannel
+           // Check that number of layout channels hasn't exceeded number of actual channels.
+           if (chan === undefined) {
+               Log.warn(
+                   `Number of layout channels (${chanIdx + 1}) exceeds the number of channels in the EEG record ` +
+                   `(${channels.length})!`,
+               SCOPE)
+               continue
+           }
+           chanIdx++
+           if (!shouldDisplayChannel(chan, false)) {
+               continue
+           }
+           if (!groupSpacing) {
+               yPos -= (1/layoutH)*config.channelSpacing
+           } else {
+               // Skip the first channel (group spacing has already been applied)
+               groupSpacing = false
+           }
+           chan.offset = {
+               baseline: yPos,
+               bottom: yPos - 0.5*chanHeight,
+               top: yPos + 0.5*chanHeight,
+           }
+           // Check if a meta channel has slipped into the visible layout
+           if ((channels[chanIdx] as MontageChannel).type == 'meta') {
+               Log.warn(`Metadata channel ${chan.label} has been included into visbile layout!`, SCOPE)
+           }
+       }
+   }
+}
 
 /**
  * Combine the given signal parts into as few as possible parts.
@@ -232,107 +480,6 @@ export const fftAnalysis = (signal: Float32Array, samplingRate: number): FftAnal
 }
 
 /**
- * Get the list of active channels from raw source channels.
- * @param source - source mutex
- * @param sourceChannels - raw source recording channels
- * @param start - range start in seconds
- * @param end - range end in seconds
- * @param config - possible configuration
- */
-export const calculateReferencedSignals = async (
-    source: BiosignalMutex,
-    sourceChannels: BiosignalChannel[],
-    start: number,
-    end: number,
-    config: {
-        filterPaddingSeconds: number
-        exclude?: number[]
-        include?: number[]
-    }
-) => {
-    // Check that cache has the part that we need
-    const inputRangeStart = await source.inputRangeStart
-    const inputRangeEnd = await source.inputRangeEnd
-    if (
-        inputRangeStart === null || start < inputRangeStart ||
-        inputRangeEnd === null || end > inputRangeEnd
-    ) {
-        // TODO: Signal that the required part must be loaded by the file loader first
-        Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
-        return
-    }
-    const relStart = start - inputRangeStart
-    const relEnd = end - inputRangeStart
-    // Only calculate avera once
-    const avgMap = null as null | Float32Array
-    // Filter channels, if needed
-    const channels = (config?.include?.length || config?.exclude?.length)
-                     ? [] as MontageChannel[] : sourceChannels
-    // Prioritize include -> only process those channels
-    if (config?.include?.length) {
-        for (const c of config.include) {
-            if (sourceChannels[c].active !== NUMERIC_ERROR_VALUE) {
-                channels.push(sourceChannels[c])
-            }
-        }
-    } else if (config?.exclude?.length) {
-        for (let i=0; i<sourceChannels.length; i++) {
-            if (config.exclude.indexOf(i) === -1 && sourceChannels[i].active !== NUMERIC_ERROR_VALUE) {
-                channels.push(sourceChannels[i])
-            }
-        }
-    }
-    for (const chan of channels) {
-        const activeSig = (await source.inputSignals)[chan.active]
-        const {
-            filterLen, filterStart, filterEnd,
-            paddingStart, paddingEnd,
-            rangeStart, rangeEnd,
-            signalStart, signalEnd,
-        } = getFilterPadding([relStart, relEnd] || [], activeSig.length, chan, config)
-        const activeRange = activeSig.subarray(signalStart, signalEnd)
-        // Need to calculate signal relative to reference(s), one datapoint at a time.
-        // Check that active signal and all reference signals have the same length.
-        const refSignals = [] as Float32Array[]
-        for (const ref of chan.reference) {
-            const refSig = (await source.inputSignals)[chan.active]
-            if (activeSig.length === refSig.length) {
-                refSignals.push(refSig.subarray(signalStart, signalEnd))
-            }
-        }
-        // We must preserve space for padding on both ends of the signal array.
-        const derivSig = new Float32Array(filterEnd - filterStart)
-        let j = 0
-        for (let n=filterStart; n<filterEnd; n++) {
-            // Just add zero if we are outside tha actual signal range
-            if (n < 0 || n >= activeRange.length) {
-                derivSig.set([0], j)
-                j++
-                continue
-            }
-            // Check if the average for this particular datapoint has already been calculated
-            if (!avgMap) {
-                const avgMap = new Float32Array(derivSig.length).fill(0.0)
-                for (const ref of refSignals) {
-                    if (refSignals.length > 1) {
-                        // Calculate average reference and cache it
-                        for (let i=0; i<ref.length; i++) {
-                            avgMap[i] += ref[i]/refSignals.length
-                        }
-                    } else if (refSignals.length === 1) {
-                        avgMap.set(ref)
-                    }
-                }
-            }
-            j++
-        }
-        chan.signal = new Float32Array(activeRange.map((val: number, idx: number) => {
-            return val - (avgMap ? avgMap[idx] : 0)
-        }))
-    }
-}
-
-/**
  * Apply bandpass/highpass/lowpass and/or notch filters to the given signal.
  * @param signal the signal to filter
  * @param fs sampling frequency of the signal
@@ -490,6 +637,32 @@ export const getFilterPadding = (
 }
 
 /**
+ * Filter an array of channels to contain only the included ones.
+ * @param channels - List of channels to filter.
+ * @param config - Configuration containing include and/or exclude directions as arrays of channel indices.
+ * @returns Array containing the included channels.
+ */
+export const getIncludedChannels = <T extends Array<unknown>>(
+    channels: T,
+    config: { exclude?: number[], include?: number[] } = {}
+): T => {
+    // Filter channels, if needed.
+    const included = [] as unknown as T
+    // Prioritize include -> only process those channels.
+    for (let i=0; i<channels.length; i++) {
+        if (
+            (!config.include && !config.exclude) ||
+            // Prioritize includes.
+            config.include?.includes(i) ||
+            !config.exclude?.includes(i)
+        ) {
+            included.push(channels[i])
+        }
+    }
+    return included
+}
+
+/**
  * Interpolate missing datapoints in sparsely sampled signals.
  * @param signal signal as Float32Array
  * @param targetLen desired signal length (as count of datapoints)
@@ -561,6 +734,200 @@ export const isContinuousSignal = (...signalParts: SignalCachePart[]) => {
         return { start: part.start, end: part.end, signals: [] }
     })
     return (combineAllSignalParts(...partRanges).length === 1)
+}
+
+/**
+ * Map the derived channels in this montage to the signal channels of the given setup.
+ * @param setup - Setup describing the data source.
+ * @param config - Biosignal config of the appropriate type and channel layout properties. Expected fields are:
+ *                 - `channelSpacing` number - Relative spacing between consecutive channels (default 1).
+ *                 - `groupSpacing` number - Relative spacing between consecutive groups (default 1).
+ *                 - `isRaw` boolean - Is this a raw setup (default yes).
+ *                 - `layout` number[] - Channel layout as number of channels per each group (default no layout).
+ *                 - `yPadding` number - Relative extra padding at the ends of the y-axis (default 0).
+ */
+export const mapMontageChannels = (
+    setup: BiosignalSetup,
+    config?: {
+        channels: SetupChannel[]
+        channelSpacing: number
+        groupSpacing: number
+        isRaw: boolean
+        layout: number[]
+        names: string[]
+        yPadding: number
+    }
+): MontageChannel[] => {
+    /** Valid properties for the prototype channel. */
+    type ChannelProperties = {
+        active?: number
+        amplification?: number
+        averaged?: boolean
+        displayPolarity?: -1 | 0 | 1
+        height?: number
+        label?: string
+        laterality?: string
+        name?: string
+        offset?: {
+            baseline: number
+            bottom: number
+            top: number
+        }
+        reference?: number[]
+        sampleCount?: number
+        samplingRate?: number
+        sensitivity?: number
+        type?: string
+        unit?: string,
+        visible?: boolean
+    }
+    /**
+     * Helper method for producing a prototype channel and injecting any available properties into it.
+     */
+    const getChannel = (props?: ChannelProperties): any => {
+        // If visibility is set in config, use it. Otherwise hide if meta channel.
+        const visible = props?.visible !== undefined ? props.visible
+                        : props?.type === 'meta' ? false : true
+        const newChan = {
+            name: props?.name || '--',
+            label: props?.label || '',
+            type: (props?.type || ''),
+            laterality: props?.laterality || '',
+            active: typeof props?.active === 'number' ? props.active : NUMERIC_ERROR_VALUE,
+            reference: props?.reference || [],
+            averaged: props?.averaged || false,
+            samplingRate: props?.samplingRate || 0,
+            sampleCount: props?.sampleCount || 0,
+            amplification: props?.amplification || 1,
+            sensitivity: props?.sensitivity || 0,
+            displayPolarity: props?.displayPolarity || 0,
+            offset: props?.offset || 0.5,
+            visible: visible,
+            unit: props?.unit || '?',
+        } as ChannelProperties
+        return newChan
+    }
+    // Check that we have a valid setup.
+    if (!setup) {
+        Log.error(`Cannot map channels for montage; missing an electrode setup.`, SCOPE)
+        return []
+    }
+    const channels = []
+    if (!config) {
+        // Construct an 'as recorded' montage.
+        for (const chan of setup.channels) {
+            channels.push(
+                getChannel({
+                    label: chan.label,
+                    name: chan.name,
+                    type: chan.type,
+                    laterality: chan.laterality,
+                    active: chan.index,
+                    samplingRate: chan.samplingRate,
+                    amplification: chan.amplification,
+                    displayPolarity: chan.displayPolarity,
+                    unit: chan.unit,
+                })
+            )
+        }
+        calculateSignalOffsets(channels)
+        return channels
+    }
+    const channelMap: { [name: string]: SetupChannel | null } = {}
+    // First map names to correct channel indices.
+    name_loop:
+    for (const lbl of config.names) {
+        for (const sChan of setup.channels) {
+            if (lbl === sChan.name) {
+                if (lbl.includes('__proto__')) {
+                    Log.warn(`Channel label ${lbl} contains insecure field '_proto__', channel was ignored.`, SCOPE)
+                    continue
+                }
+                channelMap[lbl] = sChan
+                continue name_loop
+            }
+        }
+        channelMap[lbl] = null // Not found.
+    }
+    // Next, map active and reference electrodes to correct signal channels.
+    for (const chan of config.channels) {
+        // Check that the active channel can be found.
+        const actChan = channelMap[chan.active]
+        if (actChan === null || actChan === undefined) {
+            channels.push(
+                getChannel({
+                    label: chan.label,
+                    name: chan.name,
+                })
+            )
+            continue
+        }
+        const refs = [] as number[]
+        if (chan.reference.length) {
+            for (const ref of chan.reference) {
+                // Store this in a separate const to avoid Typescript linter errors.
+                const refChan = channelMap[ref]
+                if (refChan !== null && refChan !== undefined &&
+                    actChan.samplingRate === refChan.samplingRate
+                ) {
+                    refs.push(refChan.index)
+                }
+            }
+            if (!refs.length) {
+                // Not a single reference channel found.
+                channels.push(
+                    getChannel({
+                        label: chan.label,
+                        name: chan.name,
+                    })
+                )
+            } else {
+                // Construct the channel.
+                channels.push(
+                    getChannel({
+                        label: chan.label,
+                        name: chan.name,
+                        type: chan.type || actChan.type,
+                        laterality: chan.laterality || actChan.laterality,
+                        active: actChan.index,
+                        reference: refs,
+                        averaged: chan.averaged,
+                        samplingRate: actChan.samplingRate,
+                        amplification: actChan.amplification,
+                        displayPolarity: chan.polarity || actChan.displayPolarity,
+                        unit: chan.unit || actChan.unit,
+                    })
+                )
+            }
+        } else {
+            // This is an as-recorded channel without a reference.
+            channels.push(
+                getChannel({
+                    label: chan.label,
+                    name: chan.name,
+                    type: chan.type || actChan.type,
+                    laterality: chan.laterality || actChan.laterality,
+                    active: actChan.index,
+                    samplingRate: actChan.samplingRate,
+                    amplification: actChan.amplification,
+                    displayPolarity: chan.polarity || actChan.displayPolarity,
+                    unit: chan.unit || actChan.unit,
+                })
+            )
+        }
+    }
+    // Calculate signal offsets for the loaded channels.
+    calculateSignalOffsets(
+        channels,
+        {
+            channelSpacing: config.channelSpacing || 1,
+            groupSpacing: config.groupSpacing || 1,
+            isRaw: false,
+            layout: config.layout || [],
+            yPadding: config.yPadding || 0,
+        }
+    )
+    return channels
 }
 
 /**
@@ -677,4 +1044,32 @@ export const shouldFilterSignal = (filters: BiosignalFilters, channel: Biosignal
         ) ||
         channel.highpassFilter || channel.lowpassFilter || channel.notchFilter
     )
+}
+
+/**
+ * Check if the given channel should be displayed on the trace.
+ * @param channel - The channel to check.
+ * @param useRaw - Consider the montage to contain raw signals.
+ * @param config - Additional configuration, specifically:
+ *                 - `showHiddenChannels` boolean - Show an empty space where a hidden channel should be.
+ *                 - `showMissingChannels` boolean - Show an empty space where a missing channel should be.
+ */
+export const shouldDisplayChannel = (
+    channel: BiosignalChannel | null,
+    useRaw: boolean,
+    config?: {
+        showHiddenChannels: boolean
+        showMissingChannels: boolean
+    }
+) => {
+    if (!channel || !channel.type || channel.type === 'meta') {
+        return false
+    } else if (useRaw) {
+        return true
+    } else if ((channel as MontageChannel).active === NUMERIC_ERROR_VALUE && (config && !config.showMissingChannels)) {
+        return false
+    } else if (!(channel as MontageChannel).visible && (config && !config.showHiddenChannels)) {
+        return false
+    }
+    return true
 }

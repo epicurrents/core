@@ -781,6 +781,28 @@ export interface VideoAttachment {
 }
 
 export interface WorkerMontage {
-    getAllSignals(signals: Float32Array[], filters: BiosignalFilters, range: number[], config: any): Float32Array[]
+    /**
+     * Get derived montage channel signals from the given raw signals.
+     * @param signals - Set of raw signals to use as Float32Array[].
+     * @param filters - Active filters as BiosignalFilters.
+     * @param range - Range of the given signals in seconds.
+     * @param config - Additional configuration.
+     *
+     * @remarks
+     * Montages are not tied to any certain file, so once the montage has been initiated data from any file with the same setup
+     * can be processed by the same montage. The main idea behind this is to allow loading only chuncks of large files at a
+     * time and processing only those parts.
+     */
+    getAllSignals(
+        signals: Float32Array[],
+        filters: BiosignalFilters,
+        range: number[],
+        config: {
+            filterPaddingSeconds: number
+            exclude?: number[]
+            excludeActiveFromAvg?: boolean
+            include?: number[]
+        }
+    ): Float32Array[]
     setChannels(channels: MontageChannel[]): void
 }

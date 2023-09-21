@@ -22,8 +22,8 @@ import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
 import GenericResource from "LIB/core/GenericResource"
 import { nullPromise } from "LIB/util/general"
-import { getIncludedChannels, shouldDisplayChannel } from "LIB/util/montage"
 import { BiosignalServiceSAB } from "LIB/core/biosignal"
+import { shouldDisplayChannel, getIncludedChannels } from "LIB/util/signal"
 
 const SCOPE = 'GenericBiosignalResource'
 

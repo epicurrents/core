@@ -22,7 +22,7 @@ import GenericResource from "LIB/core/GenericResource"
 import { BiosignalService } from "LIB/core/biosignal"
 import { StudyContext } from "TYPES/study"
 import { nullPromise } from "LIB/util/general"
-import { shouldDisplayChannel } from "LIB/util/montage"
+import { shouldDisplayChannel } from "LIB/util/signal"
 
 const SCOPE = 'GenericBiosignalResource'
 

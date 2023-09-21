@@ -20,13 +20,11 @@ import {
     combineAllSignalParts,
     combineSignalParts,
     isContinuousSignal,
+    mapMontageChannels,
+    shouldDisplayChannel,
 } from 'LIB/util/signal'
 import { NUMERIC_ERROR_VALUE } from 'LIB/util/constants'
 import GenericAsset from 'LIB/core/GenericAsset'
-import {
-    mapMontageChannels,
-    shouldDisplayChannel,
-} from 'LIB/util/montage'
 import { MontageServiceSAB } from '../service/MontageServiceSAB'
 
 const SCOPE = 'GenericBiosignalMontage'
