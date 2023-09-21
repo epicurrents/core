@@ -49,6 +49,7 @@ export default class PyodideRunner {
     }
 
     async runScript (name: string, params: { [key: string]: any }) {
+        /* This should be implemented at module level
         await this._loadPromise
         const script = require(`!!raw-loader!SRC/workers/scripts/${name}.py`)
         for (const key in params) {
@@ -60,6 +61,7 @@ export default class PyodideRunner {
         }
         const results = await this._pyodide?.runPythonAsync(script.default)
         return results
+        */
     }
 
     async setChannels (chans: string[]) {

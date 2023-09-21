@@ -1,9 +1,8 @@
 const path = require('path')
-const { VueLoaderPlugin } = require('vue-loader')
 
 module.exports = {
     entry: {
-        'epicurrents-core': { import: path.join(__dirname, 'src', 'index.ts') },
+        'index': { import: path.join(__dirname, 'src', 'index.ts') },
     },
     module: {
         rules: [
@@ -27,13 +26,16 @@ module.exports = {
     experiments: {
         topLevelAwait: true,
     },
+    ignoreWarnings: [
+        /* This suppresses an annoying warning in load-pyodide.js */
+        { message: new RegExp("Critical dependency: the request of a dependency is an expression") },
+    ],
     optimization: {
         runtimeChunk: {
             name: 'shared',
         },
     },
     plugins: [
-        new VueLoaderPlugin(),
     ],
     resolve: {
         extensions: ['.ts', '.js', '.json'],
@@ -48,10 +50,4 @@ module.exports = {
         },
         symlinks: false
     },
-    stats: {
-        warningsFilter: [
-            /* This suppresses an annoying "Critical dependency: the request of a dependency is an expression" warning */
-            './node_modules/pyodide/load-pyodide.js'
-        ]
-    }
 }

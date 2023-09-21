@@ -101,6 +101,7 @@ self.onmessage = async (event) => {
             })
         }
     } else if (action === 'run-script') {
+        /* This should be redesigned to allow passing script contents?
         if (!context.script) {
             postMessage({
                 rn: rn,
@@ -127,5 +128,6 @@ self.onmessage = async (event) => {
                 error: error,
             })
         }
+        */
     }
 }

@@ -29,7 +29,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
     }
 
     constructor (namespace: string, montage: GenericBiosignalMontage, manager: MemoryManager) {
-        super(SCOPE, new Worker(new URL(`SRC/workers/MontageWorkerSAB.ts`, import.meta.url)), manager)
+        super(SCOPE, new Worker(new URL(`SRC/core/biosignal/workers/MontageWorker.ts`, import.meta.url)), manager)
         this._worker?.postMessage({
             action: 'settings-namespace',
             value: namespace,
