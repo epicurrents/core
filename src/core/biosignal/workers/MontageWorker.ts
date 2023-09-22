@@ -17,7 +17,7 @@ import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
 import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
 import { concatFloat32Arrays, filterSignal, getFilterPadding, mapMontageChannels, shouldDisplayChannel, shouldFilterSignal } from 'UTIL/signal'
 import { NUMERIC_ERROR_VALUE } from 'UTIL/constants'
-import { log } from 'SRC/workers/DefaultWorker'
+import { log } from 'SRC/util/worker'
 
 const SCOPE = "MontageWorker"
 

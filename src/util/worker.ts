@@ -1,28 +1,14 @@
 /**
- * Default worker to be used as a template for specialized workers.
- * This file (as is) is not meant to be used as an actual worker!
+ * Worker utilities.
  * @package    epicurrents-core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */
 
-import { SafeObject } from 'TYPES/core'
+import { type SafeObject } from 'TYPES/core'
 import Log from 'scoped-ts-log'
 
 const SCOPE = "DefaultWorker"
-const SETTINGS = new Map<string, any>()
-
-onmessage = async (message: any) => {
-    if (!message?.data?.action) {
-        return
-    }
-    Log.error(`Default worker received a commission with the action ${message.data.action}.`, SCOPE)
-    postMessage({
-        action: message.data.action,
-        rn: message.data.rn,
-        success: false,
-    })
-}
 
 /**
  * Transmit log messages back to the main application thread Log instance using the web worker's postMessage method.
@@ -41,7 +27,7 @@ export const log = (
     level: keyof typeof Log.LEVELS,
     event: string | string[],
     scope: string,
-    extra?: any
+    extra?: unknown
 ) => {
     post({
         action: 'log',
@@ -59,7 +45,7 @@ export type RelayLogMessage = (
     level: keyof typeof Log.LEVELS,
     message: string|string[],
     scope: string,
-    extra?: any
+    extra?: unknown
 ) => void
 
 /**
@@ -71,8 +57,18 @@ export type RelayLogMessage = (
  * @returns True if a setting was updated or setup was successful, false otherwise.
  */
 export const syncSettings = (
-    settings: typeof SETTINGS,
-    message: SafeObject & { data: any } | typeof postMessage
+    settings: Map<string, unknown>,
+    message: SafeObject & {
+        data: {
+            action: string
+            field?: string
+            fields?: {
+                name: string
+                value: unknown
+            }[]
+            value?: unknown
+        }
+    } | typeof postMessage
 ) => {
     if (typeof message == 'function') {
         const fields = Array.from(settings.keys())
@@ -86,14 +82,17 @@ export const syncSettings = (
     } else {
         if (
             message?.data?.action !== 'update-settings' ||
-            message.data.field === undefined ||
-            message.data.value === undefined
+            message.data.fields === undefined &&
+            (
+                message.data.field === undefined ||
+                message.data.value === undefined
+            )
         ) {
             return false
         }
         if (message.data.fields) {
             for (const field of message.data.fields) {
-                settings.set(field, message.data.value)
+                settings.set(field.name, field.value)
             }
         }
     }

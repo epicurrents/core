@@ -87,16 +87,6 @@ export {
 }
 import * as util from "./util"
 export { util }
-import {
-    log,
-    type RelayLogMessage,
-    syncSettings,
-} from "./workers"
-export {
-    log as workerLog,
-    RelayLogMessage,
-    syncSettings,
-}
 
 //////////////////////////////////////////////////////////////////
 //                            CLASS                             //
