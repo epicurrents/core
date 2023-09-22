@@ -14,7 +14,7 @@ import {
     type BiosignalCursor,
     type SignalPolarity,
 } from "TYPES/biosignal"
-import GenericAsset from "CORE/GenericAsset"
+import GenericAsset from "ASSETS/GenericAsset"
 
 const SCOPE = "GenericBiosignalChannel"
 

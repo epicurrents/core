@@ -24,7 +24,7 @@ import {
     shouldDisplayChannel,
 } from 'UTIL/signal'
 import { NUMERIC_ERROR_VALUE } from 'UTIL/constants'
-import GenericAsset from 'CORE/GenericAsset'
+import GenericAsset from 'ASSETS/GenericAsset'
 import { MontageServiceSAB } from '../service/MontageServiceSAB'
 
 const SCOPE = 'GenericBiosignalMontage'

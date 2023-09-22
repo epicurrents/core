@@ -16,7 +16,7 @@ import {
 } from "TYPES/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"
-import GenericAsset from "CORE/GenericAsset"
+import GenericAsset from "ASSETS/GenericAsset"
 import { NUMERIC_ERROR_VALUE } from "UTIL/constants"
 import { getOrSetValue, nullPromise, safeObjectFrom } from "UTIL/general"
 import { MutexExportProperties } from "asymmetric-io-mutex"

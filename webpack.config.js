@@ -40,8 +40,8 @@ module.exports = {
     resolve: {
         extensions: ['.ts', '.js', '.json'],
         alias: {
+            'ASSETS': path.resolve(__dirname, 'src/assets/'),
             'CONFIG': path.resolve(__dirname, 'src/config/'),
-            'CORE': path.resolve(__dirname, 'src/core/'),
             'ROOT': path.resolve(__dirname, './'),
             'RUNTIME': path.resolve(__dirname, 'src/runtime/'),
             'SRC': path.resolve(__dirname, 'src/'),

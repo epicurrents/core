@@ -11,8 +11,8 @@
     "moduleResolution": "node",
     "baseUrl": "./",
     "paths": {
+      "ASSETS/*": ["src/assets/*"],
       "CONFIG/*": ["src/config/*"],
-      "CORE/*": ["src/core/*"],
       "ROOT/*": ["src/*"],
       "RUNTIME*": ["src/runtime/index.ts"],
       "SRC/*": ["src/lib/*"],

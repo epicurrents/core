@@ -12,7 +12,7 @@ import {
     type StudyContextFile,
     type StudyLoader
 } from 'TYPES/study'
-import { studyContextTemplate } from 'CORE/study/loaders/GenericStudyLoader'
+import { studyContextTemplate } from 'ASSETS/study/loaders/GenericStudyLoader'
 
 export default abstract class GenericFileLoader implements FileFormatLoader {
     /**

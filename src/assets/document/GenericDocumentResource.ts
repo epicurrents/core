@@ -7,7 +7,7 @@
 
 import { type DocumentFormat, type DocumentResource } from "TYPES/document"
 import { type StudyContext } from "TYPES/study"
-import GenericResource from "CORE/GenericResource"
+import GenericResource from "ASSETS/GenericResource"
 import { nullPromise } from 'UTIL/general'
 
 const SCOPE = 'GenericDocumentResource'

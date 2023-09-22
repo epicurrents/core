@@ -18,7 +18,7 @@ import { type AssetService } from 'TYPES/service'
 import { type StudyContext, type StudyLoader } from 'TYPES/study'
 import Log from 'scoped-ts-log'
 import SETTINGS from 'CONFIG/Settings'
-import { MixedMediaDataset } from 'CORE/dataset'
+import { MixedMediaDataset } from 'ASSETS/dataset'
 import { PyodideService } from 'SRC/pyodide'
 import { hexToSettingsColor, rgbaToSettingsColor } from 'UTIL/conversions'
 

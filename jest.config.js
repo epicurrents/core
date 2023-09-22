@@ -22,8 +22,8 @@ module.exports = {
                 "moduleResolution": "node",
                 "baseUrl": "./",
                 "paths": {
+                    "ASSETS/*": ["src/assets/*"],
                     "CONFIG/*": ["src/config/*"],
-                    "CORE/*": ["src/core/*"],
                     "ROOT/*": ["./*"],
                     "RUNTIME*": ["src/runtime/index.ts"],
                     "SRC/*": ["src/*"],
@@ -40,8 +40,8 @@ module.exports = {
     ],
     moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",
+        "^ASSETS/(.*)$": "<rootDir>/src/assets/$1",
         "^CONFIG/(.*)$": "<rootDir>/src/config/$1",
-        "^CORE/(.*)$": "<rootDir>/src/core/$1",
         "^ROOT/(.*)$": "<rootDir>/$1",
         "^RUNTIME/(.*)$": "<rootDir>/src/runtime/$1",
         "^SRC/(.*)$": "<rootDir>/src/$1",

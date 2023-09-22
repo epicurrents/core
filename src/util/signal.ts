@@ -18,7 +18,7 @@ import { type SignalCachePart } from 'TYPES/service'
 import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
 import Log from 'scoped-ts-log'
-import { BiosignalMutex } from 'CORE/biosignal'
+import { BiosignalMutex } from 'ASSETS/biosignal'
 import { LTTB } from 'downsample'
 import { NUMERIC_ERROR_VALUE } from './constants'
 

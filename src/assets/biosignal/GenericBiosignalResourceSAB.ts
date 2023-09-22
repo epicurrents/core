@@ -21,9 +21,9 @@ import { type SignalCacheResponse } from "TYPES/service"
 import { type StudyContext } from "TYPES/study"
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
-import GenericResource from "CORE/GenericResource"
+import GenericResource from "ASSETS/GenericResource"
 import { nullPromise } from "UTIL/general"
-import { BiosignalServiceSAB } from "CORE/biosignal"
+import { BiosignalServiceSAB } from "ASSETS/biosignal"
 import { shouldDisplayChannel, getIncludedChannels } from "UTIL/signal"
 
 const SCOPE = 'GenericBiosignalResource'

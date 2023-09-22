@@ -9,7 +9,7 @@ import { type BiosignalResource } from 'TYPES/biosignal'
 import { type BaseAsset } from 'TYPES/core'
 import { type OnnxService, type AvailableModel } from 'TYPES/onnx'
 import Log from 'scoped-ts-log'
-import GenericService from 'CORE/service/GenericService'
+import GenericService from 'ASSETS/service/GenericService'
 
 const SCOPE = 'GenericOnnxService'
 

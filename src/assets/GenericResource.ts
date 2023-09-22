@@ -7,7 +7,7 @@
  */
 
 import { DataResource } from "TYPES/core"
-import GenericAsset from "CORE/GenericAsset"
+import GenericAsset from "ASSETS/GenericAsset"
 import { StudyContext } from "TYPES/study"
 
 const SCOPE = 'GenericResource'

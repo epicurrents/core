@@ -13,9 +13,9 @@ import { type MemoryManager } from "TYPES/core"
 import { type SignalCacheResponse } from "TYPES/service"
 import Log from 'scoped-ts-log'
 import BiosignalMutex from "./BiosignalMutex"
-import GenericService from "CORE/service/GenericService"
+import GenericService from "ASSETS/service/GenericService"
 import { MutexExportProperties } from "asymmetric-io-mutex"
-import { GenericBiosignalMontage } from "CORE/biosignal"
+import { GenericBiosignalMontage } from "ASSETS/biosignal"
 import { mapSignalsToSamplingRates } from "UTIL/signal"
 
 const SCOPE = "MontageService"

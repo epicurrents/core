@@ -33,7 +33,7 @@ import {
     ServiceMemoryManager,
     StudyCollection,
     studyContextTemplate,
-} from "./core"
+} from "./assets"
 export {
     BiosignalAudio,
     BiosignalMutex,
@@ -105,7 +105,7 @@ import SETTINGS from 'CONFIG/Settings'
 import { FileSystemItem, LoaderMode } from 'TYPES/loader'
 import RuntimeStateManager from './runtime'
 import { BaseDataset } from 'TYPES/dataset'
-import GenericAsset from './core/GenericAsset'
+import GenericAsset from './assets/GenericAsset'
 import { AssetService } from 'TYPES/service'
 
 const SCOPE = 'index'

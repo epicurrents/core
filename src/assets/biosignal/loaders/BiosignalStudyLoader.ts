@@ -8,7 +8,7 @@
 import { type VideoAttachment } from "TYPES/biosignal"
 import { type FileFormatLoader } from "TYPES/loader"
 import { type StudyContext } from 'TYPES/study'
-import GenericStudyLoader from "CORE/study/loaders/GenericStudyLoader"
+import GenericStudyLoader from "ASSETS/study/loaders/GenericStudyLoader"
 
 const SCOPE = 'BiosignalStudyLoader'
 

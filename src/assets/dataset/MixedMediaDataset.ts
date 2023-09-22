@@ -7,8 +7,8 @@
 
 import { type MediaDataset } from "TYPES/dataset"
 import { type StudyContext } from "TYPES/study"
-import GenericDataset from "CORE/dataset/GenericDataset"
-import GenericResource from "CORE/GenericResource"
+import GenericDataset from "ASSETS/dataset/GenericDataset"
+import GenericResource from "ASSETS/GenericResource"
 
 export default class MixedMediaDataset extends GenericDataset implements MediaDataset {
     protected _isPrepared = false
