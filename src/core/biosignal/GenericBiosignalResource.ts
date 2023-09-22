@@ -15,6 +15,7 @@ import {
     type BiosignalSetup,
     type VideoAttachment
 } from "TYPES/biosignal"
+import { type CommonBiosignalSettings } from "TYPES/config"
 import { type SignalCacheResponse } from "TYPES/service"
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
@@ -59,9 +60,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         super(name, GenericResource.SCOPES.BIOSIGNAL, type, source)
         this._sensitivity = sensitivity
         // Set default filters
-        this._filters.highpass = SETTINGS.eeg.filters.highpass.default || 0
-        this._filters.lowpass = SETTINGS.eeg.filters.lowpass.default || 0
-        this._filters.notch = SETTINGS.eeg.filters.notch.default || 0
+        this._filters.highpass = (SETTINGS.modules[type] as CommonBiosignalSettings)?.filters.highpass.default || 0
+        this._filters.lowpass = (SETTINGS.modules[type] as CommonBiosignalSettings)?.filters.lowpass.default || 0
+        this._filters.notch = (SETTINGS.modules[type] as CommonBiosignalSettings)?.filters.notch.default || 0
     }
 
     get activeMontage () {

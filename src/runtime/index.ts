@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type AppSettings, type SettingsColor } from 'TYPES/config'
+import { BaseModuleSettings, type AppSettings, type SettingsColor } from 'TYPES/config'
 import {
     type DataResource,
     type RuntimeResourceModule,
@@ -196,7 +196,7 @@ export default class RuntimeStateManager implements StateManager {
             // Go through available modules
             mod_loop:
             for (const [mod, items] of Object.entries(JSON.parse(local))) {
-                const MODULE = SETTINGS[mod as keyof AppSettings]
+                const MODULE = SETTINGS[mod as keyof AppSettings] as BaseModuleSettings
                 field_loop:
                 for (const [field, value] of Object.entries(items as typeof MODULE)) {
                     if (!MODULE._userDefinable) {

@@ -8,7 +8,7 @@
 import { BiosignalAnnotation } from "./biosignal"
 
 export interface AppSettings {
-    _CLONABLE: BaseModuleSettings & AppSettings
+    _CLONABLE: ClonableAppSettings
     app: BaseModuleSettings & {
         /** Maximum number of bytes to load in one chunk. This will be
          * rounded down to the nearest whole data record size - 1
@@ -21,7 +21,7 @@ export interface AppSettings {
         iconLib: string
         isMainComponent: boolean
         /** Messages ≥ this level will be logged. */
-        logThreshold: string
+        logThreshold: "DEBUG" | "INFO" | "WARN" | "ERROR" | "DISABLE"
         /** Load files of this size directly. */
         maxDirectLoadSize: number
         /**
@@ -42,10 +42,20 @@ export interface AppSettings {
     addPropertyUpdateHandler: (field: string, handler: (value?: any) => any, caller?: string) => void
     getFieldValue: (field: string, depth?: number) => SettingsValue
     registerModule: (name: string, moduleSettings: BaseModuleSettings) => void
-    removeAllPropertyUpdateHandlersFor: (caller: string) => void
     removeAllPropertyUpdateHandlers: () => void
+    removeAllPropertyUpdateHandlersFor: (caller: string) => void
     removePropertyUpdateHandler: (field: string, handler: ((value?: any) => any)) => void
 }
+export type ClonableAppSettings = Omit<
+    AppSettings,
+    "_CLONABLE" |
+    "addPropertyUpdateHandler" |
+    "getFieldValue" |
+    "registerModule" |
+    "removeAllPropertyUpdateHandlers" |
+    "removeAllPropertyUpdateHandlersFor" |
+    "removePropertyUpdateHandler"
+>
 type BaseModuleSettings = {
     /**
      * An object defining the composition of the settings menu of
@@ -105,6 +115,7 @@ type BaseModuleSettings = {
      */
     _userDefinable?: { [field: string]: any }
 }
+export type ClonableModuleSettings = { [key: string]: unknown }
 export type CommonBiosignalSettings = {
     annotations: {
         color: SettingsColor

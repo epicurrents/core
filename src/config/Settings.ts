@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { AppSettings, BaseModuleSettings, SettingsValue } from "TYPES/config"
+import { AppSettings, BaseModuleSettings, ClonableAppSettings, ClonableModuleSettings } from "TYPES/config"
 import { MB_BYTES } from "UTIL/constants"
 import Log from "scoped-ts-log"
 
@@ -13,8 +13,8 @@ const SCOPE = 'Settings'
 
 const _propertyUpdateHandlers = [] as {
     caller: string | null
-    field: any
-    handler: (value?: any) => any
+    field: string
+    handler: (value?: unknown) => void
 }[]
 /**
  * Remove the properties that cannot be cloned to a worker and
@@ -23,23 +23,24 @@ const _propertyUpdateHandlers = [] as {
  */
 const clonableSettings = () => {
     // Remove the private _userDefinable (it also can't be cloned).
-    const outSettings = {} as AppSettings
+    const outSettings = {} as { [key: string]: BaseModuleSettings } &
+                              { modules: ClonableModuleSettings }
     for (const mod in SETTINGS) {
         if (mod === '_CLONABLE') {
             // Avoid infinite call stack.
             continue
         }
-        const clonable = {} as any
+        const clonable = {} as BaseModuleSettings
         for (const [field, value] of Object.entries(_settings[mod as keyof typeof _settings])) {
-            if (!field.startsWith('_')) {
-                clonable[field] = value
+            if (!field.startsWith('_') && typeof value !== "function") {
+                clonable[field as keyof BaseModuleSettings] = value
             }
         }
-        outSettings[mod as keyof AppSettings] = clonable
+        outSettings[mod] = clonable
     }
     // Modules.
     for (const [key, mod] of _modules) {
-        const clonable = {} as any
+        const clonable = {} as ClonableModuleSettings
         for (const [field, value] of Object.entries(mod)) {
             if (!field.startsWith('_')) {
                 clonable[field] = value
@@ -47,7 +48,7 @@ const clonableSettings = () => {
         }
         outSettings.modules[key] = clonable
     }
-    return outSettings
+    return outSettings as ClonableAppSettings
 }
 /**
  * Handler for a proxied settings object. Will proxy all object
@@ -59,7 +60,7 @@ const clonableSettings = () => {
  * by the runtime state manager, making both of these obsolete.
  */
 const proxyHandler = {
-    get (target: any, key: string|symbol, receiver: any): any {
+    get (target: any, key: string|symbol, receiver: unknown): unknown {
         // Check if module settings have been initialized.
         if (
             target === _settings.modules &&
@@ -84,7 +85,7 @@ const proxyHandler = {
             return Reflect.get(target, key, receiver)
         }
     },
-    set (target: any, key: string|symbol, value: any, receiver: any) {
+    set (target: any, key: string|symbol, value: unknown, receiver: unknown) {
         const success = Reflect.set(target, key, value, receiver)
         return success
     },
@@ -122,16 +123,13 @@ const _settings = {
         MNE: true,
         ONNX: false,
     },
-    addPropertyUpdateHandler (field: string, handler: (value?: any) => any, caller?: string) {
+    addPropertyUpdateHandler (field: string, handler: (value?: unknown) => unknown, caller?: string) {
         for (const update of _propertyUpdateHandlers) {
             if ((!field || field === update.field) && handler === update.handler) {
                 // Don't add the same handler twice
                 return
             }
         }
-        // Get parent field
-        const parentField = this.getFieldValue(field, -1) as SettingsValue
-        const propName = field.split('.').pop()
         // The value must be updated both in local app state and global settings
         if (caller) {
             _propertyUpdateHandlers.push({
@@ -145,7 +143,7 @@ const _settings = {
     getFieldValue (field: string, depth?: number) {
         // Traverse field's "path" to target property
         const fPath = field.split('.')
-        let configFields = [SETTINGS] as any[]
+        const configFields = [SETTINGS] as any[]
         let i = 0
         for (const f of fPath) {
             if (
@@ -180,7 +178,7 @@ const _settings = {
     },
     removeAllPropertyUpdateHandlers () {
         const removed = _propertyUpdateHandlers.splice(0)
-        for (const { caller, field, handler } of removed) {
+        for (const { field, handler } of removed) {
             _settings.removePropertyUpdateHandler(field, handler)
         }
         Log.debug(`Removing all ${removed.length} property update handlers.`, SCOPE)
@@ -194,7 +192,7 @@ const _settings = {
             }
         }
     },
-    removePropertyUpdateHandler (field: any, handler: (value?: any) => any) {
+    removePropertyUpdateHandler (field: string, handler: (value?: unknown) => unknown) {
         // Remove it from the list of handler references
         for (let i=0; i<_propertyUpdateHandlers.length; i++) {
             const update = _propertyUpdateHandlers[i]
@@ -211,6 +209,6 @@ const _settings = {
 const SETTINGS = new Proxy(
     _settings,
     proxyHandler
-)
+) as AppSettings
 
 export default SETTINGS
