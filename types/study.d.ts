@@ -8,7 +8,7 @@
  * from some renovation.
  */
 
-import { DataResource, MemoryManager } from "./core"
+import { DataResource, MemoryManager } from "./assets"
 import { FileSystemItem, FileFormatLoader, LoaderMode } from "./loader"
 
 

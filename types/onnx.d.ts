@@ -6,7 +6,7 @@
  */
 
 import { BiosignalResource } from "./biosignal"
-import { BaseAsset } from "./core"
+import { BaseAsset } from "./assets"
 import { AssetService } from "./service"
 
 /**

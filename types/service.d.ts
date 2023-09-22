@@ -6,7 +6,7 @@
  */
 
 import { type AsymmetricMutex, type MutexExportProperties } from "asymmetric-io-mutex"
-import { BaseAsset } from "./core"
+import { BaseAsset } from "./assets"
 import { LoadDirection } from "./loader"
 
 type ActionWatcher = {

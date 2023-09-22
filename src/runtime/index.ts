@@ -11,7 +11,7 @@ import {
     type RuntimeResourceModule,
     type RuntimeState,
     type StateManager
-} from 'TYPES/core'
+} from 'TYPES/assets'
 import { type DatasetLoader, type MediaDataset } from 'TYPES/dataset'
 import { type FileSystemItem } from 'TYPES/loader'
 import { type AssetService } from 'TYPES/service'

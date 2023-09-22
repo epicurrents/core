@@ -6,7 +6,7 @@
  * @license    Apache-2.0
  */
 
-import { type BaseAsset, type EpiCurrentsApplication } from "TYPES/core"
+import { type BaseAsset, type EpiCurrentsApplication } from "TYPES/assets"
 import Log from 'scoped-ts-log'
 import { safeObjectFrom } from 'UTIL/general'
 

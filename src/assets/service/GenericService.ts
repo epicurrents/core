@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { MemoryManager } from "TYPES/core"
+import { MemoryManager } from "TYPES/assets"
 import {
     type ActionWatcher,
     type AssetService,

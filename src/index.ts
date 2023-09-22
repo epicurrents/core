@@ -99,14 +99,14 @@ import {
     type InterfaceModuleConstructor,
     type DataResource,
     type ResourceModule,
-} from 'TYPES/core'
+} from 'TYPES/assets'
+import { AssetService } from 'TYPES/service'
+import { BaseDataset } from 'TYPES/dataset'
+import { FileSystemItem, LoaderMode } from 'TYPES/loader'
 import SETTINGS from 'CONFIG/Settings'
 
-import { FileSystemItem, LoaderMode } from 'TYPES/loader'
 import RuntimeStateManager from './runtime'
-import { BaseDataset } from 'TYPES/dataset'
 import GenericAsset from './assets/GenericAsset'
-import { AssetService } from 'TYPES/service'
 
 const SCOPE = 'index'
 let INSTANCE_NUM = 1

@@ -106,7 +106,7 @@ import {
     type RuntimeState,
     type SafeObject,
     type StateManager,
-} from "./core"
+} from "./assets"
 export {
     BaseAsset,
     DataResource,

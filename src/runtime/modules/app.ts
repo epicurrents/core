@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type RuntimeAppModule, type SafeObject } from "TYPES/core"
+import { type RuntimeAppModule, type SafeObject } from "TYPES/assets"
 import { type BiosignalPlot } from "TYPES/plot"
 import { type StudyLoaderContext, type StudyLoaderProtocolContext } from "TYPES/study"
 

@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset, DataResource, SafeObject } from './core'
+import { BaseAsset, DataResource, SafeObject } from './assets'
 import { LoadDirection } from './loader'
 import {
     AsymmetricMutex,

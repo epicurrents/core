@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type ManagedService, type MemoryManager } from "TYPES/core"
+import { type ManagedService, type MemoryManager } from "TYPES/assets"
 import { type WorkerCommission, type WorkerMessage } from "TYPES/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"

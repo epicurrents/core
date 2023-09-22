@@ -12,7 +12,7 @@ import {
     type BiosignalSetup,
     type MontageChannel,
 } from 'TYPES/biosignal'
-import { type MemoryManager } from 'TYPES/core'
+import { type MemoryManager } from 'TYPES/assets'
 import { type HighlightContext, type SignalHighlight } from 'TYPES/plot'
 import { type SignalCachePart, type SignalCacheResponse } from 'TYPES/service'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'

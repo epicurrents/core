@@ -9,7 +9,7 @@ import {
     type BiosignalMontageService,
     type MontageChannel,
 } from "TYPES/biosignal"
-import { type MemoryManager } from "TYPES/core"
+import { type MemoryManager } from "TYPES/assets"
 import { type SignalCacheResponse } from "TYPES/service"
 import Log from 'scoped-ts-log'
 import BiosignalMutex from "./BiosignalMutex"

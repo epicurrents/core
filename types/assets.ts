@@ -1,5 +1,5 @@
 /**
- * Core types.
+ * Asset types. Asset is the root type of all classes and resources used in EpiCurrents.
  * @package    epicurrents-core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0

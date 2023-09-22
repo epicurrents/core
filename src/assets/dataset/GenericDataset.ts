@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource } from "TYPES/core"
+import { type DataResource } from "TYPES/assets"
 import {
     type BaseDataset,
     type DatasetCredentials,

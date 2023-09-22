@@ -16,7 +16,7 @@ import {
     type VideoAttachment
 } from "TYPES/biosignal"
 import { type CommonBiosignalSettings } from "TYPES/config"
-import { type MemoryManager } from "TYPES/core"
+import { type MemoryManager } from "TYPES/assets"
 import { type SignalCacheResponse } from "TYPES/service"
 import { type StudyContext } from "TYPES/study"
 import Log from 'scoped-ts-log'
