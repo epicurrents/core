@@ -37,7 +37,7 @@ export default class FileSystemDirectory implements FileSystemItem {
         if (!files.length) {
             return fsItem
         }
-        if (files.some((f, i, a) => !f.webkitRelativePath)) {
+        if (files.some((f) => !f.webkitRelativePath)) {
             Log.error(
                 `At least one of the files given to ${SCOPE}. ` +
                 `FileListToFsItem does not have a valid webkitRelativePath property.`,

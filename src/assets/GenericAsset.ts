@@ -39,7 +39,7 @@ export default abstract class GenericAsset implements BaseAsset {
     protected _name: string
     protected _propertyUpdateHandlers: {
         caller: string | null
-        handler: (newValue?: any, oldValue?: any) => any
+        handler: (newValue?: unknown, oldValue?: unknown) => unknown
         pattern: RegExp
         property: string
     }[] = []
@@ -95,7 +95,7 @@ export default abstract class GenericAsset implements BaseAsset {
     //                   METHODS                     //
     ///////////////////////////////////////////////////
 
-    addPropertyUpdateHandler (property: string, handler: (value?: any) => any, caller?: string) {
+    addPropertyUpdateHandler (property: string, handler: (value?: unknown) => unknown, caller?: string) {
         for (const update of this._propertyUpdateHandlers) {
             if (property === update.property && handler === update.handler) {
                 // Don't add the same handler twice
@@ -111,7 +111,7 @@ export default abstract class GenericAsset implements BaseAsset {
         Log.debug(`Added a handler for ${property}.`, SCOPE)
     }
 
-    onPropertyUpdate (property: string, newValue?: any, oldValue?: any) {
+    onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
         for (const update of this._propertyUpdateHandlers) {
             if (update.property === property || property.match(update.pattern)) {
                 Log.debug(`Executing ${property} handler${update.caller ? ' for ' + update.caller : ''}.`, SCOPE)
@@ -136,7 +136,7 @@ export default abstract class GenericAsset implements BaseAsset {
         }
     }
 
-    removePropertyUpdateHandler (property: string, handler: () => any) {
+    removePropertyUpdateHandler (property: string, handler: () => unknown) {
         for (let i=0; i<this._propertyUpdateHandlers.length; i++) {
             const update = this._propertyUpdateHandlers[i]
             if (property === update.property && handler === update.handler) {

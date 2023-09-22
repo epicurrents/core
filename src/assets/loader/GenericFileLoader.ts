@@ -92,17 +92,17 @@ export default abstract class GenericFileLoader implements FileFormatLoader {
     }
 
 
-    getFileTypeWorker (sab = false): Worker | null {
+    getFileTypeWorker (): Worker | null {
         return null
     }
 
-    async getMimeFromFile (file: File) {
+    /*async getMimeFromFile (file: File) {
         const header = new Uint8Array(await file.arrayBuffer()).subarray(0, 16)
         let headerText = ''
         for (const byte of header) {
             headerText += byte.toString(16)
         }
-    }
+    }*/
 
     isSupportedScope (scope: string) {
         for (const supportedScope of this._scopes) {
@@ -114,7 +114,7 @@ export default abstract class GenericFileLoader implements FileFormatLoader {
     }
 
     async loadFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
-        if (source.hasOwnProperty('url')) {
+        if (Object.hasOwn(source, 'url')) {
             return source as StudyContextFile
         }
         return {
@@ -127,7 +127,7 @@ export default abstract class GenericFileLoader implements FileFormatLoader {
     }
 
     async loadUrl (source: string | StudyContextFile): Promise<StudyContextFile|null> {
-        if (source.hasOwnProperty('url')) {
+        if (typeof source === 'object' && Object.hasOwn(source, 'url')) {
             return source as StudyContextFile
         }
         return {

@@ -6,6 +6,7 @@
  */
 
 import {
+    BiosignalChannelProperties,
     type BiosignalChannel,
     type BiosignalFilters,
     type BiosignalMontage,
@@ -18,7 +19,7 @@ import { type SignalCachePart } from 'TYPES/service'
 import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
 import Log from 'scoped-ts-log'
-import { BiosignalMutex } from 'ASSETS/biosignal'
+//import { BiosignalMutex } from 'ASSETS/biosignal'
 import { LTTB } from 'downsample'
 import { NUMERIC_ERROR_VALUE } from './constants'
 
@@ -35,7 +36,7 @@ const iirCalculator = new Fili.CalcCascades()
  * @remarks
  * This used to be a helper method in a removed feature. It is kept here in case the feature
  * in question or a similar feature is added.
- */
+
 const calculateReferencedSignals = async (
     source: BiosignalMutex,
     sourceChannels: BiosignalChannel[],
@@ -128,6 +129,7 @@ const calculateReferencedSignals = async (
         }))
     }
 }
+*/
 
 /**
  * Calculate and update signal offsets (from trace baseline) for given channels using the given layout configuration.
@@ -164,7 +166,7 @@ const calculateReferencedSignals = async (
  * // with each group separated by 2 times the amount of spacing of the individual channels inside each group.
  */
 export const calculateSignalOffsets = (
-    channels: BiosignalChannel[],
+    channels: BiosignalChannelProperties[],
     config?: {
         channelSpacing: number,
         groupSpacing: number,
@@ -758,33 +760,10 @@ export const mapMontageChannels = (
         yPadding: number
     }
 ): MontageChannel[] => {
-    /** Valid properties for the prototype channel. */
-    type ChannelProperties = {
-        active?: number
-        amplification?: number
-        averaged?: boolean
-        displayPolarity?: -1 | 0 | 1
-        height?: number
-        label?: string
-        laterality?: string
-        name?: string
-        offset?: {
-            baseline: number
-            bottom: number
-            top: number
-        }
-        reference?: number[]
-        sampleCount?: number
-        samplingRate?: number
-        sensitivity?: number
-        type?: string
-        unit?: string,
-        visible?: boolean
-    }
     /**
      * Helper method for producing a prototype channel and injecting any available properties into it.
      */
-    const getChannel = (props?: ChannelProperties): any => {
+    const getChannel = (props?: BiosignalChannelProperties): MontageChannel => {
         // If visibility is set in config, use it. Otherwise hide if meta channel.
         const visible = props?.visible !== undefined ? props.visible
                         : props?.type === 'meta' ? false : true
@@ -804,7 +783,7 @@ export const mapMontageChannels = (
             offset: props?.offset || 0.5,
             visible: visible,
             unit: props?.unit || '?',
-        } as ChannelProperties
+        } as MontageChannel
         return newChan
     }
     // Check that we have a valid setup.
@@ -1033,7 +1012,9 @@ export const resampleSignal = (signal: Float32Array, targetLen: number) => {
         data.push({ x: i, y: sample})
         i++
     }
-    return Float32Array.from((LTTB(data, targetLen) as any).map((p: { y: number }) => p.y))
+    return Float32Array.from(
+        (LTTB(data, targetLen) as unknown as Array<{ y: number }>).map((p) => p.y)
+    )
 }
 
 export const shouldFilterSignal = (filters: BiosignalFilters, channel: BiosignalChannel) => {
@@ -1055,7 +1036,7 @@ export const shouldFilterSignal = (filters: BiosignalFilters, channel: Biosignal
  *                 - `showMissingChannels` boolean - Show an empty space where a missing channel should be.
  */
 export const shouldDisplayChannel = (
-    channel: BiosignalChannel | null,
+    channel: BiosignalChannelProperties | null,
     useRaw: boolean,
     config?: {
         showHiddenChannels: boolean

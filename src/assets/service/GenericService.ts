@@ -12,7 +12,6 @@ import {
     type CommissionMap,
     type CommissionPromise,
     type WorkerMessage,
-    type WorkerResponse,
 } from "TYPES/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"
@@ -118,24 +117,23 @@ export default class GenericService extends GenericAsset implements AssetService
      */
      protected _commissionWorker (
         action: string,
-        props?: Map<string, any>,
-        callbacks?: { resolve: ((value?: any) => void), reject: ((reason: string) => void) },
+        props?: Map<string, unknown>,
+        callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason: string) => void) },
         overwriteRequest = false
-    ): WorkerResponse {
+    ): CommissionPromise {
         if (!this._worker) {
             return {
                 promise: nullPromise,
-                reject: () => {},
                 resolve: () => {},
-                rn: NUMERIC_ERROR_VALUE
+                rn: NUMERIC_ERROR_VALUE,
             }
         }
         const commission = callbacks ? callbacks : {
-            reject: (reason: string) => {},
-            resolve: (value: unknown) => {},
+            reject: () => {},
+            resolve: () => {},
         }
         // Use custom callbacks if they have been given.
-        const returnPromise = new Promise<any>((resolve, reject) => {
+        const returnPromise = new Promise<unknown>((resolve, reject) => {
             commission.resolve = resolve
             commission.reject = reject
         })
@@ -159,7 +157,6 @@ export default class GenericService extends GenericAsset implements AssetService
         }
         commMap.set(requestNum, {
             rn: requestNum,
-            success: false,
             reject: commission.reject,
             resolve: commission.resolve,
         })
@@ -177,7 +174,7 @@ export default class GenericService extends GenericAsset implements AssetService
      * @param message - Message containing a possible commission.
      * @returns CommissionPromise or undefined if no commission found.
      */
-    protected _getCommissionForMessage (message: any) {
+    protected _getCommissionForMessage (message: { data: WorkerMessage }) {
         const commMap = this._commissions.get(message?.data?.action)
         if (commMap) {
             // Messages that arrive from the worker without a commission
@@ -202,7 +199,7 @@ export default class GenericService extends GenericAsset implements AssetService
      * @param message - Message object from worker.
      * @returns True if handled, false otherwise.
      */
-    protected async _handleWorkerResponse (message: any) {
+    protected async _handleWorkerResponse (message: { data: WorkerMessage }) {
         const data = message.data
         if (!data || !data.action) {
             return false
@@ -255,7 +252,7 @@ export default class GenericService extends GenericAsset implements AssetService
      * @param message - An update message without a matching commission.
      * @returns true if handled, false otherwise.
      */
-    protected _handleWorkerUpdate (message: any): boolean {
+    protected _handleWorkerUpdate (message: { data: WorkerMessage }): boolean {
         const data = message.data
         if (!data || !data.action) {
             return false
@@ -359,7 +356,7 @@ export default class GenericService extends GenericAsset implements AssetService
         this._shiftBuffer = true
         const commission = this._commissionWorker(
             'set-buffer-range',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['range', range],
             ])
         )
@@ -387,7 +384,7 @@ export default class GenericService extends GenericAsset implements AssetService
         this._setupBuffer = true
         const commission = this._commissionWorker(
             'setup-buffer',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['buffer', this._manager.buffer],
                 ['range', this._memoryRange],
             ])

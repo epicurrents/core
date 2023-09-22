@@ -5,30 +5,31 @@
  * @license    Apache-2.0
  */
 
+import { type MemoryManager } from "TYPES/assets"
 import {
+    type BiosignalMontage,
     type BiosignalMontageService,
     type MontageChannel,
 } from "TYPES/biosignal"
-import { type MemoryManager } from "TYPES/assets"
-import { type SignalCacheResponse } from "TYPES/service"
+import { type ConfigChannelFilter } from "TYPES/config"
+import { type SignalCacheResponse, type WorkerMessage } from "TYPES/service"
 import Log from 'scoped-ts-log'
 import BiosignalMutex from "./BiosignalMutex"
 import GenericService from "ASSETS/service/GenericService"
 import { MutexExportProperties } from "asymmetric-io-mutex"
-import { GenericBiosignalMontage } from "ASSETS/biosignal"
 import { mapSignalsToSamplingRates } from "UTIL/signal"
 
 const SCOPE = "MontageService"
 
 export default class MontageServiceSAB extends GenericService implements BiosignalMontageService {
     private _mutex = null as null | BiosignalMutex
-    private _montage: GenericBiosignalMontage
+    private _montage: BiosignalMontage
 
     get instance () {
         return this._montage.name
     }
 
-    constructor (namespace: string, montage: GenericBiosignalMontage, manager: MemoryManager) {
+    constructor (namespace: string, montage: BiosignalMontage, manager: MemoryManager) {
         super(SCOPE, new Worker(new URL(`SRC/core/biosignal/workers/MontageWorker.ts`, import.meta.url)), manager)
         this._worker?.postMessage({
             action: 'settings-namespace',
@@ -49,7 +50,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
             end: this._montage.cacheStatus.end,
             signals: []
         })
-        const channels = JSON.stringify(([] as MontageChannel[]).concat(this._montage.channels))
+        const channels = JSON.stringify(([] as (MontageChannel|null)[]).concat(this._montage.channels))
         const filters = JSON.stringify(this._montage.filters)
         this._worker?.postMessage({
             action: 'cache-montage-signals',
@@ -60,63 +61,20 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         })
     }
 
-    async getSignals (range: number[], config?: any) {
-        //if (SETTINGS.eeg.filters.usePython && store?.state.PYODIDE && this._mutex) {
-            /*****************
-             *     BROKEN
-            const derivedSignals = [] as { data: Float32Array, samplingRate: number }[]
-            await calculateReferencedSignals(this._mutex, this._montage.channels, range[0], range[1], config)
-            for (let i=0; i<this._montage.channels.length; i++) {
-                const chan = this._montage.channels[i]
-                const emptySig = {
-                    data: new Float32Array(),
-                    samplingRate: chan.samplingRate
-                }
-                // Remove missing and inactive channels
-                if (chan.active === NUMERIC_ERROR_VALUE) {
-                    derivedSignals.push(emptySig)
-                    continue
-                }
-                const highpass = chan.highpassFilter
-                const lowpass = chan.lowpassFilter
-                const notch = chan.notchFilter
-                // Pass the request to python worker
-                await (self as any).PYODIDE?.runCode('construct_filter()', {
-                    order: 6,
-                    cf: highpass && lowpass ? [highpass, lowpass]
-                        : highpass ? highpass
-                        : lowpass ? lowpass
-                        : 0,
-                    fs: chan.samplingRate,
-                    kind: highpass && lowpass ? 'bandpass'
-                        : highpass ? 'highpass'
-                        : lowpass ? 'lowpass'
-                        : '',
-                })
-                const output = await (self as any).PYODIDE?.runCode('filter_signal()', {
-                    output: null,
-                    source: chan.signal,
-                })
-                if (output?.success) {
-                    chan.signal.set(output.results)
-                }
-            }
-             ******************/
-        //} else {
-            const signals = this._commissionWorker(
-                'get-signals',
-                new Map<string, any>([
-                    ['range', range],
-                    ['config', config],
-                ]),
-                undefined,
-                config?.overwriteRequest === true ? true : false
-            )
-            return signals.promise as Promise<SignalCacheResponse>
-        //}
+    async getSignals (range: number[], config?: ConfigChannelFilter & { overwriteRequest?: boolean }) {
+        const signals = this._commissionWorker(
+            'get-signals',
+            new Map<string, unknown>([
+                ['range', range],
+                ['config', config],
+            ]),
+            undefined,
+            config?.overwriteRequest === true ? true : false
+        )
+        return signals.promise as Promise<SignalCacheResponse>
     }
 
-    async handleMessage (message: any) {
+    async handleMessage (message: { data: WorkerMessage }) {
         const data = message.data
         if (!data) {
             return false
@@ -133,7 +91,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 this._montage?.saveSignalsToCache({
                     start: data.range[0],
                     end: data.range[1],
-                    signals: mapSignalsToSamplingRates(data.signals, this._montage as any)
+                    signals: mapSignalsToSamplingRates(data.signals, this._montage as BiosignalMontage)
                 })
             }
             return true
@@ -181,7 +139,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
     mapChannels (): Promise<void> {
         const channels = this._commissionWorker(
             'map-channels',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['config', this._montage.config]
             ])
         )
@@ -205,14 +163,14 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         // This can happen when changing filters on multiple channels at the same time.
         const channelFilters = this._montage.channels.map(c => {
             return {
-                highpass: c.highpassFilter,
-                lowpass: c.lowpassFilter,
-                notch: c.notchFilter,
+                highpass: c?.highpassFilter || 0,
+                lowpass: c?.lowpassFilter || 0,
+                notch: c?.notchFilter || 0,
             }
         })
         const filters = this._commissionWorker(
             'set-filters',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['filters', JSON.stringify(this._montage.filters)],
                 ['channels', channelFilters],
             ])
@@ -233,7 +191,9 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         let totalMem = 4 // From lock and meta fields.
         const dataFieldsLen = BiosignalMutex.SIGNAL_DATA_POS
         for (const chan of this._montage.channels) {
-            // TODO allocate data for channel signals as well.
+            if (chan) {
+                // TODO: allocate memory for channel signals as well.
+            }
             totalMem += dataFieldsLen
         }
         const bufferPart =  await this.requestMemory(totalMem)
@@ -248,7 +208,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         )
         const montage = this._commissionWorker(
             'setup-montage',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['montage', this._montage.name],
                 ['config', this._montage.config],
                 ['input', BiosignalMutex.convertPropertiesForCoupling(inputProps)],

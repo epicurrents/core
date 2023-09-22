@@ -6,13 +6,14 @@
  */
 
 import Log from 'scoped-ts-log'
+import { type MemoryManager } from 'TYPES/assets'
 import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
     type MontageChannel,
 } from 'TYPES/biosignal'
-import { type MemoryManager } from 'TYPES/assets'
+import { type ConfigChannelFilter, type ConfigMapChannels } from 'TYPES/config'
 import { type HighlightContext, type SignalHighlight } from 'TYPES/plot'
 import { type SignalCachePart, type SignalCacheResponse } from 'TYPES/service'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
@@ -37,7 +38,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         signals: []
     } as SignalCachePart
     protected _cacheParts = [] as SignalCachePart[]
-    protected _config: any =  null
+    protected _config: unknown =  null
     protected _dataGaps = new Map<number, number>()
     protected _filters = {
         highpass: 0,
@@ -167,7 +168,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             for (const ex of context.highlights) {
                 if (hl.type == ex.type && hl.start === ex.start && hl.end === ex.end) {
                     // Don't add the same highlight again
-                    if (hl.channels.every((v, i, a) => v === ex.channels[i])) {
+                    if (hl.channels.every((v, i) => v === ex.channels[i])) {
                         continue highlight_loop
                     }
                 }
@@ -183,7 +184,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
     }
 
-    async getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse> {
+    async getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
         // Check if we have the requested signals in cache
         const derivedSignals = {
             start: range[0],
@@ -195,8 +196,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             for (let i=0; i<this._cachedSignals.signals.length; i++) {
                 // Exlude channels based on request or missing active signal
                 if (
-                    config?.include?.length && config.include.indexOf(this._channels[i].name) === -1 ||
-                    config?.exclude?.length && config.exclude.indexOf(this._channels[i].name) !== -1 ||
+                    config?.include?.length && config.include.indexOf(i) === -1 ||
+                    config?.exclude?.length && config.exclude.indexOf(i) !== -1 ||
                     this._channels[i].active === NUMERIC_ERROR_VALUE
                 ) {
                     derivedSignals.signals.push({
@@ -205,7 +206,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
                     })
                     continue
                 }
-                const start = Math.max(Math.round((range[0] - this._cachedSignals.start)*this._channels[i].samplingRate), 0)
+                const start = Math.max(
+                    Math.round((range[0] - this._cachedSignals.start)*this._channels[i].samplingRate),
+                    0
+                )
                 const end = Math.min(
                     Math.round((range[1] - this._cachedSignals.start)*this._channels[i].samplingRate),
                     this._channels[i].samplingRate*this._recording.totalDuration
@@ -230,8 +234,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         for (let i=0; i<response.signals.length; i++) {
             // Exlude channels based on request or missing active signal
             if (
-                config?.include?.length && config.include.indexOf(this._channels[i].name) === -1 ||
-                config?.exclude?.length && config.exclude.indexOf(this._channels[i].name) !== -1 ||
+                config?.include?.length && config.include.indexOf(i) === -1 ||
+                config?.exclude?.length && config.exclude.indexOf(i) !== -1 ||
                 this._channels[i].active === NUMERIC_ERROR_VALUE
             ) {
                 derivedSignals.signals.push({
@@ -245,7 +249,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return derivedSignals
     }
 
-    async getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse> {
+    async getChannelSignal (channel: number | string, range: number[], config?: ConfigChannelFilter):
+    Promise<SignalCacheResponse> {
         // This is just an alias for getAllSignals with a channel filter
         if (!config) {
             // Initialize config
@@ -265,7 +270,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this.getAllSignals(range, config)
     }
 
-    mapChannels (config?: any) {
+    mapChannels (config?: ConfigMapChannels) {
         this._channels = mapMontageChannels(this._setup, config)
     }
 
@@ -405,9 +410,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         })
     }
 
-    async setupLoader (inputProps: MutexExportProperties, buffer: SharedArrayBuffer, bufferStart: number) {
-        return this._service.setupMontage(inputProps)?.then((response) => {
-        })
+    async setupLoader (inputProps: MutexExportProperties) {
+        return this._service.setupMontage(inputProps)
     }
 
     startCachingSignals () {

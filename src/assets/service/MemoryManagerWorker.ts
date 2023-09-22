@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { type WorkerMessage } from 'TYPES/service'
 import IOMutex from 'asymmetric-io-mutex'
 import { log } from 'SRC/util/worker'
 
@@ -14,13 +15,13 @@ let VIEW = null as Int32Array | null
 const SCOPE = 'MemoryManagerWorker'
 const WAIT_TIMEOUT = 5000
 
-onmessage = async (message: any) => {
+onmessage = async (message: { data: WorkerMessage }) => {
     if (!message?.data?.action) {
         return
     }
     const action = message.data.action
     let success = false
-    const props = {} as { [key: string]: any }
+    const props = {} as { [key: string]: unknown }
     if (action === 'release-and-rearrange') {
         const rearrange = message.data.rearrange || []
         success = removeAndRearrange(message.data.release, rearrange)
@@ -68,10 +69,12 @@ const removeAndRearrange = (remove: number[][], rearrange: { id: string, range: 
     }
     // Wait that each of the arrays to rearrange to be unlocked.
     for (const toRetain of rearrange) {
-        while (true) {
+        let keepWaiting = true
+        while (keepWaiting) {
             // Lock byte is at the start of the array.
             const prevValue = Atomics.load(VIEW, toRetain.range[0])
             if (prevValue === IOMutex.UNLOCKED_VALUE) {
+                keepWaiting = false
                 break
             }
             // Else, keep waiting for the lock to release.

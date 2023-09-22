@@ -6,12 +6,12 @@
  */
 
 import { type ManagedService, type MemoryManager } from "TYPES/assets"
-import { type WorkerCommission, type WorkerMessage } from "TYPES/service"
+import { CommissionPromise, type WorkerMessage } from "TYPES/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "CONFIG/Settings"
 import { AssetService } from "TYPES/service"
 import { GB_BYTES, NUMERIC_ERROR_VALUE } from "UTIL/constants"
-import { nullPromise } from "UTIL/general"
+import { nullPromise, safeObjectFrom } from "UTIL/general"
 
 const SCOPE = 'ServiceMemoryManager'
 
@@ -26,7 +26,11 @@ export default class ServiceMemoryManager implements MemoryManager {
     protected _commissions = {
         'release-and-rearrange': null,
     } as {
-        [action: string]: { rn: number, resolve: (value?: any) => any,  reject?: (reason: any) => void } | null
+        [action: string]: {
+            rn: number,
+            resolve: (value?: unknown) => unknown,
+            reject?: (reason: string) => void
+        } | null
     }
     protected _decommissionWorker: {
         resolve: () => void,
@@ -93,51 +97,54 @@ export default class ServiceMemoryManager implements MemoryManager {
         return totalUsed/4
     }
 
+    /**
+     * Commission the worker to perform an action.
+     * @param action - Name of the action to perform.
+     * @param props - Additional properties to inject into the message (optional).
+     * @param callbacks - Optional custom callbacks for resolving (and possibly rejecting) the action.
+     */
     protected _commissionWorker (
         action: string,
-        props?: Map<string, any>,
-        callbacks?: { resolve: ((value?: any) => void), reject?: ((reason: string) => void) },
-    ): WorkerCommission {
+        props?: Map<string, unknown>,
+        callbacks?: { resolve: ((value?: unknown) => void), reject?: ((reason: string) => void) },
+    ): CommissionPromise {
         if (!this._worker) {
             return {
                 promise: nullPromise,
-                requestNum: NUMERIC_ERROR_VALUE
+                resolve: () => {},
+                rn: NUMERIC_ERROR_VALUE,
             }
         }
         const commission = callbacks ? callbacks : {
-            reject: (reason: string) => {},
-            resolve: (value: unknown) => {},
+            // These will be overridden.
+            reject: () => {},
+            resolve: () => {},
         }
         // Use custom callbacks if they have been given.
-        const returnPromise = new Promise<any>((resolve, reject) => {
+        const returnPromise = new Promise<unknown>((resolve, reject) => {
             commission.resolve = resolve
             commission.reject = reject
         })
         const requestNum = this._requestNum++
-        const msgData = {
+        const msgData = safeObjectFrom({
             action: action,
             rn: requestNum
-        } as WorkerMessage
+        }) as WorkerMessage
         if (props) {
             for (const [key, value] of props)  {
-                // Check for underscore in key.
-                if (key.includes('__proto__')) {
-                    Log.warn(
-                        `Commission prop name ${key} contains insecure field '_proto__', property was ignored.`,
-                        SCOPE)
-                    continue
-                }
                 msgData[key] = value
             }
         }
         this._worker.postMessage(msgData)
         return {
             promise: returnPromise,
-            requestNum: requestNum
+            reject: commission.reject,
+            resolve: commission.resolve,
+            rn: requestNum
         }
     }
 
-    protected _handleMessage (message: any) {
+    protected _handleMessage (message: { data: WorkerMessage }) {
         const action = message?.data?.action
         if (!action || action === 'set-buffer') {
             return
@@ -230,6 +237,7 @@ export default class ServiceMemoryManager implements MemoryManager {
                 await nextToDrop.service.unload()
                 rangesFreed.push(nextToDrop.bufferRange)
                 this._managed.delete(nextToDrop.service.id)
+                totalFreed += nextToDrop.bufferRange[1] - nextToDrop.bufferRange[0]
                 if (totalFreed >= amount) {
                     // Rearrange buffer and report success.
                     this.removeFromBuffer(...rangesFreed)
@@ -305,7 +313,7 @@ export default class ServiceMemoryManager implements MemoryManager {
         }
         const commission = this._commissionWorker(
             'release-and-rearrange',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['rearrange', loaderRanges],
                 ['release', ranges],
             ])

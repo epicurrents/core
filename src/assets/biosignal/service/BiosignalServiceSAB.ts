@@ -9,14 +9,16 @@ import {
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
+    type BiosignalSetupResponse,
 } from "TYPES/biosignal"
 import { type MemoryManager } from "TYPES/assets"
-import { type SignalCacheResponse } from "TYPES/service"
+import { type SignalCacheResponse, type WorkerMessage } from "TYPES/service"
 import { type StudyContext } from "TYPES/study"
 import Log from 'scoped-ts-log'
 import SETTINGS from "CONFIG/Settings"
 import GenericService from "ASSETS/service/GenericService"
 import { NUMERIC_ERROR_VALUE } from "UTIL/constants"
+import { ConfigChannelFilter } from "TYPES/config"
 
 const SCOPE = "BiosignalService"
 
@@ -27,7 +29,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
     /** Parent recording of this loader. */
     protected _recording: BiosignalResource
     /** Resolved or rejected based on the success of worker setup. */
-    protected _setupWorker: Promise<any> | null = null
+    protected _setupWorker: Promise<BiosignalSetupResponse> | null = null
     protected _signalBufferStart = NUMERIC_ERROR_VALUE
 
     get isReady () {
@@ -89,13 +91,13 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
         return commission.promise
     }
 
-    async getSignals (range: number[], config?: any): Promise<SignalCacheResponse> {
+    async getSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
         if (!(await this._isStudyReady())) {
             return null
         }
         const commission = this._commissionWorker(
             'get-signals',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['range', range],
                 ['config', config],
             ])
@@ -103,7 +105,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
         return commission.promise
     }
 
-    async handleMessage (message: any) {
+    async handleMessage (message: { data: WorkerMessage }) {
         const data = message.data
         if (!data) {
             return false
@@ -163,7 +165,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
         Log.info(`Loading study ${study.name} in worker.`, SCOPE)
         const commission = this._commissionWorker(
             'setup-study',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['header', header.serializable],
                 ['urls', fileUrls],
             ])

@@ -100,9 +100,10 @@ import {
     type DataResource,
     type ResourceModule,
 } from 'TYPES/assets'
-import { AssetService } from 'TYPES/service'
-import { BaseDataset } from 'TYPES/dataset'
-import { FileSystemItem, LoaderMode } from 'TYPES/loader'
+import { type SettingsValue } from "TYPES/config"
+import { type AssetService } from 'TYPES/service'
+import { type BaseDataset } from 'TYPES/dataset'
+import { type FileSystemItem, type LoaderMode } from 'TYPES/loader'
 import SETTINGS from 'CONFIG/Settings'
 
 import RuntimeStateManager from './runtime'
@@ -149,7 +150,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
      *  { 'services.MNE': false }
      * )
      */
-    configure (config: { [field: string]: any }) {
+    configure (config: { [field: string]: Omit<SettingsValue, "undefined"> }) {
         if (this.#app) {
             Log.warn(`Cannot alter default configuration after app launch. Use the setSettingsValue method instead.`, SCOPE)
             return
@@ -164,7 +165,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
             }
             // Traverse field's "path" to target property
             const fPath = field.split('.')
-            let cfgField = [SETTINGS] as any[]
+            const cfgField = [SETTINGS] as any[]
             let i = 0
             for (const f of fPath) {
                 if (cfgField[i][f as keyof typeof cfgField] === undefined) {
@@ -224,7 +225,6 @@ export class EpiCurrents implements EpiCurrentsApplication {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
             return false
         }
-        // @ts-ignore: Check for cross origin isolation; some features of the app don't work without it
         if (!window.crossOriginIsolated) {
             Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
         } else {
@@ -236,9 +236,9 @@ export class EpiCurrents implements EpiCurrentsApplication {
      * Load a dataset from the given `folder`.
      * @param folder - `MixedFileSystemItem` containing the dataset files.
      * @param name - Optional name for the dataset.
-     */
     loadDataset = async (loader: BaseDataset, folder: FileSystemItem | string[], name?: string, context?: string) => {
     }
+     */
     /**
      * Load a study from the given file, folder or URL.
      * @param loader - Name of the loader to use for loading the study.
@@ -356,9 +356,9 @@ export class EpiCurrents implements EpiCurrentsApplication {
      * setSettingsValue('module.field.subfield', 'New Value')
      * ```
      */
-    setSettingsValue = (field: string, value: any) => {
+    setSettingsValue = (field: string, value: Omit<SettingsValue, "undefined">) => {
         this.#state.setSettingsValue(field, value)
     }
 }
 // Set as a property of window
-;(window as any).EpiCurrents = EpiCurrents
+(window as any).EpiCurrents = EpiCurrents

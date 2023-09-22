@@ -110,10 +110,7 @@ export default class CanvasPlot implements BiosignalPlot {
             if (!line.render) {
                 continue
             }
-            // Update the viewport to take into account possible change in canvas dimensions.
-            this._updateViewport()
-            // WebGL native canvas scale is from -1 to 1 = 2.
-            const ampScale = 2/(this.heightInSensRefUnits*line.sensitivity)
+            //const ampScale = 2/(this.heightInSensRefUnits*line.sensitivity)
         }
     }
 

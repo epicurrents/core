@@ -7,7 +7,7 @@
 
 import { FileSystemItem, FileSystemItemType } from "TYPES/loader"
 
-const SCOPE = 'FileSystemFile'
+//const SCOPE = 'FileSystemFile'
 
 /**
  * An item describing a file on a local or remote file system.

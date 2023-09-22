@@ -15,7 +15,7 @@ import {
     type BiosignalSetup,
     type VideoAttachment
 } from "TYPES/biosignal"
-import { type CommonBiosignalSettings } from "TYPES/config"
+import { type CommonBiosignalSettings, type ConfigChannelFilter } from "TYPES/config"
 import { type MemoryManager } from "TYPES/assets"
 import { type SignalCacheResponse } from "TYPES/service"
 import { type StudyContext } from "TYPES/study"
@@ -324,7 +324,7 @@ export default abstract class GenericBiosignalResourceSAB extends GenericResourc
         this.onPropertyUpdate('annotations')
     }
 
-    getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse | null> {
+    getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
         if (!this._activeMontage) {
             return this.getAllRawSignals(range, config)
         }
@@ -333,7 +333,7 @@ export default abstract class GenericBiosignalResourceSAB extends GenericResourc
         })
     }
 
-    async getAllRawSignals (range: number[], config?: any): Promise<SignalCacheResponse | null> {
+    async getAllRawSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
         // First check if we have the requested signals cached.
         const responseSigs = [] as {
             data: Float32Array
@@ -393,14 +393,16 @@ export default abstract class GenericBiosignalResourceSAB extends GenericResourc
         return null
     }
 
-    getChannelSignal(channel: string | number, range: number[], config?: any): Promise<SignalCacheResponse | null> {
+    getChannelSignal(channel: string | number, range: number[], config?: ConfigChannelFilter):
+    Promise<SignalCacheResponse | null> {
         if (!this._activeMontage) {
             return this.getRawChannelSignal(channel, range, config)
         }
         return this._activeMontage.getChannelSignal(channel, range, config)
     }
 
-    async getRawChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse | null> {
+    async getRawChannelSignal (channel: number | string, range: number[], config?: ConfigChannelFilter):
+    Promise<SignalCacheResponse | null> {
         if (!config) {
             // Initialize config.
             config = { include: [] as number[] }

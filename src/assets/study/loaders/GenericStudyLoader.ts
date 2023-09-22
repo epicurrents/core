@@ -6,11 +6,11 @@
  */
 
 import { type DataResource, type MemoryManager } from 'TYPES/assets'
+import { type ConfigStudyLoader } from 'TYPES/config'
 import { type FileFormatLoader, type FileSystemItem } from "TYPES/loader"
-import { type StudyContext, type StudyLoader } from 'TYPES/study'
+import { type StudyContext, type StudyContextCollection, type StudyLoader } from 'TYPES/study'
 import Log from 'scoped-ts-log'
 import ServiceMemoryManager from 'ASSETS/service/ServiceMemoryManager'
-import StudyCollection from '../StudyCollection'
 
 export const studyContextTemplate = () => {
     return {
@@ -71,7 +71,7 @@ export default class GenericStudyLoader implements StudyLoader {
      * @param config - Study configuration.
      * @returns True/false.
      */
-    protected _canLoadResource (config: any): boolean {
+    protected _canLoadResource (config: ConfigStudyLoader): boolean {
         if (config.loader && config.loader !== this._name) {
             return false
         }
@@ -151,8 +151,8 @@ export default class GenericStudyLoader implements StudyLoader {
         return false
     }
 
-    public async loadFromDirectory (dir: FileSystemItem, config = {} as any): Promise<StudyContext|null> {
-        if (!this._canLoadResource(config)) {
+    public async loadFromDirectory (dir: FileSystemItem, config?: ConfigStudyLoader): Promise<StudyContext|null> {
+        if (!this._canLoadResource(config || {})) {
             return null
         }
         // Pass the directory name as default study name.
@@ -182,7 +182,8 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    public async loadFromFile (file: File, config = {} as any, study?: StudyContext): Promise<StudyContext|null> {
+    public async loadFromFile (file: File, config: ConfigStudyLoader = {}, study?: StudyContext):
+    Promise<StudyContext|null> {
         if (!this._fileLoader) {
             Log.error(`Cannot load study from a file, file loader has not been set.`, SCOPE)
             return null
@@ -190,7 +191,7 @@ export default class GenericStudyLoader implements StudyLoader {
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.context && !this._fileLoader.isSupportedScope(config.scope)) {
+        if (config.scope && !this._fileLoader.isSupportedScope(config.scope)) {
             Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
             return null
         }
@@ -218,7 +219,8 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    public async loadFromFsItem (fileTree: FileSystemItem, config: any = {}): Promise<StudyCollection[]> {
+    public async loadFromFsItem (fileTree: FileSystemItem, config: ConfigStudyLoader = {}):
+    Promise<StudyContextCollection[]> {
         if (!this._fileLoader) {
             Log.error(`Cannot load study from a filesystem item, file loader has not been set.`, SCOPE)
             return []
@@ -244,16 +246,16 @@ export default class GenericStudyLoader implements StudyLoader {
                     // Attempt to read config from the file.
                     await new Promise((resolve, reject) => {
                         const reader = new FileReader()
-                        reader.onloadend = (e: any) => {
-                            const result = JSON.parse(e.target.result)
+                        reader.onloadend = (e: ProgressEvent<FileReader>) => {
+                            const result = JSON.parse(e.target?.result as string)
                             resolve(result)
                         }
                         reader.onerror = (e: any) => {
                             reject(e)
                         }
-                        config = reader.readAsText(confFile.file as File)
-                    }).then((json: any) => {
-                        config = Object.assign(json, config)
+                        reader.readAsText(confFile.file as File)
+                    }).then((json) => {
+                        config = Object.assign(json as { [key: string]: unknown }, config)
                     }).catch(e => {
                         Log.error(`Could not load config from ${confFile.path}.`, SCOPE, e)
                     })
@@ -262,10 +264,10 @@ export default class GenericStudyLoader implements StudyLoader {
             }
         }
         // Make sure there is a collections and studies property on config.
-        if (!config.hasOwnProperty('collections')) {
+        if (!Object.hasOwn(config, 'collections')) {
             config.collections = {}
         }
-        if (!config.hasOwnProperty('studies')) {
+        if (!Object.hasOwn(config, 'studies')) {
             config.studies = {}
         }
         // Next, check if this is a single file dir or several dirs.
@@ -294,8 +296,8 @@ export default class GenericStudyLoader implements StudyLoader {
                 Object.assign(
                     { studies: studies },
                     { title: rootDir.name },
-                    config.collections[rootDir.name],
-                    config.collections[rootDir.path]
+                    config.collections ? config.collections[rootDir.name] : undefined,
+                    config.collections ? config.collections[rootDir.path] : undefined
                 )
             )
         } else if (rootDir.directories.length) {
@@ -312,7 +314,7 @@ export default class GenericStudyLoader implements StudyLoader {
             }
             // Try to add each individual dir as a separate study.
             // First check that each directory really contains only files, skip those that don't.
-            for (let visitDir of visitDirs) {
+            for (const visitDir of visitDirs) {
                 const studies = [] as StudyContext[]
                 for (let i=0; i<visitDir.directories.length; i++) {
                     const curDir = visitDir.directories[i]
@@ -333,21 +335,21 @@ export default class GenericStudyLoader implements StudyLoader {
                 const collection = Object.assign(
                     { studies: studies },
                     { title: visitDir.name },
-                    config.collections[visitDir.name],
-                    config.collections[visitDir.path]
+                    config.collections ? config.collections[visitDir.name] : undefined,
+                    config.collections ? config.collections[visitDir.path] : undefined
                 )
                 collections.push(collection)
             }
         } else {
             Log.warn("Dropped item had an empty root directory!", SCOPE)
         }
-        // Order > date when sorting.
-        collections.sort((a, b) => { return (parseInt(a.date) || 0) - (parseInt(b.date) || 0) })
-        collections.sort((a, b) => { return (parseInt(a.order) || 0) - (parseInt(b.order) || 0) })
+        // Order by date.
+        collections.sort((a, b) => { return ((a.date?.getTime() || 0) - (b.date?.getTime() || 0)) })
         return collections
     }
 
-    public async loadFromUrl (fileUrl: string, config = {} as any, study?: StudyContext): Promise<StudyContext|null> {
+    public async loadFromUrl (fileUrl: string, config: ConfigStudyLoader = {}, study?: StudyContext):
+    Promise<StudyContext|null> {
         if (!this._fileLoader) {
             Log.error(`Cannot load study from a URL, file loader has not been set.`, SCOPE)
             return null
@@ -355,8 +357,8 @@ export default class GenericStudyLoader implements StudyLoader {
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.context && !this._fileLoader.isSupportedScope(config.context)) {
-            Log.error(`Current file loader does not support context ${config.context}.`, SCOPE)
+        if (config.scope && !this._fileLoader.isSupportedScope(config.scope)) {
+            Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
             return null
         }
         if (!study) {
@@ -387,7 +389,7 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    public async useStudy (study: StudyContext, config = {} as any): Promise<number> {
+    public async useStudy (study: StudyContext): Promise<number> {
         for (const studyFile of study.files) {
             // Once more check that all files have an URL.
             if (!studyFile.url) {

@@ -6,12 +6,12 @@
  */
 
 import {
-    type BiosignalMontage,
     type BiosignalSetup,
     type MontageChannel,
     type SetupChannel,
 } from 'TYPES/biosignal'
-import { type SignalCachePart } from 'TYPES/service'
+import { ConfigMapChannels, type CommonBiosignalSettings, type ConfigChannelFilter } from 'TYPES/config'
+import { type SignalCachePart, type WorkerMessage } from 'TYPES/service'
 import BiosignalMutex from '../service/BiosignalMutex'
 import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
 import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
@@ -23,7 +23,7 @@ const SCOPE = "MontageWorker"
 
 let CACHE: BiosignalMutex | null = null
 let CHANNELS = [] as MontageChannel[]
-let MONTAGE: BiosignalMontage | null = null
+//let MONTAGE: BiosignalMontage | null = null
 let SETUP: BiosignalSetup | null = null
 let TOTAL_CACHE_LENGTH = 0
 let TOTAL_RECORDING_LENGTH = 0
@@ -34,10 +34,16 @@ const FILTERS = {
     lowpass: 0,
     notch: 0,
 }
-const SETTINGS = {} as any
+const SETTINGS = {
+    modules: {},
+} as {
+    modules: {
+        [key: string]: CommonBiosignalSettings
+    }
+}
 let NAMESPACE = ''
 
-onmessage = async (message: any) => {
+onmessage = async (message: { data: WorkerMessage }) => {
     if (!message?.data?.action) {
         return
     }
@@ -92,6 +98,7 @@ onmessage = async (message: any) => {
                 })
             }
         } catch (e) {
+            console.error(e)
         }
     } else if (action === 'map-channels') {
         mapChannels(message.data.config)
@@ -205,13 +212,18 @@ const cacheTimeToRecordingTime = (time: number): number => {
  * Get montage signals for the given part.
  * @param start - Part start (in seconds, included).
  * @param end - Part end (in seconds, excluded).
- * @param config - Additional configuration (optional).
  * @param cachePart - Should the caculated signals be cached (default true).
+ * @param config - Additional configuration (optional).
  * @returns False if an error occurred and depending on the value of parameter `cachePart`:
  *          - If true, returns true if caching was successful.
  *          - If false, calculated signals as SignalCachePart.
  */
-const calculateSignalsForPart = async (start: number, end: number, cachePart = true, config?: any) => {
+const calculateSignalsForPart = async (
+    start: number,
+    end: number,
+    cachePart = true,
+    config?: ConfigChannelFilter & { excludeActiveFromAvg?: boolean }
+) => {
     // Check that cache is ready.
     if (!CACHE) {
         log(postMessage, 'ERROR', "Cannot return signal part, signal buffers have not been set up yet.", SCOPE)
@@ -283,9 +295,9 @@ const calculateSignalsForPart = async (start: number, end: number, cachePart = t
         // Get filter padding for the channel.
         const {
             filterLen, filterStart, filterEnd,
-            paddingStart, paddingEnd,
-            rangeStart, rangeEnd,
-            signalStart, signalEnd,
+            //paddingStart, paddingEnd,
+            //rangeStart, rangeEnd,
+            //signalStart, signalEnd,
         } = getFilterPadding([relStart, relEnd] || [], SIGNALS[chan.active].length, chan, SETTINGS.modules[`${NAMESPACE}`], FILTERS)
         // Calculate signal indices for data gaps.
         const gapIndices = [] as number[][]
@@ -410,7 +422,8 @@ const calculateSignalsForPart = async (start: number, end: number, cachePart = t
  * @returns
  */
 const getDataGaps = (range?: number[], useCacheTime = false): { duration: number, start: number }[] => {
-    let [start, end] = range || (useCacheTime ? [0, TOTAL_CACHE_LENGTH] : [0, TOTAL_RECORDING_LENGTH])
+    const start = range ? range[0] : 0
+    let end = range ? range[1] : (useCacheTime ? TOTAL_CACHE_LENGTH : TOTAL_RECORDING_LENGTH)
     const dataGaps = [] as { duration: number, start: number }[]
     if (start < 0) {
         log(postMessage, 'ERROR', `Requested data gap range start ${start} is smaller than zero.`, SCOPE)
@@ -470,7 +483,7 @@ const getGapTimeBetween = (start: number, end: number): number => {
  * @param config - Optional configuration.
  * @returns
  */
-const getSignals = async (range: number[], config?: any) => {
+const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
     if (!CHANNELS) {
         log(postMessage, 'ERROR', "Cannot load signals, channels have not been set up yet.", SCOPE)
         return
@@ -639,7 +652,7 @@ const getVisibleChannels = () => {
  * Map the derived channels in this montage to the signal channels of the given setup.
  * @param config - Either string code of a default config or a config object.
  */
-const mapChannels = (config: any) => {
+const mapChannels = (config: ConfigMapChannels) => {
     // Check that we have a valid setup.
     if (!SETUP) {
         log(postMessage, 'ERROR', `Cannot map channels for montage; missing an electrode setup!`, SCOPE)
@@ -751,7 +764,7 @@ const setNotchFilter = (target: string | number, value: number) => {
  */
 const setupMontage = async (
     montage: string,
-    config: any,
+    config: ConfigMapChannels,
     input: MutexExportProperties,
     bufferStart: number,
     dataDuration: number,
@@ -759,11 +772,6 @@ const setupMontage = async (
     setupChannels: SetupChannel[],
     dataGaps = [] as { duration: number, start: number }[]
 ) => {
-    // Make sure there aren't any cached signals yet.
-    if (MONTAGE) {
-        log(postMessage, 'ERROR', `Tried to set montage params, but worker already has cached signals.`, SCOPE)
-        return false
-    }
     SETUP = new GenericBiosignalSetup(montage)
     SETUP.channels = setupChannels
     mapChannels(config)

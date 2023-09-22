@@ -5,7 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { SetupChannel, BiosignalSetup } from 'TYPES/biosignal'
+import { type SetupChannel, type BiosignalSetup, BiosignalChannelTemplate } from 'TYPES/biosignal'
+import { type ConfigBiosignalSetup } from 'TYPES/config'
 
 export default class GenericBiosignalSetup implements BiosignalSetup {
     protected _id: string
@@ -14,7 +15,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
     protected _missing: SetupChannel[] = []
     protected _unmatched: SetupChannel[] = []
 
-    constructor (id: string, channels?: any[], config?: any) {
+    constructor (id: string, channels?: SetupChannel[], config?: ConfigBiosignalSetup) {
         this._id = id
         this._name = id
         if (config?.skipConfig) {
@@ -63,13 +64,13 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
      * @param recordSignals - Channel descriptions of the biosignal recording.
      * @param config - Configuration object for the setup.
      */
-    loadConfig (recordSignals: any[], config: any) {
+    loadConfig (recordSignals: SetupChannel[], config: ConfigBiosignalSetup) {
         // Helper method for producing a prototype channel
-        const getChannel = (index: number, config?: any) => {
+        const getChannel = (index: number, config?: Partial<BiosignalChannelTemplate>) => {
             return {
                 amplification: config?.amplification || 1,
-                averaged: config?.averageRef || false,
-                displayPolarity: config?.displayPolarity || 0,
+                averaged: config?.averaged || false,
+                displayPolarity: config?.polarity || 0,
                 index: index,
                 label: config?.label || '--',
                 laterality: config?.laterality || '',
@@ -92,10 +93,10 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                             this._channels.push(
                                 getChannel(i, {
                                     amplification: chan.amplification,
-                                    averaged: chan.averageRef,
-                                    displayPolarity: chan.polarity,
+                                    averaged: chan.averaged,
+                                    polarity: chan.polarity,
                                     label: chan.label,
-                                    laterality: chan.laterality || '',
+                                    laterality: chan.laterality,
                                     name: chan.name,
                                     samplingRate: recordSignals[i].samplingRate,
                                     type: chan.type,
@@ -113,8 +114,8 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                             this._channels.push(
                                 getChannel(i, {
                                     amplification: chan.amplification,
-                                    averaged: chan.averageRef,
-                                    displayPolarity: chan.polarity,
+                                    averaged: chan.averaged,
+                                    polarity: chan.polarity,
                                     label: chan.label,
                                     laterality: chan.laterality || '',
                                     name: chan.name,
@@ -131,7 +132,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 this._missing.push(
                     getChannel(-1, {
                         amplification: 1,
-                        averaged: chan.averageRef,
+                        averaged: chan.averaged,
                         label: chan.label,
                         laterality: chan.laterality || '',
                         name: chan.name,

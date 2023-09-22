@@ -10,7 +10,7 @@ import { type StudyContext } from "TYPES/study"
 import GenericResource from "ASSETS/GenericResource"
 import { nullPromise } from 'UTIL/general'
 
-const SCOPE = 'GenericDocumentResource'
+//const SCOPE = 'GenericDocumentResource'
 
 export default abstract class GenericDocumentResource extends GenericResource implements DocumentResource {
 
@@ -23,7 +23,7 @@ export default abstract class GenericDocumentResource extends GenericResource im
         this._sourceFormat = format
     }
 
-    get content (): Promise<any> {
+    get content (): Promise<unknown> {
         return nullPromise
     }
 

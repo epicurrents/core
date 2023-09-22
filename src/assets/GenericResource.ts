@@ -10,7 +10,7 @@ import { DataResource } from "TYPES/assets"
 import GenericAsset from "ASSETS/GenericAsset"
 import { StudyContext } from "TYPES/study"
 
-const SCOPE = 'GenericResource'
+//const SCOPE = 'GenericResource'
 
 export default abstract class GenericResource extends GenericAsset implements DataResource {
     /** Is this record selected as active in the UI. */

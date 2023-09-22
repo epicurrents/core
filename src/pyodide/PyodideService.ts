@@ -13,11 +13,11 @@ const SCOPE = 'PyodideService'
 
 type LoadingState = 'error' | 'loaded' | 'loading' | 'not_loaded'
 type ScriptState = {
-    params: { [key: string]: any }
+    params: { [key: string]: unknown }
     state: LoadingState
 }
 export default class PyodideService extends GenericService implements AssetService {
-    protected _callbacks = [] as ((...results: any[]) => any)[]
+    protected _callbacks = [] as ((...results: unknown[]) => unknown)[]
     protected _loadedPackages = [] as string[]
     /**
      * Some scripts are run only once and kept in memory.
@@ -37,7 +37,7 @@ export default class PyodideService extends GenericService implements AssetServi
         packages = packages.filter(pkg => (this._loadedPackages.indexOf(pkg) === -1))
         const commission = this._commissionWorker(
             'load-packages',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['packages', packages],
             ])
         )
@@ -53,10 +53,10 @@ export default class PyodideService extends GenericService implements AssetServi
      * @param code - Python code as a string.
      * @param params - Any parameters for the code.
      */
-    async runCode (code: string, params: { [key: string]: any }) {
+    async runCode (code: string, params: { [key: string]: unknown }) {
         const commission = this._commissionWorker(
             'run-code',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['code', code],
                 ...Object.entries(params)
             ])
@@ -69,7 +69,7 @@ export default class PyodideService extends GenericService implements AssetServi
      * @param script - Name of the script.
      * @param params - Parameters for execution.
      */
-    async runScript (script: string, params: { [key: string]: any }) {
+    async runScript (script: string, params: { [key: string]: unknown }) {
         if (script in this._scripts) {
             if (
                 this._scripts[script].state === 'loading' ||
@@ -85,7 +85,7 @@ export default class PyodideService extends GenericService implements AssetServi
         }
         const commission = this._commissionWorker(
             'run-script',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['script', script],
                 ...Object.entries(params)
             ])
@@ -97,12 +97,5 @@ export default class PyodideService extends GenericService implements AssetServi
             }
         }
         return response
-    }
-
-    async setupContext (context: string) {
-        // Load context-specific packages
-        //if (context === 'eeg') {
-        //    await this.loadPackages(['scipy', 'matplotlib', 'mne'])
-        //}
     }
 }

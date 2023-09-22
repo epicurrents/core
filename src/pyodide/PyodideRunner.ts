@@ -32,7 +32,7 @@ export default class PyodideRunner {
         await this._pyodide?.loadPackage(packages)
     }
 
-    async runCode (code: string, params?: { [key: string]: any }) {
+    async runCode (code: string, params?: { [key: string]: unknown }) {
         await this._loadPromise
         if (params) {
             for (const key in params) {
@@ -41,15 +41,15 @@ export default class PyodideRunner {
                     Log.warn(`Code param ${key} contains insecure field '__proto__', parameter was ignored.`, SCOPE)
                     continue
                 }
-                ;(window as any)[key] = params[key]
+                (window as any)[key] = params[key]
             }
         }
         const results = await this._pyodide?.runPythonAsync(code)
         return results
     }
 
+    /* This should be implemented at module level
     async runScript (name: string, params: { [key: string]: any }) {
-        /* This should be implemented at module level
         await this._loadPromise
         const script = require(`!!raw-loader!SRC/workers/scripts/${name}.py`)
         for (const key in params) {
@@ -61,8 +61,8 @@ export default class PyodideRunner {
         }
         const results = await this._pyodide?.runPythonAsync(script.default)
         return results
-        */
     }
+    */
 
     async setChannels (chans: string[]) {
         await this._loadPromise

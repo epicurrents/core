@@ -329,6 +329,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
 
             ) {
                 this._triggerPoints.push(i)
+                prevSample = s
             }
         }
         return this._triggerPoints

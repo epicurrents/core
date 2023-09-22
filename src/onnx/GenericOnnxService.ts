@@ -8,6 +8,7 @@
 import { type BiosignalResource } from 'TYPES/biosignal'
 import { type BaseAsset } from 'TYPES/assets'
 import { type OnnxService, type AvailableModel } from 'TYPES/onnx'
+import { type WorkerMessage } from 'TYPES/service'
 import Log from 'scoped-ts-log'
 import GenericService from 'ASSETS/service/GenericService'
 
@@ -81,7 +82,7 @@ export class GenericOnnxService extends GenericService implements OnnxService {
         return this._progress.target ? this._progress.complete/this._progress.target : 0
     }
 
-    async handleMessage (message: any) {
+    async handleMessage (message: { data: WorkerMessage }) {
         const data = message.data
         if (!data) {
             return false
@@ -154,8 +155,8 @@ export class GenericOnnxService extends GenericService implements OnnxService {
                 Log.debug(`Loaded ONNX model ${model}.`, SCOPE)
                 this.activeModel = model
                 return true
-            } catch (error: any) {
-                Log.error(`Creating a web worker for ONNX model ${model} failed.`, SCOPE, error)
+            } catch (error) {
+                Log.error(`Creating a web worker for ONNX model ${model} failed.`, SCOPE, error as Error)
                 return false
             } finally {
                 this.modelLoading = false

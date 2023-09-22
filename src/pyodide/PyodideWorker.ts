@@ -35,7 +35,7 @@ async function loadPyodideAndPackages () {
         setTimeout: (...params: any[]) => { return 1 },
     }
 }
-let pyodideReadyPromise = loadPyodideAndPackages()
+const pyodideReadyPromise = loadPyodideAndPackages()
 
 self.onmessage = async (event) => {
     // Make sure loading is done.

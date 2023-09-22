@@ -777,7 +777,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     return
                 }
                 for (let i=0; i<this._outputData.arrays.length; i++) {
-                    const updatedStart = this._outputData.arrays[i].view[BiosignalMutex.SIGNAL_UPDATED_START_POS]
+                    //const updatedStart = this._outputData.arrays[i].view[BiosignalMutex.SIGNAL_UPDATED_START_POS]
                     const updatedEnd = this._outputData.arrays[i].view[BiosignalMutex.SIGNAL_UPDATED_END_POS]
                     const samplingRate = this._outputData.arrays[i].view[BiosignalMutex.SIGNAL_SAMPLING_RATE_POS]
                     // Retrieve a reference to signal data so we can adjust the buffered data to the new range.

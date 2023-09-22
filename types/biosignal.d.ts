@@ -151,6 +151,31 @@ export interface BiosignalChannel extends BaseAsset {
     setSignal (signal: Float32Array): void
 }
 /**
+ * Basic properties of the biosignal channel entity to be used when loading configurations from JSON.
+ */
+export type BiosignalChannelProperties = {
+    active?: number
+    amplification?: number
+    averaged?: boolean
+    displayPolarity?: -1 | 0 | 1
+    height?: number
+    label?: string
+    laterality?: string
+    name?: string
+    offset?: {
+        baseline: number
+        bottom: number
+        top: number
+    }
+    reference?: number[]
+    sampleCount?: number
+    samplingRate?: number
+    sensitivity?: number
+    type?: string
+    unit?: string,
+    visible?: boolean
+}
+/**
  * A marker containing a certain value at certain position of the channel signal.
  */
 export type BiosignalChannelMarker = {
@@ -177,6 +202,23 @@ export type BiosignalChannelMarker = {
      * @param value - The new value of the marker.
      */
     setValue (value: number): void
+}
+/**
+ * This is a basic template for biosignal setup channels.
+ * Any setup configuration JSONs should follow this template when defining recorded channels/signals.
+ */
+export type BiosignalChannelTemplate = {
+    amplification: number
+    averaged: boolean
+    index: number
+    label: string
+    laterality: BiosignalLaterality
+    name: string
+    polarity: SignalPolarity
+    samplingRate: number
+    type: string
+    unit: string
+    pattern?: string
 }
 
 export type BiosignalConfig = {
@@ -378,8 +420,12 @@ export interface BiosignalMontage extends BaseAsset {
     cacheStatus: SignalCachePart
     /** Configuration for each channel in this montage, null for missing channels. */
     channels: (MontageChannel | null)[]
+    /** Saved configuration for this montage. */
+    config: unknown
     /** Gaps in signal data as Map<startTime, duration> in seconds. */
     dataGaps: Map<number, number>
+    /** Default signal filters. */
+    filters: BiosignalFilters
     /** Does this recording use common reference for signals. */
     hasCommonReference: boolean
     /**

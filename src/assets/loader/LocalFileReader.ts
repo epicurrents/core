@@ -24,12 +24,17 @@ export default class LocalFileReader implements FileReader {
         }
         return undefined
     }
-    private readDirectoryItems = async (name: string, path: string, reader: any, items?: DataTransferItemList): Promise<MixedFileSystemItem> => {
+    private readDirectoryItems = async (
+        name: string,
+        path: string,
+        reader: FileSystemDirectoryReader | null,
+        items?: DataTransferItemList
+    ): Promise<MixedFileSystemItem> => {
         // The directory item that we'll return in the end (single files are handled separately).
         const dir = new MixedFileSystemItem(name, path, 'directory')
         // At least Chrome may not return the entire list at once (max 100 entires)
         // so we need to cache returned items in a separate list.
-        let cache = []
+        const cache = [] as (FileSystemEntry | MixedFileSystemItem)[]
         if (reader) {
             // Use the reader to read directory contents.
             let items = await this.readItems(reader) // Get first batch of items.
@@ -41,7 +46,7 @@ export default class LocalFileReader implements FileReader {
         } else if (items && items.length) {
             // Go through the initial list of items
             for (let i=0; i<items.length; i++) {
-                cache.push(items[i].webkitGetAsEntry())
+                cache.push(items[i].webkitGetAsEntry() as FileSystemEntry)
             }
         }
         if (!Array.isArray(cache)) {
@@ -50,9 +55,14 @@ export default class LocalFileReader implements FileReader {
         // Go through the queue until it is empty.
         while (cache.length > 0) {
             const entry = cache.shift()
-            if (entry.isFile) {
+            if (!entry) {
+                continue
+            }
+            if ((entry as FileSystemEntry).isFile) {
                 // Add files to root directory.
-                const file = await new Promise((resolve, reject) => entry.file(resolve, reject)) as File
+                const file = await new Promise(
+                    (resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject)
+                ) as File
                 dir.files.push(new MixedFileSystemItem(
                     file.name,
                     `${dir.path}/${file.name}`,
@@ -60,24 +70,24 @@ export default class LocalFileReader implements FileReader {
                     file,
                     URL.createObjectURL(file)
                 ))
-            } else if (entry.isDirectory) {
+            } else if ((entry as FileSystemEntry).isDirectory) {
                 // New directory encountered.
-                const dirReader = entry.createReader()
+                const dirReader = (entry as FileSystemDirectoryEntry).createReader()
                 cache.push(await this.readDirectoryItems(entry.name, `${dir.path}/${entry.name}`, dirReader))
             } else {
                 // Item is a MixedFileSystemItem that represents a directory.
-                dir.directories?.push(entry)
+                dir.directories?.push(entry as MixedFileSystemItem)
             }
         }
         return dir
     }
-    private async readItems (reader: any): Promise<any> {
+    private async readItems (reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
         try {
             return await new Promise((resolve, reject) => {
                 reader.readEntries(resolve, reject)
             })
-        } catch (error: any) {
-            throw new Error(error.message || error)
+        } catch (error) {
+            throw new Error((error as Error).message || (error as string))
         }
     }
 

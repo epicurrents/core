@@ -5,7 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { BiosignalAnnotation } from "./biosignal"
+import { StudyCollection } from "ASSETS/study"
+import { BiosignalAnnotation, BiosignalChannelTemplate, SetupChannel } from "./biosignal"
 
 export interface AppSettings {
     _CLONABLE: ClonableAppSettings
@@ -201,6 +202,40 @@ export type CommonBiosignalSettings = {
     }
     yPadding: number
 }
+// Method config properties.
+export type ConfigBiosignalSetup = {
+    channels: BiosignalChannelTemplate[]
+    label: string
+    skipConfig?: boolean
+}
+export type ConfigChannelFilter  = {
+    exclude?: number[]
+    include?: number[]
+}
+export type ConfigDatasetLoader = {
+    name?: string
+}
+export type ConfigMapChannels = {
+    channels: SetupChannel[]
+    channelSpacing: number
+    groupSpacing: number
+    isRaw: boolean
+    layout: number[]
+    names: string[]
+    yPadding: number
+}
+export type ConfigStudyContext = {
+    name?: string
+}
+export type ConfigStudyLoader = {
+    collections?: { [key: string]: StudyCollection }
+    loader?: string
+    name?: string
+    scope?: string
+    studies?: { [key: string]: unknown }
+    type?: string
+}
+// Plot
 export type PlotCircleStyles = {
     color: SettingsColor
     dasharray?: number[]

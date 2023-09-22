@@ -5,7 +5,12 @@
  * @license    Apache-2.0
  */
 
-import { BaseModuleSettings, type AppSettings, type SettingsColor } from 'TYPES/config'
+import {
+    type AppSettings,
+    type BaseModuleSettings,
+    type ConfigDatasetLoader,
+    type SettingsColor,
+} from 'TYPES/config'
 import {
     type DataResource,
     type RuntimeResourceModule,
@@ -65,7 +70,7 @@ export const state: RuntimeState = {
 export default class RuntimeStateManager implements StateManager {
     protected _propertyUpdateHandlers: {
         caller: string | null
-        handler: (newValue?: any, oldValue?: any) => any
+        handler: (newValue?: unknown, oldValue?: unknown) => unknown
         pattern: RegExp
         property: string
     }[] = []
@@ -179,7 +184,7 @@ export default class RuntimeStateManager implements StateManager {
     getService (name: string) {
         return state.SERVICES.get(name)
     }
-    init (initValues: { [module: string]: any } = {}) {
+    init (initValues: { [module: string]: unknown } = {}) {
         // FIRST set logging threshold, so all possible messages are seen
         Log.setPrintThreshold(SETTINGS.app.logThreshold)
         // Apply possible initial values
@@ -204,7 +209,7 @@ export default class RuntimeStateManager implements StateManager {
                     }
                     // Check that setting can be modified
                     for (const [uField, uConst] of Object.entries(MODULE._userDefinable)) {
-                        if (uField === field && (value as any)?.constructor === uConst) {
+                        if (uField === field && value.constructor === uConst) {
                             Log.debug(`Applied local value ${value} to settings field ${mod}.${field}`, SCOPE)
                             continue field_loop
                         }
@@ -219,7 +224,12 @@ export default class RuntimeStateManager implements StateManager {
         }
         this.isInitialized = true
     }
-    async loadDatasetFolder (folder: FileSystemItem, loader: DatasetLoader, studyLoaders: StudyLoader[], config?: any) {
+    async loadDatasetFolder (
+        folder: FileSystemItem,
+        loader: DatasetLoader,
+        studyLoaders: StudyLoader[],
+        config?: ConfigDatasetLoader
+    ) {
         const newSet = new MixedMediaDataset(config?.name || folder.name)
         let studyContext = null as StudyContext | null
         loader.loadDataset(folder, async (study) => {
@@ -241,7 +251,7 @@ export default class RuntimeStateManager implements StateManager {
         this.addDataset(newSet)
         return newSet
     }
-    onPropertyUpdate (property: string, newValue?: any, oldValue?: any) {
+    onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
         for (const update of this._propertyUpdateHandlers) {
             if (update.property === property || property.match(update.pattern)) {
                 Log.debug(`Executing ${property} handler${update.caller ? ' for ' + update.caller : ''}.`, SCOPE)
@@ -263,7 +273,7 @@ export default class RuntimeStateManager implements StateManager {
             }
         }
     }
-    removePropertyUpdateHandler (property: string | string[], handler: () => any) {
+    removePropertyUpdateHandler (property: string | string[], handler: () => unknown) {
         if (!Array.isArray(property)) {
             property = [property]
         }
@@ -321,7 +331,7 @@ export default class RuntimeStateManager implements StateManager {
             }
         } else {
             if (state.APP.activeDataset?.activeResources.length) {
-                for (const res of state.APP.activeDataset?.activeResources.splice(0)) {
+                for (const res of state.APP.activeDataset.activeResources.splice(0)) {
                     res.isActive = false
                 }
             }
@@ -354,7 +364,7 @@ export default class RuntimeStateManager implements StateManager {
         state.SERVICES.set(name, service)
         this.onPropertyUpdate('services', name)
     }
-    setSettingsValue (field: string, value: string | number | boolean | SettingsColor | Object) {
+    setSettingsValue (field: string, value: string | number | boolean | SettingsColor | object) {
         if (typeof field !== 'string') {
             Log.error('Invalid setting field type, expected string.', SCOPE)
             return
@@ -365,7 +375,7 @@ export default class RuntimeStateManager implements StateManager {
         }
         // Traverse field's "path" to target property
         const fPath = field.split('.')
-        let settingsField = [state.SETTINGS] as any[]
+        const settingsField = [state.SETTINGS] as any[]
         let i = 0
         for (const f of fPath) {
             if (i === fPath.length - 1) {

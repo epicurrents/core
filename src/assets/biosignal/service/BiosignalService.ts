@@ -11,11 +11,12 @@ import {
     type BiosignalResource,
 } from "TYPES/biosignal"
 import { type MemoryManager } from "TYPES/assets"
-import { type SignalCacheResponse } from "TYPES/service"
+import { type SignalCacheResponse, type WorkerMessage } from "TYPES/service"
 import { type StudyContext } from "TYPES/study"
 import Log from 'scoped-ts-log'
 import GenericService from "ASSETS/service/GenericService"
 import { NUMERIC_ERROR_VALUE } from "UTIL/constants"
+import { ConfigChannelFilter } from "TYPES/config"
 
 const SCOPE = "BiosignalService"
 
@@ -39,7 +40,7 @@ export default class BiosignalService extends GenericService implements Biosigna
         this._recording = recording
     }
 
-    protected async _handleWorkerResponse (message: any) {
+    protected async _handleWorkerResponse (message: { data: WorkerMessage }) {
         const data = message.data
         if (!data) {
             return false
@@ -134,13 +135,13 @@ export default class BiosignalService extends GenericService implements Biosigna
         return commission.promise
     }
 
-    async getSignals (range: number[], config?: any): Promise<SignalCacheResponse> {
+    async getSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
         if (!(await this._isStudyReady())) {
             return null
         }
         const commission = this._commissionWorker(
             'get-signals',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['range', range],
                 ['config', config],
             ])
@@ -148,7 +149,7 @@ export default class BiosignalService extends GenericService implements Biosigna
         return commission.promise
     }
 
-    async handleMessage (message: any): Promise<boolean> {
+    async handleMessage (message: { data: WorkerMessage }): Promise<boolean> {
         return super._handleWorkerUpdate(message) || this._handleWorkerResponse(message)
     }
 
@@ -159,7 +160,7 @@ export default class BiosignalService extends GenericService implements Biosigna
         Log.info(`Loading study ${study.name} in worker.`, SCOPE)
         const commission = this._commissionWorker(
             'setup-study',
-            new Map<string, any>([
+            new Map<string, unknown>([
                 ['header', header.serializable],
                 ['urls', fileUrls],
             ])

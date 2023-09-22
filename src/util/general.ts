@@ -13,7 +13,7 @@
  *      console.log(iterableArray[i] === item) // true
  * }
  */
-export const enumerate = function* (iterable: any[]) {
+export const enumerate = function* (iterable: unknown[]) {
     let i = 0
     for (const x of iterable) {
         yield [i, x]
@@ -26,7 +26,7 @@ export const enumerate = function* (iterable: any[]) {
  * @param obj - Object to check.
  * @returns True/false.
  */
-export const isEmptyObject = (obj: Object) => {
+export const isEmptyObject = (obj: object) => {
     if (
         obj
         && Object.keys(obj).length === 0
@@ -46,12 +46,12 @@ export const isEmptyObject = (obj: Object) => {
  * @param value - Default value to use as initiator, if the `key` doesn't exist.
  * @returns Map with the given key assigned.
  */
-export const getOrSetValue = (
+export const getOrSetValue = <T>(
     map: Map<typeof key, typeof value>,
     key: string|number,
-    value: any
-): typeof value => {
-    return map.has(key) ? map.get(key) : map.set(key, value).get(key)
+    value: T
+): T => {
+    return map.has(key) ? map.get(key) as T : map.set(key, value).get(key) as T
 }
 
 /**

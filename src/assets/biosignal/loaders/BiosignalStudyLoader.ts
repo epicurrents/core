@@ -6,11 +6,12 @@
  */
 
 import { type VideoAttachment } from "TYPES/biosignal"
+import { type ConfigStudyContext, type ConfigStudyLoader } from "TYPES/config"
 import { type FileFormatLoader } from "TYPES/loader"
 import { type StudyContext } from 'TYPES/study'
 import GenericStudyLoader from "ASSETS/study/loaders/GenericStudyLoader"
 
-const SCOPE = 'BiosignalStudyLoader'
+//const SCOPE = 'BiosignalStudyLoader'
 
 export default class BiosignalStudyLoader extends GenericStudyLoader {
 
@@ -18,7 +19,8 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
         super(name, contexts, types, loader)
     }
 
-    public async loadFromUrl(fileUrl: string, config?: any, preStudy?: StudyContext): Promise<StudyContext | null> {
+    public async loadFromUrl(fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext):
+    Promise<StudyContext | null> {
         const study = await super.loadFromUrl(fileUrl, config, preStudy)
         if (!study) {
             return null
@@ -27,13 +29,13 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
         return study
     }
 
-    public async useStudy (study: StudyContext, config = {} as any) {
-        const nextIdx = await super.useStudy(study, config)
+    public async useStudy (study: StudyContext, config?: ConfigStudyContext) {
+        const nextIdx = await super.useStudy(study)
         for (let i=0; i<study.files.length; i++) {
             const studyFile = study.files[i]
             // Go through additional file types.
             const urlEnd = studyFile.url.split('/').pop()
-            const fName = config.name || urlEnd || ''
+            const fName = config?.name || urlEnd || ''
             if (
                 fName.endsWith('.mp4') || fName.endsWith('.m4v') || fName.endsWith('.webm')
             ) {
@@ -59,8 +61,8 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
                 if (!study.type) {
                     study.type = 'video'
                 }
-                let startDif = 0
-                let group = 0
+                const startDif = 0
+                const group = 0
                 // Figuring out video duration requires creating a video element and preloading the metadata.
                 const loadVideoMeta = (study: StudyContext) => new Promise<number[]>((resolve, reject) => {
                     try {

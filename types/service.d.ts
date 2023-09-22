@@ -96,14 +96,14 @@ type CommissionPromise = Omit<{ [prop: string]: any}, "rn" | "success" | "reject
     /** Unique request number for this commission. */
     rn: number
     /** Was the commission success or not. */
-    success: boolean
+    success?: boolean
     /** Any other props returned by the worker. */
 
     /** Callback for commission completion. */
-    resolve: (value?: any) => any
+    resolve: (value?: unknown) => unknown
     /** Possible callback for an unexpected error. */
-    reject?: (reason: any) => void
-} | null
+    reject?: (reason: string) => void
+}
 export type PythonResponse = {
     result: any
     success: true
@@ -297,12 +297,12 @@ export type WorkerCommission = {
      */
     resolve? (value: any): void
 }
-type WorkerMessage = {
+export type WorkerMessage = {
     action: string
     rn: number
     [prop: string]: any
 }
-type WorkerResponse = {
+export type WorkerResponse = {
     promise: Promise<any>
     rn: number
     reject: (reason: string) => void

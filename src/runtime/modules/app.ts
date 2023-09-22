@@ -9,7 +9,7 @@ import { type RuntimeAppModule, type SafeObject } from "TYPES/assets"
 import { type BiosignalPlot } from "TYPES/plot"
 import { type StudyLoaderContext, type StudyLoaderProtocolContext } from "TYPES/study"
 
-const SCOPE = 'runtime-app-module'
+//const SCOPE = 'runtime-app-module'
 
 const APP: SafeObject & RuntimeAppModule = {
     __proto__: null,

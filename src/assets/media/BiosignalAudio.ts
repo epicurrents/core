@@ -30,8 +30,8 @@ export default class BiosignalAudio implements AudioRecording {
     protected _duration = 0
     protected _hasStarted = false
     protected _playing = false
-    protected _playEndedCallbacks: (() => any)[] = []
-    protected _playStartedCallbacks: (() => any)[] = []
+    protected _playEndedCallbacks: (() => unknown)[] = []
+    protected _playStartedCallbacks: (() => unknown)[] = []
     protected _position = 0
     protected _sampleCount = 0
     protected _sampleMaxAbsValue = 1
@@ -273,7 +273,7 @@ export default class BiosignalAudio implements AudioRecording {
         }
         try {
             this._source.stop()
-        } catch (e: any) {
+        } catch (e) {
             // This may happen in rare cases...
             Log.debug(`Stop called on audio buffer node that wasn't started yet.`, SCOPE)
         }
