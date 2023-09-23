@@ -8,6 +8,11 @@
     ".": "./build/src/index.js",
     "./types": "./build/types/index.js"
   },
+  "files": [
+    "build/*",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "node node_modules/typescript/bin/tsc",
     "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
