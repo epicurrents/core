@@ -57,7 +57,7 @@ export type ClonableAppSettings = Omit<
     "removeAllPropertyUpdateHandlersFor" |
     "removePropertyUpdateHandler"
 >
-type BaseModuleSettings = {
+export type BaseModuleSettings = {
     /**
      * An object defining the composition of the settings menu of
      * this module.

@@ -12,13 +12,13 @@ import { AssetService } from "./service"
 /**
  * An ONNX model that is available in this scope.
  */
-type AvailableModel = {
+export type AvailableModel = {
     name: string
     supportedStudyTypes: string[]
     worker: Worker
 }
-type AvailableModelPublicProperties = Omit<AvailableModel, "worker" | "supportedStudyTypes">
-                                      & { supportsStudy: (study: BaseAsset) => boolean }
+export type AvailableModelPublicProperties = Omit<AvailableModel, "worker" | "supportedStudyTypes">
+                                             & { supportsStudy: (study: BaseAsset) => boolean }
 /**
  * Service class for interacting with an ONNX model.
  */

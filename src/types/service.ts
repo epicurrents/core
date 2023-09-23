@@ -9,7 +9,7 @@ import { type AsymmetricMutex, type MutexExportProperties } from "asymmetric-io-
 import { BaseAsset } from "./assets"
 import { LoadDirection } from "./loader"
 
-type ActionWatcher = {
+export type ActionWatcher = {
     actions: string[]
     handler: (update: any) => any
     caller?: string
@@ -88,11 +88,11 @@ export interface AssetService extends BaseAsset {
 /**
  * Map of all commissions waiting to be fulfilled.
  */
-type CommissionMap = Map<number, CommissionPromise>
+export type CommissionMap = Map<number, CommissionPromise>
 /**
  * Commission promise properties.
  */
-type CommissionPromise = Omit<{ [prop: string]: any}, "rn" | "success" | "reject" | "resolve">  & {
+export type CommissionPromise = Omit<{ [prop: string]: any}, "rn" | "success" | "reject" | "resolve">  & {
     /** Unique request number for this commission. */
     rn: number
     /** Was the commission success or not. */

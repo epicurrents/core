@@ -34,13 +34,8 @@ module.exports = {
     resolve: {
         extensions: ['.ts', '.js', '.json'],
         alias: {
-            '@': path.resolve(__dirname, 'src/'),
-            '#assets': path.resolve(__dirname, 'src/assets/'),
-            '#config': path.resolve(__dirname, 'src/config/'),
             '#root': path.resolve(__dirname, './'),
-            '#runtime': path.resolve(__dirname, 'src/runtime/'),
-            '#types/': path.resolve(__dirname, 'src/types/'),
-            '#util': path.resolve(__dirname, 'src/util/'),
+            '#': path.resolve(__dirname, 'src/'),
         },
         symlinks: false
     },

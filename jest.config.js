@@ -39,13 +39,9 @@ module.exports = {
         "json",
     ],
     moduleNameMapper: {
-        "^#@/(.*)$": "<rootDir>/src/$1",
-        "^#assets/(.*)$": "<rootDir>/src/assets/$1",
-        "^#config/(.*)$": "<rootDir>/src/config/$1",
-        "^#root/(.*)$": "<rootDir>/$1",
         "^#runtime/(.*)$": "<rootDir>/src/runtime/$1",
-        "^#types/(.*)$": "<rootDir>/types/$1",
-        "^#util/(.*)$": "<rootDir>/src/util/$1",
+        "^#root/(.*)$": "<rootDir>/$1",
+        "^#(.*)$": "<rootDir>/src/$1",
     },
     modulePaths: [
         "<rootDir>/src/",

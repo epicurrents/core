@@ -14,13 +14,9 @@
     "./package.json": "./package.json"
   },
   "imports": {
-    "#@/*": "./dist/src/*",
-    "#assets/*": "./dist/src/assets/*",
-    "#config/*": "./dist/src/config/*",
     "#runtime*": "./dist/src/runtime/index.ts",
-    "#types/*": "./dist/src/types/*",
-    "#util/*": "./dist/src/util/*",
-    "#root/*": "./dist/*"
+    "#root/*": "./dist/*",
+    "#*": "./dist/src/*"
   },
   "files": [
     "dist/*",
