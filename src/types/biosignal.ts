@@ -206,17 +206,29 @@ export type BiosignalChannelProperties = {
  * Any setup configuration JSONs should follow this template when defining recorded channels/signals.
  */
 export type BiosignalChannelTemplate = {
-    amplification: number
-    averaged: boolean
-    index: number
+    /** Short label for the channel (visible to the user). */
     label: string
+    /** Laterality of the recorded signal. */
     laterality: BiosignalLaterality
+    /**
+     * Unique name for the channel (not visible to the user). A direct match between source file channel name
+     * and this name is attempted first, before trying to match by `pattern (optional)`.
+     */
     name: string
-    polarity: SignalPolarity
-    samplingRate: number
+    /** Channel signal type. */
     type: string
+    /** Physical unit of the channel signal. */
     unit: string
+    /** Multiplier applied to the signal "behind the scenes", should only be used in special cases (default 1). */
+    amplification?: number
+    /** Does this channel contain an already averaged signal (default false). */
+    averaged?: boolean
+    /** A reg-exp pattern to match signals in the source file to this channel. */
     pattern?: string
+    /** Signal polarity, if not same as the default polarity of the recording. */
+    polarity?: SignalPolarity
+    /** Sampling rate of the signal, if already known. */
+    samplingRate?: number
 }
 
 export type BiosignalConfig = {
