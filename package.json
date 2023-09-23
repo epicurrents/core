@@ -11,13 +11,13 @@
     }
   },
   "imports": {
-    "#@/*": "src/*",
-    "#assets/*": "src/assets/*",
-    "#config/*": "src/config/*",
-    "#runtime*": "src/runtime/index.ts",
-    "#types/*": "src/types/*",
-    "#util/*": "src/util/*",
-    "#root/*": "./*"
+    "#@/*": "./dist/src/*",
+    "#assets/*": "./dist/src/assets/*",
+    "#config/*": "./dist/src/config/*",
+    "#runtime*": "./dist/src/runtime/index.ts",
+    "#types/*": "./dist/src/types/*",
+    "#util/*": "./dist/src/util/*",
+    "#root/*": "./dist/*"
   },
   "files": [
     "dist/*",
