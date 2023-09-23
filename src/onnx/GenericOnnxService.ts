@@ -7,7 +7,7 @@
 
 import { type BiosignalResource } from '#types/biosignal'
 import { type BaseAsset } from '#types/assets'
-import { type OnnxService, type AvailableModel } from '#types/onnx'
+import { type OnnxService, type AvailableOnnxModel } from '#types/onnx'
 import { type WorkerMessage } from '#types/service'
 import Log from 'scoped-ts-log'
 import GenericService from '#assets/service/GenericService'
@@ -17,7 +17,7 @@ const SCOPE = 'GenericOnnxService'
 export class GenericOnnxService extends GenericService implements OnnxService {
 
     protected _activeModel: string | null = null
-    protected _availableModels = new Map<string, AvailableModel>()
+    protected _availableModels = new Map<string, AvailableOnnxModel>()
     protected _modelLoading = false
     protected _progress = {
         complete: 0,

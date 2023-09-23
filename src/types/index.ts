@@ -1,4 +1,47 @@
 /////////////////////////////////////////////////
+//                   ASSETS                    //
+/////////////////////////////////////////////////
+
+import {
+    type BaseAsset,
+    type DataResource,
+    type EpiCurrentsApplication,
+    type InterfaceModule,
+    type InterfaceModuleConstructor,
+    type InterfaceResourceModule,
+    type InterfaceResourceModuleContext,
+    type ManagedService,
+    type MemoryManager,
+    type MouseInteraction,
+    type NullProtoObject,
+    type ResourceModule,
+    type RuntimeAppModule,
+    type RuntimeResourceModule,
+    type RuntimeState,
+    type SafeObject,
+    type StateManager,
+} from "./assets"
+export {
+    BaseAsset,
+    DataResource,
+    EpiCurrentsApplication,
+    InterfaceModule,
+    InterfaceModuleConstructor,
+    InterfaceResourceModule,
+    InterfaceResourceModuleContext,
+    ManagedService,
+    MemoryManager,
+    MouseInteraction,
+    NullProtoObject,
+    ResourceModule,
+    RuntimeAppModule,
+    RuntimeResourceModule,
+    RuntimeState,
+    SafeObject,
+    StateManager,
+}
+
+/////////////////////////////////////////////////
 //                 BIOSIGNAL                   //
 /////////////////////////////////////////////////
 
@@ -6,6 +49,8 @@ import {
     type BiosignalAnnotation,
     type BiosignalChannel,
     type BiosignalChannelMarker,
+    type BiosignalChannelProperties,
+    type BiosignalChannelTemplate,
     type BiosignalConfig,
     type BiosignalCursor,
     type BiosignalDataField,
@@ -18,6 +63,7 @@ import {
     type BiosignalLaterality,
     type BiosignalMetaField,
     type BiosignalMontage,
+    type BiosignalMontageReferenceSignal,
     type BiosignalMontageService,
     type BiosignalResource,
     type BiosignalScope,
@@ -68,63 +114,40 @@ export {
 /////////////////////////////////////////////////
 
 import {
+    type AppSettings,
     type BaseModuleSettings,
+    type ClonableAppSettings,
+    type ClonableModuleSettings,
     type CommonBiosignalSettings,
+    type ConfigBiosignalSetup,
+    type ConfigChannelFilter,
+    type ConfigDatasetLoader,
+    type ConfigMapChannels,
+    type ConfigStudyContext,
+    type ConfigStudyLoader,
     type PlotCircleStyles,
     type PlotLineStyles,
     type SettingsColor,
     type SettingsValue,
+    type SettingsValueConstructor,
 } from "./config"
 export {
+    AppSettings,
     BaseModuleSettings,
+    ClonableAppSettings,
+    ClonableModuleSettings,
     CommonBiosignalSettings,
+    ConfigBiosignalSetup,
+    ConfigChannelFilter,
+    ConfigDatasetLoader,
+    ConfigMapChannels,
+    ConfigStudyContext,
+    ConfigStudyLoader,
     PlotCircleStyles,
     PlotLineStyles,
     SettingsColor,
     SettingsValue,
-}
-
-/////////////////////////////////////////////////
-//                   ASSETS                    //
-/////////////////////////////////////////////////
-
-import {
-    type BaseAsset,
-    type DataResource,
-    type EpiCurrentsApplication,
-    type InterfaceModule,
-    type InterfaceModuleConstructor,
-    type InterfaceResourceModule,
-    type InterfaceResourceModuleContext,
-    type ManagedService,
-    type MemoryManager,
-    type MouseInteraction,
-    type NullProtoObject,
-    type ResourceModule,
-    type RuntimeAppModule,
-    type RuntimeResourceModule,
-    type RuntimeState,
-    type SafeObject,
-    type StateManager,
-} from "./assets"
-export {
-    BaseAsset,
-    DataResource,
-    EpiCurrentsApplication,
-    InterfaceModule,
-    InterfaceModuleConstructor,
-    InterfaceResourceModule,
-    InterfaceResourceModuleContext,
-    ManagedService,
-    MemoryManager,
-    MouseInteraction,
-    NullProtoObject,
-    ResourceModule,
-    RuntimeAppModule,
-    RuntimeResourceModule,
-    RuntimeState,
-    SafeObject,
-    StateManager,
+    SettingsValueConstructor,
 }
 
 /////////////////////////////////////////////////
@@ -175,6 +198,7 @@ import {
     type FileDecoder,
     type FileFormatLoader,
     type FileFormatLoaderSpecs,
+    type FileReader,
     type FileSystemItem,
     type FileSystemItemType,
     type LoadDirection,
@@ -188,6 +212,7 @@ export {
     FileDecoder,
     FileFormatLoader,
     FileFormatLoaderSpecs,
+    FileReader,
     FileSystemItem,
     FileSystemItemType,
     LoadDirection,
@@ -218,15 +243,15 @@ export {
 /////////////////////////////////////////////////
 
 import {
-    type AvailableModel,
-    type AvailableModelPublicProperties,
+    type AvailableOnnxModel,
+    type AvailableOnnxModelPublicProperties,
     type OnnxService,
     type OnnxServiceReject,
     type OnnxServiceResolve,
 } from "./onnx"
 export {
-    AvailableModel,
-    AvailableModelPublicProperties,
+    AvailableOnnxModel,
+    AvailableOnnxModelPublicProperties,
     OnnxService,
     OnnxServiceReject,
     OnnxServiceResolve,
@@ -238,9 +263,27 @@ export {
 
 import {
     type BiosignalPlot,
+    type BiosignalPlotConfig,
+    type BiosignalTrace,
+    type HighlightContext,
+    type PlotTraceSelection,
+    type SignalHighlight,
+    type SignalPoI,
+    type WebGlCompatibleColor,
+    type WebGlPlotConfig,
+    type WebGlTrace,
 } from "./plot"
 export {
     BiosignalPlot,
+    BiosignalPlotConfig,
+    BiosignalTrace,
+    HighlightContext,
+    PlotTraceSelection,
+    SignalHighlight,
+    SignalPoI,
+    WebGlCompatibleColor,
+    WebGlPlotConfig,
+    WebGlTrace,
 }
 
 /////////////////////////////////////////////////
@@ -282,7 +325,6 @@ export {
 
 import {
     type OrderedLoadingProtocol,
-    type StudyCollection,
     type StudyContext,
     type StudyContextCollection,
     type StudyContextFile,
@@ -294,7 +336,6 @@ import {
 } from "./study"
 export {
     OrderedLoadingProtocol,
-    StudyCollection,
     StudyContext,
     StudyContextCollection,
     StudyContextFile,

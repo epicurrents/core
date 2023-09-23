@@ -25,26 +25,12 @@ export interface OrderedLoadingProtocol {
      * @param singleStudy - Treat all files as part of a single study (default false).
      * @returns StudyCollection
      */
-    loadStudies (item: FileSystemItem, singleStudy: boolean): Promise<StudyCollection>
+    loadStudies (item: FileSystemItem, singleStudy: boolean): Promise<StudyContextCollection>
     /**
      * Remove a loader from the array of loaders to try.
      * @param loader - The StudyLoader to remove or array index of the loader.
      */
     removeLoader (loader: StudyLoader | number): void
-}
-/**
- * A collection of studies.
- */
-export interface StudyCollection {
-    /** Descriptive name for this collection. */
-    name: string
-    studies: StudyContext[]
-    /** Possible date of the studies in this collection. */
-    date: Date | null
-    /** Possible context of this collection. */
-    context?: string
-    /** Alternative to date, an order number to sort collections. */
-    order?: number
 }
 /**
  * A generic study.
@@ -76,6 +62,10 @@ export interface StudyContextCollection {
     studies: StudyContext[]
     /** Possible date of the studies in this collection. */
     date: Date | null
+    /** Possible context of this collection. */
+    context?: string
+    /** Alternative to date, an order number to sort collections. */
+    order?: number
 }
 /**
  * The file (data source) for this study context.
@@ -179,7 +169,7 @@ export interface StudyLoader {
      * @param config - Optional configuration detailing the contained studies.
      * @return A promise containing the loaded studies as { title: string, date?: string, studies: StudyContext[] }
      */
-    loadFromFsItem (fileTree: FileSystemItem, config?: object): Promise<StudyCollection[]>
+    loadFromFsItem (fileTree: FileSystemItem, config?: object): Promise<StudyContextCollection[]>
     /**
      * Load study properties from a single file.
      * @param fileUrl - URL to the file.

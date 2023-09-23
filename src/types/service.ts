@@ -104,6 +104,9 @@ export type CommissionPromise = Omit<{ [prop: string]: any}, "rn" | "success" | 
     /** Possible callback for an unexpected error. */
     reject?: (reason: string) => void
 }
+/**
+ * TODO: Expand the types related to pyodide interactions.
+ */
 export type PythonResponse = {
     result: any
     success: true

@@ -12,13 +12,13 @@ import { AssetService } from "./service"
 /**
  * An ONNX model that is available in this scope.
  */
-export type AvailableModel = {
+export type AvailableOnnxModel = {
     name: string
     supportedStudyTypes: string[]
     worker: Worker
 }
-export type AvailableModelPublicProperties = Omit<AvailableModel, "worker" | "supportedStudyTypes">
-                                             & { supportsStudy: (study: BaseAsset) => boolean }
+export type AvailableOnnxModelPublicProperties = Omit<AvailableOnnxModel, "worker" | "supportedStudyTypes">
+                                                 & { supportsStudy: (study: BaseAsset) => boolean }
 /**
  * Service class for interacting with an ONNX model.
  */
@@ -30,7 +30,7 @@ export interface OnnxService extends AssetService {
      * * Full name of the model.
      * * A list of study types supported by the model.
      */
-    availableModels: Map<string, AvailableModelPublicProperties>
+    availableModels: Map<string, AvailableOnnxModelPublicProperties>
     /** Is the model ready to be run. */
     isReady: boolean
     /** Is the model in the process of loading. */

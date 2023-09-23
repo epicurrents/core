@@ -256,4 +256,4 @@ export type PlotLineStyles = {
  */
 export type SettingsColor = [number, number, number, number]
 export type SettingsValue = SettingsColor | boolean | number | string | undefined
-type ValueConstructor = BooleanConstructor | NumberConstructor | StringConstructor
+export type SettingsValueConstructor = BooleanConstructor | NumberConstructor | StringConstructor

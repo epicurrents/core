@@ -61,3 +61,9 @@ export {
     StudyCollection,
     studyContextTemplate,
 }
+import GenericAsset from "./GenericAsset"
+import GenericResource from "./GenericResource"
+export {
+    GenericAsset,
+    GenericResource,
+}

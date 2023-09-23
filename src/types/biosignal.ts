@@ -6,9 +6,7 @@
  */
 
 import { BaseAsset, DataResource, SafeObject } from './assets'
-import { LoadDirection } from './loader'
 import {
-    AsymmetricMutex,
     MutexExportProperties,
     MutexMetaField,
 } from 'asymmetric-io-mutex'
@@ -151,31 +149,6 @@ export interface BiosignalChannel extends BaseAsset {
     setSignal (signal: Float32Array): void
 }
 /**
- * Basic properties of the biosignal channel entity to be used when loading configurations from JSON.
- */
-export type BiosignalChannelProperties = {
-    active?: number
-    amplification?: number
-    averaged?: boolean
-    displayPolarity?: -1 | 0 | 1
-    height?: number
-    label?: string
-    laterality?: string
-    name?: string
-    offset?: {
-        baseline: number
-        bottom: number
-        top: number
-    }
-    reference?: number[]
-    sampleCount?: number
-    samplingRate?: number
-    sensitivity?: number
-    type?: string
-    unit?: string,
-    visible?: boolean
-}
-/**
  * A marker containing a certain value at certain position of the channel signal.
  */
 export type BiosignalChannelMarker = {
@@ -202,6 +175,31 @@ export type BiosignalChannelMarker = {
      * @param value - The new value of the marker.
      */
     setValue (value: number): void
+}
+/**
+ * Basic properties of the biosignal channel entity to be used when loading configurations from JSON.
+ */
+export type BiosignalChannelProperties = {
+    active?: number
+    amplification?: number
+    averaged?: boolean
+    displayPolarity?: -1 | 0 | 1
+    height?: number
+    label?: string
+    laterality?: string
+    name?: string
+    offset?: {
+        baseline: number
+        bottom: number
+        top: number
+    }
+    reference?: number[]
+    sampleCount?: number
+    samplingRate?: number
+    sensitivity?: number
+    type?: string
+    unit?: string,
+    visible?: boolean
 }
 /**
  * This is a basic template for biosignal setup channels.

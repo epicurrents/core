@@ -1,7 +1,7 @@
 /**
  * Global property types and non-typed module declarations.
  * @package    epicurrents-core
- * @copyright  2022 Sampsa Lohi
+ * @copyright  2020 Sampsa Lohi
  * @license    Apache-2.0
  */
 

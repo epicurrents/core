@@ -89,10 +89,10 @@ export interface FileReader {
     readFilesFromSource(source: any): Promise<FileSystemItem|undefined>
 }
 
-export type FileSystemItemType = 'directory' | 'file'
 /**
- * A FileSystemItem describes data storage structure in local and
- * remote file systems.
+ * A FileSystemItem describes data storage structure in local and remote file systems.
+ * @remarks
+ * This whole group of types should probably be removed in favor of webkit's FileSystemEntry and plain urls?
  */
 export interface FileSystemItem {
     /** List of directories contained in this item (only if this is a directory). */
@@ -110,6 +110,7 @@ export interface FileSystemItem {
     /** Possible url to the file object (if this is a file). */
     url?: string
 }
+export type FileSystemItemType = 'directory' | 'file'
 /**
  * Identifiers for indicating the direction in which to continue when
  * loading continuous data.
