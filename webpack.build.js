@@ -16,7 +16,7 @@ module.exports = merge(common, {
         path: path.resolve(__dirname, 'build', 'lib'),
         publicPath: ASSET_PATH,
         filename: '[name].min.js',
-        chunkFilename: '[name].chunk.min.js',
+        chunkFilename: 'chunks/[name].min.js',
         library: '[name]',
         libraryTarget: 'umd'
     },

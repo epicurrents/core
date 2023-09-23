@@ -1,14 +1,17 @@
 {
   "name": "@epicurrents/core",
-  "version": "0.0.2-alpha.3",
+  "version": "0.0.2-alpha.2",
   "description": "EpiCurrents core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./types": "./dist/index.d.ts",
+    "./package.json": "./package.json"
   },
   "imports": {
     "#@/*": "./dist/src/*",
