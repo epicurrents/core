@@ -24,7 +24,7 @@ import { type StudyContext, type StudyLoader } from 'TYPES/study'
 import Log from 'scoped-ts-log'
 import SETTINGS from 'CONFIG/Settings'
 import { MixedMediaDataset } from 'ASSETS/dataset'
-import { PyodideService } from 'SRC/pyodide'
+import { PyodideService } from '@/pyodide'
 import { hexToSettingsColor, rgbaToSettingsColor } from 'UTIL/conversions'
 
 import { APP as appModule } from './modules'

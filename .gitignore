@@ -3,7 +3,7 @@
 .vscode
 node_modules
 build/*
-dist/static/*
+dist/*
 tests/coverage
 
 ._*

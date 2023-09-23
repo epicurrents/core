@@ -2,20 +2,20 @@
   "name": "@epicurrents/core",
   "version": "0.0.2-alpha.0",
   "description": "EpiCurrents core",
-  "main": "build/src/index.js",
-  "types": "build/types/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./build/src/index.js",
-    "./types": "./build/types/index.js"
+    ".": "./dist/index.js",
+    "./types": "./dist/index.d.ts"
   },
   "files": [
-    "build/*",
+    "dist/*",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
     "build": "node node_modules/typescript/bin/tsc",
-    "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
+    "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js && node node_modules/webpack/bin/webpack.js --progress --config webpack.build-types.js",
     "dev": "node node_modules/webpack/bin/webpack.js --progress --watch --config webpack.dev.js",
     "lint": "npm run lint:src && npm run lint:types",
     "lint:src": "node node_modules/eslint/bin/eslint src",

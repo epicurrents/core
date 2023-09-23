@@ -1,7 +1,6 @@
 const path = require('path')
 const { merge } = require('webpack-merge')
 const common = require('./webpack.config.js')
-const TerserPlugin = require('terser-webpack-plugin')
 const Dotenv = require('dotenv-webpack')
 
 const ASSET_PATH = process.env.ASSET_PATH || '/'
@@ -9,22 +8,13 @@ const ASSET_PATH = process.env.ASSET_PATH || '/'
 module.exports = merge(common, {
     mode: 'production',
     devtool: 'source-map',
-    entry: {
-        'index': { import: path.join(__dirname, 'src', 'index.ts') },
-    },
     output: {
-        path: path.resolve(__dirname, 'build', 'lib'),
+        path: path.resolve(__dirname, 'build', 'types'),
         publicPath: ASSET_PATH,
-        filename: '[name].min.js',
-        chunkFilename: '[name].chunk.min.js',
+        filename: '[name].js',
+        chunkFilename: '[name].chunk.js',
         library: '[name]',
         libraryTarget: 'umd'
-    },
-    optimization: {
-        minimize: true,
-        minimizer: [
-            new TerserPlugin(),
-        ],
     },
     plugins: [
         new Dotenv(),

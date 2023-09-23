@@ -22,13 +22,13 @@ module.exports = {
                 "moduleResolution": "node",
                 "baseUrl": "./",
                 "paths": {
+                    "@*": ["src/*"],
                     "ASSETS/*": ["src/assets/*"],
                     "CONFIG/*": ["src/config/*"],
                     "ROOT/*": ["./*"],
                     "RUNTIME*": ["src/runtime/index.ts"],
-                    "SRC/*": ["src/*"],
-                    "TYPES/*": ["types/*"],
-                    "TYPES/*": ["src/util/*"],
+                    "TYPES/*": ["src/types/*"],
+                    "UTIL/*": ["src/util/*"],
                 }
             }
         },
@@ -44,7 +44,6 @@ module.exports = {
         "^CONFIG/(.*)$": "<rootDir>/src/config/$1",
         "^ROOT/(.*)$": "<rootDir>/$1",
         "^RUNTIME/(.*)$": "<rootDir>/src/runtime/$1",
-        "^SRC/(.*)$": "<rootDir>/src/$1",
         "^TYPES/(.*)$": "<rootDir>/types/$1",
         "^UTIL/(.*)$": "<rootDir>/src/util/$1",
     },

@@ -1,18 +1,12 @@
 const path = require('path')
 
 module.exports = {
-    entry: {
-        'index': { import: path.join(__dirname, 'src', 'index.ts') },
-    },
     module: {
         rules: [
             {
                 test: /\.tsx?$/,
                 loader: "ts-loader",
                 exclude: /node_modules/,
-                options: {
-                    appendTsSuffixTo: [/\.vue$/]
-                }
             },
             {
                 test: /\.py$/,
@@ -40,12 +34,12 @@ module.exports = {
     resolve: {
         extensions: ['.ts', '.js', '.json'],
         alias: {
+            '@': path.resolve(__dirname, 'src/'),
             'ASSETS': path.resolve(__dirname, 'src/assets/'),
             'CONFIG': path.resolve(__dirname, 'src/config/'),
             'ROOT': path.resolve(__dirname, './'),
             'RUNTIME': path.resolve(__dirname, 'src/runtime/'),
-            'SRC': path.resolve(__dirname, 'src/'),
-            'TYPES': path.resolve(__dirname, 'types/'),
+            'TYPES': path.resolve(__dirname, 'src/types/'),
             'UTIL': path.resolve(__dirname, 'src/util/'),
         },
         symlinks: false

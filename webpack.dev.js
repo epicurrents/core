@@ -5,14 +5,18 @@ const Dotenv = require('dotenv-webpack')
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const CircularDependencyPlugin = require('circular-dependency-plugin')
 
-const ASSET_PATH = process.env.ASSET_PATH || '/static/'
+const ASSET_PATH = process.env.ASSET_PATH || '/testing/'
 const ROOT_PATH = process.env.ROOT_PATH || '/'
 
 module.exports = merge(common, {
     mode: 'development',
     devtool: 'inline-cheap-source-map',
+    entry: {
+        'index': { import: path.join(__dirname, 'src', 'index.ts') },
+        'types': { import: path.join(__dirname, 'types', 'index.ts') },
+    },
     output: {
-        path: path.resolve(__dirname, 'dist', 'static'),
+        path: path.resolve(__dirname, 'build', 'testing'),
         publicPath: ASSET_PATH,
         filename: '[name].js',
         chunkFilename: '[name].js?v=[contenthash]',

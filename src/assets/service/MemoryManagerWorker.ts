@@ -7,7 +7,7 @@
 
 import { type WorkerMessage } from 'TYPES/service'
 import IOMutex from 'asymmetric-io-mutex'
-import { log } from 'SRC/util/worker'
+import { log } from 'UTIL/worker'
 
 let BUFFER = null as SharedArrayBuffer | null
 let VIEW = null as Int32Array | null
