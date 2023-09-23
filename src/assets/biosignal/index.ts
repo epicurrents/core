@@ -4,6 +4,7 @@ import {
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
+    GenericBiosignalSetup,
 } from "./components"
 import {
     BiosignalMutex,
@@ -21,5 +22,6 @@ export {
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalResourceSAB,
+    GenericBiosignalSetup,
     MontageServiceSAB,
 }

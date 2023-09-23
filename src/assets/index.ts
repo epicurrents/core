@@ -7,6 +7,7 @@ import {
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalResourceSAB,
+    GenericBiosignalSetup,
     MontageServiceSAB,
 } from "./biosignal"
 import {
@@ -48,6 +49,7 @@ export {
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalResourceSAB,
+    GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
     GenericFileLoader,
