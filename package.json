@@ -1,19 +1,24 @@
 {
-  "name": "epicurrents-core",
+  "name": "@epicurrents/core",
   "version": "0.0.1",
   "description": "EpiCurrents core",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "build/src/index.js",
+  "types": "build/types/index.js",
+  "exports": {
+    ".": "./build/src/index.js",
+    "./types": "./build/types/index.js"
+  },
   "scripts": {
-    "build": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
+    "build": "node node_modules/typescript/bin/tsc",
+    "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
     "dev": "node node_modules/webpack/bin/webpack.js --progress --watch --config webpack.dev.js",
     "lint": "npm run lint:src && npm run lint:types",
     "lint:src": "node node_modules/eslint/bin/eslint src",
     "lint:types": "node node_modules/eslint/bin/eslint types",
+    "prepack": "npm run build",
     "serve": "node node_modules/webpack/bin/webpack.js serve --progress --config webpack.dev.js",
     "test": "npm run test:unit",
-    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --verbose --runInBand",
-    "tsc": "node node_modules/typescript/bin/tsc"
+    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --verbose --runInBand"
   },
   "repository": {
     "type": "git",
