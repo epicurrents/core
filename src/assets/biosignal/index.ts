@@ -7,6 +7,9 @@ import {
     GenericBiosignalSetup,
 } from "./components"
 import {
+    BiosignalStudyLoader,
+} from "./loaders"
+import {
     BiosignalMutex,
     BiosignalService,
     BiosignalServiceSAB,
@@ -17,6 +20,7 @@ export {
     BiosignalMutex,
     BiosignalService,
     BiosignalServiceSAB,
+    BiosignalStudyLoader,
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
