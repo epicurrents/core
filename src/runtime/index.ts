@@ -10,22 +10,22 @@ import {
     type BaseModuleSettings,
     type ConfigDatasetLoader,
     type SettingsColor,
-} from 'TYPES/config'
+} from '#types/config'
 import {
     type DataResource,
     type RuntimeResourceModule,
     type RuntimeState,
     type StateManager
-} from 'TYPES/assets'
-import { type DatasetLoader, type MediaDataset } from 'TYPES/dataset'
-import { type FileSystemItem } from 'TYPES/loader'
-import { type AssetService } from 'TYPES/service'
-import { type StudyContext, type StudyLoader } from 'TYPES/study'
+} from '#types/assets'
+import { type DatasetLoader, type MediaDataset } from '#types/dataset'
+import { type FileSystemItem } from '#types/loader'
+import { type AssetService } from '#types/service'
+import { type StudyContext, type StudyLoader } from '#types/study'
 import Log from 'scoped-ts-log'
-import SETTINGS from 'CONFIG/Settings'
-import { MixedMediaDataset } from 'ASSETS/dataset'
-import { PyodideService } from '@/pyodide'
-import { hexToSettingsColor, rgbaToSettingsColor } from 'UTIL/conversions'
+import SETTINGS from '#config/Settings'
+import { MixedMediaDataset } from '#assets/dataset'
+import { PyodideService } from '#root/src/pyodide'
+import { hexToSettingsColor, rgbaToSettingsColor } from '#util/conversions'
 
 import { APP as appModule } from './modules'
 

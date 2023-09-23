@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type SettingsColor } from "TYPES/config"
+import { type SettingsColor } from "#types/config"
 
 /**
  * Convert the given hex color string to settings color array.

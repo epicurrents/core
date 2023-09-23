@@ -5,19 +5,19 @@
  * @license    Apache-2.0
  */
 
-import { MemoryManager } from "TYPES/assets"
+import { MemoryManager } from "#types/assets"
 import {
     type ActionWatcher,
     type AssetService,
     type CommissionMap,
     type CommissionPromise,
     type WorkerMessage,
-} from "TYPES/service"
+} from "#types/service"
 import Log from "scoped-ts-log"
-import SETTINGS from "CONFIG/Settings"
-import GenericAsset from "ASSETS/GenericAsset"
-import { NUMERIC_ERROR_VALUE } from "UTIL/constants"
-import { getOrSetValue, nullPromise, safeObjectFrom } from "UTIL/general"
+import SETTINGS from "#config/Settings"
+import GenericAsset from "#assets/GenericAsset"
+import { NUMERIC_ERROR_VALUE } from "#util/constants"
+import { getOrSetValue, nullPromise, safeObjectFrom } from "#util/general"
 import { MutexExportProperties } from "asymmetric-io-mutex"
 
 const SCOPE = 'GenericService'

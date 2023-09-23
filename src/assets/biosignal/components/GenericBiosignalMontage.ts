@@ -6,16 +6,17 @@
  */
 
 import Log from 'scoped-ts-log'
-import { type MemoryManager } from 'TYPES/assets'
+import { type MemoryManager } from '#types/assets'
 import {
     type BiosignalMontage,
+    type BiosignalMontageReferenceSignal,
     type BiosignalResource,
     type BiosignalSetup,
     type MontageChannel,
-} from 'TYPES/biosignal'
-import { type ConfigChannelFilter, type ConfigMapChannels } from 'TYPES/config'
-import { type HighlightContext, type SignalHighlight } from 'TYPES/plot'
-import { type SignalCachePart, type SignalCacheResponse } from 'TYPES/service'
+} from '#types/biosignal'
+import { type ConfigChannelFilter, type ConfigMapChannels } from '#types/config'
+import { type HighlightContext, type SignalHighlight } from '#types/plot'
+import { type SignalCachePart, type SignalCacheResponse } from '#types/service'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 import {
     combineAllSignalParts,
@@ -23,9 +24,9 @@ import {
     isContinuousSignal,
     mapMontageChannels,
     shouldDisplayChannel,
-} from 'UTIL/signal'
-import { NUMERIC_ERROR_VALUE } from 'UTIL/constants'
-import GenericAsset from 'ASSETS/GenericAsset'
+} from '#util/signal'
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import GenericAsset from '#assets/GenericAsset'
 import { MontageServiceSAB } from '../service/MontageServiceSAB'
 
 const SCOPE = 'GenericBiosignalMontage'
@@ -47,12 +48,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
     protected _highlights = new Map<string, HighlightContext>()
     protected _label: string
-    protected _reference: {
-        common: true
-        description: string
-        label: string
-        type: string
-    } | null = null
+    protected _reference: BiosignalMontageReferenceSignal = null
     protected _recording: BiosignalResource
     protected _service: MontageServiceSAB
     protected _setup: BiosignalSetup

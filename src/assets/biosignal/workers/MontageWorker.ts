@@ -9,15 +9,15 @@ import {
     type BiosignalSetup,
     type MontageChannel,
     type SetupChannel,
-} from 'TYPES/biosignal'
-import { ConfigMapChannels, type CommonBiosignalSettings, type ConfigChannelFilter } from 'TYPES/config'
-import { type SignalCachePart, type WorkerMessage } from 'TYPES/service'
+} from '#types/biosignal'
+import { ConfigMapChannels, type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
+import { type SignalCachePart, type WorkerMessage } from '#types/service'
 import BiosignalMutex from '../service/BiosignalMutex'
 import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
 import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
-import { concatFloat32Arrays, filterSignal, getFilterPadding, mapMontageChannels, shouldDisplayChannel, shouldFilterSignal } from 'UTIL/signal'
-import { NUMERIC_ERROR_VALUE } from 'UTIL/constants'
-import { log } from 'UTIL/worker'
+import { concatFloat32Arrays, filterSignal, getFilterPadding, mapMontageChannels, shouldDisplayChannel, shouldFilterSignal } from '#util/signal'
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import { log } from '#util/worker'
 
 const SCOPE = "MontageWorker"
 

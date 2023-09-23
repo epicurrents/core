@@ -577,6 +577,19 @@ export interface BiosignalMontage extends BaseAsset {
      */
     updateFilters (): Promise<boolean>
 }
+/**
+ * Montage common reference signal definition.
+ */
+export type BiosignalMontageReferenceSignal = {
+    /** Is this a common reference (practivally always true, else this whole property is null). */
+    common: boolean
+    /** Signal description. */
+    description: string
+    /** Signal label to display in the UI. */
+    label: string
+    /** Signal type. */
+    type: string
+} | null
 export interface BiosignalMontageService {
     /**
      * Start the process of caching montage signals from loaded raw signals.

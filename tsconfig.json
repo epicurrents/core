@@ -46,14 +46,14 @@
     "resolveJsonModule": true,
     "baseUrl": "./",                          /* Base directory to resolve non-absolute module names. */
     "paths": {                                /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
-      "@/*": ["src/*"],
-      "ASSETS/*": ["src/assets/*"],
-      "CONFIG/*": ["src/config/*"],
-      "RUNTIME*": ["src/runtime/index.ts"],
-      "TYPES/*": ["src/types/*"],
-      "UTIL/*": ["src/util/*"],
+      "#@/*": ["src/*"],
+      "#assets/*": ["src/assets/*"],
+      "#config/*": ["src/config/*"],
+      "#runtime*": ["src/runtime/index.ts"],
+      "#types/*": ["src/types/*"],
+      "#util/*": ["src/util/*"],
       /* The root forder is matched last as a catch-it-all */
-      "ROOT/*": ["./*"],
+      "#root/*": ["./*"],
     } ,
     // "rootDirs": [],                        /* List of root folders whose combined content represents the structure of the project at runtime. */
     "typeRoots": [                            /* List of folders to include type definitions from. */

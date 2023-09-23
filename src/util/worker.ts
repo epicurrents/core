@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type SafeObject } from 'TYPES/assets'
+import { type SafeObject } from '#types/assets'
 import Log from 'scoped-ts-log'
 
 const SCOPE = "DefaultWorker"

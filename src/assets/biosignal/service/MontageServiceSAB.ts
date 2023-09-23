@@ -5,19 +5,19 @@
  * @license    Apache-2.0
  */
 
-import { type MemoryManager } from "TYPES/assets"
+import { type MemoryManager } from "#types/assets"
 import {
     type BiosignalMontage,
     type BiosignalMontageService,
     type MontageChannel,
-} from "TYPES/biosignal"
-import { type ConfigChannelFilter } from "TYPES/config"
-import { type SignalCacheResponse, type WorkerMessage } from "TYPES/service"
+} from "#types/biosignal"
+import { type ConfigChannelFilter } from "#types/config"
+import { type SignalCacheResponse, type WorkerMessage } from "#types/service"
 import Log from 'scoped-ts-log'
 import BiosignalMutex from "./BiosignalMutex"
-import GenericService from "ASSETS/service/GenericService"
+import GenericService from "#assets/service/GenericService"
 import { MutexExportProperties } from "asymmetric-io-mutex"
-import { mapSignalsToSamplingRates } from "UTIL/signal"
+import { mapSignalsToSamplingRates } from "#util/signal"
 
 const SCOPE = "MontageService"
 
@@ -30,7 +30,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
     }
 
     constructor (namespace: string, montage: BiosignalMontage, manager: MemoryManager) {
-        super(SCOPE, new Worker(new URL(`ASSETS/biosignal/workers/MontageWorker.ts`, import.meta.url)), manager)
+        super(SCOPE, new Worker(new URL(`#assets/biosignal/workers/MontageWorker.ts`, import.meta.url)), manager)
         this._worker?.postMessage({
             action: 'settings-namespace',
             value: namespace,

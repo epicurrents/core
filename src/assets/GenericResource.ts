@@ -6,9 +6,9 @@
  * @license    Apache-2.0
  */
 
-import { DataResource } from "TYPES/assets"
-import GenericAsset from "ASSETS/GenericAsset"
-import { StudyContext } from "TYPES/study"
+import { DataResource } from "#types/assets"
+import GenericAsset from "#assets/GenericAsset"
+import { StudyContext } from "#types/study"
 
 //const SCOPE = 'GenericResource'
 

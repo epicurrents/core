@@ -9,14 +9,14 @@ import {
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
-} from "TYPES/biosignal"
-import { type MemoryManager } from "TYPES/assets"
-import { type SignalCacheResponse, type WorkerMessage } from "TYPES/service"
-import { type StudyContext } from "TYPES/study"
+} from "#types/biosignal"
+import { type MemoryManager } from "#types/assets"
+import { type SignalCacheResponse, type WorkerMessage } from "#types/service"
+import { type StudyContext } from "#types/study"
 import Log from 'scoped-ts-log'
-import GenericService from "ASSETS/service/GenericService"
-import { NUMERIC_ERROR_VALUE } from "UTIL/constants"
-import { ConfigChannelFilter } from "TYPES/config"
+import GenericService from "#assets/service/GenericService"
+import { NUMERIC_ERROR_VALUE } from "#util/constants"
+import { ConfigChannelFilter } from "#types/config"
 
 const SCOPE = "BiosignalService"
 

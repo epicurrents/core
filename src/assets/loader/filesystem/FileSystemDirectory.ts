@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type FileSystemItem, type FileSystemItemType } from "TYPES/loader"
+import { type FileSystemItem, type FileSystemItemType } from "#types/loader"
 import Log from "scoped-ts-log"
 import FileSystemFile from "./FileSystemFile"
 

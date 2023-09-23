@@ -6,9 +6,9 @@
  * @license    Apache-2.0
  */
 
-import { type BaseAsset, type EpiCurrentsApplication } from "TYPES/assets"
+import { type BaseAsset, type EpiCurrentsApplication } from "#types/assets"
 import Log from 'scoped-ts-log'
-import { safeObjectFrom } from 'UTIL/general'
+import { safeObjectFrom } from '#util/general'
 
 const SCOPE = "GenericAsset"
 

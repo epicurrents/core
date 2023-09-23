@@ -5,12 +5,12 @@
  * @license    Apache-2.0
  */
 
-import { type BiosignalResource } from 'TYPES/biosignal'
-import { type BaseAsset } from 'TYPES/assets'
-import { type OnnxService, type AvailableModel } from 'TYPES/onnx'
-import { type WorkerMessage } from 'TYPES/service'
+import { type BiosignalResource } from '#types/biosignal'
+import { type BaseAsset } from '#types/assets'
+import { type OnnxService, type AvailableModel } from '#types/onnx'
+import { type WorkerMessage } from '#types/service'
 import Log from 'scoped-ts-log'
-import GenericService from 'ASSETS/service/GenericService'
+import GenericService from '#assets/service/GenericService'
 
 const SCOPE = 'GenericOnnxService'
 

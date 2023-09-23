@@ -5,14 +5,14 @@
  * @license    Apache-2.0
  */
 
-import { type MemoryManager } from 'TYPES/assets'
-import { type FileFormatLoader } from 'TYPES/loader'
+import { type MemoryManager } from '#types/assets'
+import { type FileFormatLoader } from '#types/loader'
 import {
     type StudyContext,
     type StudyContextFile,
     type StudyLoader
-} from 'TYPES/study'
-import { studyContextTemplate } from 'ASSETS/study/loaders/GenericStudyLoader'
+} from '#types/study'
+import { studyContextTemplate } from '#assets/study/loaders/GenericStudyLoader'
 
 export default abstract class GenericFileLoader implements FileFormatLoader {
     /**

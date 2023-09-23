@@ -5,8 +5,19 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./types": "./dist/index.d.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "imports": {
+    "#@/*": "src/*",
+    "#assets/*": "src/assets/*",
+    "#config/*": "src/config/*",
+    "#runtime*": "src/runtime/index.ts",
+    "#types/*": "src/types/*",
+    "#util/*": "src/util/*",
+    "#root/*": "./*"
   },
   "files": [
     "dist/*",
@@ -15,7 +26,7 @@
   ],
   "scripts": {
     "build": "node node_modules/typescript/bin/tsc",
-    "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js && node node_modules/webpack/bin/webpack.js --progress --config webpack.build-types.js",
+    "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
     "dev": "node node_modules/webpack/bin/webpack.js --progress --watch --config webpack.dev.js",
     "lint": "npm run lint:src && npm run lint:types",
     "lint:src": "node node_modules/eslint/bin/eslint src",

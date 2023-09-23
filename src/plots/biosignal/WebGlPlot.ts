@@ -12,7 +12,7 @@ import {
     type WebGlCompatibleColor,
     type WebGlPlotConfig,
     type WebGlTrace,
-} from "TYPES/plot"
+} from "#types/plot"
 import Log from 'scoped-ts-log'
 import PlotColor from "./PlotColor"
 

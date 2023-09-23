@@ -35,12 +35,12 @@ module.exports = {
         extensions: ['.ts', '.js', '.json'],
         alias: {
             '@': path.resolve(__dirname, 'src/'),
-            'ASSETS': path.resolve(__dirname, 'src/assets/'),
-            'CONFIG': path.resolve(__dirname, 'src/config/'),
-            'ROOT': path.resolve(__dirname, './'),
-            'RUNTIME': path.resolve(__dirname, 'src/runtime/'),
-            'TYPES': path.resolve(__dirname, 'src/types/'),
-            'UTIL': path.resolve(__dirname, 'src/util/'),
+            '#assets': path.resolve(__dirname, 'src/assets/'),
+            '#config': path.resolve(__dirname, 'src/config/'),
+            '#root': path.resolve(__dirname, './'),
+            '#runtime': path.resolve(__dirname, 'src/runtime/'),
+            '#types/': path.resolve(__dirname, 'src/types/'),
+            '#util': path.resolve(__dirname, 'src/util/'),
         },
         symlinks: false
     },

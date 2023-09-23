@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { type SetupChannel, type BiosignalSetup, BiosignalChannelTemplate } from 'TYPES/biosignal'
-import { type ConfigBiosignalSetup } from 'TYPES/config'
+import { type SetupChannel, type BiosignalSetup, BiosignalChannelTemplate } from '#types/biosignal'
+import { type ConfigBiosignalSetup } from '#types/config'
 
 export default class GenericBiosignalSetup implements BiosignalSetup {
     protected _id: string

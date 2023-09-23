@@ -99,12 +99,12 @@ import {
     type InterfaceModuleConstructor,
     type DataResource,
     type ResourceModule,
-} from 'TYPES/assets'
-import { type SettingsValue } from "TYPES/config"
-import { type AssetService } from 'TYPES/service'
-import { type BaseDataset } from 'TYPES/dataset'
-import { type FileSystemItem, type LoaderMode } from 'TYPES/loader'
-import SETTINGS from 'CONFIG/Settings'
+} from '#types/assets'
+import { type SettingsValue } from "#types/config"
+import { type AssetService } from '#types/service'
+import { type BaseDataset } from '#types/dataset'
+import { type FileSystemItem, type LoaderMode } from '#types/loader'
+import SETTINGS from '#config/Settings'
 
 import RuntimeStateManager from './runtime'
 import GenericAsset from './assets/GenericAsset'

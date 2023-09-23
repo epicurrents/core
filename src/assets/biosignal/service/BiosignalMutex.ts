@@ -5,11 +5,11 @@
  * @license    Apache-2.0
  */
 
-import { type SignalCacheMutex, type SignalCachePart } from "TYPES/service"
+import { type SignalCacheMutex, type SignalCachePart } from "#types/service"
 import Log from 'scoped-ts-log'
 import IOMutex, { type MutexExportProperties } from "asymmetric-io-mutex"
-import { concatFloat32Arrays } from "UTIL/signal"
-import { NUMERIC_ERROR_VALUE } from 'UTIL/constants'
+import { concatFloat32Arrays } from "#util/signal"
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
 
 const SCOPE = 'BiosignalMutex'
 

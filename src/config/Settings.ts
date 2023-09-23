@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { AppSettings, BaseModuleSettings, ClonableAppSettings, ClonableModuleSettings } from "TYPES/config"
-import { MB_BYTES } from "UTIL/constants"
+import { AppSettings, BaseModuleSettings, ClonableAppSettings, ClonableModuleSettings } from "#types/config"
+import { MB_BYTES } from "#util/constants"
 import Log from "scoped-ts-log"
 
 const SCOPE = 'Settings'

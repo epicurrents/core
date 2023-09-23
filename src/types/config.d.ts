@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { StudyCollection } from "ASSETS/study"
+import { StudyCollection } from "#assets/study"
 import { BiosignalAnnotation, BiosignalChannelTemplate, SetupChannel } from "./biosignal"
 
 export interface AppSettings {

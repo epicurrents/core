@@ -5,7 +5,7 @@
  * @license    MIT
  */
 
-import { type FileReader } from 'TYPES/loader'
+import { type FileReader } from '#types/loader'
 import MixedFileSystemItem from './filesystem/MixedFileSystemItem'
 
 export default class LocalFileReader implements FileReader {
