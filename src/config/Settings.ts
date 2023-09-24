@@ -5,16 +5,29 @@
  * @license    Apache-2.0
  */
 
-import { AppSettings, BaseModuleSettings, ClonableAppSettings, ClonableModuleSettings } from "#types/config"
+import {
+    type PropertyUpdateHandler
+} from "#types/assets"
+import {
+    type AppSettings,
+    type BaseModuleSettings,
+    type ClonableAppSettings,
+    type ClonableModuleSettings,
+    type SettingsValue,
+} from "#types/config"
 import { MB_BYTES } from "#util/constants"
+import { hexToSettingsColor, rgbaToSettingsColor } from "#util/conversions"
 import Log from "scoped-ts-log"
 
 const SCOPE = 'Settings'
 
 const _propertyUpdateHandlers = [] as {
+    /** Name of the caller (owner) of this handler, if specified. */
     caller: string | null
+    /** Name of the field to watch. Updates to this field and any of it's children trigger the hander. */
     field: string
-    handler: (value?: unknown) => void
+    /** Handler to execute on field update. */
+    handler: PropertyUpdateHandler
 }[]
 /**
  * Remove the properties that cannot be cloned to a worker and
@@ -60,6 +73,8 @@ const clonableSettings = () => {
  * by the runtime state manager, making both of these obsolete.
  */
 const proxyHandler = {
+    // Can't find a way to avoid using any in these overrides.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get (target: any, key: string|symbol, receiver: unknown): unknown {
         // Check if module settings have been initialized.
         if (
@@ -85,6 +100,7 @@ const proxyHandler = {
             return Reflect.get(target, key, receiver)
         }
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     set (target: any, key: string|symbol, value: unknown, receiver: unknown) {
         const success = Reflect.set(target, key, value, receiver)
         return success
@@ -123,26 +139,45 @@ const _settings = {
         MNE: true,
         ONNX: false,
     },
-    addPropertyUpdateHandler (field: string, handler: (value?: unknown) => unknown, caller?: string) {
-        for (const update of _propertyUpdateHandlers) {
-            if ((!field || field === update.field) && handler === update.handler) {
-                // Don't add the same handler twice
+    addPropertyUpdateHandler (field: string, handler: PropertyUpdateHandler, caller?: string) {
+        if (typeof field !== 'string' || !field) {
+            Log.error(`Invalid field supplied to addPropertyUpdateHandler.`, SCOPE)
+            return
+        }
+        const newHandler = {
+            field: field,
+            handler: handler,
+            caller: caller || null,
+        }
+        for (let i=0; i<_propertyUpdateHandlers.length; i++) {
+            const update = _propertyUpdateHandlers[i]
+            if (handler === update.handler) {
+                if (field === update.field) {
+                    Log.debug(`The given handler already existed for field ${field}.`, SCOPE)
+                } else if (field.startsWith(update.field)) {
+                    // Listeners of a parent field are notified on updates.
+                    Log.debug(
+                        `The given handler already existed for parent '${update.field}' of the field '${field}'.`,
+                    SCOPE)
+                } else if (update.field.startsWith(field)) {
+                    // Replace the child field handler with the new, more general parent field handler.
+                    Log.debug(
+                        `The given handler already existed for child '${update.field}' of the field '${field}' ` +
+                        `and was replaced.`,
+                    SCOPE)
+                    _propertyUpdateHandlers.splice(i, 1, newHandler)
+                }
                 return
             }
         }
-        // The value must be updated both in local app state and global settings
-        if (caller) {
-            _propertyUpdateHandlers.push({
-                caller: caller,
-                field: field,
-                handler: handler,
-            })
-        }
+        _propertyUpdateHandlers.push(newHandler)
         Log.debug(`Added a handler for ${field}.`, SCOPE)
     },
     getFieldValue (field: string, depth?: number) {
         // Traverse field's "path" to target property
         const fPath = field.split('.')
+        // This is incredibly difficult to type, maybe one day I'll get it right...
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const configFields = [SETTINGS] as any[]
         let i = 0
         for (const f of fPath) {
@@ -173,6 +208,18 @@ const _settings = {
         }
         return undefined
     },
+    onPropertyUpdate (field: string, newValue?: SettingsValue, oldValue?: SettingsValue) {
+        for (const handlerContext of _propertyUpdateHandlers) {
+            if (field.startsWith(handlerContext.field)) {
+                Log.debug(
+                    `Executing ${field} update handler` +
+                    (handlerContext.caller ? ' for ' + handlerContext.caller : '') +
+                    `.`,
+                SCOPE)
+                handlerContext.handler(newValue, oldValue)
+            }
+        }
+    },
     registerModule (name: string, moduleSettings: BaseModuleSettings) {
         _modules.set(name, moduleSettings)
     },
@@ -192,11 +239,10 @@ const _settings = {
             }
         }
     },
-    removePropertyUpdateHandler (field: string, handler: (value?: unknown) => unknown) {
-        // Remove it from the list of handler references
+    removePropertyUpdateHandler (field: string, handler: PropertyUpdateHandler) {
         for (let i=0; i<_propertyUpdateHandlers.length; i++) {
             const update = _propertyUpdateHandlers[i]
-            if ((!field || field === update.field) && handler === update.handler) {
+            if (field.startsWith(update.field) && handler === update.handler) {
                 const caller = _propertyUpdateHandlers.splice(i, 1)[0].caller || ''
                 Log.debug(`Removed ${field} handler${caller ? ' for '+ caller : ''}.`, SCOPE)
                 return
@@ -204,6 +250,64 @@ const _settings = {
         }
         Log.debug(`Could not locate the requested ${field} handler.`, SCOPE)
     },
+    setFieldValue (field: string, value: SettingsValue) {
+        // Settings object should have the reference to object proto removed, but just in case.
+        if (field.includes('__proto__')) {
+            Log.warn(
+                `Field ${field} passed to setFieldValue contains insecure property name '_proto__' and weas ignored.`,
+            SCOPE)
+            return
+        }
+        // Traverse field's "path" to target property.
+        const fPath = field.split('.')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const settingsField = [SETTINGS] as any[]
+        let i = 0
+        for (const f of fPath) {
+            if (i === fPath.length - 1) {
+                if (settingsField[i] === undefined) {
+                    Log.warn(
+                        `Default configuration field '`+
+                        `${field}`+
+                        `' is invalid: cannot find property '`+
+                        `${fPath.slice(0, i + 1).join('.')}'.`,
+                    SCOPE)
+                    return
+                } else if (settingsField[i][f as keyof typeof settingsField] === undefined) {
+                    Log.warn(
+                        `Default configuration field '`+
+                        `${field}`+
+                        `' is invalid: cannot find property '`+
+                        `${fPath.slice(0, i + 1).join('.')}`+
+                        `'. Valid properties are:
+                        '${Object.keys(settingsField[i]).join("', '")}'.`,
+                    SCOPE)
+                    return
+                }
+                // Final field.
+                const local = settingsField.pop()
+                if (typeof value === 'string') {
+                    // Parse possible color code.
+                    value = rgbaToSettingsColor(value) ||
+                            hexToSettingsColor(value) ||
+                            value
+                }
+                // Check constructors for type match (TODO: Should null be a valid settings value?).
+                if (local[f].constructor === value?.constructor) {
+                    const old = local[f]
+                    local[f] = value
+                    Log.debug(`Changed settings field '${field}' value.`, SCOPE)
+                    _settings.onPropertyUpdate(field, value, old)
+                }
+                return
+            } else {
+                settingsField.push(settingsField[i][f as keyof typeof settingsField])
+            }
+            i++
+        }
+        // Is it even possible to reach this point?
+        Log.error(`Could not change settings field '${field}'; the field was not found.`, SCOPE)
+    }
 } as AppSettings
 
 const SETTINGS = new Proxy(

@@ -161,43 +161,14 @@ export class EpiCurrents implements EpiCurrentsApplication {
      *  { 'services.MNE': false }
      * )
      */
-    configure (config: { [field: string]: Omit<SettingsValue, "undefined"> }) {
+    configure (config: { [field: string]: SettingsValue }) {
         if (this.#app) {
             Log.warn(`Cannot alter default configuration after app launch. Use the setSettingsValue method instead.`, SCOPE)
             return
         }
-        field_loop:
         for (const [field, value] of Object.entries(config)) {
-            Log.debug(`Modifying default configuration field '${field}' to value ${value.toString()}`, SCOPE)
-            // Property names with an underscore are not allowed.
-            if (field.includes('__proto__')) {
-                Log.warn(`Field ${field} contains insecure field '_proto__', field was ignored.`, SCOPE)
-                continue
-            }
-            // Traverse field's "path" to target property
-            const fPath = field.split('.')
-            const cfgField = [SETTINGS] as any[]
-            let i = 0
-            for (const f of fPath) {
-                if (cfgField[i][f as keyof typeof cfgField] === undefined) {
-                    Log.warn(`Default configuration field '${field}' is invalid: cannot find property '${fPath.slice(i).join('.')}'. Valid properties are '${Object.keys(cfgField[i]).join("', '")}'.`, SCOPE)
-                    continue field_loop
-                }
-                if (i === fPath.length - 1) {
-                    // Final field
-                    const prop = cfgField.pop()
-                    // Typecheck
-                    if (prop[f].constructor === value.constructor) {
-                        prop[f] = value
-                    } else {
-                        Log.warn(`Config property '${field}' constructor (${prop[f].constructor}) did not match given constructor (${value.constructor}).`, SCOPE)
-                    }
-                    continue field_loop
-                } else {
-                    cfgField.push(cfgField[i][f as keyof typeof cfgField])
-                }
-                i++
-            }
+            Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
+            SETTINGS.setFieldValue(field, value)
         }
     }
     createDataset (name?: string) {
@@ -367,7 +338,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
      * setSettingsValue('module.field.subfield', 'New Value')
      * ```
      */
-    setSettingsValue = (field: string, value: Omit<SettingsValue, "undefined">) => {
+    setSettingsValue = (field: string, value: SettingsValue) => {
         this.#state.setSettingsValue(field, value)
     }
 }

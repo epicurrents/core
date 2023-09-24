@@ -8,7 +8,7 @@
 import {
     AppSettings,
     BaseModuleSettings,
-    SettingsColor,
+    SettingsValue,
 } from "./config"
 import { DatasetLoader, MediaDataset } from "./dataset"
 import { FileSystemItem } from "./loader"
@@ -243,6 +243,7 @@ export type MouseInteraction = 'drag'
 export type NullProtoObject = {
     __proto__: null
 }
+export type PropertyUpdateHandler = (newValue?: unknown, oldValue?: unknown) => unknown
 /**
  * Module containing the required runtime and settings properties for a given resource type.
  */
@@ -349,7 +350,7 @@ export interface StateManager {
      * @param handler - Handler to fire when the property changes.
      * @param caller - Optional ID for the caller.
      */
-    addPropertyUpdateHandler (property: string | string[], handler: (newValue?: unknown, oldValue?: unknown) => any, caller?: string): void
+    addPropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler, caller?: string): void
     /**
      * Add a new `resource` into the given `scope`.
      * @param scope - Scope of the new resoure.
@@ -390,7 +391,7 @@ export interface StateManager {
      * @param property - Name of the property/properties (in kebab-case).
      * @param handler - Handler to remove.
      */
-    removePropertyUpdateHandler (property: string | string[], handler: (newValue?: unknown, oldValue?: unknown) => any): void
+    removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
     /**
      * Set the given dataset as active.
      * @param dataset - New active dataset.
@@ -432,5 +433,5 @@ export interface StateManager {
      * @param field - Name or path of the field.
      * @param value - The new value.
      */
-    setSettingsValue (field: string, value: string | number | boolean | SettingsColor | Object): void
+    setSettingsValue (field: string, value: SettingsValue): void
 }

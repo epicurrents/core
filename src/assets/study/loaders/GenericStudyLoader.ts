@@ -250,7 +250,7 @@ export default class GenericStudyLoader implements StudyLoader {
                             const result = JSON.parse(e.target?.result as string)
                             resolve(result)
                         }
-                        reader.onerror = (e: any) => {
+                        reader.onerror = (e: unknown) => {
                             reject(e)
                         }
                         reader.readAsText(confFile.file as File)

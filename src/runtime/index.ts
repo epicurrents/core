@@ -9,7 +9,7 @@ import {
     type AppSettings,
     type BaseModuleSettings,
     type ConfigDatasetLoader,
-    type SettingsColor,
+    type SettingsValue,
 } from '#types/config'
 import {
     type DataResource,
@@ -25,7 +25,6 @@ import Log from 'scoped-ts-log'
 import SETTINGS from '#config/Settings'
 import { MixedMediaDataset } from '#assets/dataset'
 import { PyodideService } from '#root/src/pyodide'
-import { hexToSettingsColor, rgbaToSettingsColor } from '#util/conversions'
 
 import { APP as appModule } from './modules'
 
@@ -119,7 +118,11 @@ export default class RuntimeStateManager implements StateManager {
             this.setActiveDataset(dataset)
         }
     }
-    addPropertyUpdateHandler (property: string | string[], handler: (value?: unknown) => unknown, caller?: string) {
+    addPropertyUpdateHandler (
+        property: string | string[],
+        handler: (newValue?: unknown, oldValue?: unknown) => unknown,
+        caller?: string
+    ) {
         for (const update of this._propertyUpdateHandlers) {
             if (property === update.property && handler === update.handler) {
                 // Don't add the same handler twice.
@@ -254,7 +257,9 @@ export default class RuntimeStateManager implements StateManager {
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
         for (const update of this._propertyUpdateHandlers) {
             if (update.property === property || property.match(update.pattern)) {
-                Log.debug(`Executing ${property} handler${update.caller ? ' for ' + update.caller : ''}.`, SCOPE)
+                Log.debug(
+                    `Executing ${property} update handler${update.caller ? ' for ' + update.caller : ''}.`,
+                SCOPE)
                 update.handler(newValue, oldValue)
             }
         }
@@ -364,62 +369,11 @@ export default class RuntimeStateManager implements StateManager {
         state.SERVICES.set(name, service)
         this.onPropertyUpdate('services', name)
     }
-    setSettingsValue (field: string, value: string | number | boolean | SettingsColor | object) {
+    setSettingsValue (field: string, value: SettingsValue) {
         if (typeof field !== 'string') {
             Log.error('Invalid setting field type, expected string.', SCOPE)
             return
         }
-        if (field.includes('__proto__')) {
-            Log.error(`Settings field ${field} contains insecure field '_proto__' and will be ignored.`, SCOPE)
-            return
-        }
-        // Traverse field's "path" to target property
-        const fPath = field.split('.')
-        const settingsField = [state.SETTINGS] as any[]
-        let i = 0
-        for (const f of fPath) {
-            if (i === fPath.length - 1) {
-                if (settingsField[i] === undefined) {
-                    Log.warn(
-                        `Default configuration field '`+
-                        `${field}`+
-                        `' is invalid: cannot find property '`+
-                        `${fPath.slice(0, i + 1).join('.')}'.`,
-                    SCOPE)
-                    return
-                } else if (settingsField[i][f as keyof typeof settingsField] === undefined) {
-                    Log.warn(
-                        `Default configuration field '`+
-                        `${field}`+
-                        `' is invalid: cannot find property '`+
-                        `${fPath.slice(0, i + 1).join('.')}`+
-                        `'. Valid properties are:
-                        '${Object.keys(settingsField[i]).join("', '")}'.`,
-                    SCOPE)
-                    return
-                }
-                // Final field
-                const local = settingsField.pop()
-                if (typeof value === 'string') {
-                    // Parse possible color code
-                    value = rgbaToSettingsColor(value) ||
-                            hexToSettingsColor(value) ||
-                            value
-                }
-                // Typecheck
-                if (local[f].constructor === value.constructor) {
-                    const old = local[f] // Will this work for objects?
-                    local[f] = value
-                    Log.debug(`Changed settings field '${field}' value.`, SCOPE)
-                    this.onPropertyUpdate(field, value, old)
-                }
-                return
-            } else {
-                settingsField.push(settingsField[i][f as keyof typeof settingsField])
-            }
-            i++
-        }
-        // Is it even possible to reach this point?
-        Log.error(`Could not change settings field '${field}'; the field was not found.`, SCOPE)
+        state.SETTINGS.setFieldValue(field, value)
     }
 }
