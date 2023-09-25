@@ -5,10 +5,10 @@
  * @license    Apache-2.0
  */
 
-import { type BiosignalResource } from '#types/biosignal'
 import { type BaseAsset } from '#types/assets'
+import { type BiosignalResource } from '#types/biosignal'
 import { type OnnxService, type AvailableOnnxModel } from '#types/onnx'
-import { type WorkerMessage } from '#types/service'
+import { type WorkerResponse } from '#types/service'
 import Log from 'scoped-ts-log'
 import GenericService from '#assets/service/GenericService'
 
@@ -82,7 +82,7 @@ export class GenericOnnxService extends GenericService implements OnnxService {
         return this._progress.target ? this._progress.complete/this._progress.target : 0
     }
 
-    async handleMessage (message: { data: WorkerMessage }) {
+    async handleMessage (message: WorkerResponse) {
         const data = message.data
         if (!data) {
             return false
@@ -92,7 +92,7 @@ export class GenericOnnxService extends GenericService implements OnnxService {
         }
         if (data.action === 'progress') {
             // Progress is a special update that is sent to 'run' action watchers
-            this._progress.complete = this._progress.startIndex + data.complete
+            this._progress.complete = this._progress.startIndex + (data.complete as number)
             this.onPropertyUpdate('progress')
             return true
         }
@@ -102,11 +102,11 @@ export class GenericOnnxService extends GenericService implements OnnxService {
             }
         }
         if (data.action === 'prepare') {
-            this._name = data.name
+            this._name = data.name as string
             this.onPropertyUpdate('name')
             return true
         }
-        if (await super._handleWorkerResponse(message)) {
+        if (await super._handleWorkerCommission(message)) {
             return true
         }
         Log.warn(`Message with action ${data.action} was not handled.`, SCOPE)
@@ -181,7 +181,7 @@ export class GenericOnnxService extends GenericService implements OnnxService {
                 ['path', dir],// WebWorker doesn't know HTML file path.
             ])
         )
-        return commission.promise
+        return commission.promise as Promise<void>
     }
 
     resetProgress () {

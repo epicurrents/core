@@ -15,7 +15,7 @@ let VIEW = null as Int32Array | null
 const SCOPE = 'MemoryManagerWorker'
 const WAIT_TIMEOUT = 5000
 
-onmessage = async (message: { data: WorkerMessage }) => {
+onmessage = async (message: WorkerMessage) => {
     if (!message?.data?.action) {
         return
     }
@@ -23,8 +23,9 @@ onmessage = async (message: { data: WorkerMessage }) => {
     let success = false
     const props = {} as { [key: string]: unknown }
     if (action === 'release-and-rearrange') {
-        const rearrange = message.data.rearrange || []
-        success = removeAndRearrange(message.data.release, rearrange)
+        const remove = message.data.release as number[][] || []
+        const rearrange = message.data.rearrange as { id: string, range: number[] }[] || []
+        success = removeAndRearrange(remove, rearrange)
         props.result = { rearrange: rearrange }
     } else if (action === 'set-buffer') {
         const buffer = message.data.buffer as SharedArrayBuffer

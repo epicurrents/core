@@ -41,6 +41,7 @@ export default class PyodideRunner {
                     Log.warn(`Code param ${key} contains insecure field '__proto__', parameter was ignored.`, SCOPE)
                     continue
                 }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (window as any)[key] = params[key]
             }
         }
@@ -66,19 +67,26 @@ export default class PyodideRunner {
 
     async setChannels (chans: string[]) {
         await this._loadPromise
+        // The variables set here are used on the Python side.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const channels = JSON.stringify(chans)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const results = await this._pyodide?.runPythonAsync('set_montage()')
     }
 
     async setData (values: number[]) {
         await this._loadPromise
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const data = JSON.stringify(values)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const results = await this._pyodide?.runPythonAsync('set_montage()')
     }
 
     async setMontage (mtg: string) {
         await this._loadPromise
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const montage = mtg
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const results = await this._pyodide?.runPythonAsync('set_montage()')
     }
 

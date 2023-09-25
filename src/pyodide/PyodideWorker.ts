@@ -5,6 +5,8 @@
  * @license    Apache-2.0
  */
 
+/* eslint-disable */
+
 import Log from "scoped-ts-log"
 
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.19.1/full/pyodide.js")
@@ -12,27 +14,29 @@ importScripts("https://cdn.jsdelivr.net/pyodide/v0.19.1/full/pyodide.js")
 const SCOPE = "PyodideWorker"
 
 async function loadPyodideAndPackages () {
-    // Load main Pyodide
+    // Load main Pyodide.
     (self as any).pyodide = await loadPyodide({
         indexURL: "https://cdn.jsdelivr.net/pyodide/v0.19.1/full/",
     })
     // Load packages that are common to all contexts.
     await (self as any).pyodide.loadPackage(['numpy', 'scipy'])
     // Create some dummy object to pass as window and document.
-    const createDummyEl = (...params: any[]) => {
+    const createDummyEl = (...params: unknown[]) => {
         return {
             id: 'dummyEl',
             style: {},
-            appendChild: (...params: any[]) => {},
+            appendChild: (...params: unknown[]) => {},
             createElement: createDummyEl,
             createTextNode: createDummyEl,
-            getContext: (...params: any[]) => { return { draw: () => {}, putImageData: (...params: any[]) => {} } },
-            getElementById: (...params: any[]) => { return createDummyEl() },
+            getContext: (...params: unknown[]) => {
+                return { draw: () => {}, putImageData: (...params: unknown[]) => {} }
+            },
+            getElementById: (...params: unknown[]) => { return createDummyEl() },
         }
     }
     ;(self as any).document = createDummyEl()
     ;(self as any).window = {
-        setTimeout: (...params: any[]) => { return 1 },
+        setTimeout: (...params: unknown[]) => { return 1 },
     }
 }
 const pyodideReadyPromise = loadPyodideAndPackages()

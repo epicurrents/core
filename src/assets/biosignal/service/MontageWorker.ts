@@ -43,13 +43,13 @@ const SETTINGS = {
 }
 let NAMESPACE = ''
 
-onmessage = async (message: { data: WorkerMessage }) => {
+onmessage = async (message: WorkerMessage) => {
     if (!message?.data?.action) {
         return
     }
     const action = message.data.action
     if (action === 'settings-namespace') {
-        const namespace = message.data.value
+        const namespace = message.data.value as string
         if (!namespace) {
             return
         }
@@ -81,7 +81,9 @@ onmessage = async (message: { data: WorkerMessage }) => {
             return
         }
         try {
-            const sigs = await getSignals(message.data.range, message.data.config)
+            const range = message.data.range as number[]
+            const config = message.data.config as ConfigChannelFilter | undefined
+            const sigs = await getSignals(range, config)
             if (sigs) {
                 postMessage({
                     action: 'get-signals',
@@ -101,7 +103,8 @@ onmessage = async (message: { data: WorkerMessage }) => {
             console.error(e)
         }
     } else if (action === 'map-channels') {
-        mapChannels(message.data.config)
+        const config = message.data.config as ConfigMapChannels
+        mapChannels(config)
     } else if (action === 'release-buffer') {
         await releaseBuffers()
         postMessage({
@@ -111,11 +114,12 @@ onmessage = async (message: { data: WorkerMessage }) => {
         })
     } else if (action === 'set-data-gaps') {
         DATA_GAPS.clear()
-        for (const gap of message.data.dataGaps) {
+        const dataGaps = message.data.dataGaps as { start: number, duration: number }[]
+        for (const gap of dataGaps) {
             DATA_GAPS.set(gap.start, gap.duration)
         }
     } else if (action === 'set-filters') {
-        const newFilters = JSON.parse(message.data.filters) as typeof FILTERS
+        const newFilters = JSON.parse(message.data.filters as string) as typeof FILTERS
         let someUpdated = false
         if (newFilters.highpass !== FILTERS.highpass) {
             setHighpassFilter('eeg', newFilters.highpass)
@@ -130,8 +134,9 @@ onmessage = async (message: { data: WorkerMessage }) => {
             someUpdated = true
         }
         if (message.data.channels) {
-            for (let i=0; i<message.data.channels.length; i++) {
-                const chan = message.data.channels[i]
+            const channels = message.data.channels as { highpass: number, lowpass: number, notch: number }[]
+            for (let i=0; i<channels.length; i++) {
+                const chan = channels[i]
                 if (chan.highpass !== CHANNELS[i].highpassFilter) {
                     setHighpassFilter(i, chan.highpass)
                     someUpdated = true
@@ -154,13 +159,13 @@ onmessage = async (message: { data: WorkerMessage }) => {
         })
     } else if (action === 'setup-montage') {
         if (await setupMontage(
-                message.data.montage,
-                message.data.config,
-                message.data.input,
-                message.data.bufferStart,
-                message.data.dataDuration,
-                message.data.recordingDuration,
-                message.data.setupChannels
+                message.data.montage as string,
+                message.data.config as ConfigMapChannels,
+                message.data.input as MutexExportProperties,
+                message.data.bufferStart as number,
+                message.data.dataDuration as number,
+                message.data.recordingDuration as number,
+                message.data.setupChannels as SetupChannel[]
             )
         ) {
             // Pass the generated shared buffers back to main thread.

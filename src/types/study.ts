@@ -37,13 +37,13 @@ export interface OrderedLoadingProtocol {
  */
  export type StudyContext = {
     /** Any data that should be immediately available, such as the parsed EDF headers. */
-    data: any
+    data: unknown
     /** An array files contained in the study. */
     files: StudyContextFile[]
     /** Primary file format of this study. */
     format: string
     /** Metadata detailing the resource. */
-    meta: any
+    meta: unknown
     /** Descriptive name of the resource. */
     name: string
     /** Resource scope, e.g. 'doc', 'sig'. */

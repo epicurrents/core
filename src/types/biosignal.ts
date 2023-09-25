@@ -13,7 +13,11 @@ import {
 import { SettingsColor } from './config'
 import { StudyContext } from './study'
 import { HighlightContext, SignalHighlight } from './plot'
-import { SignalCacheResponse, SignalCachePart } from './service'
+import {
+    SignalCacheResponse,
+    SignalCachePart,
+    WorkerResponse,
+} from './service'
 
 /**
  * Annotation for a single moment or period of time in a biosignal resource.
@@ -284,7 +288,7 @@ export interface BiosignalDataService {
     * @param config - Optional configuration (TODO: Config definitions).
     * @return A promise with the loaded signals as SignalCacheResponse.
     */
-    getSignals (range: number[], config?: any): void
+    getSignals (range: number[], config?: unknown): void
     //prepareWorker (headers: any[], recordSize: number, files: FileSystemItem[]): Promise<boolean>
     /**
      * Attemp to handle a message from the service's worker.
@@ -295,7 +299,7 @@ export interface BiosignalDataService {
      * First override any actions that are handled differently from the parent.
      * If none of those match, pass the message up to the parent class.
      */
-    handleMessage (message: any): Promise<boolean>
+    handleMessage (message: WorkerResponse): Promise<boolean>
     /**
      * Prepare the worker with the given biosignal recording.
      * @param header - BiosignalHeaderRecord for the study.
@@ -480,7 +484,7 @@ export interface BiosignalMontage extends BaseAsset {
     * with the same setup can be processed by the same montage. The main idea behind this is to allow loading
     * only chuncks of large files at a time and processing only those parts.
     */
-    getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse>
+    getAllSignals (range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
      * Get the derived signal of a single montage channel.
      * @param channel - Index or name of the montage channel.
@@ -488,18 +492,18 @@ export interface BiosignalMontage extends BaseAsset {
      * @param config - Optional configuration (TODO: config definitions).
      * @return Promise with the requested signal as the first member of the signals array.
      */
-    getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse>
+    getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
      * Map the channels that have been loaded into the setup of this montage.
      * Mapping will match the source signals and derivations into proper montage channels.
      * @param config - Optional configuration (TODO: config definitions).
      */
-    mapChannels (config?: any): void
+    mapChannels (config?: unknown): void
     /**
      * Release the buffers reserved for this montage's signal data.
      * @param config - Optional configuration (TODO: config definitions).
      */
-    releaseBuffers (config?: any): Promise<void>
+    releaseBuffers (config?: unknown): Promise<void>
     /**
      * Remove all highlights from all contexts in this montage.
      */
@@ -611,13 +615,13 @@ export interface BiosignalMontageService {
      * @param config - Optional configuration (TODO: Config definitions).
      * @return Promise for the loaded signals as SignalResponse.
      */
-    getSignals (range: number[], config?: any): Promise<SignalCacheResponse>
+    getSignals (range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
      * Handle messages from the worker.
      * @param message - The message from the web worker.
      * @return Promise that resolves as true if the message was handled, false if not.
      */
-    handleMessage (message: any): Promise<boolean>
+    handleMessage (message: unknown): Promise<boolean>
     /**
      * Map montage channels in the web worker using the montage config.
      */
@@ -629,8 +633,9 @@ export interface BiosignalMontageService {
     setDataGaps (gaps: Map<number, number>): void
     /**
      * Set the filters in the web worker to match current montage filters.
+     * @returns Promise that resolves as true if some filter was updated, false otherwise.
      */
-    setFilters (): Promise<void>
+    setFilters (): Promise<boolean>
     /**
      * Set up the worker to load montage signals.
      * @param inputProps - Properties from the raw signal data mutex.
@@ -692,7 +697,7 @@ export interface BiosignalResource extends DataResource {
      * Add the given `cursors` to this resource.
      * @param cursors - Cursors to add.
      */
-    addCursors (...cursors: any[]): void
+    addCursors (...cursors: BiosignalCursor[]): void
     /**
      * Add new data gaps to the recording.
      * @param gaps - Map of new gaps to add `<startTime, duration>`.
@@ -704,21 +709,21 @@ export interface BiosignalResource extends DataResource {
      * @param config - Optional config (TODO: Config definitions).
      * @returns Signals in range as Float32Array[].
      */
-    getAllRawSignals (range: number[], config?: any): Promise<SignalCacheResponse>
+    getAllRawSignals (range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
      * Get signals from the active recording for the given range.
      * @param range - Signal range to return in seconds `[start (included), end (excluded)]`.
      * @param config - Additional config to apply (optional; TODO: Config definitions).
      * @returns Signals from requested range or null.
      */
-    getAllSignals (range: number[], config?: any): Promise<SignalCacheResponse>
+    getAllSignals (range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
-     * Get the index of the channel at given y-position. Each channel is considered
+     * Get position information of the channel at given y-position. Each channel is considered
      * to take one channels spacing worth of space vertically.
      * @param yPos - Relative position from container bottom margin.
-     * @return Channel index or null if no channel exists at given position.
+     * @return Channel position properties or null if no channel exists at given position.
      */
-    getChannelAtYPosition(yPos: number): any
+    getChannelAtYPosition(yPos: number): ChannelPositionProperties | null
     /**
      * Get the derived signal of a single montage channel.
      * @param channel - Index or name of the montage channel.
@@ -726,7 +731,7 @@ export interface BiosignalResource extends DataResource {
      * @param config - Optional configuration.
      * @return SignalCacheResponse, with the requested signal as the first member of the signals array, or null.
      */
-    getChannelSignal (channel: number | string, range: number[], config?: any): Promise<SignalCacheResponse>
+    getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
      * Release all buffers referenced by this resource.
      */
@@ -793,6 +798,14 @@ export interface BiosignalSetup {
 export type BiosignalSetupReject = (reason: string) => void
 export type BiosignalSetupResolve = (response: BiosignalSetupResponse) => void
 export type BiosignalSetupResponse = MutexExportProperties | false
+export type ChannelPositionProperties = {
+    /** Bottom edge position as a fraction of the viewport height. */
+    bottom: number
+    /** Channel index in the array of visible channels. */
+    index: number
+    /** Top edge position as a fraction of the viewport height. */
+    top: number
+}
 /**
  * Properties from an FFT analysis of a signal segment.
  */

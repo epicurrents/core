@@ -337,7 +337,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._service?.getSignals(range, config) || nullPromise
     }
 
-    getChannelAtYPosition (yPos: number): { index: number, top: number, bottom: number } | null {
+    getChannelAtYPosition (yPos: number) {
         // Check for invalid position.
         if (yPos < 0 || yPos > 1) {
             return null

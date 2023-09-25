@@ -342,5 +342,6 @@ export class EpiCurrents implements EpiCurrentsApplication {
         this.#state.setSettingsValue(field, value)
     }
 }
-// Set as a property of window
+// Set as a property of window.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).EpiCurrents = EpiCurrents

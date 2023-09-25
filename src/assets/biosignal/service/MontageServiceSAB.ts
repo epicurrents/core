@@ -12,7 +12,7 @@ import {
     type MontageChannel,
 } from "#types/biosignal"
 import { type ConfigChannelFilter } from "#types/config"
-import { type SignalCacheResponse, type WorkerMessage } from "#types/service"
+import { type SignalCacheResponse, type WorkerResponse } from "#types/service"
 import Log from 'scoped-ts-log'
 import BiosignalMutex from "./BiosignalMutex"
 import GenericService from "#assets/service/GenericService"
@@ -30,7 +30,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
     }
 
     constructor (namespace: string, montage: BiosignalMontage, manager: MemoryManager) {
-        super(SCOPE, new Worker(new URL(`#assets/biosignal/workers/MontageWorker.ts`, import.meta.url)), manager)
+        super(SCOPE, new Worker(new URL(`./MontageWorker.js`, import.meta.url)), manager)
         this._worker?.postMessage({
             action: 'settings-namespace',
             value: namespace,
@@ -74,7 +74,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         return signals.promise as Promise<SignalCacheResponse>
     }
 
-    async handleMessage (message: { data: WorkerMessage }) {
+    async handleMessage (message: WorkerResponse) {
         const data = message.data
         if (!data) {
             return false
@@ -88,16 +88,18 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         }
         if (data.action === 'cache-montage-signals') {
             if (data.success && this._montage?.name === data.montage) {
+                const range = data.range as number[]
+                const signals = data.signals as Float32Array[]
                 this._montage?.saveSignalsToCache({
-                    start: data.range[0],
-                    end: data.range[1],
-                    signals: mapSignalsToSamplingRates(data.signals, this._montage as BiosignalMontage)
+                    start: range[0],
+                    end: range[1],
+                    signals: mapSignalsToSamplingRates(signals, this._montage as BiosignalMontage)
                 })
             }
             return true
         } else if (data.action === 'get-signals') {
             if (!data.success) {
-                Log.error("Loading signals failed!", SCOPE, data.error)
+                Log.error("Loading signals failed!", SCOPE, data.error as Error)
                 commission.resolve({ signals: [], range: data.range })
             } else {
                 commission.resolve({ signals: data.signals, range: data.range })
@@ -129,7 +131,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
             }
             return true
         }
-        if (await super._handleWorkerResponse(message)) {
+        if (await super._handleWorkerCommission(message)) {
             return true
         }
         Log.warn(`Message with action ${data.action} was not handled.`, SCOPE)
@@ -143,7 +145,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 ['config', this._montage.config]
             ])
         )
-        return channels.promise
+        return channels.promise as Promise<void>
     }
 
     setDataGaps (gaps: Map<number, number>) {
@@ -175,7 +177,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 ['channels', channelFilters],
             ])
         )
-        return filters.promise
+        return filters.promise as Promise<boolean>
     }
 
     async setupMontage (inputProps: MutexExportProperties) {
@@ -219,7 +221,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 ['setupChannels', this._montage.setup.channels],
             ])
         )
-        return montage.promise
+        return montage.promise as Promise<void>
     }
 }
 

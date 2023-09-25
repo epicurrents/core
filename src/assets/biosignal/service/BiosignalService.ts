@@ -6,12 +6,13 @@
  */
 
 import {
+    BiosignalAnnotation,
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
 } from "#types/biosignal"
 import { type MemoryManager } from "#types/assets"
-import { type SignalCacheResponse, type WorkerMessage } from "#types/service"
+import { type SignalCacheResponse, type WorkerResponse } from "#types/service"
 import { type StudyContext } from "#types/study"
 import Log from 'scoped-ts-log'
 import GenericService from "#assets/service/GenericService"
@@ -40,20 +41,20 @@ export default class BiosignalService extends GenericService implements Biosigna
         this._recording = recording
     }
 
-    protected async _handleWorkerResponse (message: { data: WorkerMessage }) {
+    protected async _handleWorkerCommission (message: WorkerResponse) {
         const data = message.data
         if (!data) {
             return false
         }
         // Cache signals is called from the worker, it has no commission.
         if (data.action === 'cache-signals') {
-            this._recording.signalCacheStatus = [...data.range]
-            if (data.annotations?.length) {
-                this._recording.addAnnotations(data.annoations)
+            this._recording.signalCacheStatus = [...(data.range as number[])]
+            if ((data.annotations as unknown[])?.length) {
+                this._recording.addAnnotations(...data.annoations as BiosignalAnnotation[])
             }
-            if (data.dataGaps?.length) {
+            if ((data.dataGaps as unknown[])?.length) {
                 const newGaps = new Map<number, number>()
-                for (const gap of data.dataGaps) {
+                for (const gap of (data.dataGaps as { start: number, duration: number }[])) {
                     newGaps.set(gap.start, gap.duration)
                 }
                 // Data gap information can change as the file is loaded,
@@ -68,7 +69,7 @@ export default class BiosignalService extends GenericService implements Biosigna
         }
         if (data.action === 'cache-signals-from-url') {
             if (!data.success) {
-                Log.error("Caching signals from URL failed!", SCOPE, data.error)
+                Log.error("Caching signals from URL failed!", SCOPE, data.error as Error)
                 commission.resolve(null)
             } else {
                 commission.resolve({
@@ -82,7 +83,7 @@ export default class BiosignalService extends GenericService implements Biosigna
             return true
         } else if (data.action === 'get-signals') {
             if (!data.success) {
-                Log.error("Loading signals failed!", SCOPE, data.error)
+                Log.error("Loading signals failed!", SCOPE, data.error as Error)
                 commission.resolve(null)
             } else {
                 commission.resolve({
@@ -103,7 +104,7 @@ export default class BiosignalService extends GenericService implements Biosigna
             this._notifyWaiters(this._awaitStudySetup, data.success)
             this._loadingStudy = false
             return true
-        } else if (await super._handleWorkerResponse(message)) {
+        } else if (await super._handleWorkerCommission(message)) {
             return true
         }
         Log.warn(`Message with action ${data.action} was not handled.`, SCOPE)
@@ -132,7 +133,7 @@ export default class BiosignalService extends GenericService implements Biosigna
             }
         }
         const commission = this._commissionWorker('cache-signals-from-url')
-        return commission.promise
+        return commission.promise as Promise<SignalCacheResponse>
     }
 
     async getSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
@@ -146,11 +147,11 @@ export default class BiosignalService extends GenericService implements Biosigna
                 ['config', config],
             ])
         )
-        return commission.promise
+        return commission.promise as Promise<SignalCacheResponse>
     }
 
-    async handleMessage (message: { data: WorkerMessage }): Promise<boolean> {
-        return super._handleWorkerUpdate(message) || this._handleWorkerResponse(message)
+    async handleMessage (message: WorkerResponse): Promise<boolean> {
+        return super._handleWorkerUpdate(message) || this._handleWorkerCommission(message)
     }
 
     async prepareWorker (header: BiosignalHeaderRecord, study: StudyContext) {
@@ -165,6 +166,6 @@ export default class BiosignalService extends GenericService implements Biosigna
                 ['urls', fileUrls],
             ])
         )
-        return commission.promise
+        return commission.promise as Promise<number>
     }
 }

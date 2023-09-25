@@ -6,10 +6,14 @@
  */
 
 import { type ManagedService, type MemoryManager } from "#types/assets"
-import { CommissionPromise, type WorkerMessage } from "#types/service"
+import {
+    type AssetService,
+    type WorkerCommission,
+    type WorkerMessage,
+    type WorkerResponse,
+} from "#types/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "#config/Settings"
-import { AssetService } from "#types/service"
 import { GB_BYTES, NUMERIC_ERROR_VALUE } from "#util/constants"
 import { nullPromise, safeObjectFrom } from "#util/general"
 
@@ -61,7 +65,7 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        this._worker = new Worker(new URL(`./MemoryManagerWorker.ts`, import.meta.url))
+        this._worker = new Worker(new URL(`./MemoryManagerWorker.js`, import.meta.url))
         this._worker.addEventListener('message', this._handleMessage.bind(this))
         this._worker.postMessage({
             action: 'set-buffer',
@@ -106,11 +110,13 @@ export default class ServiceMemoryManager implements MemoryManager {
     protected _commissionWorker (
         action: string,
         props?: Map<string, unknown>,
-        callbacks?: { resolve: ((value?: unknown) => void), reject?: ((reason: string) => void) },
-    ): CommissionPromise {
+        callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason: string) => void) },
+    ): WorkerCommission {
         if (!this._worker) {
+            callbacks?.reject(`Worker has not been set up.`)
             return {
                 promise: nullPromise,
+                reject: () => {},
                 resolve: () => {},
                 rn: NUMERIC_ERROR_VALUE,
             }
@@ -129,7 +135,7 @@ export default class ServiceMemoryManager implements MemoryManager {
         const msgData = safeObjectFrom({
             action: action,
             rn: requestNum
-        }) as WorkerMessage
+        }) as WorkerMessage["data"]
         if (props) {
             for (const [key, value] of props)  {
                 msgData[key] = value
@@ -144,13 +150,13 @@ export default class ServiceMemoryManager implements MemoryManager {
         }
     }
 
-    protected _handleMessage (message: { data: WorkerMessage }) {
+    protected _handleMessage (message: WorkerResponse) {
         const action = message?.data?.action
         if (!action || action === 'set-buffer') {
             return
         }
         if (action === 'log') {
-            Log.add(message.data.level, message.data.message, SCOPE)
+            Log.add(message.data.level as keyof typeof Log.LEVELS, message.data.message as string, SCOPE)
             return
         }
         const commission = this._commissions[action]
@@ -166,7 +172,7 @@ export default class ServiceMemoryManager implements MemoryManager {
             commission.resolve(message.data.result)
         } else {
             if (commission.reject) {
-                commission.reject(message.data.reason)
+                commission.reject(message.data.reason || '')
             } else {
                 commission.resolve(null)
             }
@@ -318,20 +324,18 @@ export default class ServiceMemoryManager implements MemoryManager {
                 ['release', ranges],
             ])
         )
-        const result = await commission.promise
-        if (result?.success) {
-            for (const rearranged of result.rearrange) {
-                const managed = this._managed.get(rearranged.id)
-                if (!managed) {
-                    Log.error(
-                        `Could not find the managed for a loader returned by worker release-and-rearrange.`,
-                        SCOPE)
-                    continue
-                }
-                managed.bufferRange = rearranged.range
-                await managed.service.setBufferRange(rearranged.range)
-                // TODO: Relay the new range to the loader as well.
+        const result = await commission.promise as { rearrange: { id: string, range: number[] }[] }
+        for (const rearranged of result.rearrange) {
+            const managed = this._managed.get(rearranged.id)
+            if (!managed) {
+                Log.error(
+                    `Could not find the managed for a loader returned by worker release-and-rearrange.`,
+                    SCOPE)
+                continue
             }
+            managed.bufferRange = rearranged.range
+            await managed.service.setBufferRange(rearranged.range)
+            // TODO: Relay the new range to the loader as well.
         }
     }
 

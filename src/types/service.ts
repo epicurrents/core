@@ -11,7 +11,7 @@ import { LoadDirection } from "./loader"
 
 export type ActionWatcher = {
     actions: string[]
-    handler: (update: any) => any
+    handler: (update: { action: string, [param: string]: unknown }) => unknown
     caller?: string
 }
 /**
@@ -92,13 +92,9 @@ export type CommissionMap = Map<number, CommissionPromise>
 /**
  * Commission promise properties.
  */
-export type CommissionPromise = Omit<{ [prop: string]: any}, "rn" | "success" | "reject" | "resolve">  & {
+export type CommissionPromise = {
     /** Unique request number for this commission. */
     rn: number
-    /** Was the commission success or not. */
-    success?: boolean
-    /** Any other props returned by the worker. */
-
     /** Callback for commission completion. */
     resolve: (value?: unknown) => unknown
     /** Possible callback for an unexpected error. */
@@ -108,10 +104,10 @@ export type CommissionPromise = Omit<{ [prop: string]: any}, "rn" | "success" | 
  * TODO: Expand the types related to pyodide interactions.
  */
 export type PythonResponse = {
-    result: any
+    result: unknown
     success: true
 } | {
-    error: any
+    error: string
     success: false
 }
 
@@ -236,14 +232,14 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      * @param rangeStart - Start of the buffered singal range (in seconds).
      * @param rangeEnd - End of the buffered singal range (in seconds).
      */
-    setSignalRange(rangeStart: number, rangeEnd: number): any;
+    setSignalRange(rangeStart: number, rangeEnd: number): void
     /**
      * Replace the buffered signals with new signal arrays. Both the number of signals and
      * the length of individual signal arrays must match those of the existing signals.
      * @param signals New signals as Float32Arrays.
-     * @returns success of the operation as true/false
+     * @returns Promise that resolves with the success of the operation (true/false).
      */
-    writeSignals(signals: Float32Array[]): {};
+    writeSignals(signals: Float32Array[]): Promise<boolean>
 }
 
 /**
@@ -275,7 +271,7 @@ export type SignalCacheProcess = {
     /** End time of LOADED data in recording. */
     end: number
     /** Just for compatibility with SignalCachePart type, not supposed to contain anything. */
-    signals: any[],
+    signals: never[],
     /** Target start and end times of the loading process. */
     target: SignalCachePart
 }
@@ -286,28 +282,41 @@ export type SignalCacheResponse = SignalCachePart | null
  */
 export type WorkerCommission = {
     /** The Promise that will be fulfilled when the commission is complete. */
-    promise: Promise<CommissionPromise>
+    promise: Promise<unknown>
     /** Unique number to identify this commission by. */
-    requestNum: number
+    rn: number
     /**
      * Method to call if the commission fails.
      * @param reason - Reason for the failure.
      */
-    reject? (reason: string): void
+    reject (reason: string): void
     /**
      * Method to call if the commission succeeds.
      * @param value - The results of the commission.
      */
-    resolve? (value: any): void
+    resolve (value: unknown): void
 }
 export type WorkerMessage = {
-    action: string
-    rn: number
-    [prop: string]: any
+    data: {
+        /** Name of the action to perform. */
+        action: string
+        /** Request number. */
+        rn: number
+        /** Possible other parameters. */
+        [prop: string]: unknown
+    }
 }
 export type WorkerResponse = {
-    promise: Promise<any>
-    rn: number
-    reject: (reason: string) => void
-    resolve: (value: any) => void
+    data: {
+        /** Name of the action that was performed. */
+        action: string
+        /** Request number. */
+        rn: number
+        /** Was the task successful or not. */
+        success: boolean
+        /** Possible reason for failure. */
+        reason?: string
+        /** Other returned parameters. */
+        [prop: string]: unknown
+    }
 }

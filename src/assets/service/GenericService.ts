@@ -10,8 +10,9 @@ import {
     type ActionWatcher,
     type AssetService,
     type CommissionMap,
-    type CommissionPromise,
+    type WorkerCommission,
     type WorkerMessage,
+    type WorkerResponse,
 } from "#types/service"
 import Log from "scoped-ts-log"
 import SETTINGS from "#config/Settings"
@@ -120,10 +121,12 @@ export default class GenericService extends GenericAsset implements AssetService
         props?: Map<string, unknown>,
         callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason: string) => void) },
         overwriteRequest = false
-    ): CommissionPromise {
+    ): WorkerCommission {
         if (!this._worker) {
+            callbacks?.reject(`Worker has not been set up.`)
             return {
                 promise: nullPromise,
+                reject: () => {},
                 resolve: () => {},
                 rn: NUMERIC_ERROR_VALUE,
             }
@@ -141,7 +144,7 @@ export default class GenericService extends GenericAsset implements AssetService
         const msgData = safeObjectFrom({
             action: action,
             rn: requestNum
-        }) as WorkerMessage
+        }) as WorkerMessage["data"]
         if (props) {
             for (const [key, value] of props)  {
                 msgData[key] = value
@@ -149,7 +152,7 @@ export default class GenericService extends GenericAsset implements AssetService
         }
         const commMap = getOrSetValue(
             this._commissions, action,
-            new Map<number, CommissionPromise>()
+            new Map<number, WorkerCommission>()
         ) as CommissionMap
         if (overwriteRequest) {
             // Remove references to any previous requests
@@ -172,9 +175,9 @@ export default class GenericService extends GenericAsset implements AssetService
     /**
      * Get the awaiting commission matching the given worker message.
      * @param message - Message containing a possible commission.
-     * @returns CommissionPromise or undefined if no commission found.
+     * @returns WorkerCommission or undefined if no commission found.
      */
-    protected _getCommissionForMessage (message: { data: WorkerMessage }) {
+    protected _getCommissionForMessage (message: WorkerResponse) {
         const commMap = this._commissions.get(message?.data?.action)
         if (commMap) {
             // Messages that arrive from the worker without a commission
@@ -199,7 +202,7 @@ export default class GenericService extends GenericAsset implements AssetService
      * @param message - Message object from worker.
      * @returns True if handled, false otherwise.
      */
-    protected async _handleWorkerResponse (message: { data: WorkerMessage }) {
+    protected async _handleWorkerCommission (message: WorkerResponse) {
         const data = message.data
         if (!data || !data.action) {
             return false
@@ -213,7 +216,7 @@ export default class GenericService extends GenericAsset implements AssetService
                     this._workerReady = true
                     this.onPropertyUpdate('is-ready')
                 } else if (commission.reject) {
-                    commission.reject(data.error)
+                    commission.reject(data.error as string)
                 }
                 return true
             } else if (
@@ -236,7 +239,7 @@ export default class GenericService extends GenericAsset implements AssetService
                 commission.resolve(message.data.result)
                 return true
             } else if (message.data.success === false && commission.reject) {
-                commission.reject(message.data.reason)
+                commission.reject(message.data.reason || '')
                 return false
             } else {
                 commission.resolve() // Same as undefined result
@@ -252,7 +255,7 @@ export default class GenericService extends GenericAsset implements AssetService
      * @param message - An update message without a matching commission.
      * @returns true if handled, false otherwise.
      */
-    protected _handleWorkerUpdate (message: { data: WorkerMessage }): boolean {
+    protected _handleWorkerUpdate (message: WorkerResponse): boolean {
         const data = message.data
         if (!data || !data.action) {
             return false
@@ -260,11 +263,12 @@ export default class GenericService extends GenericAsset implements AssetService
         if (data.action === 'log') {
             const { event, extra, level, scope } = message.data
             if (event && level && scope) {
-                Log.add(level, event, scope, extra)
+                Log.add(level as keyof typeof Log.LEVELS, event as string, scope as string, extra)
             }
             return true
         } else if (data.action === 'update-settings') {
-            for (const field of (data.fields || [])) {
+            const fields =  data.fields as string[] | undefined
+            for (const field of (fields || [])) {
                 // Watch changes in SETTINGS and relay changes to worker.
                 SETTINGS.addPropertyUpdateHandler(field, () => {
                     this._worker?.postMessage({
@@ -360,7 +364,7 @@ export default class GenericService extends GenericAsset implements AssetService
                 ['range', range],
             ])
         )
-        const response = await commission.promise
+        const response = await commission.promise as WorkerResponse["data"]
         if (response.success) {
             this._memoryRange.start = range[0]
             this._memoryRange.end = range[1]
@@ -389,7 +393,7 @@ export default class GenericService extends GenericAsset implements AssetService
                 ['range', this._memoryRange],
             ])
         )
-        const initResult = await commission.promise
+        const initResult = await commission.promise as boolean
         this._notifyWaiters(this._awaitBufferSetup, initResult)
         this._setupBuffer = false
         if (!initResult) {
@@ -412,10 +416,10 @@ export default class GenericService extends GenericAsset implements AssetService
         // Shutdown doesn't need a request number
         const shutdown = getOrSetValue(
             this._commissions, 'shutdown',
-            new Map<number, CommissionPromise>()
+            new Map<number, WorkerCommission>()
         )
         shutdown.set(0, response)
-        return response.promise
+        return response.promise as Promise<void>
     }
 
     unload () {
@@ -423,9 +427,9 @@ export default class GenericService extends GenericAsset implements AssetService
         // Decommission doesn't need a request number
         const decommission = getOrSetValue(
             this._commissions, 'decommission',
-            new Map<number, CommissionPromise>()
+            new Map<number, WorkerCommission>()
         )
         decommission.set(0, response)
-        return response.promise
+        return response.promise as Promise<void>
     }
 }

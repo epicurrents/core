@@ -6,13 +6,14 @@
  */
 
 import {
+    type BiosignalAnnotation,
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
     type BiosignalSetupResponse,
 } from "#types/biosignal"
 import { type MemoryManager } from "#types/assets"
-import { type SignalCacheResponse, type WorkerMessage } from "#types/service"
+import { type SignalCacheResponse, type WorkerResponse } from "#types/service"
 import { type StudyContext } from "#types/study"
 import Log from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
@@ -88,7 +89,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
             return null
         }
         const commission = this._commissionWorker('cache-signals-from-url')
-        return commission.promise
+        return commission.promise as Promise<SignalCacheResponse>
     }
 
     async getSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
@@ -102,23 +103,26 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
                 ['config', config],
             ])
         )
-        return commission.promise
+        return commission.promise as Promise<SignalCacheResponse>
     }
 
-    async handleMessage (message: { data: WorkerMessage }) {
+    async handleMessage (message: WorkerResponse) {
         const data = message.data
         if (!data) {
             return false
         }
         // Cache signals is called from the worker, it has no commission.
         if (data.action === 'cache-signals') {
-            this._recording.signalCacheStatus = [...data.range]
-            if (data.annotations?.length) {
-                this._recording.addAnnotations(...data.annotations)
+            const range = data.range as number[]
+            this._recording.signalCacheStatus = [...range]
+            const annotations = data.annotations as BiosignalAnnotation[] | undefined
+            if (annotations?.length) {
+                this._recording.addAnnotations(...annotations)
             }
-            if (data.dataGaps?.length) {
+            const dataGaps = data.dataGaps as { start: number, duration: number }[] | undefined
+            if (dataGaps?.length) {
                 const newGaps = new Map<number, number>()
-                for (const gap of data.dataGaps) {
+                for (const gap of dataGaps) {
                     newGaps.set(gap.start, gap.duration)
                 }
                 // Data gap information can change as the file is loaded,
@@ -134,7 +138,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
         }
         if (data.action === 'get-signals') {
             if (!data.success) {
-                Log.error("Loading signals failed!", SCOPE, data.error)
+                Log.error("Loading signals failed!", SCOPE, data.error as Error)
                 commission.resolve(null)
             } else {
                 commission.resolve({
@@ -155,7 +159,7 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
             this._notifyWaiters(this._awaitStudySetup, data.success)
             return true
         }
-        return super._handleWorkerResponse(message)
+        return super._handleWorkerCommission(message)
     }
 
     async prepareWorker (header: BiosignalHeaderRecord, study: StudyContext) {
@@ -170,6 +174,6 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
                 ['urls', fileUrls],
             ])
         )
-        return commission.promise
+        return commission.promise as Promise<number>
     }
 }

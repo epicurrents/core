@@ -211,7 +211,6 @@ import {
     type SuccessReject,
     type SuccessResolve,
     type SuccessResponse,
-    type TextFileParser,
 } from "./loader"
 export {
     FileDecoder,
@@ -225,7 +224,6 @@ export {
     SuccessReject,
     SuccessResolve,
     SuccessResponse,
-    TextFileParser,
 }
 
 /////////////////////////////////////////////////

@@ -41,14 +41,14 @@ export interface BaseAsset {
      * @param handler - Handler to fire when the property changes.
      * @param caller - Optional ID for the caller.
      */
-    addPropertyUpdateHandler (property: string, handler: (newValue?: any, oldValue?: any) => any, caller?: string): void
+    addPropertyUpdateHandler (property: string, handler: PropertyUpdateHandler, caller?: string): void
     /**
      * Fire all property update handlers attached to the given property.
      * @param property - Property that was updated.
      * @param newValue - Optional new value of the property to pass to the handler.
      * @param oldValue - Optional previous value of the property to pass to the handler.
      */
-    onPropertyUpdate (property: string, newValue?: any, oldValue?: any): void
+    onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown): void
     /**
      * Remove all property update handlers from this asset.
      */
@@ -63,7 +63,7 @@ export interface BaseAsset {
      * @param property - Name of the property (in kebab-case).
      * @param handler - Handler to remove.
      */
-    removePropertyUpdateHandler (property: string, handler: () => any): void
+    removePropertyUpdateHandler (property: string, handler: PropertyUpdateHandler): void
 }
 /**
  * DataResource is the most basic scope of resource containing biomedical or media data.
@@ -97,7 +97,7 @@ export interface BaseAsset {
      * @param args - Possible parameters to use in preparation.
      * @returns true on success, false otherwise
      */
-    prepare (...args: any[]): Promise<boolean>
+    prepare (...args: unknown[]): Promise<boolean>
 }
 /**
  * The main EpiCurrents application.
@@ -139,7 +139,7 @@ export interface InterfaceModuleConstructor {
  * Resource module properties for an application interface.
  */
 export type InterfaceResourceModule = RuntimeResourceModule & {
-    getViewerComponent (): any
+    getViewerComponent (): unknown
 }
 /**
  * Context for the interface resource module.
@@ -312,7 +312,7 @@ export type RuntimeState = NullProtoObject & {
  * An object with the property (pointer) __proto__ removed. This will prevent using any objects
  * based on this type in prototype pollution attacks.
  */
-export type SafeObject = Omit<{ [name: string]: any }, "__proto__"> & NullProtoObject
+export type SafeObject = Omit<{ [name: string]: unknown }, "__proto__"> & NullProtoObject
 /**
  * Statemanager is the instance that manages application runtime state.
  * In addition to the actual modules, it also includes shorthands for
@@ -368,7 +368,7 @@ export interface StateManager {
      * Initialize the app runtime instance.
      * @param initValues - Optional values as an object of { field: value } pairs (eg. { appId: 'app', SETTINGS: { 'eeg.trace.margin.top': 10 } })
      */
-    init (initValues?: { [module: string]: any }): void
+    init (initValues?: { [module: string]: unknown }): void
     /**
      * Load a dataset from the given `folder`.
      * @param folder - The folder containing the dataset.
@@ -376,7 +376,8 @@ export interface StateManager {
      * @param studyLoaders - Set of study loaders for the studies in the dataset.
      * @param config - Additional configuration (TODO: Config definitions).
      */
-    loadDatasetFolder (folder: FileSystemItem, loader: DatasetLoader, studyLoaders: StudyLoader[], config?: any): Promise<MediaDataset>
+    loadDatasetFolder (folder: FileSystemItem, loader: DatasetLoader, studyLoaders: StudyLoader[], config?: unknown):
+    Promise<MediaDataset>
     /**
      * Remove all property update handlers from this asset.
      */

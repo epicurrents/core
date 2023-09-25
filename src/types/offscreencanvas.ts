@@ -6,6 +6,8 @@
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 // TypeScript Version: 4.3
 
+/* eslint-disable */
+
 // https://html.spec.whatwg.org/multipage/canvas.html#dom-canvas-transfercontroltooffscreen
 interface HTMLCanvasElement {
     transferControlToOffscreen(): OffscreenCanvas;

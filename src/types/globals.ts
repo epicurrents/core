@@ -5,11 +5,15 @@
  * @license    Apache-2.0
  */
 
+/* eslint-disable */
+
 declare const __webpack_public_path__: string
 declare module 'codecutils' {
     const CodecUtils: {
-        extractTypedArray: any
-        getString8FromBuffer: any
+        extractTypedArray: Float32Array | Float64Array |
+                           Int8Array | Int16Array | Int32Array |
+                           Uint8Array | Uint16Array | Uint32Array
+        getString8FromBuffer: string
     }
 }
 

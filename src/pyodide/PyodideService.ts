@@ -42,9 +42,7 @@ export default class PyodideService extends GenericService implements AssetServi
             ])
         )
         const response = await commission.promise
-        if (response.success) {
-            this._loadedPackages.push(...packages)
-        }
+        this._loadedPackages.push(...packages)
         return response
     }
 
@@ -91,10 +89,8 @@ export default class PyodideService extends GenericService implements AssetServi
             ])
         )
         const response = await commission.promise
-        if (response.success) {
-            if (script in this._scripts) {
-                this._scripts[script].state = 'loaded'
-            }
+        if (script in this._scripts) {
+            this._scripts[script].state = 'loaded'
         }
         return response
     }

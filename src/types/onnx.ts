@@ -44,7 +44,7 @@ export interface OnnxService extends AssetService {
      * @param message - Message from the web worker.
      * @returns Promise that fulfills with true if message was handled, false otherwise.
      */
-    handleMessage (message: any): Promise<boolean>
+    handleMessage (message: unknown): Promise<boolean>
     /**
      * Load the given model into a web worker.
      * @param model - Name of the model (case-insensitive) or null to unload current model.
@@ -84,4 +84,4 @@ export interface OnnxService extends AssetService {
     setSourceResource (resource: BiosignalResource | null, childScope?: string): boolean
 }
 export type OnnxServiceReject = (reason: string) => void
-export type OnnxServiceResolve = (result: any) => void
+export type OnnxServiceResolve = (result: unknown) => void

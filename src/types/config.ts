@@ -185,7 +185,7 @@ export type BaseModuleSettings = {
      * of the setting and value is the constructor of the allowed
      * value type.
      */
-    _userDefinable?: { [field: string]: any }
+    _userDefinable?: { [field: string]: SettingsValueConstructor }
 }
 export type ClonableModuleSettings = { [key: string]: unknown }
 export type CommonBiosignalSettings = {

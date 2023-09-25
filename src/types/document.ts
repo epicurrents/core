@@ -14,7 +14,7 @@ export type DocumentFormat = 'html' | 'markdown' | 'pdf'
  */
 export interface DocumentResource extends DataResource {
     /** Promise that resolves with the content of the document. */
-    content: Promise<any>
+    content: Promise<unknown>
     /** Total number of pages in the document. */
     numPages: number
     /** Current page number of the document. */

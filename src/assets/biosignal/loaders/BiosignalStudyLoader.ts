@@ -82,11 +82,12 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
                     }
                 })
                 const [ duration ] = await loadVideoMeta(study) || [ 0 ]
-                if (study.meta.videos === undefined) {
-                    study.meta.videos = []
+                const meta = study.meta as { videos?: VideoAttachment[] }
+                if (meta.videos === undefined) {
+                    meta.videos = []
                 }
                 // Add the video as attachment and remove it from prime files.
-                study.meta.videos.push({
+                meta.videos.push({
                     group: group,
                     endTime: startDif + duration,
                     startTime: startDif,
