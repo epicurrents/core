@@ -7,7 +7,10 @@
 
 import { type ManagedService, type MemoryManager } from "#types/assets"
 import {
+    type AllocateMemoryResponse,
     type AssetService,
+    type FreeMemoryResponse,
+    type ReleaseAssetResponse,
     type WorkerCommission,
     type WorkerMessage,
     type WorkerResponse,
@@ -179,7 +182,7 @@ export default class ServiceMemoryManager implements MemoryManager {
         }
     }
 
-    async allocate (amount: number, service: AssetService): Promise<{ start: number, end: number } | null> {
+    async allocate (amount: number, service: AssetService): Promise<AllocateMemoryResponse> {
         // Correct amount to a 32-bit array size.
         amount = amount + (4 - amount%4)
         // Don't exceed maximum allowed buffer size.
@@ -228,7 +231,7 @@ export default class ServiceMemoryManager implements MemoryManager {
         return { start: endIndex, end: endIndex + amount }
     }
 
-    async freeBy (amount: number, ignore: string[] = []): Promise<boolean> {
+    async freeBy (amount: number, ignore: string[] = []): Promise<FreeMemoryResponse> {
         if (this._managed.size < 2) {
             return false
         }
@@ -262,7 +265,7 @@ export default class ServiceMemoryManager implements MemoryManager {
         return (this._managed.get(id)?.service || null)
     }
 
-    async release (service: string | AssetService): Promise<boolean> {
+    async release (service: string | AssetService): Promise<ReleaseAssetResponse> {
         if (typeof service === 'string') {
             const managed = this._managed.get(service)
             if (!managed) {

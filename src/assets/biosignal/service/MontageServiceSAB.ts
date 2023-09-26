@@ -10,6 +10,8 @@ import {
     type BiosignalMontage,
     type BiosignalMontageService,
     type MontageChannel,
+    type SetupMontageResponse,
+    type UpdateFiltersResponse,
 } from "#types/biosignal"
 import { type ConfigChannelFilter } from "#types/config"
 import { type SignalCacheResponse, type WorkerResponse } from "#types/service"
@@ -107,27 +109,30 @@ export default class MontageServiceSAB extends GenericService implements Biosign
             return true
         } else if (data.action === 'map-channels') {
             if (data.success) {
-                commission.resolve(data)
+                commission.resolve()
             } else {
-                commission.resolve(false)
+                Log.error(`Mapping channels in the worker failed.`, SCOPE)
+                commission.reject()
             }
             return true
         } else if (data.action === 'set-filters') {
             if (data.success && data.updated) {
-                commission.resolve(true)
+                if (data.updated) {
+                    commission.resolve(true)
+                } else {
+                    commission.resolve(false)
+                }
             } else {
-                commission.resolve(false)
+                Log.error(`Settings filters in the worker failed.`, SCOPE)
+                commission.reject()
             }
             return true
         } else if (data.action === 'setup-montage') {
             if (data.success) {
-                commission.resolve({
-                    lockBuffer: data.lockBuffer,
-                    metaBuffer: data.metaBuffer,
-                    signalBuffers: data.signalBuffers,
-                })
+                commission.resolve()
             } else {
-                commission.resolve(false)
+                Log.error(`Setting up montage in the worker failed.`, SCOPE)
+                commission.reject()
             }
             return true
         }
@@ -177,7 +182,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 ['channels', channelFilters],
             ])
         )
-        return filters.promise as Promise<boolean>
+        return filters.promise as Promise<UpdateFiltersResponse>
     }
 
     async setupMontage (inputProps: MutexExportProperties) {
@@ -221,7 +226,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 ['setupChannels', this._montage.setup.channels],
             ])
         )
-        return montage.promise as Promise<void>
+        return montage.promise as Promise<SetupMontageResponse>
     }
 }
 

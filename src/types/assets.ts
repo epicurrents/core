@@ -13,7 +13,7 @@ import {
 import { DatasetLoader, MediaDataset } from "./dataset"
 import { FileSystemItem } from "./loader"
 import { BiosignalPlot } from "./plot"
-import { AssetService } from "./service"
+import { AllocateMemoryResponse, AssetService } from "./service"
 import {
     StudyContext,
     StudyLoaderProtocolContext,
@@ -205,7 +205,7 @@ export interface MemoryManager {
      * @param service - The service to allocate the memory to.
      * @return An object holding the reserved range's start and end or null if unsuccessful.
      */
-    allocate (amount: number, service: AssetService): Promise<{ start: number, end: number } | null>
+    allocate (amount: number, service: AssetService): Promise<AllocateMemoryResponse>
     /**
      * Free memory by given amount.
      * @param amount - Amount of memory to free (in 32-bit units).

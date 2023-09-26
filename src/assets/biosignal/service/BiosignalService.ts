@@ -5,19 +5,24 @@
  * @license    Apache-2.0
  */
 
+import { type MemoryManager } from "#types/assets"
 import {
-    BiosignalAnnotation,
+    type BiosignalAnnotation,
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
 } from "#types/biosignal"
-import { type MemoryManager } from "#types/assets"
-import { type SignalCacheResponse, type WorkerResponse } from "#types/service"
+import { type ConfigChannelFilter } from "#types/config"
+import { 
+    type MessageHandled,
+    type SetupStudyResponse,
+    type SignalCacheResponse,
+    type WorkerResponse,
+} from "#types/service"
 import { type StudyContext } from "#types/study"
 import Log from 'scoped-ts-log'
 import GenericService from "#assets/service/GenericService"
 import { NUMERIC_ERROR_VALUE } from "#util/constants"
-import { ConfigChannelFilter } from "#types/config"
 
 const SCOPE = "BiosignalService"
 
@@ -97,9 +102,9 @@ export default class BiosignalService extends GenericService implements Biosigna
             return true
         } else if (data.action === 'setup-study') {
             if (data.success) {
-                commission.resolve(data.recordingLength)
+                commission.resolve(data.recordingLength as SetupStudyResponse)
             } else {
-                commission.resolve(0)
+                commission.resolve(0 as SetupStudyResponse)
             }
             this._notifyWaiters(this._awaitStudySetup, data.success)
             this._loadingStudy = false
@@ -150,7 +155,7 @@ export default class BiosignalService extends GenericService implements Biosigna
         return commission.promise as Promise<SignalCacheResponse>
     }
 
-    async handleMessage (message: WorkerResponse): Promise<boolean> {
+    async handleMessage (message: WorkerResponse): Promise<MessageHandled> {
         return super._handleWorkerUpdate(message) || this._handleWorkerCommission(message)
     }
 
@@ -166,6 +171,6 @@ export default class BiosignalService extends GenericService implements Biosigna
                 ['urls', fileUrls],
             ])
         )
-        return commission.promise as Promise<number>
+        return commission.promise as Promise<SetupStudyResponse>
     }
 }

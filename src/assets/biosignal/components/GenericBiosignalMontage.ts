@@ -13,6 +13,7 @@ import {
     type BiosignalResource,
     type BiosignalSetup,
     type MontageChannel,
+    type UpdateFiltersResponse,
 } from '#types/biosignal'
 import { type ConfigChannelFilter, type ConfigMapChannels } from '#types/config'
 import { type HighlightContext, type SignalHighlight } from '#types/plot'
@@ -367,43 +368,43 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
     }
 
-    setHighpassFilter (target: string | number, value: number) {
+    async setHighpassFilter (target: string | number, value: number) {
         if (typeof target === 'number') {
             this._channels[target].highpassFilter = value
         } else {
             this._filters.highpass = value
         }
-        this._service.setFilters().then((updated) => {
-            if (updated) {
-                this._recording.onPropertyUpdate('active-montage-filters')
-            }
-        })
+        const updated = await this._service.setFilters()
+        if (updated) {
+            this._recording.onPropertyUpdate('active-montage-filters')
+        }
+        return updated
     }
 
-    setLowpassFilter (target: string | number, value: number) {
+    async setLowpassFilter (target: string | number, value: number) {
         if (typeof target === 'number') {
             this._channels[target].lowpassFilter = value
         } else {
             this._filters.lowpass = value
         }
-        this._service.setFilters().then((updated) => {
-            if (updated) {
-                this._recording.onPropertyUpdate('active-montage-filters')
-            }
-        })
+        const updated = await this._service.setFilters()
+        if (updated) {
+            this._recording.onPropertyUpdate('active-montage-filters')
+        }
+        return updated
     }
 
-    setNotchFilter (target: string | number, value: number) {
+    async setNotchFilter (target: string | number, value: number) {
         if (typeof target === 'number') {
             this._channels[target].notchFilter = value
         } else {
             this._filters.notch = value
         }
-        this._service.setFilters().then((updated) => {
-            if (updated) {
-                this._recording.onPropertyUpdate('active-montage-filters')
-            }
-        })
+        const updated = await this._service.setFilters()
+        if (updated) {
+            this._recording.onPropertyUpdate('active-montage-filters')
+        }
+        return updated
     }
 
     async setupLoader (inputProps: MutexExportProperties) {
@@ -418,7 +419,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     }
 
-    async updateFilters (): Promise<boolean> {
+    async updateFilters (): Promise<UpdateFiltersResponse> {
         const response = await this._service.setFilters()
         if (response) {
             // Fire property update change.

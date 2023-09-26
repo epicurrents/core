@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { BiosignalResource } from "./biosignal"
 import { BaseAsset } from "./assets"
-import { AssetService } from "./service"
+import { BiosignalResource } from "./biosignal"
+import { AssetService, MessageHandled } from "./service"
 
 /**
  * An ONNX model that is available in this scope.
@@ -19,6 +19,10 @@ export type AvailableOnnxModel = {
 }
 export type AvailableOnnxModelPublicProperties = Omit<AvailableOnnxModel, "worker" | "supportedStudyTypes">
                                                  & { supportsStudy: (study: BaseAsset) => boolean }
+/**
+ * Returned value is `true` if loading was successful, `false` otherwise.
+ */
+export type LoadModelResponse = boolean
 /**
  * Service class for interacting with an ONNX model.
  */
@@ -44,13 +48,13 @@ export interface OnnxService extends AssetService {
      * @param message - Message from the web worker.
      * @returns Promise that fulfills with true if message was handled, false otherwise.
      */
-    handleMessage (message: unknown): Promise<boolean>
+    handleMessage (message: unknown): Promise<MessageHandled>
     /**
      * Load the given model into a web worker.
      * @param model - Name of the model (case-insensitive) or null to unload current model.
      * @returns Promise that fulfills with true if loading was successful, false otherwise.
      */
-    loadModel (model: string | null): Promise<boolean>
+    loadModel (model: string | null): Promise<LoadModelResponse>
     /**
      * Pause the running model.
      */

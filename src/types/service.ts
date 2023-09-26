@@ -15,6 +15,11 @@ export type ActionWatcher = {
     caller?: string
 }
 /**
+ * Returned an object holding the byte index of allocated memory range `start` and `end` if allocation was successful,
+ * and `null` otherwise.
+ */
+export type AllocateMemoryResponse = { start: number, end: number } | null
+/**
  * Basic service type that all media and resource services should extend.
  */
 export interface AssetService extends BaseAsset {
@@ -57,7 +62,7 @@ export interface AssetService extends BaseAsset {
      * @param amount - Amount of memory in bytes.
      * @returns Promise that resolves with true on success, false on failure.
      */
-    requestMemory (amount: number): Promise<boolean>
+    requestMemory (amount: number): Promise<RequestMemoryResponse>
     /**
      * Set the byte range allocated to this service in the shared buffer.
      * @param range - Allocated byte range.
@@ -97,9 +102,15 @@ export type CommissionPromise = {
     rn: number
     /** Callback for commission completion. */
     resolve: (value?: unknown) => unknown
-    /** Possible callback for an unexpected error. */
-    reject?: (reason: string) => void
+    /** Callback for an unexpected error. */
+    reject: (reason?: string) => void
 }
+/** Returned value is `true` if requested amount of memory was freed, `false` otherwise. */
+export type FreeMemoryResponse = boolean
+/**
+ * Returned value is `true` if the message was handled by the service, and `false` otherwise.
+ */
+export type MessageHandled = boolean
 /**
  * TODO: Expand the types related to pyodide interactions.
  */
@@ -110,7 +121,22 @@ export type PythonResponse = {
     error: string
     success: false
 }
-
+/**
+ * Returned value is `true` if memory allocated to the asset was freed, `false` otherwise.
+ */
+export type ReleaseAssetResponse = boolean
+/**
+ * Returned value is `true`, if request was fulfilled, `false` otherwise.
+ */
+export type RequestMemoryResponse = boolean
+/**
+ * Response from the worker when study setup is complete.
+ * Returned value is the total length of the study recording in seconds, or 0 on failure.
+ */
+export type SetupStudyResponse = number
+/**
+ * A mutex responsible for caching signal data.
+ */
 export interface SignalCacheMutex extends AsymmetricMutex {
     /**
      * The input signals allocated range.
@@ -289,7 +315,7 @@ export type WorkerCommission = {
      * Method to call if the commission fails.
      * @param reason - Reason for the failure.
      */
-    reject (reason: string): void
+    reject (reason?: string): void
     /**
      * Method to call if the commission succeeds.
      * @param value - The results of the commission.

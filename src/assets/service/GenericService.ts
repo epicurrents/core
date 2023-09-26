@@ -10,6 +10,8 @@ import {
     type ActionWatcher,
     type AssetService,
     type CommissionMap,
+    type CommissionPromise,
+    type RequestMemoryResponse,
     type WorkerCommission,
     type WorkerMessage,
     type WorkerResponse,
@@ -119,7 +121,7 @@ export default class GenericService extends GenericAsset implements AssetService
      protected _commissionWorker (
         action: string,
         props?: Map<string, unknown>,
-        callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason: string) => void) },
+        callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason?: string) => void) },
         overwriteRequest = false
     ): WorkerCommission {
         if (!this._worker) {
@@ -152,7 +154,7 @@ export default class GenericService extends GenericAsset implements AssetService
         }
         const commMap = getOrSetValue(
             this._commissions, action,
-            new Map<number, WorkerCommission>()
+            new Map<number, CommissionPromise>()
         ) as CommissionMap
         if (overwriteRequest) {
             // Remove references to any previous requests
@@ -332,7 +334,7 @@ export default class GenericService extends GenericAsset implements AssetService
         this._actionWatchers.splice(0)
     }
 
-    async requestMemory (amount: number): Promise<boolean> {
+    async requestMemory (amount: number): Promise<RequestMemoryResponse> {
         if (!this._manager) {
             Log.error(`Too early to request memory, manager is not set yet.`, SCOPE)
             return false
@@ -416,7 +418,7 @@ export default class GenericService extends GenericAsset implements AssetService
         // Shutdown doesn't need a request number
         const shutdown = getOrSetValue(
             this._commissions, 'shutdown',
-            new Map<number, WorkerCommission>()
+            new Map<number, CommissionPromise>()
         )
         shutdown.set(0, response)
         return response.promise as Promise<void>

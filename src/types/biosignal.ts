@@ -14,6 +14,8 @@ import { SettingsColor } from './config'
 import { StudyContext } from './study'
 import { HighlightContext, SignalHighlight } from './plot'
 import {
+    MessageHandled,
+    SetupStudyResponse,
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
@@ -289,7 +291,6 @@ export interface BiosignalDataService {
     * @return A promise with the loaded signals as SignalCacheResponse.
     */
     getSignals (range: number[], config?: unknown): void
-    //prepareWorker (headers: any[], recordSize: number, files: FileSystemItem[]): Promise<boolean>
     /**
      * Attemp to handle a message from the service's worker.
      * @param message - Message from a worker.
@@ -299,14 +300,14 @@ export interface BiosignalDataService {
      * First override any actions that are handled differently from the parent.
      * If none of those match, pass the message up to the parent class.
      */
-    handleMessage (message: WorkerResponse): Promise<boolean>
+    handleMessage (message: WorkerResponse): Promise<MessageHandled>
     /**
      * Prepare the worker with the given biosignal recording.
      * @param header - BiosignalHeaderRecord for the study.
      * @param study - study object to load
      * @returns Promise that fulfills with the real duration of the recording, or 0 if loading failed.
      */
-    prepareWorker (header: BiosignalHeaderRecord, study: StudyContext): Promise<number>
+    prepareWorker (header: BiosignalHeaderRecord, study: StudyContext): Promise<SetupStudyResponse>
 }
 /**
  * Filter types for biosignal resources.
@@ -543,22 +544,25 @@ export interface BiosignalMontage extends BaseAsset {
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
      * @param target - Channel index or type (applies too all channels of the given type).
      * @param value - Filter frequency (in Hz) or undefined.
+     * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setHighpassFilter (target: string | number, value: number): void
+    setHighpassFilter (target: string | number, value: number): Promise<UpdateFiltersResponse>
     /**
      * Set low-pass filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
      * @param target - Channel index or type (applies too all channels of the given type).
      * @param value - Filter frequency (in Hz) or undefined.
+     * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setLowpassFilter (target: string | number, value: number): void
+    setLowpassFilter (target: string | number, value: number): Promise<UpdateFiltersResponse>
     /**
      * Set notch filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
      * @param target - Channel index or type (applies too all channels of the given type).
      * @param value - Filter frequency (in Hz) or undefined.
+     * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setNotchFilter (target: string | number, value: number): void
+    setNotchFilter (target: string | number, value: number): Promise<UpdateFiltersResponse>
     /**
      * Set up a data loader using a data source mutex output properties as input for the loader.
      * @param inputProps - The source mutex export properties to use as input.
@@ -588,8 +592,9 @@ export interface BiosignalMontage extends BaseAsset {
     /**
      * Update any changes in filter values to the service (and worker).
      * Calling this method does not automatically start caching data with the updated values.
+     * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    updateFilters (): Promise<boolean>
+    updateFilters (): Promise<UpdateFiltersResponse>
 }
 /**
  * Montage common reference signal definition.
@@ -621,7 +626,7 @@ export interface BiosignalMontageService {
      * @param message - The message from the web worker.
      * @return Promise that resolves as true if the message was handled, false if not.
      */
-    handleMessage (message: unknown): Promise<boolean>
+    handleMessage (message: unknown): Promise<MessageHandled>
     /**
      * Map montage channels in the web worker using the montage config.
      */
@@ -635,7 +640,7 @@ export interface BiosignalMontageService {
      * Set the filters in the web worker to match current montage filters.
      * @returns Promise that resolves as true if some filter was updated, false otherwise.
      */
-    setFilters (): Promise<boolean>
+    setFilters (): Promise<UpdateFiltersResponse>
     /**
      * Set up the worker to load montage signals.
      * @param inputProps - Properties from the raw signal data mutex.
@@ -843,9 +848,19 @@ export interface SetupChannel extends BiosignalChannel {
     /** Non-default polarity of this channel's signal. */
     polarity?: SignalPolarity
 }
-
-/** Signal polarity as -1, 1 or 0 (= don't override default). */
+/** TODO: Does this need to return anything? */
+export type SetupMontageResponse = void
+/** Signal polarity as one of:
+ * - 1 = positivie up
+ * - -1 = negative up (inverse)
+ * - 0 = don't override default
+ */
 export type SignalPolarity = -1 | 0 | 1
+/**
+ * A response from the worker to an instruction to update filter values.
+ * Response is `true` if at least one filter value was changed, `false` otherwise.
+ */
+export type UpdateFiltersResponse = boolean
 /**
  * Video attachment synchronized to biosignal data.
  */

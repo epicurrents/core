@@ -192,9 +192,9 @@ export interface StudyLoader {
      * Use the given study in this loader.
      * @param study - The study to use.
      * @param config - Optional configuration.
-     * @returns Array index of the resource if loaded next.
+     * @returns Next available resource array index (= this resource's index, if loaded next).
      */
-    useStudy (study: StudyContext, config?: object): Promise<number>
+    useStudy (study: StudyContext, config?: object): Promise<UseStudyResponse>
 }
 /**
  * Context for a study loader.
@@ -226,3 +226,7 @@ export type StudyLoaderProtocolContext = {
     /** Study tyles supported by this loader. */
     types: string[]
 }
+/**
+ * Returned value is the next available index in this loader's array of resources.
+ */
+export type UseStudyResponse = number

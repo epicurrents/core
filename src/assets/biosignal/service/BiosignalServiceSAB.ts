@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { type MemoryManager } from "#types/assets"
 import {
     type BiosignalAnnotation,
     type BiosignalDataService,
@@ -12,8 +13,11 @@ import {
     type BiosignalResource,
     type BiosignalSetupResponse,
 } from "#types/biosignal"
-import { type MemoryManager } from "#types/assets"
-import { type SignalCacheResponse, type WorkerResponse } from "#types/service"
+import { 
+    type SetupStudyResponse,
+    type SignalCacheResponse,
+    type WorkerResponse,
+} from "#types/service"
 import { type StudyContext } from "#types/study"
 import Log from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
@@ -174,6 +178,6 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
                 ['urls', fileUrls],
             ])
         )
-        return commission.promise as Promise<number>
+        return commission.promise as Promise<SetupStudyResponse>
     }
 }

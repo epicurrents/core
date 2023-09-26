@@ -98,7 +98,7 @@ export interface DatasetLoader {
      * @param config - Optional configuration.
      * @return A promise that fulfills when the dataset has been fully loaded.
      */
-    loadDataset (dir: FileSystemItem, callback: (study: StudyContext) => Promise<void>, config?: object): Promise<void>
+    loadDataset (dir: FileSystemItem, callback: (study: StudyContext) => Promise<void>, config?: unknown): Promise<void>
 }
 /**
  * Dataset for holding media resources. These include signal recordings and traditional types of media.
