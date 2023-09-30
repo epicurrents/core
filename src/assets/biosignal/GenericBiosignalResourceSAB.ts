@@ -19,7 +19,7 @@ import { type CommonBiosignalSettings, type ConfigChannelFilter } from "#types/c
 import { type MemoryManager } from "#types/assets"
 import { type SignalCacheResponse } from "#types/service"
 import { type StudyContext } from "#types/study"
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
 import GenericResource from "#assets/GenericResource"
 import { nullPromise } from "#util/general"

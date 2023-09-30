@@ -8,7 +8,7 @@
 import { type FileSystemItem } from "#types/loader"
 import { type StudyContext, type OrderedLoadingProtocol } from "#types/study"
 import GenericStudyLoader from "./GenericStudyLoader"
-import Log from "scoped-ts-log"
+import { Log } from 'scoped-ts-log'
 import StudyCollection from "../StudyCollection"
 
 const SCOPE = "StudyLoadProtocol"

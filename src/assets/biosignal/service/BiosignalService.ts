@@ -13,14 +13,14 @@ import {
     type BiosignalResource,
 } from "#types/biosignal"
 import { type ConfigChannelFilter } from "#types/config"
-import { 
+import {
     type MessageHandled,
     type SetupStudyResponse,
     type SignalCacheResponse,
     type WorkerResponse,
 } from "#types/service"
 import { type StudyContext } from "#types/study"
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import GenericService from "#assets/service/GenericService"
 import { NUMERIC_ERROR_VALUE } from "#util/constants"
 

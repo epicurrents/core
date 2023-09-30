@@ -17,7 +17,7 @@ import {
 } from "#types/biosignal"
 import { type CommonBiosignalSettings, type ConfigChannelFilter } from "#types/config"
 import { type SignalCacheResponse } from "#types/service"
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
 import GenericResource from "#assets/GenericResource"
 import { BiosignalService } from "#assets/biosignal"

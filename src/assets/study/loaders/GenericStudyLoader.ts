@@ -8,13 +8,13 @@
 import { type DataResource, type MemoryManager } from '#types/assets'
 import { type ConfigStudyLoader } from '#types/config'
 import { type FileFormatLoader, type FileSystemItem } from "#types/loader"
-import { 
+import {
     type StudyContext,
     type StudyContextCollection,
     type StudyLoader,
     type UseStudyResponse,
 } from '#types/study'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import ServiceMemoryManager from '#assets/service/ServiceMemoryManager'
 
 export const studyContextTemplate = () => {

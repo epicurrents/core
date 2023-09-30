@@ -13,13 +13,13 @@ import {
     type BiosignalResource,
     type BiosignalSetupResponse,
 } from "#types/biosignal"
-import { 
+import {
     type SetupStudyResponse,
     type SignalCacheResponse,
     type WorkerResponse,
 } from "#types/service"
 import { type StudyContext } from "#types/study"
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
 import GenericService from "#assets/service/GenericService"
 import { NUMERIC_ERROR_VALUE } from "#util/constants"

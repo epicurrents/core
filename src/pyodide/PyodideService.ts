@@ -6,7 +6,7 @@
  */
 
 import { type AssetService } from '#types/service'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import GenericService from '#assets/service/GenericService'
 
 const SCOPE = 'PyodideService'

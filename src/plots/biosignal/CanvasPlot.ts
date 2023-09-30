@@ -14,7 +14,7 @@ import {
     type BiosignalPlotConfig,
     type BiosignalTrace,
 } from "#types/plot"
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = "SignalPlot"
 

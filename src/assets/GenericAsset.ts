@@ -7,7 +7,7 @@
  */
 
 import { type BaseAsset, type EpiCurrentsApplication } from "#types/assets"
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import { safeObjectFrom } from '#util/general'
 
 const SCOPE = "GenericAsset"

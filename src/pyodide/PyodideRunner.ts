@@ -6,7 +6,7 @@
  */
 
 import { loadPyodide } from "pyodide/pyodide.js"
-import Log from "scoped-ts-log"
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'PyodideRunner'
 

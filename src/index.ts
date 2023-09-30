@@ -108,7 +108,7 @@ export { util }
 //                            CLASS                             //
 //////////////////////////////////////////////////////////////////
 
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import {
     type EpiCurrentsApplication,
     type InterfaceModule,
@@ -342,6 +342,3 @@ export class EpiCurrents implements EpiCurrentsApplication {
         this.#state.setSettingsValue(field, value)
     }
 }
-// Set as a property of window.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(window as any).EpiCurrents = EpiCurrents

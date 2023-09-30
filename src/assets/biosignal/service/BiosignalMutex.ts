@@ -6,8 +6,8 @@
  */
 
 import { type SignalCacheMutex, type SignalCachePart } from "#types/service"
-import Log from 'scoped-ts-log'
-import IOMutex, { type MutexExportProperties } from "asymmetric-io-mutex"
+import { Log } from 'scoped-ts-log'
+import { IOMutex, type MutexExportProperties } from "asymmetric-io-mutex"
 import { concatFloat32Arrays } from "#util/signal"
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 

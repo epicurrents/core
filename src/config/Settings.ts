@@ -17,7 +17,7 @@ import {
 } from "#types/config"
 import { MB_BYTES } from "#util/constants"
 import { hexToSettingsColor, rgbaToSettingsColor } from "#util/conversions"
-import Log from "scoped-ts-log"
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'Settings'
 

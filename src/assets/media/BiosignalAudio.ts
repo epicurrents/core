@@ -6,7 +6,7 @@
  */
 
 import { type AudioRecording } from '#types/media'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'BiosignalAudio'
 

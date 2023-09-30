@@ -3,7 +3,7 @@ const path = require('path')
 module.exports = {
     rootDir: path.resolve(__dirname, './'),
     coverageDirectory: "<rootDir>/tests/coverage/",
-    extensionsToTreatAsEsm: ['.ts', '.vue'],
+    extensionsToTreatAsEsm: ['.ts'],
     globals: {
         "vue3-jest": {
             "tsconfig": false
@@ -11,15 +11,17 @@ module.exports = {
         'ts-jest': {
             useESM: true,
             tsconfig: {
-                "target": "es2020",
+                "target": "esnext",
                 "module": "esnext",
                 "lib": [
                     "es5", "es6", "esnext",
-                    "webworker",
+                    "dom", "webworker",
                 ],
                 "strict": true,
                 "noImplicitReturns": true,
                 "moduleResolution": "node",
+                "allowSyntheticDefaultImports": true,
+                "esModuleInterop": true,
                 "baseUrl": "./",
                 "paths": {
                     "@*": ["src/*"],
@@ -39,7 +41,7 @@ module.exports = {
         "json",
     ],
     moduleNameMapper: {
-        "^#runtime/(.*)$": "<rootDir>/src/runtime/$1",
+        "^#runtime$": "<rootDir>/src/runtime/index.ts",
         "^#root/(.*)$": "<rootDir>/$1",
         "^#(.*)$": "<rootDir>/src/$1",
     },
@@ -50,7 +52,6 @@ module.exports = {
         "<rootDir>/tests/",
     ],
     snapshotSerializers: [
-        "jest-serializer-vue",
     ],
     transform: {
         "^.+\\.js$": "babel-jest",

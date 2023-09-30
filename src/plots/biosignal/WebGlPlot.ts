@@ -13,7 +13,7 @@ import {
     type WebGlPlotConfig,
     type WebGlTrace,
 } from "#types/plot"
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-ts-log'
 import PlotColor from "./PlotColor"
 
 const SCOPE = "WebGlPlot"

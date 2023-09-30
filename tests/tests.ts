@@ -5,8 +5,15 @@
  * @license    Apache-2.0
  */
 
-// @ts-ignore imports using path shortcuts
+import { EpiCurrents } from "../src/index"
+import { Log } from 'scoped-ts-log'
 
-describe('EpiCurrents tests', () => {
-    // TODO: Tests for the core package.
+describe('EpiCurrents core tests', () => {
+    var epic: EpiCurrents
+    test("Create core application with log level debug", () => {
+        console.log(EpiCurrents)
+        epic = new EpiCurrents("DEBUG")
+        expect(epic).toBeDefined()
+        expect(Log.getPrintThreshold()).toStrictEqual("DEBUG")
+    })
 })
