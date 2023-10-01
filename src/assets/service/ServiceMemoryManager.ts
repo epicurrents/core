@@ -62,7 +62,6 @@ export default class ServiceMemoryManager implements MemoryManager {
      */
     constructor (bufferSize: number) {
         totalBuf += bufferSize + 4
-        console.warn(bufferSize + 4, totalBuf/(GB_BYTES))
         this._buffer = new SharedArrayBuffer(bufferSize + 4)
         this._masterLock = new Int32Array(this._buffer).subarray(
             ServiceMemoryManager.MASTER_LOCK_POS,

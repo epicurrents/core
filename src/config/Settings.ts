@@ -128,16 +128,16 @@ const _settings = {
         fontawesomeLib: 'free',
         iconLib: 'fa',
         isMainComponent: true,
-        logThreshold: 'DEBUG',
+        logThreshold: 'WARN',
         maxDirectLoadSize: 10*MB_BYTES,
-        maxLoadCacheSize: 2000*MB_BYTES,
+        maxLoadCacheSize: 1000*MB_BYTES,
         screenPPI: 96,
         theme: 'default',
     },
     modules: {},
     services: {
-        MNE: true,
-        ONNX: false,
+        onnx: false,
+        pyodide: false,
     },
     addPropertyUpdateHandler (field: string, handler: PropertyUpdateHandler, caller?: string) {
         if (typeof field !== 'string' || !field) {

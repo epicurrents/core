@@ -221,8 +221,8 @@ export default class RuntimeStateManager implements StateManager {
                 }
             }
         }
-        // Load optional modules
-        if (SETTINGS.services.MNE) {
+        // Load optional modules.
+        if (SETTINGS.services.pyodide) {
             state.SERVICES.set('PYODIDE', new PyodideService())
         }
         this.isInitialized = true

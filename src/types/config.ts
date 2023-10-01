@@ -45,9 +45,17 @@ export interface AppSettings {
      * Settings for registered app modules.
      */
     modules: { [name: string]: BaseModuleSettings }
+    /**
+     * List of available services and should they be initialized or not.
+     */
     services: BaseModuleSettings & {
-        MNE: boolean
-        ONNX: boolean
+        /**
+         * ONNX machine learning model service.
+         * NOTE: Since there is no single all-encompassing ONNX service, setting this to true has no effect (yet).
+         */
+        onnx: boolean
+        /** Pyodide Python interpreter service. */
+        pyodide: boolean
     },
     /**
      * Add a new update handler for the settings `field`.
