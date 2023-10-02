@@ -129,7 +129,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
             return true
         } else if (data.action === 'setup-montage') {
             if (data.success) {
-                commission.resolve()
+                commission.resolve(true as SetupMontageResponse)
             } else {
                 Log.error(`Setting up montage in the worker failed.`, SCOPE)
                 commission.reject()
@@ -188,11 +188,11 @@ export default class MontageServiceSAB extends GenericService implements Biosign
     async setupMontage (inputProps: MutexExportProperties) {
         if (!this._montage) {
             Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
-            return
+            return false
         }
         if (!this._manager?.buffer) {
             Log.error(`Cannot set up montage before manager has been initialized.`, SCOPE)
-            return
+            return false
         }
         // Calculate needed mermory to load the entire recording.
         let totalMem = 4 // From lock and meta fields.
@@ -206,7 +206,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         const bufferPart =  await this.requestMemory(totalMem)
         if (!bufferPart || !this._memoryRange) {
             Log.error(`Aloocating memory for montage failed.`, SCOPE)
-            return
+            return false
         }
         // Save the buffers in local scope and send them to worker.
         this._mutex = new BiosignalMutex(
@@ -219,8 +219,8 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 ['montage', this._montage.name],
                 ['config', this._montage.config],
                 ['input', BiosignalMutex.convertPropertiesForCoupling(inputProps)],
-                ['buffer', this._manager.buffer], // this._manager.buffer
-                ['bufferStart', this._memoryRange.start], // this._memoryRange.start
+                ['buffer', this._manager.buffer],
+                ['bufferStart', this._memoryRange.start],
                 ['dataDuration', this._montage.recording.dataDuration],
                 ['recordingDuration', this._montage.recording.totalDuration],
                 ['setupChannels', this._montage.setup.channels],

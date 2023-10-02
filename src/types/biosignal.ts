@@ -644,9 +644,9 @@ export interface BiosignalMontageService {
     /**
      * Set up the worker to load montage signals.
      * @param inputProps - Properties from the raw signal data mutex.
-     * @returns Promise that resolves when montage setup in the worker is complete
+     * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
      */
-    setupMontage (inputProps: MutexExportProperties): Promise<void>
+    setupMontage (inputProps: MutexExportProperties): Promise<SetupMontageResponse>
 }
 /**
  * BiosignalResource is a collection of uniform (same type, duration
@@ -848,8 +848,8 @@ export interface SetupChannel extends BiosignalChannel {
     /** Non-default polarity of this channel's signal. */
     polarity?: SignalPolarity
 }
-/** TODO: Does this need to return anything? */
-export type SetupMontageResponse = void
+/** Returns false if a prerequisite is not met, and true if setup is successful. */
+export type SetupMontageResponse = boolean
 /** Signal polarity as one of:
  * - 1 = positivie up
  * - -1 = negative up (inverse)
