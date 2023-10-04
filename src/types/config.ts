@@ -124,18 +124,6 @@ export interface AppSettings {
      */
     setFieldValue (field: string, value: SettingsValue): void
 }
-export type ClonableAppSettings = Omit<
-    AppSettings,
-    "_CLONABLE" |
-    "addPropertyUpdateHandler" |
-    "getFieldValue" |
-    "onPropertyUpdate" |
-    "registerModule" |
-    "removeAllPropertyUpdateHandlers" |
-    "removeAllPropertyUpdateHandlersFor" |
-    "removePropertyUpdateHandler" |
-    "setFieldValue"
->
 export type BaseModuleSettings = {
     /**
      * An object defining the composition of the settings menu of
@@ -195,6 +183,18 @@ export type BaseModuleSettings = {
      */
     _userDefinable?: { [field: string]: SettingsValueConstructor }
 }
+export type ClonableAppSettings = Omit<
+    AppSettings,
+    "_CLONABLE" |
+    "addPropertyUpdateHandler" |
+    "getFieldValue" |
+    "onPropertyUpdate" |
+    "registerModule" |
+    "removeAllPropertyUpdateHandlers" |
+    "removeAllPropertyUpdateHandlersFor" |
+    "removePropertyUpdateHandler" |
+    "setFieldValue"
+>
 export type ClonableModuleSettings = { [key: string]: unknown }
 export type CommonBiosignalSettings = {
     annotations: {
@@ -208,10 +208,10 @@ export type CommonBiosignalSettings = {
     /** Should antialiasing be used when drawing tha trace. */
     antialiasing: boolean
     border: {
-        bottom?: PlotLineStyles
-        left?: PlotLineStyles
-        right?: PlotLineStyles
-        top?: PlotLineStyles
+        bottom?: PlotSettingsLine
+        left?: PlotSettingsLine
+        right?: PlotSettingsLine
+        top?: PlotSettingsLine
     }
     channelSpacing: number
     defaultMontages: { [setup: string]: [string, string][] }
@@ -247,8 +247,8 @@ export type CommonBiosignalSettings = {
         }
     }
     groupSpacing: number
-    majorGrid: PlotLineStyles
-    minorGrid: PlotLineStyles
+    majorGrid: PlotSettingsLine
+    minorGrid: PlotSettingsLine
     montages: {
         /** Maximum number of montages to keep cached. */
         cacheMax: number
@@ -315,7 +315,7 @@ export type ConfigStudyLoader = {
     type?: string
 }
 // Plot
-export type PlotCircleStyles = {
+export type PlotSettingsCircle = {
     color: SettingsColor
     dasharray?: number[]
     radius: number
@@ -323,7 +323,7 @@ export type PlotCircleStyles = {
     style: string
     width: number
 }
-export type PlotLineStyles = {
+export type PlotSettingsLine = {
     color: SettingsColor
     dasharray?: number[]
     show?: boolean
@@ -334,5 +334,20 @@ export type PlotLineStyles = {
  * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.
  */
 export type SettingsColor = [number, number, number, number]
+export type SettingsCircle = {
+    color: SettingsColor
+    dasharray?: number[]
+    radius: number
+    show?: boolean
+    style: string
+    width: number
+}
+export type SettingsLine = {
+    color: SettingsColor
+    dasharray?: number[]
+    show?: boolean
+    style: string
+    width: number
+}
 export type SettingsValue = SettingsColor | boolean | number | string | undefined
 export type SettingsValueConstructor = BooleanConstructor | NumberConstructor | StringConstructor
