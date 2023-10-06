@@ -147,9 +147,15 @@ export type InterfaceResourceModule = RuntimeResourceModule & {
 export type InterfaceResourceModuleContext = {
     /** Properties to override in the main application runtime. */
     runtime: InterfaceResourceModule
-    /** Actions for an action-mutation state manager. */
+    /**
+     * Actions for an action-mutation state manager.
+     * Note: This is modeled after the VueX library and may need revision later.
+     */
     actions?: NullProtoObject // TODO: Better typing.
-    /** Mutations for an action-mutation state manager. */
+    /**
+     * Mutations for an action-mutation state manager.
+     * Note: This is modeled after the VueX library and may need revision later.
+     */
     mutations?: NullProtoObject // TODO: Better typing.
 }
 /**

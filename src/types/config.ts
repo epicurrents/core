@@ -13,6 +13,9 @@ import {
 } from "./biosignal"
 import { StudyContextCollection } from "./study"
 
+/**
+ * Core settings, expandable with modules.
+ */
 export interface AppSettings {
     _CLONABLE: ClonableAppSettings
     app: BaseModuleSettings & {
@@ -41,6 +44,7 @@ export interface AppSettings {
         screenPPI: number
         theme: string
     }
+    interface: InterfaceSettings
     /**
      * Settings for registered app modules.
      */
@@ -90,6 +94,11 @@ export interface AppSettings {
      */
     onPropertyUpdate (field: string, newValue?: SettingsValue, oldValue?: SettingsValue): void
     /**
+     * Register the settings for current interface module.
+     * @param settings - The settings that should be available at runtime.
+     */
+    registerInterface (settings: InterfaceRuntimeSettings): void
+    /**
      * Register a module's settings to the main settings object.
      * @param name - Unique name for the module.
      * @param moduleSettings - Settings for the module.
@@ -124,6 +133,9 @@ export interface AppSettings {
      */
     setFieldValue (field: string, value: SettingsValue): void
 }
+/**
+ * Common settings for all modules.
+ */
 export type BaseModuleSettings = {
     /**
      * An object defining the composition of the settings menu of
@@ -151,11 +163,11 @@ export type BaseModuleSettings = {
                 /** Optional suffix printed after the actual value. */
                 suffix?: string
                 /** The value in the format that it is in the settings. */
-                value: (string | number)
+                value: boolean | number | string
             }[]
             presets?: {
                 setting: string
-                value: string | number | boolean
+                value: boolean | number | string
             }[]
             /** Path and name of the settings field. */
             setting?: string
@@ -183,19 +195,14 @@ export type BaseModuleSettings = {
      */
     _userDefinable?: { [field: string]: SettingsValueConstructor }
 }
-export type ClonableAppSettings = Omit<
-    AppSettings,
-    "_CLONABLE" |
-    "addPropertyUpdateHandler" |
-    "getFieldValue" |
-    "onPropertyUpdate" |
-    "registerModule" |
-    "removeAllPropertyUpdateHandlers" |
-    "removeAllPropertyUpdateHandlersFor" |
-    "removePropertyUpdateHandler" |
-    "setFieldValue"
->
+/**
+ * Core app settings with the non-serializable properties removed.
+ */
+export type ClonableAppSettings = Pick<AppSettings, "app" | "modules" | "services">
 export type ClonableModuleSettings = { [key: string]: unknown }
+/**
+ * Settings common to all biosignal type resources.
+ */
 export type CommonBiosignalSettings = {
     annotations: {
         color: SettingsColor
@@ -313,6 +320,84 @@ export type ConfigStudyLoader = {
     scope?: string
     studies?: { [key: string]: unknown }
     type?: string
+}
+// Interface
+/** Subset of settings properties that are required at runtime. */
+export type InterfaceRuntimeSettings = Pick<InterfaceSettings, "app" | "modules">
+/**
+ * Interface settings are separated to app level and individual module levels.
+ * Modules are static in the sense that additional modules cannot be added after the interface has been
+ * registered.
+ */
+export interface InterfaceSettings {
+    /**
+     * App level interface settings.
+     */
+    app: BaseModuleSettings
+    /**
+     * Module level interface settings.
+     */
+    modules: { [name: string]: BaseModuleSettings }
+    /**
+     * Add a new update handler for the settings `field`.
+     * @param field - Name of the field to watch. Direct updates this this field and any of its children trigger the handler.
+     * @param handler - Handler method for the update.
+     * @param caller - Optional unique caller name (for bulk removals).
+     * @example
+     * // Setup
+     * addPropertyUpdateHandler('high.level.field', handler, 'caller')
+     * // Update scenarios
+     * onPropertyUpdate('high.level.field') // Triggers handler (field updated).
+     * onPropertyUpdate('high.level.field.grand.child') // Triggers handler (child field updated).
+     * onPropertyUpdate('high.level') // Does not trigger update.
+     */
+    addPropertyUpdateHandler (field: string, handler: PropertyUpdateHandler, caller?: string): void
+    /**
+     * Get the value stored at the given settings `field`.
+     * @param field - Name of the settings field.
+     * @param depth - Optional settings field depth. Positive values function as an index to the "field array"
+     *                and negative values as an offset to the depth.
+     * @example
+     * getFieldValue('settings.field.somewhere.deep') // Returns the value of the property 'deep'.
+     * getFieldValue('settings.field.somewhere.deep', 1) // Returns the value of 'field' ('settings' being index 0).
+     * getFieldValue('settings.field.somewhere.deep', -1) // Returns the value of 'somewhere' (-1 offset from 'deep').
+     */
+    getFieldValue (field: string, depth?: number): SettingsValue
+    /**
+     * Signal that a settings property has updated, executing any handlers watching it or its parents.
+     * @param field - Name of the updated field.
+     * @param newValue - New value set to the field (optional).
+     * @param oldValue - Previous value of the field (optional).
+     */
+    onPropertyUpdate (field: string, newValue?: SettingsValue, oldValue?: SettingsValue): void
+    /**
+     * Remove all registered property update handlers.
+     */
+    removeAllPropertyUpdateHandlers (): void
+    /**
+     * Remove all property update handlers registered to the given `caller`.
+     * @param caller - Unique name of the caller.
+     */
+    removeAllPropertyUpdateHandlersFor (caller: string): void
+    /**
+     * Remove the given `handler` from the given `field`'s watchers.
+     * @param field - Name of the settings field. Applies to handlers watching this field and any of its children.
+     * @param handler - The handler to remove.
+     * @example
+     * // Setup
+     * addPropertyUpdateHandler('high.level.field', handler)
+     * // Removal scenarios
+     * removePropertyUpdateHandler('high.level.field', handler) // Handler is removed (field match).
+     * removePropertyUpdateHandler('high.level', handler) // Handler is removed (parent field match).
+     * removePropertyUpdateHandler('high.level.field.grand.child', handler) // Not removed (child field match).
+     */
+    removePropertyUpdateHandler (field: string, handler: PropertyUpdateHandler): void
+    /**
+     * Set a new `value` the the given settings `field`.
+     * @param field - Name of the settings field.
+     * @param value - New value for the field.
+     */
+    setFieldValue (field: string, value: SettingsValue): void
 }
 // Plot
 export type PlotSettingsCircle = {
