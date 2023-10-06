@@ -180,6 +180,27 @@ export type HighlightContext = {
     visible: boolean
 }
 /**
+ * Style properties of a circle marker on the plot.
+ */
+export type PlotCircleStyles = {
+    color: SettingsColor
+    dasharray?: number[]
+    radius: number
+    show?: boolean
+    style: string
+    width: number
+}
+/**
+ * Style properties of a line marker on the plot.
+ */
+export type PlotLineStyles = {
+    color: SettingsColor
+    dasharray?: number[]
+    show?: boolean
+    style: string
+    width: number
+}
+/**
  * Signal part selected for closer inspection.
  */
 export type PlotTraceSelection = {

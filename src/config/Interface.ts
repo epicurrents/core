@@ -9,7 +9,7 @@ import {
     type PropertyUpdateHandler
 } from "#types/assets"
 import {
-    InterfaceSettings,
+    type InterfaceSettings,
     type SettingsValue,
 } from "#types/config"
 import { hexToSettingsColor, rgbaToSettingsColor } from "#util/conversions"

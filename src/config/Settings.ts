@@ -9,18 +9,18 @@ import {
     type PropertyUpdateHandler
 } from "#types/assets"
 import {
-    InterfaceRuntimeSettings,
     type AppSettings,
     type BaseModuleSettings,
     type ClonableAppSettings,
     type ClonableModuleSettings,
+    type RuntimeInterfaceSettings,
     type SettingsValue,
 } from "#types/config"
 import { MB_BYTES } from "#util/constants"
 import { hexToSettingsColor, rgbaToSettingsColor } from "#util/conversions"
+import { safeObjectFrom } from "#util/general"
 import { Log } from 'scoped-ts-log'
 import INTERFACE_SETTINGS from "./Interface"
-import { safeObjectFrom } from "../util/general"
 
 const SCOPE = 'Settings'
 
@@ -224,10 +224,10 @@ const _settings = {
             }
         }
     },
-    registerInterface (intfSettings: InterfaceRuntimeSettings) {
-        const safeProps = safeObjectFrom(intfSettings) as InterfaceRuntimeSettings
+    registerInterface (intfSettings: RuntimeInterfaceSettings) {
+        const safeProps = safeObjectFrom(intfSettings) as RuntimeInterfaceSettings
         for (const [key, value] of Object.entries(safeProps)) {
-            _settings.interface[key as keyof InterfaceRuntimeSettings] =  value
+            _settings.interface[key as keyof RuntimeInterfaceSettings] =  value
         }
     },
     registerModule (name: string, moduleSettings: BaseModuleSettings) {

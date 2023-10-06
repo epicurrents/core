@@ -11,6 +11,7 @@ import {
     BiosignalChannelTemplate,
     SetupChannel,
 } from "./biosignal"
+import { PlotLineStyles } from "./plot"
 import { StudyContextCollection } from "./study"
 
 /**
@@ -97,7 +98,7 @@ export interface AppSettings {
      * Register the settings for current interface module.
      * @param settings - The settings that should be available at runtime.
      */
-    registerInterface (settings: InterfaceRuntimeSettings): void
+    registerInterface (settings: RuntimeInterfaceSettings): void
     /**
      * Register a module's settings to the main settings object.
      * @param name - Unique name for the module.
@@ -215,10 +216,10 @@ export type CommonBiosignalSettings = {
     /** Should antialiasing be used when drawing tha trace. */
     antialiasing: boolean
     border: {
-        bottom?: PlotSettingsLine
-        left?: PlotSettingsLine
-        right?: PlotSettingsLine
-        top?: PlotSettingsLine
+        bottom?: PlotLineStyles
+        left?: PlotLineStyles
+        right?: PlotLineStyles
+        top?: PlotLineStyles
     }
     channelSpacing: number
     defaultMontages: { [setup: string]: [string, string][] }
@@ -254,8 +255,8 @@ export type CommonBiosignalSettings = {
         }
     }
     groupSpacing: number
-    majorGrid: PlotSettingsLine
-    minorGrid: PlotSettingsLine
+    majorGrid: PlotLineStyles
+    minorGrid: PlotLineStyles
     montages: {
         /** Maximum number of montages to keep cached. */
         cacheMax: number
@@ -321,9 +322,6 @@ export type ConfigStudyLoader = {
     studies?: { [key: string]: unknown }
     type?: string
 }
-// Interface
-/** Subset of settings properties that are required at runtime. */
-export type InterfaceRuntimeSettings = Pick<InterfaceSettings, "app" | "modules">
 /**
  * Interface settings are separated to app level and individual module levels.
  * Modules are static in the sense that additional modules cannot be added after the interface has been
@@ -399,22 +397,8 @@ export interface InterfaceSettings {
      */
     setFieldValue (field: string, value: SettingsValue): void
 }
-// Plot
-export type PlotSettingsCircle = {
-    color: SettingsColor
-    dasharray?: number[]
-    radius: number
-    show?: boolean
-    style: string
-    width: number
-}
-export type PlotSettingsLine = {
-    color: SettingsColor
-    dasharray?: number[]
-    show?: boolean
-    style: string
-    width: number
-}
+/** Subset of settings properties that are required at runtime. */
+export type RuntimeInterfaceSettings = Pick<InterfaceSettings, "app" | "modules">
 /**
  * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.
  */
