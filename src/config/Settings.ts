@@ -13,6 +13,7 @@ import {
     type BaseModuleSettings,
     type ClonableAppSettings,
     type ClonableModuleSettings,
+    type InterfaceSettings,
     type RuntimeInterfaceSettings,
     type SettingsValue,
 } from "#types/config"
@@ -225,9 +226,10 @@ const _settings = {
         }
     },
     registerInterface (intfSettings: RuntimeInterfaceSettings) {
-        const safeProps = safeObjectFrom(intfSettings) as RuntimeInterfaceSettings
+        // This fails to build if the type is not switched here, for some reason.
+        const safeProps = safeObjectFrom(intfSettings) as InterfaceSettings
         for (const [key, value] of Object.entries(safeProps)) {
-            _settings.interface[key as keyof RuntimeInterfaceSettings] =  value
+            _settings.interface[key as keyof InterfaceSettings] = value
         }
     },
     registerModule (name: string, moduleSettings: BaseModuleSettings) {

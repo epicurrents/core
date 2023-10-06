@@ -397,7 +397,7 @@ export interface InterfaceSettings {
      */
     setFieldValue (field: string, value: SettingsValue): void
 }
-/** Subset of settings properties that are required at runtime. */
+/** Subset of interface settings properties that are required at runtime. */
 export type RuntimeInterfaceSettings = Pick<InterfaceSettings, "app" | "modules">
 /**
  * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.
