@@ -45,6 +45,7 @@ const services = new Map<string, AssetService>()
 export const state: RuntimeState = {
     __proto__: null,
     APP: appModule,
+    INTERFACE: null,
     MODULES: modules,
     SERVICES: services,
     SETTINGS: SETTINGS,
@@ -77,6 +78,9 @@ export default class RuntimeStateManager implements StateManager {
     constructor () {}
     get APP () {
         return state.APP
+    }
+    get INTERFACE () {
+        return state.INTERFACE
     }
     get MODULES () {
         return state.MODULES

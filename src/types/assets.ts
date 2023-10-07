@@ -310,6 +310,7 @@ export type RuntimeResourceModule = NullProtoObject & {
 export type RuntimeState = NullProtoObject & {
     APP: RuntimeAppModule
 } & {
+    INTERFACE: unknown
     MODULES: Map<string, RuntimeResourceModule>
     SERVICES: Map<string, AssetService>
     SETTINGS: AppSettings
@@ -327,6 +328,8 @@ export type SafeObject = Omit<{ [name: string]: unknown }, "__proto__"> & NullPr
 export interface StateManager {
     /** Core app state. */
     APP: RuntimeAppModule
+    /** Interface-specific configuration. */
+    INTERFACE: unknown
     /** States of dynamically loaded modules. */
     MODULES: Map<string, RuntimeResourceModule>
     /** States of dynamically loaded services. */
