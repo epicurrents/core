@@ -13,15 +13,12 @@ import {
     type BaseModuleSettings,
     type ClonableAppSettings,
     type ClonableModuleSettings,
-    type InterfaceSettings,
-    type RuntimeInterfaceSettings,
     type SettingsValue,
 } from "#types/config"
 import { MB_BYTES } from "#util/constants"
 import { hexToSettingsColor, rgbaToSettingsColor } from "#util/conversions"
 import { safeObjectFrom } from "#util/general"
 import { Log } from 'scoped-ts-log'
-import INTERFACE_SETTINGS from "./Interface"
 
 const SCOPE = 'Settings'
 
@@ -51,7 +48,7 @@ const clonableSettings = () => {
             continue
         }
         const clonable = {} as BaseModuleSettings
-        for (const [field, value] of Object.entries(_settings[key as keyof typeof _settings])) {
+        for (const [field, value] of Object.entries(_settings[key as keyof typeof _settings] as object)) {
             if (!field.startsWith('_') && typeof value !== "function") {
                 clonable[field as keyof BaseModuleSettings] = value
             }
@@ -138,7 +135,7 @@ const _settings = {
         screenPPI: 96,
         theme: 'default',
     },
-    interface: INTERFACE_SETTINGS,
+    interface: null,
     modules: {},
     services: {
         onnx: false,
@@ -223,13 +220,6 @@ const _settings = {
                 SCOPE)
                 handlerContext.handler(newValue, oldValue)
             }
-        }
-    },
-    registerInterface (intfSettings: RuntimeInterfaceSettings) {
-        // This fails to build if the type is not switched here, for some reason.
-        const safeProps = safeObjectFrom(intfSettings) as InterfaceSettings
-        for (const [key, value] of Object.entries(safeProps)) {
-            _settings.interface[key as keyof InterfaceSettings] = value
         }
     },
     registerModule (name: string, moduleSettings: BaseModuleSettings) {

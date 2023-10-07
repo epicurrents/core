@@ -116,7 +116,7 @@ import {
     type DataResource,
     type ResourceModule,
 } from '#types/assets'
-import { RuntimeInterfaceSettings, type SettingsValue } from "#types/config"
+import { type SettingsValue } from "#types/config"
 import { type AssetService } from '#types/service'
 import { type FileSystemItem, type LoaderMode } from '#types/loader'
 
@@ -282,11 +282,9 @@ export class EpiCurrents implements EpiCurrentsApplication {
     /**
      * Register an interface module to be used with the application.
      * @param intf - Constructor for the app interface.
-     * @param settings - Interface settings that are needed at runtime.
      */
-    registerInterface = (intf: InterfaceModuleConstructor, settings: RuntimeInterfaceSettings) => {
+    registerInterface = (intf: InterfaceModuleConstructor) => {
         this.#interface = intf
-        this.#state.SETTINGS.registerInterface(settings)
     }
     registerModule = (name: string, module: ResourceModule) => {
         this.#state.setModule(name, module.runtime)
