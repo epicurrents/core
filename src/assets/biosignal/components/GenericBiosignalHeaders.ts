@@ -8,6 +8,7 @@
 import { Log } from 'scoped-ts-log'
 import {
     type BiosignalAnnotation,
+    type BiosignalFilters,
     type BiosignalHeaderRecord,
     type BiosignalHeaderSignal,
 } from '#types/biosignal'
@@ -183,7 +184,7 @@ export default class GenericBiosignalHeaders implements BiosignalHeaderRecord {
         return this._signalProperties[index].physicalUnit
     }
 
-    getSignalPrefiltering (index: number): string | null {
+    getSignalPrefiltering (index: number): BiosignalFilters | null {
         if (index < 0 || index >= this._signalProperties.length) {
             Log.warn(`Signal index ${index} is out of range, cannot return prefiltering.`, SCOPE)
             return null

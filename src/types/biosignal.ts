@@ -316,6 +316,10 @@ export type BiosignalFilters = {
     highpass: number
     lowpass: number
     notch: number
+    /** List of possible additional band-pass filters. */
+    bandpass?: number[][]
+    /** Nost of possible additional band-reject filters. */
+    bandreject?: number[][]
 }
 /**
  * A record containing the essential metadata of an EEG recording.
@@ -405,7 +409,7 @@ export interface BiosignalHeaderRecord {
     * @param index - Index of the signal.
     * @return Prefiltering info or null if index is out of range.
     */
-    getSignalPrefiltering (index: number): string | null
+    getSignalPrefiltering (index: number): BiosignalFilters | null
     /**
     * Get the sampling frequency in Hz of a given signal.
     * @param index - Index of the signal.
@@ -413,13 +417,18 @@ export interface BiosignalHeaderRecord {
     */
     getSignalSamplingFrequency (index: number): number | null
 }
-
+/**
+ * Signal properties expected to be present in a biosignal file header.
+ */
 export type BiosignalHeaderSignal = {
     label: string
+    name: string
     physicalUnit: string
-    prefiltering: string
+    prefiltering: BiosignalFilters
     sampleCount: number
     samplingRate: number
+    sensitivity: number
+    type: string
 }
 /** Laterality as **d** = right / **s** = left / **z** = center / unknown. */
 export type BiosignalLaterality = "d" | "s" | "z" | ""
