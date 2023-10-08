@@ -6,15 +6,24 @@
  */
 
 // 32 bit range
+/** 10^-9 = one billionth part. */
 export const NANO = 0.000_000_001
+/** 10^-6 = one millionth part. */
 export const MICRO = 0.000_001
+/** 10^-3 = one thousandth part. */
 export const MILLI = 0.001
+/** 10^3 = one thousand. */
 export const KILO = 1000
+/** 10^6 = one million. */
 export const MEGA = 1_000_000
+/** 10^9 = one billion. */
 export const GIGA = 1_000_000_000
 
+/** Number of bytes in one kibibyte. */
 export const KB_BYTES = 1024
+/** Number of bytes in one mibibyte. */
 export const MB_BYTES = 1024*1024
+/** Number of bytes in one gibibyte. */
 export const GB_BYTES = 1024*1024*1024
 
 /**
