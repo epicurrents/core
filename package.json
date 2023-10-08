@@ -10,7 +10,15 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./assets": "./dist/assets/index.js",
+    "./config": "./dist/config/index.js",
+    "./errors": "./dist/errors/index.js",
+    "./onnx": "./dist/onnx/index.js",
+    "./plots": "./dist/plots/index.js",
+    "./pyodide": "./dist/pyodide/index.js",
+    "./runtime": "./dist/runtime/index.js",
     "./types": "./dist/types/index.d.ts",
+    "./util": "./dist/util/index.js",
     "./package.json": "./package.json"
   },
   "imports": {
