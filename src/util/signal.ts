@@ -168,111 +168,121 @@ const calculateReferencedSignals = async (
 export const calculateSignalOffsets = (
     channels: BiosignalChannelProperties[],
     config?: {
-        channelSpacing: number,
-        groupSpacing: number,
-        isRaw: boolean,
-        layout: number[],
-        yPadding: number,
-   }
+        channelSpacing?: number,
+        groupSpacing?: number,
+        isRaw?: boolean,
+        layout?: number[],
+        yPadding?: number,
+    }
 ) => {
-   // Check if this is an 'as recorded' montage.
-   if (!config || config?.isRaw) {
-       // Remove channels that are not displayed.
-       channels = channels.filter(chan => shouldDisplayChannel(chan, true))
-       const layoutH = channels.length + 1
-       const chanHeight = 1/channels.length
-       let i = 0
-       for (const chan of channels) {
-           const baseline = 1.0 - ((i + 1)/layoutH)
-           chan.offset = {
-               baseline: baseline,
-               bottom: baseline - 0.5*chanHeight,
-               top: baseline + 0.5*chanHeight
-           }
-           i++
-       }
-       return
-   }
-   // Calculate channel offsets from the provided config.
-   let nGroups = 0
-   let nChannels = 0
-   let nChanTotal = 0
-   // Grab layout from default config if not provided.
-   const configLayout = config.layout
-   const layout = []
-   for (const group of configLayout) {
-       let nGroup = 0
-       // Remove missing and hidden channels from the layout.
-       for (let i=nChanTotal; i<nChanTotal+group; i++) {
-           if (shouldDisplayChannel(channels[i], false)) {
-               nGroup++
-           }
-       }
-       nChannels += nGroup
-       nChanTotal += group
-       // Don't add empty groups.
-       if (nGroup) {
-           nGroups++
-           layout.push(nGroup)
-       }
-   }
-   // Check if the number of non-meta channels matches the constructed layout.
-   const nSignalChannels = channels.filter((chan) => { return chan.type && chan.type !== 'meta' }).length
-   if (nChannels !== nSignalChannels) {
-       Log.warn("The number of channels does not match config layout!", SCOPE)
-   }
-   // Calculate total trace height, starting with top and bottom margins.
-   let layoutH = 2*config.yPadding
-   // Add channel heights.
-   layoutH += (nChannels - (nGroups - 1) - 1)*config.channelSpacing
-   // Add group heights.
-   layoutH += (nGroups - 1)*config.groupSpacing
-   // Go through the signals and add their respective offsets.
-   // First trace is y-padding away from the top.
-   let yPos = 1.0 - config.yPadding/layoutH
-   let chanIdx = 0
-   const chanHeight = config.channelSpacing/layoutH
-   // Save into a variable if group spacing has been applied.
-   // We cannot determine it by checking if this is the first channel in the group, because
-   // the first channel may be missing or hidden for some other reason.
-   let groupSpacing = true
-   for (let i=0; i<configLayout.length; i++) {
-       // Top and bottom margins are applied automatically, so skip first visible group spacing.
-       if (i && !groupSpacing) {
-           yPos -= (1/layoutH)*config.groupSpacing
-           groupSpacing = true
-       }
-       for (let j=0; j<configLayout[i]; j++) {
-           const chan = channels[chanIdx] as MontageChannel
-           // Check that number of layout channels hasn't exceeded number of actual channels.
-           if (chan === undefined) {
-               Log.warn(
-                   `Number of layout channels (${chanIdx + 1}) exceeds the number of channels in the EEG record ` +
-                   `(${channels.length})!`,
-               SCOPE)
-               continue
-           }
-           chanIdx++
-           if (!shouldDisplayChannel(chan, false)) {
-               continue
-           }
-           if (!groupSpacing) {
-               yPos -= (1/layoutH)*config.channelSpacing
-           } else {
-               // Skip the first channel (group spacing has already been applied)
-               groupSpacing = false
-           }
-           chan.offset = {
-               baseline: yPos,
-               bottom: yPos - 0.5*chanHeight,
-               top: yPos + 0.5*chanHeight,
-           }
-           // Check if a meta channel has slipped into the visible layout
-           if ((channels[chanIdx] as MontageChannel).type == 'meta') {
-               Log.warn(`Metadata channel ${chan.label} has been included into visbile layout!`, SCOPE)
-           }
-       }
-   }
+    // Check if this is an 'as recorded' montage.
+    if (!config || config?.isRaw) {
+        // Remove channels that are not displayed.
+        channels = channels.filter(chan => shouldDisplayChannel(chan, true))
+        const layoutH = channels.length + 1
+        const chanHeight = 1/channels.length
+        let i = 0
+        for (const chan of channels) {
+            const baseline = 1.0 - ((i + 1)/layoutH)
+            chan.offset = {
+                baseline: baseline,
+                bottom: baseline - 0.5*chanHeight,
+                top: baseline + 0.5*chanHeight
+            }
+            i++
+        }
+        return
+    }
+    const requiredConfig = Object.assign(
+        {
+            channelSpacing: 1,
+            groupSpacing: 1,
+            isRaw: false, // We checked for this above.
+            layout: [],
+            yPadding: 0,
+        } as Required<typeof config>,
+        config
+    )
+    // Calculate channel offsets from the provided config.
+    let nGroups = 0
+    let nChannels = 0
+    let nChanTotal = 0
+    // Grab layout from default config if not provided.
+    const configLayout = requiredConfig.layout
+    const layout = []
+    for (const group of configLayout) {
+        let nGroup = 0
+        // Remove missing and hidden channels from the layout.
+        for (let i=nChanTotal; i<nChanTotal+group; i++) {
+            if (shouldDisplayChannel(channels[i], false)) {
+                nGroup++
+            }
+        }
+        nChannels += nGroup
+        nChanTotal += group
+        // Don't add empty groups.
+        if (nGroup) {
+            nGroups++
+            layout.push(nGroup)
+        }
+    }
+    // Check if the number of non-meta channels matches the constructed layout.
+    const nSignalChannels = channels.filter((chan) => { return chan.type && chan.type !== 'meta' }).length
+    if (nChannels !== nSignalChannels) {
+        Log.warn("The number of channels does not match config layout!", SCOPE)
+    }
+    // Calculate total trace height, starting with top and bottom margins.
+    let layoutH = 2*requiredConfig.yPadding
+    // Add channel heights.
+    layoutH += (nChannels - (nGroups - 1) - 1)*requiredConfig.channelSpacing
+    // Add group heights.
+    layoutH += (nGroups - 1)*requiredConfig.groupSpacing
+    // Go through the signals and add their respective offsets.
+    // First trace is y-padding away from the top.
+    let yPos = 1.0 - requiredConfig.yPadding/layoutH
+    let chanIdx = 0
+    const chanHeight = requiredConfig.channelSpacing/layoutH
+    // Save into a variable if group spacing has been applied.
+    // We cannot determine it by checking if this is the first channel in the group, because
+    // the first channel may be missing or hidden for some other reason.
+    let groupSpacing = true
+    for (let i=0; i<configLayout.length; i++) {
+        // Top and bottom margins are applied automatically, so skip first visible group spacing.
+        if (i && !groupSpacing) {
+            yPos -= (1/layoutH)*requiredConfig.groupSpacing
+            groupSpacing = true
+        }
+        for (let j=0; j<configLayout[i]; j++) {
+            const chan = channels[chanIdx] as MontageChannel
+            // Check that number of layout channels hasn't exceeded number of actual channels.
+            if (chan === undefined) {
+                Log.warn(
+                    `Number of layout channels (${chanIdx + 1}) exceeds the number of channels in the EEG record ` +
+                    `(${channels.length})!`,
+                SCOPE)
+                continue
+            }
+            chanIdx++
+            if (!shouldDisplayChannel(chan, false)) {
+                continue
+            }
+            if (!groupSpacing) {
+                yPos -= (1/layoutH)*requiredConfig.channelSpacing
+            } else {
+                // Skip the first channel (group spacing has already been applied)
+                groupSpacing = false
+            }
+            chan.offset = {
+                baseline: yPos,
+                bottom: yPos - 0.5*chanHeight,
+                top: yPos + 0.5*chanHeight,
+            }
+            // Check if a meta channel has slipped into the visible layout
+            if ((channels[chanIdx] as MontageChannel).type == 'meta') {
+                Log.warn(`Metadata channel ${chan.label} has been included into visbile layout!`, SCOPE)
+            }
+        }
+    }
 }
 
 /**
