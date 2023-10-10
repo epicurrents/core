@@ -322,7 +322,7 @@ export type BiosignalFilters = {
     bandreject?: number[][]
 }
 /**
- * A record containing the essential metadata of an EEG recording.
+ * A record containing the essential metadata of a biosignal recording.
  */
 export interface BiosignalHeaderRecord {
     /** List of annotations for this recording. */
@@ -812,6 +812,15 @@ export interface BiosignalSetup {
 export type BiosignalSetupReject = (reason: string) => void
 export type BiosignalSetupResolve = (response: BiosignalSetupResponse) => void
 export type BiosignalSetupResponse = MutexExportProperties | false
+/**
+ * Common properties that should be defined during the process of loading a biosignal study source.
+ */
+export type BiosignalStudyProperties = {
+    /** A header sepcific to the data source type of the study. */
+    formatHeader: unknown
+    /** A generic header record containing key properties of the underlying recording. */
+    header: BiosignalHeaderRecord
+}
 export type ChannelPositionProperties = {
     /** Bottom edge position as a fraction of the viewport height. */
     bottom: number
