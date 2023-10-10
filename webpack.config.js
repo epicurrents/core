@@ -8,13 +8,6 @@ module.exports = {
                 loader: "ts-loader",
                 exclude: /node_modules/,
             },
-            {
-                test: /\.py$/,
-                loader: 'raw-loader',
-                options: {
-                    name: '[path][name].[ext]?[hash]'
-                }
-            },
         ]
     },
     experiments: {
