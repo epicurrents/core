@@ -20,6 +20,7 @@ import {
     StudyLoader,
     StudyLoaderContext,
 } from "./study"
+import { Modify } from "./util"
 
 /**
  * The most basic type defining properties that must exist in every asset.
@@ -309,7 +310,6 @@ export type RuntimeResourceModule = NullProtoObject & {
  */
 export type RuntimeState = NullProtoObject & {
     APP: RuntimeAppModule
-} & {
     INTERFACE: unknown
     MODULES: Map<string, RuntimeResourceModule>
     SERVICES: Map<string, AssetService>
@@ -319,7 +319,7 @@ export type RuntimeState = NullProtoObject & {
  * An object with the property (pointer) __proto__ removed. This will prevent using any objects
  * based on this type in prototype pollution attacks.
  */
-export type SafeObject = Omit<{ [name: string]: unknown }, "__proto__"> & NullProtoObject
+export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
 /**
  * Statemanager is the instance that manages application runtime state.
  * In addition to the actual modules, it also includes shorthands for
