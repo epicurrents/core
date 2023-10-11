@@ -26,7 +26,11 @@ import SETTINGS from '#config/Settings'
 import { MixedMediaDataset } from '#assets/dataset'
 import { PyodideService } from '#root/src/pyodide'
 
-import { APP as appModule } from './modules'
+import { APP as APP_MODULE } from './modules'
+export { APP_MODULE }
+
+import { logInvalidMutation } from './util'
+export { logInvalidMutation }
 
 const SCOPE = "runtime"
 
@@ -44,7 +48,7 @@ const services = new Map<string, AssetService>()
  */
 export const state: RuntimeState = {
     __proto__: null,
-    APP: appModule,
+    APP: APP_MODULE,
     INTERFACE: null,
     MODULES: modules,
     SERVICES: services,

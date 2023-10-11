@@ -816,7 +816,7 @@ export type BiosignalSetupResponse = MutexExportProperties | false
  * Common properties that should be defined during the process of loading a biosignal study source.
  */
 export type BiosignalStudyProperties = {
-    /** A header sepcific to the data source type of the study. */
+    /** A header specific to the data source type of the study. */
     formatHeader: unknown
     /** A generic header record containing key properties of the underlying recording. */
     header: BiosignalHeaderRecord
