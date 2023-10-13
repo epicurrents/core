@@ -86,6 +86,9 @@ export default class RuntimeStateManager implements StateManager {
     get INTERFACE () {
         return state.INTERFACE
     }
+    set INTERFACE (value: unknown) {
+        this.INTERFACE = value
+    }
     get MODULES () {
         return state.MODULES
     }
