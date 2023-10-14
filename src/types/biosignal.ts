@@ -10,7 +10,7 @@ import {
     MutexExportProperties,
     MutexMetaField,
 } from 'asymmetric-io-mutex'
-import { SettingsColor } from './config'
+import { ConfigBiosignalSetup, SettingsColor } from './config'
 import { StudyContext } from './study'
 import { HighlightContext, SignalHighlight } from './plot'
 import {
@@ -808,6 +808,12 @@ export interface BiosignalSetup {
     name: string
     /** Raw signals that could not be matched to any channel in the setup. */
     unmatchedSignals: SetupChannel[]
+    /**
+     * Load setup configuration from an external config object.
+     * @param recordSignals - Channel descriptions of the biosignal recording.
+     * @param config - Configuration object for the setup.
+     */
+    loadConfig (recordSignals: BiosignalChannel[], config: ConfigBiosignalSetup): void
 }
 export type BiosignalSetupReject = (reason: string) => void
 export type BiosignalSetupResolve = (response: BiosignalSetupResponse) => void

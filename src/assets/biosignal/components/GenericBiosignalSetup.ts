@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type SetupChannel, type BiosignalSetup, BiosignalChannelTemplate } from '#types/biosignal'
+import { type SetupChannel, type BiosignalSetup, BiosignalChannelTemplate, BiosignalChannel } from '#types/biosignal'
 import { type ConfigBiosignalSetup } from '#types/config'
 
 export default class GenericBiosignalSetup implements BiosignalSetup {
@@ -59,12 +59,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
     //                   METHODS                     //
     ///////////////////////////////////////////////////
 
-    /**
-     * Load setup configuration from an external config object.
-     * @param recordSignals - Channel descriptions of the biosignal recording.
-     * @param config - Configuration object for the setup.
-     */
-    loadConfig (recordSignals: SetupChannel[], config: ConfigBiosignalSetup) {
+    loadConfig (recordSignals: BiosignalChannel[], config: ConfigBiosignalSetup) {
         // Helper method for producing a prototype channel
         const getChannel = (index: number, config?: Partial<BiosignalChannelTemplate>) => {
             return {
