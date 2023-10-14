@@ -15,5 +15,5 @@ import { Log } from 'scoped-ts-log'
  * @param hint - Optional hint or explanation.
  */
 export const logInvalidMutation = (property: string, value: unknown, scope: string, hint?: string) => {
-    Log.warn(`New value '${value} for property '${property}' is not valid.${ hint ? ' ' + hint : '' }`, scope)
+    Log.warn(`New value '${value}' for property '${property}' is not valid.${ hint ? ' ' + hint : '' }`, scope)
 }
