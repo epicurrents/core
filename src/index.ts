@@ -121,20 +121,17 @@ import { type AssetService } from '#types/service'
 import { type FileSystemItem, type LoaderMode } from '#types/loader'
 
 const SCOPE = 'index'
-let INSTANCE_NUM = 1
 
 export class EpiCurrents implements EpiCurrentsApplication {
     // Properties
     #app = null as null | InterfaceModule
+    #instanceNum: number
     #interface = null as null | InterfaceModuleConstructor
     #memoryManager = null as null | ServiceMemoryManager
     #state = new RuntimeStateManager()
 
-    constructor (logLevel?: keyof typeof Log.LEVELS) {
-        if (logLevel) {
-            Log.setPrintThreshold(logLevel)
-        }
-        GenericAsset.INSTANCES.push(this)
+    constructor () {
+        this.#instanceNum = GenericAsset.INSTANCES.push(this) - 1
     }
     addResource (resource: DataResource, scope?: string) {
         if (!resource.type) {
@@ -189,7 +186,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
      */
     launch = async (
         containerId: string = '',
-        appId: string = `app${INSTANCE_NUM++}`,
+        appId: string = `app${this.#instanceNum}`,
         locale: string = 'en'
     ): Promise<boolean> => {
         if (!this.#interface) {
