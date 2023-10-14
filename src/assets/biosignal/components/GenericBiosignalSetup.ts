@@ -15,7 +15,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
     protected _missing: SetupChannel[] = []
     protected _unmatched: SetupChannel[] = []
 
-    constructor (id: string, channels?: SetupChannel[], config?: ConfigBiosignalSetup) {
+    constructor (id: string, channels?: BiosignalChannel[], config?: ConfigBiosignalSetup) {
         this._id = id
         this._name = id
         if (config?.skipConfig) {
