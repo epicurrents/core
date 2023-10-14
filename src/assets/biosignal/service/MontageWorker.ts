@@ -87,10 +87,9 @@ onmessage = async (message: WorkerMessage) => {
             if (sigs) {
                 postMessage({
                     action: 'get-signals',
-                    range: message.data.range,
                     success: true,
-                    signals: sigs,
                     rn: message.data.rn,
+                    ...sigs
                 })
             } else {
                 postMessage({
