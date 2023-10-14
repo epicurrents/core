@@ -11,7 +11,7 @@ import {
     type SetupChannel,
 } from '#types/biosignal'
 import { ConfigMapChannels, type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
-import { type SignalCachePart, type WorkerMessage } from '#types/service'
+import { SignalCacheResponse, type SignalCachePart, type WorkerMessage } from '#types/service'
 import BiosignalMutex from '../service/BiosignalMutex'
 import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
 import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
@@ -83,7 +83,7 @@ onmessage = async (message: WorkerMessage) => {
         try {
             const range = message.data.range as number[]
             const config = message.data.config as ConfigChannelFilter | undefined
-            const sigs = await getSignals(range, config)
+            const sigs = await getSignals(range, config) as SignalCacheResponse
             if (sigs) {
                 postMessage({
                     action: 'get-signals',
@@ -491,11 +491,11 @@ const getGapTimeBetween = (start: number, end: number): number => {
 const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
     if (!CHANNELS) {
         log(postMessage, 'ERROR', "Cannot load signals, channels have not been set up yet.", SCOPE)
-        return
+        return null
     }
     if (!CACHE) {
         log(postMessage, 'ERROR', "Cannot load signals, signal buffers have not been set up yet.", SCOPE)
-        return
+        return null
     }
     let requestedSigs: SignalCachePart | null = null
     const cacheStart = await CACHE.outputRangeStart
@@ -543,18 +543,18 @@ const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
     // Find amount of gap time before and within the range.
     const dataGaps = getDataGaps(range)
     if (!dataGaps.length) {
-        return requestedSigs.signals.map(s => s.data)
+        return requestedSigs
     }
     const priorGapsTotal = range[0] > 0 ? getGapTimeBetween(0, range[0]) : 0
     const gapsTotal = getGapTimeBetween(0, range[1])
     const rangeStart = range[0] - priorGapsTotal
     const rangeEnd = range[1] - gapsTotal
-    const responseSigs = []
+    const responseSigs = [] as SignalCachePart['signals']
     for (let i=0; i<requestedSigs.signals.length; i++) {
         const signalForRange = new Float32Array(Math.round((range[1] - range[0])*requestedSigs.signals[i].samplingRate)).fill(0.0)
         if (rangeStart === rangeEnd) {
             // The whole range is just gap space.
-            responseSigs.push(signalForRange)
+            requestedSigs.signals[i].data = signalForRange
             continue
         }
         const startSignalIndex = Math.round((rangeStart - requestedSigs.start)*requestedSigs.signals[i].samplingRate)
@@ -580,9 +580,9 @@ const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
                 startPos
             )
         }
-        responseSigs.push(signalForRange)
+        requestedSigs.signals[i].data = signalForRange
     }
-    return responseSigs
+    return requestedSigs
 }
 
 /**

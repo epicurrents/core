@@ -922,15 +922,15 @@ export const mapMontageChannels = (
 /**
  * Maps given signals to corresponding sampling rates.
  * @param signals - Signals as Float32Array.
- * @param montage - Current montage.
+ * @param channels - Montage channels.
  * @returns ```
  * { data: signals[i], samplingRate: channelSamplingRate[i] }
  * ```
  */
-export const mapSignalsToSamplingRates = (signals: Float32Array[], montage: BiosignalMontage) => {
+export const mapSignalsToSamplingRates = (signals: Float32Array[], channels: BiosignalChannel[]) => {
     let i = 0
     return signals.map((sig) => {
-        return { data: sig, samplingRate: montage.channels[i++]?.samplingRate || 0 }
+        return { data: sig, samplingRate: channels[i++]?.samplingRate || 0 }
     })
 }
 
