@@ -38,11 +38,15 @@ const clonableSettings = () => {
     /** Names of root level properties that are recursed into serializable objects. */
     const clonableFields = ['app', 'services']
     // Remove the private _userDefinable (it also can't be cloned).
-    const outSettings = {} as {
+    const outSettings = {
+        app: {},
+        modules: {},
+        services: {},
+    } as {
         app: BaseModuleSettings
+        modules: ClonableModuleSettings
         services: BaseModuleSettings
-    } &
-    { modules: ClonableModuleSettings }
+    }
     for (const key in Object.keys(_settings)) {
         if (!clonableFields.includes(key)) {
             continue
