@@ -47,12 +47,12 @@ const clonableSettings = () => {
         modules: ClonableModuleSettings
         services: BaseModuleSettings
     }
-    for (const key in Object.keys(_settings)) {
-        if (!clonableFields.includes(key)) {
+    for (const key of clonableFields) {
+        if (!_settings[key as keyof AppSettings]) {
             continue
         }
         const clonable = {} as BaseModuleSettings
-        for (const [field, value] of Object.entries(_settings[key as keyof typeof _settings] as object)) {
+        for (const [field, value] of Object.entries(_settings[key as keyof AppSettings] as object)) {
             if (!field.startsWith('_') && typeof value !== "function") {
                 clonable[field as keyof BaseModuleSettings] = value
             }
