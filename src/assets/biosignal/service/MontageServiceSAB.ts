@@ -95,7 +95,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
                 this._montage?.saveSignalsToCache({
                     start: range[0],
                     end: range[1],
-                    signals: mapSignalsToSamplingRates(signals, this._montage as BiosignalMontage)
+                    signals: mapSignalsToSamplingRates(signals, this._montage.channels)
                 })
             }
             return true

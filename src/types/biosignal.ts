@@ -443,7 +443,7 @@ export interface BiosignalMontage extends BaseAsset {
     /** Cached signal ranges. */
     cacheStatus: SignalCachePart
     /** Configuration for each channel in this montage, null for missing channels. */
-    channels: (MontageChannel | null)[]
+    channels: MontageChannel[]
     /** Saved configuration for this montage. */
     config: unknown
     /** Gaps in signal data as Map<startTime, duration> in seconds. */
