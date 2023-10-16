@@ -11,7 +11,8 @@ import {
     SettingsValue,
 } from "./config"
 import { DatasetLoader, MediaDataset } from "./dataset"
-import { FileSystemItem } from "./loader"
+import { FileSystemItem, LoaderMode } from "./loader"
+import { OnnxService } from "./onnx"
 import { BiosignalPlot } from "./plot"
 import { AllocateMemoryResponse, AssetService } from "./service"
 import {
@@ -110,7 +111,97 @@ export interface EpiCurrentsApplication {
      * @param scope - Optional resource scope (defaults to the value of the resource's type property).
      */
     addResource (resource: DataResource, scope?: string): void
+    /**
+     * Modify the default configuration before the app is launched.
+     * After launching the app, use setSettingsValue() instead.
+     * @param config - Field and value pairs to modify.
+     * @example
+     * EpiCurrents.configure(
+     *  { 'services.PYODIDE': false }
+     * )
+     */
+    configure (config: { [field: string]: SettingsValue }): void
     getFileWorkerSource (name: string): (() => Worker) | undefined
+    /**
+     * Launch a viewer app in the given container div.
+     * @param containerId - Id of the container div element.
+     * @param appId - Optional id for the app.
+     * @param locale - Optional primary locale code string.
+     * @returns True if successful, false if not.
+     */
+    launch (containerId?: string, appId?: string, locale?: string): Promise<boolean>
+    /**
+     * Load a study from the given file, folder or URL.
+     * @param loader - Name of the loader to use for loading the study.
+     * @param source - URL(s) to study data file(s) or a file system item.
+     * @param name - Optional name for the study.
+     * @returns Promise with the resource from the loaded study or null on failure.
+     */
+    loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string)
+              : Promise<DataResource|null>
+    /**
+     * Open the provided resource.
+     * @param resource - The resource to open.
+     */
+    openResource (resource: DataResource): void
+    /**
+     * Register a file worker in the runtime state.
+     * @param name - Unique name (key) for this worker.
+     * @param getter - Method that creates a new Worker.
+     */
+    registerFileWorker (name: string, getter: () => Worker): void
+    /**
+     * Register an interface module to be used with the application.
+     * @param intf - Constructor for the app interface.
+     */
+    registerInterface (intf: InterfaceModuleConstructor): void
+    /**
+     * Register a module for a new resource type.
+     * @param name - Unique name for the module.
+     * @param module - Module that exports a runtime and settings.
+     */
+    registerModule (name: string, module: ResourceModule): void
+    /**
+     * Register a new service.
+     * @param name - Unique name for the service.
+     * @param service - The service to register.
+     */
+    registerService (name: string, service: AssetService): void
+    /**
+     * Register a new study loader.
+     * @param name - Unique name of the loader. If another loader exists with the same name it will be replaced.
+     * @param label - A user-facing label for the loader.
+     * @param mode - Opening mode for this loader (`file`, `folder`, or `study`).
+     * @param loader - The study loader itself.
+     */
+    registerStudyLoader (name: string, label: string, mode: LoaderMode, loader: StudyLoader): void
+    /**
+     * Select the resource with the given `id` in current dataset as active.
+     * @param id - Unique ID of the resource.
+     */
+    selectResource (id: string): void
+    /**
+     * Load the given dataset.
+     * @param dataset - The dataset to load.
+     */
+    setActiveDataset (dataset: MediaDataset | null): void
+    /**
+     * Set the given ONNX service as actively used service.
+     * @param service - New active ONNX service.
+     */
+    setOnnxService (service: OnnxService): void
+    /**
+     * Set the given settings field to a new value. The field must already exist in settings,
+     * this method will not create new fields.
+     * @param field - Settings field to change (levels separated with dot).
+     * @param value - New value for the field.
+     * @example
+     * ```
+     * setSettingsValue('app.setting', 'New setting')
+     * setSettingsValue('modules.name.field.subfield', 'New value')
+     * ```
+     */
+    setSettingsValue (field: string, value: SettingsValue): void
 }
 /**
  * A modular interface for the main application.
