@@ -156,8 +156,8 @@ onmessage = async (message: WorkerMessage) => {
             updated: someUpdated,
             rn: message.data.rn,
         })
-    } else if (action === 'setup-montage') {
-        if (await setupMontage(
+    } else if (action === 'setup-input-mutex') {
+        if (await setupInputMutex(
                 message.data.montage as string,
                 message.data.config as ConfigMapChannels,
                 message.data.input as MutexExportProperties,
@@ -766,7 +766,7 @@ const setNotchFilter = (target: string | number, value: number) => {
  * @param setupChannels - channel configuration of the montage setup
  * @param dataGaps - possible data gaps in the recording
  */
-const setupMontage = async (
+const setupInputMutex = async (
     montage: string,
     config: ConfigMapChannels,
     input: MutexExportProperties,
@@ -803,5 +803,49 @@ const setupMontage = async (
             input
         )
     await CACHE.initSignalBuffers(cacheProps, dataDuration, input.buffer, bufferStart)
+    return true
+}
+
+/**
+ * Set study params for file loading. This will use a shared worker to query for raw signal data.
+ * @param montage - Montage name.
+ * @param config - Montage configuration.
+ * @param input - Message port from the input worker.
+ * @param dataDuration - duration of actual signal data in seconds
+ * @param recordingDuration - total duration of the recording (including gaps) in seconds
+ * @param setupChannels - channel configuration of the montage setup
+ * @param dataGaps - possible data gaps in the recording
+ */
+const setupSharedWorker = async (
+    montage: string,
+    config: ConfigMapChannels,
+    input: MessagePort,
+    dataDuration: number,
+    recordingDuration: number,
+    setupChannels: SetupChannel[],
+    dataGaps = [] as { duration: number, start: number }[]
+) => {
+    SETUP = new GenericBiosignalSetup(montage)
+    SETUP.channels = setupChannels
+    mapChannels(config)
+    // Construct a SignalCachePart to initialize the mutex.
+    const cacheProps = {
+        start: 0,
+        end: 0,
+        signals: []
+    } as SignalCachePart
+    for (const chan of CHANNELS) {
+        const samplingRate =  chan?.samplingRate || 0
+        cacheProps.signals.push({
+            data: new Float32Array(),
+            samplingRate: samplingRate
+        })
+    }
+    TOTAL_CACHE_LENGTH = dataDuration
+    TOTAL_RECORDING_LENGTH = recordingDuration
+    for (const gap of dataGaps) {
+        DATA_GAPS.set(gap.start, gap.duration)
+    }
+    // TODO: Shared worker implementation.
     return true
 }

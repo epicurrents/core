@@ -185,7 +185,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         return filters.promise as Promise<UpdateFiltersResponse>
     }
 
-    async setupMontage (inputProps: MutexExportProperties) {
+    async setupMontageWithInputMutex (inputProps: MutexExportProperties) {
         if (!this._montage) {
             Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
             return false
@@ -214,13 +214,32 @@ export default class MontageServiceSAB extends GenericService implements Biosign
             inputProps
         )
         const montage = this._commissionWorker(
-            'setup-montage',
+            'setup-input-mutex',
             new Map<string, unknown>([
                 ['montage', this._montage.name],
                 ['config', this._montage.config],
                 ['input', BiosignalMutex.convertPropertiesForCoupling(inputProps)],
-                ['buffer', this._manager.buffer],
+                //['buffer', this._manager.buffer],
                 ['bufferStart', this._memoryRange.start],
+                ['dataDuration', this._montage.recording.dataDuration],
+                ['recordingDuration', this._montage.recording.totalDuration],
+                ['setupChannels', this._montage.setup.channels],
+            ])
+        )
+        return montage.promise as Promise<SetupMontageResponse>
+    }
+
+    async setupMontageWithSharedWorker (inputPort: MessagePort) {
+        if (!this._montage) {
+            Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
+            return false
+        }
+        const montage = this._commissionWorker(
+            'setup-shared-worker',
+            new Map<string, unknown>([
+                ['montage', this._montage.name],
+                ['config', this._montage.config],
+                ['input', inputPort],
                 ['dataDuration', this._montage.recording.dataDuration],
                 ['recordingDuration', this._montage.recording.totalDuration],
                 ['setupChannels', this._montage.setup.channels],

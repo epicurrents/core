@@ -214,16 +214,14 @@ export class EpiCurrents implements EpiCurrentsApplication {
      */
     
     async loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string) {
-        if (!this.#memoryManager) {
-            Log.error(`Could not load study from files, loader manager is not initialized.`, 'index')
-            return null
-        }
         const context = this.#state.APP.studyLoaders.get(loader)
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
             return null
         }
-        context.loader.registerMemoryManager(this.#memoryManager)
+        if (this.#memoryManager) {
+            context.loader.registerMemoryManager(this.#memoryManager)
+        }
         const study = typeof source === 'string'
             ? await context.loader.loadFromUrl(source, { name: name })
             : Array.isArray(source) ? await context.loader.loadFromDirectory(

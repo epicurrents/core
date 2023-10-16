@@ -52,6 +52,7 @@ export default class GenericStudyLoader implements StudyLoader {
      * @param scopes - Array of supported study scopes.
      * @param types - Array of supported study types.
      * @param loader - Optional file loader to use when loading studies. Can also be set with `registerFileLoader`.
+     * @param memoryManager - Optional memory manager to use with this loader.
      */
     constructor (
         name: string,
@@ -416,6 +417,7 @@ export default class GenericStudyLoader implements StudyLoader {
             loader.registerMemoryManager(this._memoryManager)
         }
     }
+    
     public registerMemoryManager (manager: MemoryManager) {
         this._memoryManager = manager
         if (this._fileLoader) {

@@ -651,11 +651,17 @@ export interface BiosignalMontageService {
      */
     setFilters (): Promise<UpdateFiltersResponse>
     /**
-     * Set up the worker to load montage signals.
+     * Set up the worker to load montage signals using an input mutex as raw signal source.
      * @param inputProps - Properties from the raw signal data mutex.
      * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
      */
-    setupMontage (inputProps: MutexExportProperties): Promise<SetupMontageResponse>
+    setupMontageWithInputMutex (inputProps: MutexExportProperties): Promise<SetupMontageResponse>
+    /**
+     * Set up the worker to load montage signals using a shared worker as signal source.
+     * @param inputPort - Message port from the shared worker.
+     * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
+     */
+    setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupMontageResponse>
 }
 /**
  * BiosignalResource is a collection of uniform (same type, duration
