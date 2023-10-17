@@ -248,5 +248,3 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         return montage.promise as Promise<SetupMontageResponse>
     }
 }
-
-export { MontageServiceSAB }

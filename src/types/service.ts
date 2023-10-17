@@ -76,9 +76,10 @@ export interface AssetService extends BaseAsset {
     setupBuffer (): Promise<MutexExportProperties|null>
     /**
      * Set the given `worker` to this worker and run any required initialization to make this service ready for use.
-     * @param worker - Worker to use in this service.
+     * Alternatively, a message port to a shared worker can be given instead of a worker.
+     * @param worker - Worker or message port to a shared worker to use in this service.
      */
-    setupWorker (worker: Worker): void
+    setupWorker (worker: Worker | MessagePort): void
     /**
      * Shut down this service, releasing any allocated memory and destroying the web worker.
      * @returns Promise that fulfills when shutdown is complete.

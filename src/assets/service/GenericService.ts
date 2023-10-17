@@ -36,6 +36,8 @@ export default class GenericService extends GenericAsset implements AssetService
     protected _awaitBufferShift: ((success: boolean) => void)[] = []
     /** On-going worker commissions waiting to be resolved. */
     protected _commissions = new Map<string, CommissionMap>()
+    /** Message port of a shared worker (as an alternative to a dedicated worker). */
+    protected _port: MessagePort | null = null
     /** Is buffer initiation underway. */
     protected _setupBuffer = false
     /** Is buffer shifting. */
@@ -47,19 +49,12 @@ export default class GenericService extends GenericAsset implements AssetService
     /** Set to true when the worker is done setting up. */
     protected _workerReady = false
 
-    constructor (scope: string, worker?: Worker, manager?: MemoryManager) {
+    constructor (scope: string, worker?: Worker | MessagePort, manager?: MemoryManager) {
         super(scope, GenericAsset.SCOPES.LOADER, '')
         this._scope = scope
         this._manager = manager || null
         if (worker) {
             this.setupWorker(worker)
-            const updateSettings = () => {
-                worker.postMessage({
-                    action: 'update-settings',
-                    settings: SETTINGS._CLONABLE,
-                })
-            }
-            updateSettings()
         }
     }
 
@@ -405,8 +400,18 @@ export default class GenericService extends GenericAsset implements AssetService
         return initResult
     }
 
-    setupWorker (worker: Worker) {
-        this._worker = worker
+    setupWorker (worker: Worker | MessagePort) {
+        if (Object.hasOwn(worker, 'terminate')) {
+            // Only Worker has the terminate property.
+            this._worker = worker as Worker
+            worker.postMessage({
+                action: 'update-settings',
+                settings: SETTINGS._CLONABLE,
+            })
+        } else {
+            // It is a message port to a shared worker.
+            this._port = worker as MessagePort
+        }
         if (!this._manager) {
             this.onPropertyUpdate('is-ready')
         }

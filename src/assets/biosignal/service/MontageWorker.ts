@@ -9,6 +9,7 @@ import {
     type BiosignalSetup,
     type MontageChannel,
     type SetupChannel,
+    type WorkerSignalCache,
 } from '#types/biosignal'
 import { ConfigMapChannels, type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
 import { SignalCacheResponse, type SignalCachePart, type WorkerMessage } from '#types/service'
@@ -21,7 +22,7 @@ import { log } from '#util/worker'
 
 const SCOPE = "MontageWorker"
 
-let CACHE: BiosignalMutex | null = null
+let CACHE: BiosignalMutex | WorkerSignalCache | null = null
 let CHANNELS = [] as MontageChannel[]
 //let MONTAGE: BiosignalMontage | null = null
 let SETUP: BiosignalSetup | null = null
@@ -180,6 +181,15 @@ onmessage = async (message: WorkerMessage) => {
                 rn: message.data.rn,
             })
         }
+    } else if (action === 'setup-shared-worker') {
+        setupSharedWorker(
+            message.data.montage as string,
+            message.data.config as ConfigMapChannels,
+            message.data.port as MessagePort,
+            message.data.dataDuration as number,
+            message.data.recordingDuration as number,
+            message.data.setupChannels as SetupChannel[]
+        )
     }
 }
 
@@ -846,6 +856,6 @@ const setupSharedWorker = async (
     for (const gap of dataGaps) {
         DATA_GAPS.set(gap.start, gap.duration)
     }
-    // TODO: Shared worker implementation.
+    CACHE = new (await import("./SharedWorkerCache")).default(input)
     return true
 }

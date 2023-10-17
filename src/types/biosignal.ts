@@ -886,6 +886,8 @@ export type SetupMontageResponse = boolean
  * - 0 = don't override default
  */
 export type SignalPolarity = -1 | 0 | 1
+/** Start and end of a signal range. */
+export type SignalRange = { start: number, end: number }
 /**
  * A response from the worker to an instruction to update filter values.
  * Response is `true` if at least one filter value was changed, `false` otherwise.
@@ -932,4 +934,18 @@ export interface WorkerMontage {
         }
     ): Float32Array[]
     setChannels(channels: MontageChannel[]): void
+}
+
+export interface WorkerSignalCache {
+    inputRangeEnd: Promise<number>
+    inputRangeStart: Promise<number>
+    inputSignals: Promise<Float32Array[]>
+    outputRangeEnd: number
+    outputRangeStart: number
+    outputSignalSamplingRates: number[]
+    outputSignalUpdatedRanges: { start: number, end: number }[]
+    asCachePart (): SignalCachePart
+    insertSignals (signalPart: SignalCachePart): Promise<void>
+    invalidateOutputSignals (): void
+    releaseBuffers (): void
 }
