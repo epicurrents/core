@@ -1,11 +1,11 @@
 import BiosignalMutex from "./BiosignalMutex"
 import BiosignalService from "./BiosignalService"
-import BiosignalServiceSAB from "./BiosignalServiceSAB"
-import MontageServiceSAB from "./MontageServiceSAB"
+import BiosignalServiceSAB from "./BiosignalService"
+import MontageService from "./MontageService"
 
 export {
     BiosignalMutex,
     BiosignalService,
     BiosignalServiceSAB,
-    MontageServiceSAB,
+    MontageService,
 }

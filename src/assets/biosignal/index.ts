@@ -1,5 +1,4 @@
 import GenericBiosignalResource from "./GenericBiosignalResource"
-import GenericBiosignalResourceSAB from "./GenericBiosignalResourceSAB"
 import {
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
@@ -13,7 +12,7 @@ import {
     BiosignalMutex,
     BiosignalService,
     BiosignalServiceSAB,
-    MontageServiceSAB,
+    MontageService,
 } from "./service"
 
 export {
@@ -25,7 +24,6 @@ export {
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
     GenericBiosignalResource,
-    GenericBiosignalResourceSAB,
     GenericBiosignalSetup,
-    MontageServiceSAB,
+    MontageService,
 }

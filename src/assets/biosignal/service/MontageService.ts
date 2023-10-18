@@ -26,7 +26,7 @@ import { mapSignalsToSamplingRates } from "#util/signal"
 
 const SCOPE = "MontageService"
 
-export default class MontageServiceSAB extends GenericService implements BiosignalMontageService {
+export default class MontageService extends GenericService implements BiosignalMontageService {
     private _mutex = null as null | BiosignalMutex
     private _montage: BiosignalMontage
 
@@ -34,7 +34,7 @@ export default class MontageServiceSAB extends GenericService implements Biosign
         return this._montage.name
     }
 
-    constructor (namespace: string, montage: BiosignalMontage, manager: MemoryManager) {
+    constructor (namespace: string, montage: BiosignalMontage, manager?: MemoryManager) {
         super(SCOPE, new Worker(new URL(`./MontageWorker.js`, import.meta.url)), manager)
         this._worker?.postMessage({
             action: 'settings-namespace',

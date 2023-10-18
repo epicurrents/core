@@ -31,7 +31,7 @@ import {
 } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import GenericAsset from '#assets/GenericAsset'
-import MontageServiceSAB from '../service/MontageServiceSAB'
+import MontageService from '../service/MontageService'
 
 const SCOPE = 'GenericBiosignalMontage'
 
@@ -54,7 +54,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     protected _label: string
     protected _reference: BiosignalMontageReferenceSignal = null
     protected _recording: BiosignalResource
-    protected _service: MontageServiceSAB
+    protected _service: MontageService
     protected _setup: BiosignalSetup
 
     constructor (
@@ -68,7 +68,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         this._label = label || name
         this._recording = recording
         this._setup = setup
-        this._service = new MontageServiceSAB(recording.type, this, manager)
+        this._service = new MontageService(recording.type, this, manager)
     }
     get cacheStatus ()  {
         return this._cachedSignals

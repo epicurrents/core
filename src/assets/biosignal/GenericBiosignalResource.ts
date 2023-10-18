@@ -16,18 +16,18 @@ import {
     type VideoAttachment
 } from "#types/biosignal"
 import { type CommonBiosignalSettings, type ConfigChannelFilter } from "#types/config"
-import { type SignalCacheResponse } from "#types/service"
+import { type MemoryManager, type SignalCacheResponse } from "#types/service"
+import { type StudyContext } from "#types/study"
 import { Log } from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
 import GenericResource from "#assets/GenericResource"
-import { BiosignalService } from "#assets/biosignal"
-import { StudyContext } from "#types/study"
 import { nullPromise } from "#util/general"
-import { shouldDisplayChannel } from "#util/signal"
+import { BiosignalServiceSAB } from "#assets/biosignal"
+import { shouldDisplayChannel, getIncludedChannels } from "#util/signal"
 
 const SCOPE = 'GenericBiosignalResource'
 
-export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
+export default abstract class GenericBiosignalResourceSAB extends GenericResource implements BiosignalResource {
 
     protected _activeMontage: BiosignalMontage | null = null
     protected _annotations: BiosignalAnnotation[] = []
@@ -42,12 +42,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         notch: 0,
     }
     protected _loaded = false
+    protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
     protected _recordMontage: BiosignalMontage | null = null
     protected _sampleCount: number | null = null
     protected _samplingRate: number | null = null
     protected _sensitivity: number
-    protected _service: BiosignalService | null = null
+    protected _service: BiosignalServiceSAB | null = null
     protected _setup: BiosignalSetup | null = null
     protected _signalCacheStatus: number[] = [0, 0]
     protected _startTime: Date | null = null
@@ -57,12 +58,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _viewStart: number = 0
 
     constructor (name: string, sensitivity: number, type: string, source?: StudyContext) {
+        const TYPE_SETTINGS = SETTINGS.modules[type] as CommonBiosignalSettings
         super(name, GenericResource.SCOPES.BIOSIGNAL, type, source)
         this._sensitivity = sensitivity
-        // Set default filters
-        this._filters.highpass = (SETTINGS.modules[type] as CommonBiosignalSettings)?.filters.highpass.default || 0
-        this._filters.lowpass = (SETTINGS.modules[type] as CommonBiosignalSettings)?.filters.lowpass.default || 0
-        this._filters.notch = (SETTINGS.modules[type] as CommonBiosignalSettings)?.filters.notch.default || 0
+        // Set default filters.
+        this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0
+        this._filters.lowpass = TYPE_SETTINGS?.filters.lowpass.default || 0
+        this._filters.notch = TYPE_SETTINGS?.filters.notch.default || 0
     }
 
     get activeMontage () {
@@ -98,6 +100,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._dataGaps
     }
     set dataGaps (gaps: Map<number, number>) {
+
         this._dataGaps = gaps
         this.onPropertyUpdate('data-gaps')
         // Set updated data gaps in montages.
@@ -170,15 +173,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     get sampleCount () {
         return this._sampleCount
     }
-    set sampleCount (value: number | null) {
-        this._sampleCount = value
-    }
 
     get samplingRate () {
         return this._samplingRate
-    }
-    set samplingRate (value: number | null) {
-        this._samplingRate = value
     }
 
     get sensitivity () {
@@ -189,8 +186,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Sensitivity must be greater than zero, ${value} was given.`, SCOPE)
             return
         }
+        console.warn('SET SENSITIVITY', value)
         this._sensitivity = value
         this.onPropertyUpdate('sensitivity')
+        console.warn(this._sensitivity, this._id)
     }
 
     get setup () {
@@ -333,7 +332,39 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         })
     }
 
-    getAllRawSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
+    async getAllRawSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
+        // First check if we have the requested signals cached.
+        const responseSigs = [] as {
+            data: Float32Array
+            samplingRate: number
+        }[]
+        let allCached = true
+        for (const chan of getIncludedChannels(this._channels, config)) {
+            const startSignalIndex = range.length >= 1
+                                     ? Math.round(range[0]*chan.samplingRate) : 0
+            const endSignalIndex = range.length === 2
+                                   ? Math.round(range[1]*chan.samplingRate) : undefined
+            if (
+                !chan.signal.length ||
+                startSignalIndex >= chan.signal.length ||
+                (endSignalIndex && endSignalIndex >= chan.signal.length)
+            ) {
+                allCached = false
+                break
+            }
+            responseSigs.push({
+                data: chan.signal.subarray(startSignalIndex, endSignalIndex),
+                samplingRate: chan.samplingRate,
+            })
+        }
+        if (allCached) {
+            return {
+                start: range[0],
+                end: range[1],
+                signals: responseSigs
+            }
+        }
+        // Get non-cached signals from the service.
         return this._service?.getSignals(range, config) || nullPromise
     }
 
@@ -366,9 +397,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (!this._activeMontage) {
             return this.getRawChannelSignal(channel, range, config)
         }
-        return this._activeMontage.getChannelSignal(channel, range, config).then((response) => {
-            return response
-        })
+        return this._activeMontage.getChannelSignal(channel, range, config)
     }
 
     async getRawChannelSignal (channel: number | string, range: number[], config?: ConfigChannelFilter):
@@ -388,7 +417,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 }
             }
         }
-        return this._service?.getSignals(range, config) || nullPromise
+        return this.getAllRawSignals(range, config)
     }
 
     async releaseBuffers () {
@@ -415,7 +444,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     async setActiveMontage (montage: number | string | null) {
         this._activeMontage?.removeAllPropertyUpdateHandlers()
         if (montage === null) {
-            // Use raw signals
+            // Use raw signals.
             if (this._activeMontage) {
                 this._activeMontage.stopCachingSignals()
             }
@@ -466,6 +495,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             this._activeMontage.setHighpassFilter(target, value)
         } else if (typeof target === 'string') {
             if (scope === 'recording') {
+                // TODO: Actually check for the type and only alter those channels.
                 if (!target) {
                     this._filters.highpass = value
                 }
@@ -497,6 +527,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         this._activeMontage?.updateFilters()
         this.onPropertyUpdate('lowpass-filter')
+    }
+
+    setMemoryManager (manager: MemoryManager | null) {
+        this._memoryManager = manager
     }
 
     setNotchFilter (value: number | null, target?: string | number, scope: string = 'recording') {

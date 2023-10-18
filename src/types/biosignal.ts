@@ -19,6 +19,7 @@ import {
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
+    MemoryManager,
 } from './service'
 
 /**
@@ -765,7 +766,6 @@ export interface BiosignalResource extends DataResource {
      * @param value - A positive number in the recording's default unit.
      */
     setDefaultSensitivity (value: number): void
-
     /**
      * Set high-pass filter for the given channel(s).
      * @param value - Filter frequency in Hz.
@@ -773,7 +773,6 @@ export interface BiosignalResource extends DataResource {
      * @param scope - Scope of the change: `recording` (default) or `montage`.
      */
     setHighpassFilter (value: number | null, target?: number | string, scope?: string): void
-
     /**
      * Set low-pass filter for the given channel(s).
      * @param value - Filter frequency in Hz.
@@ -781,7 +780,11 @@ export interface BiosignalResource extends DataResource {
      * @param scope - Scope of the change: `recording` (default) or `montage`.
      */
     setLowpassFilter (value: number | null, target?: number | string, scope?: string): void
-
+    /**
+     * Set the memory manager used by this resource.
+     * @param manager - Memory manager or null to unset.
+     */
+    setMemoryManager (manager: MemoryManager | null): void
     /**
      * Set notch filter for the given channel(s).
      * @param value - Filter frequency in Hz.

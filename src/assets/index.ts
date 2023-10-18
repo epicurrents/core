@@ -7,9 +7,8 @@ import {
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
     GenericBiosignalResource,
-    GenericBiosignalResourceSAB,
     GenericBiosignalSetup,
-    MontageServiceSAB,
+    MontageService,
 } from "./biosignal"
 import {
     GenericDataset,
@@ -50,7 +49,6 @@ export {
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
     GenericBiosignalResource,
-    GenericBiosignalResourceSAB,
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
@@ -60,7 +58,7 @@ export {
     LocalFileReader,
     MixedFileSystemItem,
     MixedMediaDataset,
-    MontageServiceSAB,
+    MontageService,
     ServiceMemoryManager,
     StudyCollection,
     studyContextTemplate,
