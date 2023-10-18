@@ -5,11 +5,12 @@
  * @license    Apache-2.0
  */
 
-import { type ManagedService, type MemoryManager } from "#types/assets"
 import {
     type AllocateMemoryResponse,
     type AssetService,
     type FreeMemoryResponse,
+    type ManagedService,
+    type MemoryManager,
     type ReleaseAssetResponse,
     type WorkerCommission,
     type WorkerMessage,

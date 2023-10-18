@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { MemoryManager } from "./assets"
+import { MemoryManager } from "./service"
 import {
     StudyContext,
     StudyContextFile,

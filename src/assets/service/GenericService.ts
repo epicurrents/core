@@ -5,12 +5,12 @@
  * @license    Apache-2.0
  */
 
-import { MemoryManager } from "#types/assets"
 import {
     type ActionWatcher,
     type AssetService,
     type CommissionMap,
     type CommissionPromise,
+    type MemoryManager,
     type RequestMemoryResponse,
     type WorkerCommission,
     type WorkerMessage,

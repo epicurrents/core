@@ -6,7 +6,7 @@
  */
 
 import { type AsymmetricMutex, type MutexExportProperties } from "asymmetric-io-mutex"
-import { BaseAsset } from "./assets"
+import { BaseAsset } from "./application"
 import { LoadDirection } from "./loader"
 
 export type ActionWatcher = {
@@ -108,6 +108,87 @@ export type CommissionPromise = {
 }
 /** Returned value is `true` if requested amount of memory was freed, `false` otherwise. */
 export type FreeMemoryResponse = boolean
+/**
+ * A service that is managed by the application memory manager.
+ */
+export type ManagedService = {
+    /**
+     * The range of indices this loader occupies in the buffer.
+     * @example
+     * [start (included), end (excluded)]
+     */
+    bufferRange: number[]
+    /**
+     * Loaders that this loader depends on. When a loader is used, both
+     * its and all of its dependencies' last used timestamps are updated.
+     *
+     * #### Example:
+     * Loader-B is dependent on Loader-A as a data source. Loader-B will
+     * have Loader-A as it's dependency, so its source will not be
+     * removed from cache just because it hasn't been directly accessed.
+     */
+    dependencies: ManagedService[]
+    /** Timestamp of the last time this loader was used. */
+    lastUsed: number
+    /** The actual service instance. */
+    service: AssetService
+}
+/**
+ * The memory manager is responsible for managing the master buffer and
+ * allocating parts of it to loaders as needed. The most recently used
+ * loaders are kept in the buffer and least recently used ones removed
+ * if memory needs to be freed.
+ *
+ * Since the buffer is used to store typed 32-bit numbers, all memory values
+ * are presented in 32-bit units (except for the initial size of the master
+ * buffer given at the time of instance creation).
+ */
+export interface MemoryManager {
+    /** The shared array buffer used as master buffer by this manager. */
+    buffer: SharedArrayBuffer
+    /** Size of the allocated buffer (in 32-bit units). */
+    bufferSize: number
+    /** The amount of memory (in 32-bit units) not yet allocated. */
+    freeMemory: number
+    /**The amount of memory (in 32-bit units) allocated to services.*/
+    memoryUsed: number
+    /** All the services managed by this manager. */
+    services: AssetService[]
+    /**
+     * Attempt to allocate the given `amount` to the given `loaders`.
+     * Will try to free up space if not enough is available.
+     * @param amount - Amount of memory to allocate (in 32-bit units).
+     * @param service - The service to allocate the memory to.
+     * @return An object holding the reserved range's start and end or null if unsuccessful.
+     */
+    allocate (amount: number, service: AssetService): Promise<AllocateMemoryResponse>
+    /**
+     * Free memory by given amount.
+     * @param amount - Amount of memory to free (in 32-bit units).
+     */
+    freeBy (amount: number): void
+    /**
+     * Get the manged service with the given `id`.
+     * @param id - ID of the service.
+     * @return Matching service or null if not found.
+     */
+    getService (id: string): AssetService | null
+    /**
+     * Remove the given loader, releasing its memory in the process.
+     * @param service - Either the service to remove or its id.
+     */
+    release (service: AssetService | string): void
+    /**
+     * Remove the given ranges from the manager's buffer.
+     * @param ranges - Array of ranges to remove as [start, end].
+     */
+    removeFromBuffer (...ranges: number[][]): Promise<void>
+    /**
+     * Update the last used manager.
+     * @param manager - New last used manager.
+     */
+    updateLastUsed (loader: ManagedService): void
+}
 /**
  * Returned value is `true` if the message was handled by the service, and `false` otherwise.
  */

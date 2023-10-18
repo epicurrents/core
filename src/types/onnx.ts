@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset } from "./assets"
+import { BaseAsset } from "./application"
 import { BiosignalResource } from "./biosignal"
 import { AssetService, MessageHandled } from "./service"
 

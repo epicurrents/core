@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { type MemoryManager } from '#types/assets'
 import { type FileFormatLoader } from '#types/loader'
+import { type MemoryManager } from '#types/service'
 import {
     type StudyContext,
     type StudyContextFile,

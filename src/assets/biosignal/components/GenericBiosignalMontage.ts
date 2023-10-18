@@ -6,7 +6,6 @@
  */
 
 import { Log } from 'scoped-ts-log'
-import { type MemoryManager } from '#types/assets'
 import {
     type BiosignalMontage,
     type BiosignalMontageReferenceSignal,
@@ -17,7 +16,11 @@ import {
 } from '#types/biosignal'
 import { type ConfigChannelFilter, type ConfigMapChannels } from '#types/config'
 import { type HighlightContext, type SignalHighlight } from '#types/plot'
-import { type SignalCachePart, type SignalCacheResponse } from '#types/service'
+import { 
+    type MemoryManager,
+    type SignalCachePart,
+    type SignalCacheResponse,
+} from '#types/service'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 import {
     combineAllSignalParts,
@@ -28,7 +31,7 @@ import {
 } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import GenericAsset from '#assets/GenericAsset'
-import { MontageServiceSAB } from '../service/MontageServiceSAB'
+import MontageServiceSAB from '../service/MontageServiceSAB'
 
 const SCOPE = 'GenericBiosignalMontage'
 
@@ -408,7 +411,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
 
     async setupLoader (inputProps: MutexExportProperties) {
-        return this._service.setupMontage(inputProps)
+        return this._service.setupMontageWithInputMutex(inputProps)
     }
 
     startCachingSignals () {

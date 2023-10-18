@@ -7,7 +7,7 @@
 
 import {
     type PropertyUpdateHandler
-} from "#types/assets"
+} from "#root/src/types/application"
 import {
     type AppSettings,
     type BaseModuleSettings,

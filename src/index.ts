@@ -143,6 +143,10 @@ export class EpiCurrents implements EpiCurrentsApplication {
         }
     }
 
+    get useMemoryManager () {
+        return this.#memoryManager !== null
+    }
+
     addResource (resource: DataResource, scope?: string) {
         if (!resource.type) {
             Log.error(`Cannot add a resource without a type.`, SCOPE)

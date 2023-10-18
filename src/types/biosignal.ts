@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset, DataResource, SafeObject } from './assets'
+import { BaseAsset, DataResource, SafeObject } from './application'
 import {
     MutexExportProperties,
     MutexMetaField,

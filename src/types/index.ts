@@ -10,8 +10,6 @@ import {
     type InterfaceModuleConstructor,
     type InterfaceResourceModule,
     type InterfaceResourceModuleContext,
-    type ManagedService,
-    type MemoryManager,
     type MouseInteraction,
     type NullProtoObject,
     type PropertyUpdateHandler,
@@ -21,7 +19,7 @@ import {
     type RuntimeState,
     type SafeObject,
     type StateManager,
-} from "./assets"
+} from "./application"
 export {
     BaseAsset,
     DataResource,
@@ -30,8 +28,6 @@ export {
     InterfaceModuleConstructor,
     InterfaceResourceModule,
     InterfaceResourceModuleContext,
-    ManagedService,
-    MemoryManager,
     MouseInteraction,
     NullProtoObject,
     PropertyUpdateHandler,
@@ -77,8 +73,10 @@ import {
     type MontageChannel,
     type SetupChannel,
     type SignalPolarity,
+    type SignalRange,
     type VideoAttachment,
     type WorkerMontage,
+    type WorkerSignalCache,
 } from "./biosignal"
 export {
     BiosignalAnnotation,
@@ -110,8 +108,10 @@ export {
     MontageChannel,
     SetupChannel,
     SignalPolarity,
+    SignalRange,
     VideoAttachment,
     WorkerMontage,
+    WorkerSignalCache,
 }
 
 /////////////////////////////////////////////////
@@ -298,6 +298,8 @@ import {
     type AssetService,
     type CommissionMap,
     type CommissionPromise,
+    type ManagedService,
+    type MemoryManager,
     type PythonResponse,
     type SignalCacheMutex,
     type SignalCachePart,
@@ -312,6 +314,8 @@ export {
     AssetService,
     CommissionMap,
     CommissionPromise,
+    ManagedService,
+    MemoryManager,
     PythonResponse,
     SignalCacheMutex,
     SignalCachePart,

@@ -6,7 +6,7 @@
  * @license    Apache-2.0
  */
 
-import { DataResource } from "#types/assets"
+import { DataResource } from "#root/src/types/application"
 import GenericAsset from "#assets/GenericAsset"
 import { StudyContext } from "#types/study"
 

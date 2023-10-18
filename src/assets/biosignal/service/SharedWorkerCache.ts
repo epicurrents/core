@@ -1,36 +1,44 @@
 /**
- * Cache abstraction for a shared signal data worker.
+ * Simplified cache abstraction for a shared signal data worker.
  * @package    epicurrents-core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */
 
 import { GenericService } from "#assets"
-import { SignalCachePart, WorkerCommission } from "#root/src/types"
+import { combineSignalParts, log } from "#root/src/util"
 import { type SignalRange, type WorkerSignalCache } from "#types/biosignal"
+import { type SignalCachePart, type WorkerCommission } from "#types/service"
 
 export default class SharedWorkerCache extends GenericService implements WorkerSignalCache {
+    protected _postMessage: typeof postMessage
     protected _rangeEnd = 0
     protected _rangeStart = 0
+    protected _signalCache: SignalCachePart = {
+        start: 0,
+        end: 0,
+        signals: [],
+    }
     protected _signalSamplingRates: number[] = []
     protected _signalUpdatedRanges: SignalRange[] = []
 
-    constructor (port: MessagePort) {
+    constructor (port: MessagePort, post: typeof postMessage) {
         super('sig')
+        this._postMessage = post
         this.setupWorker(port)
         port.addEventListener('message', this.handleWorkerMessage.bind(this))
     }
 
     get inputRangeEnd () {
-        const commission = this._commissionWorker('get-input-range-end')
+        const commission = this._commissionWorker('get-range-end')
         return commission.promise as Promise<number>
     }
     get inputRangeStart () {
-        const commission = this._commissionWorker('get-input-range-start')
+        const commission = this._commissionWorker('get-range-start')
         return commission.promise as Promise<number>
     }
     get inputSignals () {
-        const commission = this._commissionWorker('get-input-signals')
+        const commission = this._commissionWorker('get-signals')
         return commission.promise as Promise<Float32Array[]>
     }
 
@@ -69,7 +77,7 @@ export default class SharedWorkerCache extends GenericService implements WorkerS
     }
 
     asCachePart(): SignalCachePart {
-        throw new Error("Method not implemented.")
+        return this._signalCache
     }
 
     handleWorkerMessage (message: MessageEvent) {
@@ -80,25 +88,35 @@ export default class SharedWorkerCache extends GenericService implements WorkerS
         }
         const commission = this._getCommissionForMessage(message)
         if (commission) {
-            if (data.action === 'get-input-range-end') {
+            if (data.action === 'get-range-end') {
                 commission.resolve(data.value)
-            } else if (data.action === 'get-input-range-start') {
+            } else if (data.action === 'get-range-start') {
                 commission.resolve(data.value)
-            } else if (data.action === 'get-input-signals') {
+            } else if (data.action === 'get-signals') {
                 commission.resolve(data.value)
             }
         }
     }
 
     async insertSignals(signalPart: SignalCachePart) {
-        throw new Error("Method not implemented.")
+        if (this._signalCache.start === this._signalCache.end) {
+            if (this._signalCache.signals.length) {
+                this.releaseBuffers()
+            }
+            this._signalCache = signalPart
+        } else if (!combineSignalParts(this._signalCache, signalPart)) {
+            log(this._postMessage, "ERROR", `Failed to add new singal part to cache.`, 'SharedWorkerCache')
+        }
     }
 
     invalidateOutputSignals() {
-        throw new Error("Method not implemented.")
+        // In this context this is the same as releasing buffers.
+        this.releaseBuffers()
     }
 
     releaseBuffers() {
-        throw new Error("Method not implemented.")
+        this._signalCache.start = 0
+        this._signalCache.end = 0
+        this._signalCache.signals.splice(0)
     }
 }

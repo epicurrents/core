@@ -8,8 +8,9 @@
  * from some renovation.
  */
 
-import { DataResource, MemoryManager } from "./assets"
+import { DataResource } from "./application"
 import { FileSystemItem, FileFormatLoader, LoaderMode } from "./loader"
+import { MemoryManager } from "./service"
 
 
 export interface OrderedLoadingProtocol {

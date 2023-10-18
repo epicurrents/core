@@ -11,8 +11,16 @@ import {
     type SetupChannel,
     type WorkerSignalCache,
 } from '#types/biosignal'
-import { ConfigMapChannels, type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
-import { SignalCacheResponse, type SignalCachePart, type WorkerMessage } from '#types/service'
+import { 
+    type CommonBiosignalSettings,
+    type ConfigChannelFilter,
+    type ConfigMapChannels,
+} from '#types/config'
+import {
+    type SignalCachePart,
+    type SignalCacheResponse,
+    type WorkerMessage,
+} from '#types/service'
 import BiosignalMutex from '../service/BiosignalMutex'
 import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
 import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
@@ -856,6 +864,6 @@ const setupSharedWorker = async (
     for (const gap of dataGaps) {
         DATA_GAPS.set(gap.start, gap.duration)
     }
-    CACHE = new (await import("./SharedWorkerCache")).default(input)
+    CACHE = new (await import("./SharedWorkerCache")).default(input, postMessage)
     return true
 }

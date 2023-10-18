@@ -5,7 +5,6 @@
  * @license    Apache-2.0
  */
 
-import { type MemoryManager } from "#types/assets"
 import {
     type BiosignalAnnotation,
     type BiosignalDataService,
@@ -14,6 +13,7 @@ import {
 } from "#types/biosignal"
 import { type ConfigChannelFilter } from "#types/config"
 import {
+    type MemoryManager,
     type MessageHandled,
     type SetupStudyResponse,
     type SignalCacheResponse,

@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset, DataResource } from "./assets"
+import { BaseAsset, DataResource } from "./application"
 import { FileSystemItem } from "./loader"
 import { StudyContext } from "./study"
 
