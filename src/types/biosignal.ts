@@ -1,5 +1,5 @@
 /**
- * EEG types.
+ * Biosignal types.
  * @package    epicurrents-core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
@@ -664,8 +664,7 @@ export interface BiosignalMontageService {
     setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupMontageResponse>
 }
 /**
- * BiosignalResource is a collection of uniform (same type, duration
- * and sampling rate) biosignals.
+ * BiosignalResource is a collection of uniform (same type, duration and sampling rate) biosignals.
  */
 export interface BiosignalResource extends DataResource {
     /** Currently active montage. */
@@ -918,9 +917,9 @@ export interface WorkerMontage {
      * @param config - Additional configuration.
      *
      * @remarks
-     * Montages are not tied to any certain file, so once the montage has been initiated data from any file with the same setup
-     * can be processed by the same montage. The main idea behind this is to allow loading only chuncks of large files at a
-     * time and processing only those parts.
+     * Montages are not tied to any certain file, so once the montage has been initiated data from any file with the 
+     * same setup can be processed by the same montage. The main idea behind this is to allow loading only chuncks of
+     * large files at a time and processing only those parts.
      */
     getAllSignals(
         signals: Float32Array[],
