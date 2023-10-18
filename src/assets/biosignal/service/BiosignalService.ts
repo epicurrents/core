@@ -19,15 +19,15 @@ import {
     type WorkerResponse,
 } from "#types/service"
 import { type StudyContext } from "#types/study"
-import { Log } from 'scoped-ts-log'
-import SETTINGS from "#config/Settings"
-import GenericService from "#assets/service/GenericService"
+import { GenericService } from "#assets"
 import { NUMERIC_ERROR_VALUE } from "#util/constants"
 import { ConfigChannelFilter } from "#types/config"
+import Log from 'scoped-ts-log'
+import SETTINGS from "#config/Settings"
 
 const SCOPE = "BiosignalService"
 
-export default class BiosignalServiceSAB extends GenericService implements BiosignalDataService {
+export default class BiosignalService extends GenericService implements BiosignalDataService {
     protected _awaitStudySetup: ((success: boolean) => void)[] = []
     /** Is the study still loading. */
     protected _loadingStudy = false
@@ -50,10 +50,12 @@ export default class BiosignalServiceSAB extends GenericService implements Biosi
         return this._worker
     }
 
-    constructor (recording: BiosignalResource, worker: Worker, manager: MemoryManager) {
-        super (SCOPE, worker)
+    constructor (recording: BiosignalResource, worker: Worker, manager?: MemoryManager) {
+        super(SCOPE, worker)
         this._recording = recording
-        this._manager = manager
+        if (manager) {
+            this._manager = manager
+        }
         this._worker?.postMessage({
             action: 'update-settings',
             settings: SETTINGS._CLONABLE,

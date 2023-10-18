@@ -24,13 +24,9 @@ module.exports = {
                 "esModuleInterop": true,
                 "baseUrl": "./",
                 "paths": {
-                    "@*": ["src/*"],
-                    "#assets/*": ["src/assets/*"],
-                    "#config/*": ["src/config/*"],
                     "#root/*": ["./*"],
                     "#runtime*": ["src/runtime/index.ts"],
-                    "#types/*": ["src/types/*"],
-                    "#util/*": ["src/util/*"],
+                    "#*": ["src/*"],
                 }
             }
         },

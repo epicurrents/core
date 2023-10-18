@@ -665,7 +665,7 @@ export interface BiosignalMontageService {
     setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupMontageResponse>
 }
 /**
- * BiosignalResource is a collection of uniform (same type, duration and sampling rate) biosignals.
+ * BiosignalResource is a collection of uniform or polygraphic biosignals.
  */
 export interface BiosignalResource extends DataResource {
     /** Currently active montage. */

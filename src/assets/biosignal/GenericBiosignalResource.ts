@@ -18,16 +18,15 @@ import {
 import { type CommonBiosignalSettings, type ConfigChannelFilter } from "#types/config"
 import { type MemoryManager, type SignalCacheResponse } from "#types/service"
 import { type StudyContext } from "#types/study"
-import { Log } from 'scoped-ts-log'
-import SETTINGS from "#config/Settings"
-import GenericResource from "#assets/GenericResource"
+import { BiosignalService, GenericResource } from "#assets"
 import { nullPromise } from "#util/general"
-import { BiosignalServiceSAB } from "#assets/biosignal"
 import { shouldDisplayChannel, getIncludedChannels } from "#util/signal"
+import Log from 'scoped-ts-log'
+import SETTINGS from "#config/Settings"
 
 const SCOPE = 'GenericBiosignalResource'
 
-export default abstract class GenericBiosignalResourceSAB extends GenericResource implements BiosignalResource {
+export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
 
     protected _activeMontage: BiosignalMontage | null = null
     protected _annotations: BiosignalAnnotation[] = []
@@ -48,7 +47,7 @@ export default abstract class GenericBiosignalResourceSAB extends GenericResourc
     protected _sampleCount: number | null = null
     protected _samplingRate: number | null = null
     protected _sensitivity: number
-    protected _service: BiosignalServiceSAB | null = null
+    protected _service: BiosignalService | null = null
     protected _setup: BiosignalSetup | null = null
     protected _signalCacheStatus: number[] = [0, 0]
     protected _startTime: Date | null = null

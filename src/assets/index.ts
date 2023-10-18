@@ -1,7 +1,6 @@
 import {
     BiosignalMutex,
     BiosignalService,
-    BiosignalServiceSAB,
     BiosignalStudyLoader,
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
@@ -41,7 +40,6 @@ export {
     BiosignalAudio,
     BiosignalMutex,
     BiosignalService,
-    BiosignalServiceSAB,
     BiosignalStudyLoader,
     FileSystemDirectory,
     FileSystemFile,

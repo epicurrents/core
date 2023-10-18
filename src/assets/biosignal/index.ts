@@ -11,14 +11,12 @@ import {
 import {
     BiosignalMutex,
     BiosignalService,
-    BiosignalServiceSAB,
     MontageService,
 } from "./service"
 
 export {
     BiosignalMutex,
     BiosignalService,
-    BiosignalServiceSAB,
     BiosignalStudyLoader,
     GenericBiosignalChannel,
     GenericBiosignalHeaders,

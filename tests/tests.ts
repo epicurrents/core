@@ -5,8 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { EpiCurrents, SETTINGS, ServiceMemoryManager } from "../src/index"
-import { Log } from 'scoped-ts-log'
+import { EpiCurrents, SETTINGS, ServiceMemoryManager } from "../src"
 // Mock module.
 import * as mod from "./module"
 import { BiosignalDataService, BiosignalResource, ResourceModule } from "../src/types"
@@ -51,9 +50,8 @@ describe('EpiCurrents core tests', () => {
      * INITIALIZATION TESTS
      */
     test("Create core application with log level debug", () => {
-        epic = new EpiCurrents("INFO")
+        epic = new EpiCurrents()
         expect(epic).toBeDefined()
-        expect(Log.getPrintThreshold()).toStrictEqual("INFO")
     })
     /**
      * CONFIGURATION TESTS

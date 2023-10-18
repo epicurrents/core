@@ -1,14 +1,12 @@
-import { GenericBiosignalHeaders, GenericBiosignalResourceSAB } from "../../src"
-import { BiosignalChannel, BiosignalResource, MemoryManager } from "../../src/types"
+import { GenericBiosignalResource } from "../../src"
+import { BiosignalResource, MemoryManager } from "../../src/types"
 
-export class BiosignalRecording extends GenericBiosignalResourceSAB implements BiosignalResource {
+export class BiosignalRecording extends GenericBiosignalResource implements BiosignalResource {
     constructor (
         name: string,
-        channels: BiosignalChannel[],
-        headers: GenericBiosignalHeaders,
-        fileWorker: Worker,
         loaderManager: MemoryManager
     ) {
-        super(name, 100, "test", loaderManager)
+        super(name, 100, "test")
+        this.setMemoryManager(loaderManager)
     }
 }
