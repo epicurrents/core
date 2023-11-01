@@ -8,7 +8,7 @@
 
 import { type DataResource } from "#types/application"
 import { type StudyContext } from "#types/study"
-import { GenericAsset } from "#assets"
+import GenericAsset from "#assets/GenericAsset"
 
 //const SCOPE = 'GenericResource'
 

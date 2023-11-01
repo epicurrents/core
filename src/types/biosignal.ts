@@ -14,6 +14,7 @@ import { ConfigBiosignalSetup, SettingsColor } from './config'
 import { StudyContext } from './study'
 import { HighlightContext, SignalHighlight } from './plot'
 import {
+    AssetService,
     MessageHandled,
     SetupStudyResponse,
     SignalCacheResponse,
@@ -279,7 +280,7 @@ export type BiosignalDataResolve = (response: SignalCacheResponse) => void
 /**
  * A service that loads raw biosignal data from the source file and returns it for caching.
  */
-export interface BiosignalDataService {
+export interface BiosignalDataService extends AssetService {
     /** Start index of the individual signal buffers in the managed memory buffer. */
     signalBufferStart: number
     /**
