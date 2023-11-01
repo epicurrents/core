@@ -8,14 +8,15 @@
 import {
     type BiosignalMontage,
     type BiosignalMontageService,
+    type GetSignalsResponse,
     type MontageChannel,
-    type SetupMontageResponse,
+    type SetupMutexResponse,
+    type SetupSharedWorkerResponse,
     type UpdateFiltersResponse,
 } from "#types/biosignal"
 import { type ConfigChannelFilter } from "#types/config"
-import { 
+import {
     type MemoryManager,
-    type SignalCacheResponse,
     type WorkerResponse,
 } from "#types/service"
 import { Log } from 'scoped-ts-log'
@@ -30,7 +31,10 @@ export default class MontageService extends GenericService implements BiosignalM
     private _mutex = null as null | BiosignalMutex
     private _montage: BiosignalMontage
 
-    get instance () {
+    get mutex () {
+        return this._mutex
+    }
+    get name () {
         return this._montage.name
     }
 
@@ -76,7 +80,7 @@ export default class MontageService extends GenericService implements BiosignalM
             undefined,
             config?.overwriteRequest === true ? true : false
         )
-        return signals.promise as Promise<SignalCacheResponse>
+        return signals.promise as Promise<GetSignalsResponse>
     }
 
     async handleMessage (message: WorkerResponse) {
@@ -130,9 +134,17 @@ export default class MontageService extends GenericService implements BiosignalM
                 commission.reject()
             }
             return true
-        } else if (data.action === 'setup-montage') {
+        } else if (data.action === 'setup-input-mutex') {
             if (data.success) {
-                commission.resolve(true as SetupMontageResponse)
+                commission.resolve()
+            } else {
+                Log.error(`Setting up montage in the worker failed.`, SCOPE)
+                commission.reject()
+            }
+            return true
+        } else if (data.action === 'setup-shared-worker') {
+            if (data.success) {
+                commission.resolve(true)
             } else {
                 Log.error(`Setting up montage in the worker failed.`, SCOPE)
                 commission.reject()
@@ -191,11 +203,11 @@ export default class MontageService extends GenericService implements BiosignalM
     async setupMontageWithInputMutex (inputProps: MutexExportProperties) {
         if (!this._montage) {
             Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
-            return false
+            return { success: false }
         }
         if (!this._manager?.buffer) {
             Log.error(`Cannot set up montage before manager has been initialized.`, SCOPE)
-            return false
+            return { success: false }
         }
         // Calculate needed mermory to load the entire recording.
         let totalMem = 4 // From lock and meta fields.
@@ -209,7 +221,7 @@ export default class MontageService extends GenericService implements BiosignalM
         const bufferPart =  await this.requestMemory(totalMem)
         if (!bufferPart || !this._memoryRange) {
             Log.error(`Aloocating memory for montage failed.`, SCOPE)
-            return false
+            return { success: false }
         }
         // Save the buffers in local scope and send them to worker.
         this._mutex = new BiosignalMutex(
@@ -229,13 +241,13 @@ export default class MontageService extends GenericService implements BiosignalM
                 ['setupChannels', this._montage.setup.channels],
             ])
         )
-        return montage.promise as Promise<SetupMontageResponse>
+        return montage.promise as Promise<SetupMutexResponse>
     }
 
     async setupMontageWithSharedWorker (inputPort: MessagePort) {
         if (!this._montage) {
             Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
-            return false
+            return { success: false }
         }
         const montage = this._commissionWorker(
             'setup-shared-worker',
@@ -248,6 +260,6 @@ export default class MontageService extends GenericService implements BiosignalM
                 ['setupChannels', this._montage.setup.channels],
             ])
         )
-        return montage.promise as Promise<SetupMontageResponse>
+        return montage.promise as Promise<SetupSharedWorkerResponse>
     }
 }

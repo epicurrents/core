@@ -35,6 +35,8 @@ export interface AssetService extends BaseAsset {
     memoryConsumption: number
     /** A unique request number for a worker request. */
     nextRequestNumber: number
+    /** Message port to the data cache, if using shared workers. */
+    port: MessagePort | null
     /**
      * Add a watcher to the give `action`. The watcher will call the given `handler` each time
      * the action is performed.

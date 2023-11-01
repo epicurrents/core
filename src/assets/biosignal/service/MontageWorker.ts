@@ -7,11 +7,16 @@
 
 import {
     type BiosignalSetup,
+    type GetSignalsResponse,
     type MontageChannel,
+    type ReleaseBuffersResponse,
+    type SetFiltersResponse,
     type SetupChannel,
+    type SetupMutexResponse,
+    type SetupSharedWorkerResponse,
     type WorkerSignalCache,
 } from '#types/biosignal'
-import { 
+import {
     type CommonBiosignalSettings,
     type ConfigChannelFilter,
     type ConfigMapChannels,
@@ -95,17 +100,17 @@ onmessage = async (message: WorkerMessage) => {
             const sigs = await getSignals(range, config) as SignalCacheResponse
             if (sigs) {
                 postMessage({
-                    action: 'get-signals',
+                    action: action,
                     success: true,
                     rn: message.data.rn,
                     ...sigs
-                })
+                } as GetSignalsResponse)
             } else {
                 postMessage({
-                    action: 'get-signals',
+                    action: action,
                     success: false,
                     rn: message.data.rn,
-                })
+                } as GetSignalsResponse)
             }
         } catch (e) {
             console.error(e)
@@ -116,10 +121,10 @@ onmessage = async (message: WorkerMessage) => {
     } else if (action === 'release-buffer') {
         await releaseBuffers()
         postMessage({
-            action: 'release-buffer',
+            action: action,
             success: true,
             rn: message.data.rn,
-        })
+        } as ReleaseBuffersResponse)
     } else if (action === 'set-data-gaps') {
         DATA_GAPS.clear()
         const dataGaps = message.data.dataGaps as { start: number, duration: number }[]
@@ -160,11 +165,11 @@ onmessage = async (message: WorkerMessage) => {
             }
         }
         postMessage({
-            action: 'set-filters',
+            action: action,
             success: true,
             updated: someUpdated,
             rn: message.data.rn,
-        })
+        } as SetFiltersResponse)
     } else if (action === 'setup-input-mutex') {
         if (await setupInputMutex(
                 message.data.montage as string,
@@ -178,19 +183,20 @@ onmessage = async (message: WorkerMessage) => {
         ) {
             // Pass the generated shared buffers back to main thread.
             postMessage({
-                action: 'setup-montage',
+                action: action,
+                cacheProperties: (CACHE as BiosignalMutex)?.propertiesForCoupling,
                 success: true,
                 rn: message.data.rn,
-            })
+            } as SetupMutexResponse)
         } else {
             postMessage({
-                action: 'setup-montage',
+                action: action,
                 success: false,
                 rn: message.data.rn,
-            })
+            } as SetupMutexResponse)
         }
     } else if (action === 'setup-shared-worker') {
-        setupSharedWorker(
+        const setupSuccess = await setupSharedWorker(
             message.data.montage as string,
             message.data.config as ConfigMapChannels,
             message.data.port as MessagePort,
@@ -198,6 +204,19 @@ onmessage = async (message: WorkerMessage) => {
             message.data.recordingDuration as number,
             message.data.setupChannels as SetupChannel[]
         )
+        if (setupSuccess) {
+            postMessage({
+                action: action,
+                success: true,
+                rn: message.data.rn,
+            } as SetupSharedWorkerResponse)
+        } else {
+            postMessage({
+                action: action,
+                success: false,
+                rn: message.data.rn,
+            } as SetupSharedWorkerResponse)
+        }
     }
 }
 

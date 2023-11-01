@@ -16,7 +16,7 @@ import {
 } from '#types/biosignal'
 import { type ConfigChannelFilter, type ConfigMapChannels } from '#types/config'
 import { type HighlightContext, type SignalHighlight } from '#types/plot'
-import { 
+import {
     type MemoryManager,
     type SignalCachePart,
     type SignalCacheResponse,
@@ -223,12 +223,14 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
         const response = await this._service.getSignals(range, config)
         if (!response?.signals || !response.signals.length) {
-            Log.error(`Could not get signals for requested range [${range[0]}, ${range[1]}]`, SCOPE)
+            Log.error(`Could not get signals for requested range [${range[0]}, ${range[1]}].`, SCOPE)
             return null
         }
         // Check that montages actually match
         if (this._channels.length !== response.signals.length) {
-            Log.error(`Worker response had an invalid number of montage channels!`, SCOPE)
+            Log.error(`Worker response had an invalid number of montage channels (` +
+                `expected ${this._channels.length}, received ${response.signals.length}` +
+            `).`, SCOPE)
             return null
         }
         for (let i=0; i<response.signals.length; i++) {
@@ -410,8 +412,12 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return updated
     }
 
-    async setupLoader (inputProps: MutexExportProperties) {
+    async setupLoaderWithInputMutex (inputProps: MutexExportProperties) {
         return this._service.setupMontageWithInputMutex(inputProps)
+    }
+
+    async setupLoaderWithSharedWorker (port: MessagePort) {
+        return this._service.setupMontageWithSharedWorker(port)
     }
 
     startCachingSignals () {

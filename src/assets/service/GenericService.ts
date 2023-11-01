@@ -105,6 +105,9 @@ export default class GenericService extends GenericAsset implements AssetService
     get nextRequestNumber () {
         return this._requestNumber++
     }
+    get port () {
+        return this._port
+    }
 
     /**
      * Commission the worker to perform an action.

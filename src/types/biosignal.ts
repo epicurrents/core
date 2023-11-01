@@ -21,6 +21,7 @@ import {
     WorkerResponse,
     MemoryManager,
 } from './service'
+import { BiosignalMutex } from '../assets'
 
 /**
  * Annotation for a single moment or period of time in a biosignal resource.
@@ -576,16 +577,17 @@ export interface BiosignalMontage extends BaseAsset {
     /**
      * Set up a data loader using a data source mutex output properties as input for the loader.
      * @param inputProps - The source mutex export properties to use as input.
-     * @param buffer - The shared array buffer to use for storing data.
-     * @param bufferStart - The start index of the buffer reserved for this loader.
-     *
-     * @remarks
-     * The idea behind this method is that montages could be reused with different source recordings,
-     * which would reduce the time needed for setup when swithing between recordings. It would require
-     * that all the available recordings use the same setup and would thus probably only work for
-     * well defined datasets. It's a concept under consideration.
+     * @returns Promise holding the export properties of the created montage mutex (if setup was successful).
      */
-    setupLoader (inputProps: MutexExportProperties, buffer: SharedArrayBuffer, bufferStart: number): void
+    setupLoaderWithInputMutex (inputProps: MutexExportProperties)
+                              : Promise<SetupMutexResponse>
+    /**
+     * Set up a data loader using a shared worker holding the cached signals.
+     * @param port - The cache worker's message port.
+     * @returns Promise that resolves with the property `success` of the setup process.
+     */
+    setupLoaderWithSharedWorker (port: MessagePort)
+                                : Promise<SetupSharedWorkerResponse>
     /**
      * Start the process of caching signals from the source.
      * @remarks
@@ -620,6 +622,10 @@ export type BiosignalMontageReferenceSignal = {
     type: string
 } | null
 export interface BiosignalMontageService {
+    /** Mutex holding the cached signals, if using SharedArrayBuffers. */
+    mutex: BiosignalMutex | null
+    /** Name of the montage. */
+    name: string
     /**
      * Start the process of caching montage signals from loaded raw signals.
      */
@@ -630,7 +636,7 @@ export interface BiosignalMontageService {
      * @param config - Optional configuration (TODO: Config definitions).
      * @return Promise for the loaded signals as SignalResponse.
      */
-    getSignals (range: number[], config?: unknown): Promise<SignalCacheResponse>
+    getSignals (range: number[], config?: unknown): Promise<GetSignalsResponse>
     /**
      * Handle messages from the worker.
      * @param message - The message from the web worker.
@@ -656,13 +662,13 @@ export interface BiosignalMontageService {
      * @param inputProps - Properties from the raw signal data mutex.
      * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
      */
-    setupMontageWithInputMutex (inputProps: MutexExportProperties): Promise<SetupMontageResponse>
+    setupMontageWithInputMutex (inputProps: MutexExportProperties): Promise<SetupMutexResponse>
     /**
      * Set up the worker to load montage signals using a shared worker as signal source.
      * @param inputPort - Message port from the shared worker.
      * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
      */
-    setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupMontageResponse>
+    setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupSharedWorkerResponse>
 }
 /**
  * BiosignalResource is a collection of uniform or polygraphic biosignals.
@@ -859,6 +865,12 @@ export type FftAnalysisResult = {
     resolution: number
 }
 /**
+ * A response containing the `signals` for the requested range, if `success` is true.
+ */
+export type GetSignalsResponse = {
+    success: boolean
+} & Partial<SignalCachePart>
+/**
  * A single channel in an biosignal montage configuration.
  */
 export interface MontageChannel extends BiosignalChannel {
@@ -868,6 +880,20 @@ export interface MontageChannel extends BiosignalChannel {
     averaged: boolean
     /** Set of reference channel indices; multiple channels will be averaged. */
     reference: number[]
+}
+/**
+ * Response sent after a request to release cache buffers.
+ */
+export type ReleaseBuffersResponse = {
+    success: boolean
+}
+/**
+ * Response sent after a request to update filters in the worker. If any filter was changed from the previous value,
+ * `updated` will be true and the signals should be reloaded.
+ */
+export type SetFiltersResponse = {
+    success: boolean
+    updated: boolean
 }
 /**
  * Configuration for a single signal channel in BiosignalSetup.
@@ -880,8 +906,19 @@ export interface SetupChannel extends BiosignalChannel {
     /** Non-default polarity of this channel's signal. */
     polarity?: SignalPolarity
 }
-/** Returns false if a prerequisite is not met, and true if setup is successful. */
-export type SetupMontageResponse = boolean
+/**
+ * Reponse that contains the created mutex export properties in `cacheProperties`, if `success` is true.
+ */
+export type SetupMutexResponse = {
+    success: boolean
+    cacheProperties?: MutexExportProperties
+}
+/**
+ * Response sent after setting up a shared worker as signal cache.
+ */
+export type SetupSharedWorkerResponse = {
+    success: boolean
+}
 /** Signal polarity as one of:
  * - 1 = positivie up
  * - -1 = negative up (inverse)
@@ -920,7 +957,7 @@ export interface WorkerMontage {
      * @param config - Additional configuration.
      *
      * @remarks
-     * Montages are not tied to any certain file, so once the montage has been initiated data from any file with the 
+     * Montages are not tied to any certain file, so once the montage has been initiated data from any file with the
      * same setup can be processed by the same montage. The main idea behind this is to allow loading only chuncks of
      * large files at a time and processing only those parts.
      */

@@ -391,8 +391,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return null
     }
 
-    getChannelSignal(channel: string | number, range: number[], config?: ConfigChannelFilter):
-    Promise<SignalCacheResponse | null> {
+    getChannelSignal (channel: string | number, range: number[], config?: ConfigChannelFilter):
+                     Promise<SignalCacheResponse | null>
+    {
         if (!this._activeMontage) {
             return this.getRawChannelSignal(channel, range, config)
         }
@@ -400,7 +401,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async getRawChannelSignal (channel: number | string, range: number[], config?: ConfigChannelFilter):
-    Promise<SignalCacheResponse | null> {
+                              Promise<SignalCacheResponse | null>
+    {
         if (!config) {
             // Initialize config.
             config = { include: [] as number[] }
