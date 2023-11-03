@@ -189,8 +189,9 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    public async loadFromFile (file: File, config: ConfigStudyLoader = {}, study?: StudyContext):
-    Promise<StudyContext|null> {
+    async loadFromFile (file: File, config: ConfigStudyLoader = {}, study?: StudyContext):
+                       Promise<StudyContext|null>
+    {
         if (!this._fileLoader) {
             Log.error(`Cannot load study from a file, file loader has not been set.`, SCOPE)
             return null
@@ -226,8 +227,9 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    public async loadFromFsItem (fileTree: FileSystemItem, config: ConfigStudyLoader = {}):
-    Promise<StudyContextCollection[]> {
+    async loadFromFsItem (fileTree: FileSystemItem, config: ConfigStudyLoader = {}):
+                         Promise<StudyContextCollection[]>
+    {
         if (!this._fileLoader) {
             Log.error(`Cannot load study from a filesystem item, file loader has not been set.`, SCOPE)
             return []
@@ -355,8 +357,9 @@ export default class GenericStudyLoader implements StudyLoader {
         return collections
     }
 
-    public async loadFromUrl (fileUrl: string, config: ConfigStudyLoader = {}, study?: StudyContext):
-    Promise<StudyContext|null> {
+    async loadFromUrl (fileUrl: string, config: ConfigStudyLoader = {}, study?: StudyContext):
+                      Promise<StudyContext|null>
+    {
         if (!this._fileLoader) {
             Log.error(`Cannot load study from a URL, file loader has not been set.`, SCOPE)
             return null
@@ -398,7 +401,7 @@ export default class GenericStudyLoader implements StudyLoader {
 
     public async useStudy (study: StudyContext): Promise<UseStudyResponse> {
         for (const studyFile of study.files) {
-            // Once more check that all files have an URL.
+            // Once more check that all files have a URL.
             if (!studyFile.url) {
                 if (studyFile.file) {
                     studyFile.url = URL.createObjectURL(studyFile.file)
@@ -418,7 +421,7 @@ export default class GenericStudyLoader implements StudyLoader {
             loader.registerMemoryManager(this._memoryManager)
         }
     }
-    
+
     public registerMemoryManager (manager: MemoryManager) {
         this._memoryManager = manager
         if (this._fileLoader) {
