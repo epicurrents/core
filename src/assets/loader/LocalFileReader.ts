@@ -1,8 +1,8 @@
 /**
- * EpiCurrents Viewer local file reader.
- * @package    epicurrents-viewer
+ * EpiCurrents local file reader.
+ * @package    epicurrents-core
  * @copyright  2021 Sampsa Lohi
- * @license    MIT
+ * @license    Apache-2.0
  */
 
 import { type FileReader } from '#types/loader'
