@@ -19,7 +19,16 @@
     "./runtime": "./dist/runtime/index.js",
     "./types": "./dist/types/index.d.ts",
     "./util": "./dist/util/index.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./dist/assets": "./dist/assets/index.js",
+    "./dist/config": "./dist/config/index.js",
+    "./dist/errors": "./dist/errors/index.js",
+    "./dist/onnx": "./dist/onnx/index.js",
+    "./dist/plots": "./dist/plots/index.js",
+    "./dist/pyodide": "./dist/pyodide/index.js",
+    "./dist/runtime": "./dist/runtime/index.js",
+    "./dist/types": "./dist/types/index.d.ts",
+    "./dist/util": "./dist/util/index.js"
   },
   "imports": {
     "#runtime*": "./dist/src/runtime/index.ts",
