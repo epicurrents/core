@@ -127,7 +127,7 @@ export default class GenericStudyLoader implements StudyLoader {
         return null
     }
 
-    public isSupportedScope (scope: string): boolean {
+    isSupportedScope (scope: string): boolean {
         for (const supported of this._supportedScopes) {
             if (supported === scope) {
                 return true
@@ -136,7 +136,7 @@ export default class GenericStudyLoader implements StudyLoader {
         return false
     }
 
-    public isSupportedType (type: string): boolean {
+    isSupportedType (type: string): boolean {
         const typeParams = type.split(':')
         if (typeParams.length === 2) {
             for (const context of this._supportedScopes) {
@@ -158,7 +158,7 @@ export default class GenericStudyLoader implements StudyLoader {
         return false
     }
 
-    public async loadFromDirectory (dir: FileSystemItem, config?: ConfigStudyLoader): Promise<StudyContext|null> {
+    async loadFromDirectory (dir: FileSystemItem, config?: ConfigStudyLoader): Promise<StudyContext|null> {
         if (!this._canLoadResource(config || {})) {
             return null
         }
@@ -399,7 +399,7 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    public async useStudy (study: StudyContext): Promise<UseStudyResponse> {
+    async useStudy (study: StudyContext): Promise<UseStudyResponse> {
         for (const studyFile of study.files) {
             // Once more check that all files have a URL.
             if (!studyFile.url) {
@@ -415,14 +415,14 @@ export default class GenericStudyLoader implements StudyLoader {
         return this._resources.length
     }
 
-    public registerFileLoader (loader: FileFormatLoader) {
+    registerFileLoader (loader: FileFormatLoader) {
         this._fileLoader = loader
         if (this._memoryManager) {
             loader.registerMemoryManager(this._memoryManager)
         }
     }
 
-    public registerMemoryManager (manager: MemoryManager) {
+    registerMemoryManager (manager: MemoryManager) {
         this._memoryManager = manager
         if (this._fileLoader) {
             this._fileLoader.registerMemoryManager(manager)

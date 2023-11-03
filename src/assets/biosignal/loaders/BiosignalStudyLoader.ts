@@ -19,7 +19,7 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
         super(name, contexts, types, loader)
     }
 
-    public async loadFromUrl(fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext):
+    async loadFromUrl(fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext):
     Promise<StudyContext | null> {
         const study = await super.loadFromUrl(fileUrl, config, preStudy)
         if (!study) {
@@ -29,7 +29,7 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
         return study
     }
 
-    public async useStudy (study: StudyContext, config?: ConfigStudyContext) {
+    async useStudy (study: StudyContext, config?: ConfigStudyContext) {
         const nextIdx = await super.useStudy(study)
         for (let i=0; i<study.files.length; i++) {
             const studyFile = study.files[i]

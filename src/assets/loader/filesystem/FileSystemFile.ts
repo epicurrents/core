@@ -23,7 +23,7 @@ export default class FileSystemFile implements FileSystemItem {
      * @param file - The file to use.
      * @returns FileSystemFile
      */
-    public static FileToFsFile (file: File): FileSystemFile {
+    static FileToFsFile (file: File): FileSystemFile {
         return new FileSystemFile(
             file.name,
             '',
@@ -36,7 +36,7 @@ export default class FileSystemFile implements FileSystemItem {
      * @param urls - URL or string.
      * @returns FileSystemFile.
      */
-    public static UrlToFsFile(url: string | URL): FileSystemFile {
+    static UrlToFsFile(url: string | URL): FileSystemFile {
         return new FileSystemFile(
             'Remote file',
             '',

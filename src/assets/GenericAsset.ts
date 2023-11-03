@@ -16,8 +16,8 @@ export default abstract class GenericAsset implements BaseAsset {
     /**
      * Reference to the root EpiCurrents application must be added to this array before any assets are created.
      */
-    public static INSTANCES = [] as EpiCurrentsApplication[]
-    public static SCOPES = safeObjectFrom({
+    static INSTANCES = [] as EpiCurrentsApplication[]
+    static SCOPES = safeObjectFrom({
         BIOSIGNAL: 'sig',
         COMPONENT: 'cmp',
         DATASET: 'dat',

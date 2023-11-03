@@ -39,7 +39,7 @@ export default class MixedFileSystemItem implements FileSystemItem {
      * @param filelist - The FileList item returned by the file selector.
      * @return MixedFileSystemItem with nested folder structure.
      */
-    public static FileListToFsItem (filelist: FileList): MixedFileSystemItem {
+    static FileListToFsItem (filelist: FileList): MixedFileSystemItem {
         // Create the fs item to hold this list.
         const fsItem = new MixedFileSystemItem('', '', 'directory')
         const files = Object.values(filelist)
@@ -100,7 +100,7 @@ export default class MixedFileSystemItem implements FileSystemItem {
      * @param files - File or list of files.
      * @returns MixedFileSystemItem
      */
-    public static FilesToFsItem (...files: File[]): MixedFileSystemItem {
+    static FilesToFsItem (...files: File[]): MixedFileSystemItem {
         if (files.length > 1) {
             const dir = new MixedFileSystemItem(
                 'root',
@@ -136,7 +136,7 @@ export default class MixedFileSystemItem implements FileSystemItem {
      * @param urls - URL or array of URLs.
      * @returns - MixedFileSystemItem.
      */
-    public static UrlsToFsItem (...urls: (string | URL)[]): MixedFileSystemItem {
+    static UrlsToFsItem (...urls: (string | URL)[]): MixedFileSystemItem {
         if (urls.length > 1) {
             const fsItem = new MixedFileSystemItem(
                 'Remote dir',

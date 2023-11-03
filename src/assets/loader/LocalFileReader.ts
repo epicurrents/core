@@ -14,7 +14,7 @@ export default class LocalFileReader implements FileReader {
      * @param event - Mouse drag-n-drop event.
      * @return Promise with an object containing the direcotory structure and files, or undefined.
      */
-    public async readFilesFromSource (event: DragEvent) {
+    async readFilesFromSource (event: DragEvent) {
         // First prevent the browser from opening the files.
         event.stopPropagation()
         event.preventDefault()

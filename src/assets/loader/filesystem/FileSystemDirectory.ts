@@ -30,7 +30,7 @@ export default class FileSystemDirectory implements FileSystemItem {
      * @param filelist - The FileList item returned by the file selector.
      * @return FileSystemDirectory with nested folder structure.
      */
-    public static FileListToFsDirectory (filelist: FileList): FileSystemDirectory {
+    static FileListToFsDirectory (filelist: FileList): FileSystemDirectory {
         // Create the fs item to hold this list.
         const fsItem = new FileSystemDirectory('', '')
         const files = Object.values(filelist)
@@ -90,7 +90,7 @@ export default class FileSystemDirectory implements FileSystemItem {
      * @param files - List of files.
      * @returns FileSystemDirectory.
      */
-    public static FilesToFsDirectory (...files: File[]): FileSystemDirectory {
+    static FilesToFsDirectory (...files: File[]): FileSystemDirectory {
         const dir = new FileSystemDirectory(
             '',
             ''
@@ -113,7 +113,7 @@ export default class FileSystemDirectory implements FileSystemItem {
      * @param urls - URL or array of URLs.
      * @returns - FileSystemDirectory.
      */
-    public static UrlsToFsItem (...urls: (string | URL)[]): FileSystemDirectory {
+    static UrlsToFsItem (...urls: (string | URL)[]): FileSystemDirectory {
         const fsItem = new FileSystemDirectory('Remote dir', '')
         for (let i=0; i<urls.length; i++) {
             const url = urls[i]
