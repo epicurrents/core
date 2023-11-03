@@ -114,7 +114,7 @@ export default abstract class GenericFileLoader implements FileFormatLoader {
     }
 
     async loadFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
-        if (Object.hasOwn(source, 'url')) {
+        if (typeof source === 'object' && Object.hasOwn(source, 'url')) {
             return source as StudyContextFile
         }
         return {
