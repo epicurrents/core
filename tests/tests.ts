@@ -8,8 +8,12 @@
 import { EpiCurrents, SETTINGS, ServiceMemoryManager } from "../src"
 // Mock module.
 import * as mod from "./module"
-import { BiosignalDataService, BiosignalResource, ResourceModule } from "../src/types"
-
+import { ResourceModule } from "../src/types"
+// Biosignal resource
+import { BiosignalDataService, BiosignalResource } from "../src/types"
+import { BiosignalRecording } from "./biosignal/BiosignalRecording"
+import { BIOSIG_MODULE } from "./biosignal/BiosignalRuntime"
+import { BIOSIG_SETTINGS } from "./biosignal/BiosignalSettings"
 
 /*
  * Mocks.
@@ -118,6 +122,12 @@ describe('EpiCurrents core tests', () => {
      * BIOSIGNAL TESTS
      */
     test("Biosignal resource", () => {
-
+        epic.registerModule('sig', { runtime: BIOSIG_MODULE, settings: BIOSIG_SETTINGS })
+        const biosig = new BiosignalRecording('Test biosig', manager)
+        expect(biosig).toBeDefined()
+        expect(biosig.name).toStrictEqual('Test biosig')
+        expect(biosig.activeMontage).toBeNull()
+        expect(biosig.type).toStrictEqual('sig')
+        expect(biosig.sensitivity).toStrictEqual(100)
     })
 })

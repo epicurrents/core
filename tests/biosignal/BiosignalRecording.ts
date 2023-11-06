@@ -6,7 +6,7 @@ export class BiosignalRecording extends GenericBiosignalResource implements Bios
         name: string,
         loaderManager: MemoryManager
     ) {
-        super(name, 100, "test")
+        super(name, 100, "sig")
         this.setMemoryManager(loaderManager)
     }
 }
