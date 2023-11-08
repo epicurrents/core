@@ -259,7 +259,7 @@ export type CommonBiosignalSettings = {
         preCache: boolean
     }
     /** The default length of one page when browsing forward or backward. */
-    pageLength: 10
+    pageLength: number
     sensitivity: {
         [unit: string]: {
             availableValues: number[]
