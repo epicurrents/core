@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { EpiCurrents, SETTINGS, ServiceMemoryManager } from "../src"
+import { BiosignalService, EpiCurrents, SETTINGS, ServiceMemoryManager } from "../src"
 // Mock module.
 import * as mod from "./module"
 import { ResourceModule } from "../src/types"
@@ -14,24 +14,40 @@ import { BiosignalDataService, BiosignalResource } from "../src/types"
 import { BiosignalRecording } from "./biosignal/BiosignalRecording"
 import { BIOSIG_MODULE } from "./biosignal/BiosignalRuntime"
 import { BIOSIG_SETTINGS } from "./biosignal/BiosignalSettings"
+import AssetInstance from "./application/AssetInstance"
 
 /*
  * Mocks.
  */
-type MessageHandler = (msg: string) => void
+type MessageHandler = (msg: MessageEvent<any>) => void
 /** A simple worker mock. */
 class Worker {
     url: string;
     onmessage: MessageHandler
     constructor(stringUrl: string) {
         this.url = stringUrl
-        this.onmessage = (msg: string) => {}
+        this.onmessage = (msg: MessageEvent<any>) => {}
     }
     addEventListener (event: string, hander: ((event: any) => void)) {
         // Possible tests for the event listeners?
     }
-    postMessage(msg: string): void {
+    dispatchEvent (ev: Event) {
+        return true
+    }
+    onerror () {
+
+    }
+    onmessageerror () {
+
+    }
+    postMessage(msg: MessageEvent<any>): void {
         this.onmessage(msg)
+    }
+    removeEventListener (listener: any) {
+
+    }
+    terminate () {
+
     }
 }
 Object.defineProperty(window, 'Worker', {
@@ -97,6 +113,41 @@ describe('EpiCurrents core tests', () => {
         expect(SETTINGS.services.pyodide).toStrictEqual(true)
     })
     /**
+     * ASSET TESTS
+     */
+    test("Generic asset", () => {
+        const asset = new AssetInstance('Test asset', 'test', 'asset')
+        expect(asset).toBeDefined()
+        // Base property tests.
+        expect(asset.id.length).toBeGreaterThan(0)
+        expect(asset.name).toStrictEqual('Test asset')
+        expect(asset.scope).toStrictEqual('unk')
+        expect(asset.type).toStrictEqual('asset')
+        expect(asset.isActive).toStrictEqual(false)
+        // Property update handler tests.
+        let callbackCounter = 0
+        const updateCallback = () => {
+            callbackCounter++
+        }
+        asset.addPropertyUpdateHandler('test-property', updateCallback)
+        asset.testProperty = null
+        expect(callbackCounter).toStrictEqual(1)
+        asset.removePropertyUpdateHandler('test-property', updateCallback)
+        asset.testProperty = null
+        expect(callbackCounter).toStrictEqual(1)
+        asset.addPropertyUpdateHandler('test-property', updateCallback) // We already tested this.
+        asset.removeAllPropertyUpdateHandlers()
+        asset.testProperty = null
+        expect(callbackCounter).toStrictEqual(1)
+        asset.addPropertyUpdateHandler('test-property', updateCallback, 'test-caller')
+        asset.removeAllPropertyUpdateHandlersFor('foo-bar') // Wrong caller.
+        asset.testProperty = null
+        expect(callbackCounter).toStrictEqual(2)
+        asset.removeAllPropertyUpdateHandlersFor('test-caller')
+        asset.testProperty = null
+        expect(callbackCounter).toStrictEqual(2)
+    })
+    /**
      * MODULE TESTS
      */
     test("Resource module registration and configuration", () => {
@@ -129,5 +180,7 @@ describe('EpiCurrents core tests', () => {
         expect(biosig.activeMontage).toBeNull()
         expect(biosig.type).toStrictEqual('sig')
         expect(biosig.sensitivity).toStrictEqual(100)
+        const service = new BiosignalService(biosig, new Worker('test'), manager)
+        expect(service).toBeDefined()
     })
 })
