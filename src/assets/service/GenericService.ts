@@ -403,18 +403,18 @@ export default class GenericService extends GenericAsset implements AssetService
         return initResult
     }
 
-    setupWorker (worker: Worker | MessagePort) {
-        if (Object.hasOwn(worker, 'terminate')) {
-            // Only Worker has the terminate property.
+    setupWorker (worker: Worker | MessagePort, shared = false) {
+        if (!shared) {
+            // Only Worker has the onerror property.
             this._worker = worker as Worker
-            worker.postMessage({
-                action: 'update-settings',
-                settings: SETTINGS._CLONABLE,
-            })
         } else {
             // It is a message port to a shared worker.
             this._port = worker as MessagePort
         }
+        worker.postMessage({
+            action: 'update-settings',
+            settings: SETTINGS._CLONABLE,
+        })
         if (!this._manager) {
             this.onPropertyUpdate('is-ready')
         }
