@@ -6,6 +6,7 @@
 import {
     GB_BYTES,
     GIGA,
+    INDEX_NOT_ASSIGNED,
     KB_BYTES,
     KILO,
     MB_BYTES,
@@ -13,7 +14,6 @@ import {
     MICRO,
     MILLI,
     NANO,
-    NO_ARRAY_ITEM_ACTIVE,
     NO_MOUSE_BUTTON_DOWN,
     NUMERIC_ERROR_VALUE,
 } from "./constants"
@@ -64,6 +64,7 @@ import {
 export {
     GB_BYTES,
     GIGA,
+    INDEX_NOT_ASSIGNED,
     KB_BYTES,
     KILO,
     MB_BYTES,
@@ -71,7 +72,6 @@ export {
     MICRO,
     MILLI,
     NANO,
-    NO_ARRAY_ITEM_ACTIVE,
     NO_MOUSE_BUTTON_DOWN,
     NUMERIC_ERROR_VALUE,
 }
