@@ -74,11 +74,12 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     get annotations () {
         return this._annotations
     }
-    set annotations (annotations: BiosignalAnnotation[]) {
+    set annotations (value: BiosignalAnnotation[]) {
+        const oldVal = [...this._annotations]
         // Sort the annotations in ascending order according to start time.
-        annotations.sort((a, b) => a.start - b.start)
-        this._annotations = annotations
-        this.onPropertyUpdate('annotations')
+        value.sort((a, b) => a.start - b.start)
+        this._annotations = value
+        this.onPropertyUpdate('annotations', value, oldVal)
     }
 
     get channels () {
@@ -92,29 +93,32 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     get dataDuration () {
         return this._dataDuration
     }
-    set dataDuration (duration :number) {
-        this._dataDuration = duration
+    set dataDuration (value :number) {
+        const oldVal = this._dataDuration
+        this._dataDuration = value
+        this.onPropertyUpdate('data-duration', value, oldVal)
     }
 
     get dataGaps () {
         return this._dataGaps
     }
-    set dataGaps (gaps: Map<number, number>) {
-
-        this._dataGaps = gaps
-        this.onPropertyUpdate('data-gaps')
+    set dataGaps (value: Map<number, number>) {
+        const oldVal = new Map(this._dataGaps)
+        this._dataGaps = value
+        this.onPropertyUpdate('data-gaps', value, oldVal)
         // Set updated data gaps in montages.
         for (const montage of this._montages) {
-            montage.dataGaps = gaps
+            montage.dataGaps = value
         }
     }
 
     get displayViewStart () {
         return this._displayViewStart
     }
-    set displayViewStart (value :number) {
+    set displayViewStart (value: number) {
+        const oldVal = this._displayViewStart
         this._displayViewStart = value
-        this.onPropertyUpdate('display-view-start')
+        this.onPropertyUpdate('display-view-start', value, oldVal)
     }
 
     get filters () {
@@ -133,8 +137,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._loaded
     }
     set isPrepared (value: boolean) {
+        const oldVal = this._loaded
         this._loaded = value
-        this.onPropertyUpdate('is-prepared')
+        this.onPropertyUpdate('is-prepared', value, oldVal)
     }
 
     get loader () {
@@ -177,40 +182,50 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     get samplingRate () {
         return this._samplingRate
     }
+    set samplingRate (value: number | null) {
+        if (value !== null && value <= 0) {
+            Log.error(`Cannot set sampling rate to ${value}; value must be greater than zero.`, SCOPE)
+            return
+        }
+        const oldVal = this._samplingRate
+        this._samplingRate = value
+        this.onPropertyUpdate('sampling-rate', value, oldVal)
+    }
 
     get sensitivity () {
         return this._sensitivity
     }
     set sensitivity (value: number) {
         if (value <= 0) {
-            Log.error(`Sensitivity must be greater than zero, ${value} was given.`, SCOPE)
+            Log.error(`Cannot set sensitivity to ${value}; value must be greater than zero.`, SCOPE)
             return
         }
-        console.warn('SET SENSITIVITY', value)
+        const oldVal = this._sensitivity
         this._sensitivity = value
-        this.onPropertyUpdate('sensitivity')
-        console.warn(this._sensitivity, this._id)
+        this.onPropertyUpdate('sensitivity', value, oldVal)
     }
 
     get setup () {
         return this._setup
     }
-    set setup (setup: BiosignalSetup | null) {
-        this._setup = setup
-        this.onPropertyUpdate('setup')
+    set setup (value: BiosignalSetup | null) {
+        const oldVal = this._setup
+        this._setup = value
+        this.onPropertyUpdate('setup', value, oldVal)
     }
 
     get signalCacheStatus () {
         return this._signalCacheStatus
     }
-    set signalCacheStatus (status: number[]) {
-        if (status.length !== 2) {
+    set signalCacheStatus (value: number[]) {
+        if (value.length !== 2) {
             Log.error(`Signal cache status must be a numeric array with length of 2 ` +
-                      `(array with length of ${status.length} given).`, SCOPE)
+                      `(array with length of ${value.length} given).`, SCOPE)
             return
         }
-        this._signalCacheStatus = status
-        this.onPropertyUpdate('signal-cache-status')
+        const oldVal = [...this._signalCacheStatus]
+        this._signalCacheStatus = value
+        this.onPropertyUpdate('signal-cache-status', value, oldVal)
     }
 
     get startTime () {
@@ -220,8 +235,14 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     get totalDuration () {
         return this._totalDuration
     }
-    set totalDuration (duration :number) {
-        this._totalDuration = duration
+    set totalDuration (value: number) {
+        if (value <= 0) {
+            Log.error(`Cannot set total duration to ${value}; value must be zero or greater.`, SCOPE)
+            return
+        }
+        const oldVal = this._totalDuration
+        this._totalDuration = value
+        this.onPropertyUpdate('total-duration', value, oldVal)
     }
 
     get type () {
@@ -237,17 +258,19 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
     set videos (videos: VideoAttachment[]) {
         this._videos = videos
+        this.onPropertyUpdate('videos', videos)
     }
 
     get viewStart () {
         return this._viewStart
     }
-    set viewStart (start: number) {
-        if (start < 0) {
-            start = 0
+    set viewStart (value: number) {
+        if (value < 0) {
+            value = 0
         }
-        this._viewStart = start
-        this.onPropertyUpdate('view-start')
+        const oldVal = this._viewStart
+        this._viewStart = value
+        this.onPropertyUpdate('view-start', value, oldVal)
     }
 
     get visibleChannels () {
