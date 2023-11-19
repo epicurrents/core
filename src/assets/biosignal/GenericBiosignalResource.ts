@@ -178,6 +178,15 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     get sampleCount () {
         return this._sampleCount
     }
+    set sampleCount (value: number | null) {
+        if (value !== null && value < 0) {
+            Log.error(`Cannot set sample count to ${value}; value must be zero or greater.`, SCOPE)
+            return
+        }
+        const oldVal = this._sampleCount
+        this._sampleCount = value
+        this.onPropertyUpdate('sample-count', value, oldVal)
+    }
 
     get samplingRate () {
         return this._samplingRate
