@@ -1,9 +1,9 @@
 import BiosignalMutex from "./BiosignalMutex"
-import BiosignalService from "./BiosignalService"
+import GenericBiosignalService from "./GenericBiosignalService"
 import MontageService from "./MontageService"
 
 export {
     BiosignalMutex,
-    BiosignalService,
+    GenericBiosignalService,
     MontageService,
 }

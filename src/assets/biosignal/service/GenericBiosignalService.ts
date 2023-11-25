@@ -25,9 +25,9 @@ import GenericService from "#assets/service/GenericService"
 import Log from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
 
-const SCOPE = "BiosignalService"
+const SCOPE = "GenericBiosignalService"
 
-export default class BiosignalService extends GenericService implements BiosignalDataService {
+export default abstract class GenericBiosignalService extends GenericService implements BiosignalDataService {
     protected _awaitStudySetup: ((success: boolean) => void)[] = []
     /** Is the study still loading. */
     protected _loadingStudy = false
@@ -60,19 +60,6 @@ export default class BiosignalService extends GenericService implements Biosigna
             action: 'update-settings',
             settings: SETTINGS._CLONABLE,
         })
-        /*
-        // Check if we have a worker constructor for this file type.
-        const createWorker = this._app.getFileWorkerSource(fileType)
-        if (createWorker) {
-            this.setupWorker(createWorker())
-            this._worker?.postMessage({
-                action: 'update-settings',
-                settings: SETTINGS._CLONABLE,
-            })
-        } else {
-            Log.warn(`No worker source was found for file type '${fileType}'.`, SCOPE)
-        }
-        */
     }
 
     protected async _isStudyReady (): Promise<boolean> {

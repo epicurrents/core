@@ -12,7 +12,7 @@
 import {
     BiosignalAudio,
     BiosignalMutex,
-    BiosignalService,
+    GenericBiosignalService,
     BiosignalStudyLoader,
     FileSystemDirectory,
     FileSystemFile,
@@ -39,7 +39,7 @@ import {
 export {
     BiosignalAudio,
     BiosignalMutex,
-    BiosignalService,
+    GenericBiosignalService,
     BiosignalStudyLoader,
     FileSystemDirectory,
     FileSystemFile,
@@ -159,7 +159,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
         }
         this.#state.addResource(finalScope, resource)
     }
-    
+
     configure (config: { [field: string]: SettingsValue }) {
         if (this.#app) {
             Log.warn(`Cannot alter default configuration after app launch. Use the setSettingsValue method instead.`, SCOPE)
@@ -181,7 +181,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
     getFileWorkerSource (name: string) {
         return this.#state.APP.fileWorkerSources.get(name)
     }
-    
+
     async launch (
         containerId: string = '',
         appId: string = `app${this.#instanceNum}`,
@@ -212,7 +212,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
     loadDataset = async (loader: BaseDataset, folder: FileSystemItem | string[], name?: string, context?: string) => {
     }
      */
-    
+
     async loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string) {
         const context = this.#state.APP.studyLoaders.get(loader)
         if (!context) {
@@ -247,16 +247,16 @@ export class EpiCurrents implements EpiCurrentsApplication {
         }
         return null
     }
-    
+
     openResource (resource: DataResource) {
         this.#state.setActiveResource(resource)
         //this.store?.dispatch('set-active-resource', resource)
     }
-    
+
     registerFileWorker (name: string, getter: () => Worker) {
         this.#state.APP.fileWorkerSources.set(name, getter)
     }
-    
+
     registerInterface (intf: InterfaceModuleConstructor) {
         this.#interface = intf
     }
@@ -269,20 +269,20 @@ export class EpiCurrents implements EpiCurrentsApplication {
     registerService (name: string, service: AssetService) {
         this.#state.setService(name, service)
     }
-    
+
     registerStudyLoader (name: string, label: string, mode: LoaderMode, loader: StudyLoader) {
         this.#state.APP.studyLoaders.set(
-            name, 
-            { 
+            name,
+            {
                 label: label,
                 mode: mode,
                 loader: loader,
                 scopes: loader.supportedScopes,
-                types: loader.supportedTypes 
+                types: loader.supportedTypes
             }
         )
     }
-    
+
     selectResource (id: string) {
         if (!this.#state.APP.activeDataset) {
             return
@@ -294,7 +294,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
             }
         }
     }
-    
+
     setActiveDataset (dataset: MediaDataset | null) {
         this.#state.setActiveDataset(dataset)
         //this.store.dispatch('set-active-dataset', dataset)

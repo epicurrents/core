@@ -10,13 +10,13 @@ import {
 } from "./loaders"
 import {
     BiosignalMutex,
-    BiosignalService,
+    GenericBiosignalService,
     MontageService,
 } from "./service"
 
 export {
     BiosignalMutex,
-    BiosignalService,
+    GenericBiosignalService,
     BiosignalStudyLoader,
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
