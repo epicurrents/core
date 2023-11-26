@@ -17,10 +17,14 @@ import {
     type VideoAttachment
 } from "#types/biosignal"
 import { type CommonBiosignalSettings, type ConfigChannelFilter } from "#types/config"
-import { type MemoryManager, type SignalCacheResponse } from "#types/service"
+import {
+    type MemoryManager,
+    type SignalCachePart,
+    type SignalCacheResponse,
+} from "#types/service"
 import { type StudyContext } from "#types/study"
 import { nullPromise } from "#util/general"
-import { shouldDisplayChannel, getIncludedChannels } from "#util/signal"
+import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from "#util/signal"
 import GenericResource from "#assets/GenericResource"
 import Log from 'scoped-ts-log'
 import SETTINGS from "#config/Settings"
@@ -452,6 +456,47 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             }
         }
         return this.getAllRawSignals(range, config)
+    }
+
+    hasVideoAt (time: number | [number, number]) {
+        if (!this._videos.length) {
+            return false
+        }
+        // Will use signal cache part as an aid to combine multiple video parts.
+        const foundParts = {
+            start: 0,
+            end: 0,
+            signals: []
+        } as SignalCachePart
+        for (const vid of this._videos) {
+            if (Array.isArray(time)) {
+                // Check for continuous video in range.
+                if (vid.startTime <= time[0] && vid.endTime >= time[1]) {
+                    return true
+                } else if (
+                    vid.startTime <= time[0] && vid.endTime > time[0] ||
+                    vid.endTime >= time[1] && vid.startTime < time[1] ||
+                    vid.startTime > time[0] && vid.endTime < time[1]
+                ) {
+                    // Try combining signal parts to check for multiple parts
+                    // covering the requested range.
+                    // The recording video array is sorted according to video part
+                    // start time, so if two consecutive parts are not continuous
+                    // then there is no continuous video in the requested range.
+                    combineSignalParts(foundParts, {
+                        start: vid.startTime,
+                        end: vid.endTime,
+                        signals: []
+                    })
+                    if (foundParts.start <= time[0] && foundParts.end >= time[1]) {
+                        return true
+                    }
+                }
+            } else if (vid.startTime <= time && vid.endTime >= time) {
+                return true
+            }
+        }
+        return false
     }
 
     async releaseBuffers () {

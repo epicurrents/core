@@ -761,6 +761,11 @@ export interface BiosignalResource extends DataResource {
      */
     getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
+     * Check if the recording has video for the given time point or range.
+     * @param time - Time point as number or time range as [start, end].
+     */
+    hasVideoAt (time: number | [number, number]): boolean
+    /**
      * Release all buffers referenced by this resource.
      */
     releaseBuffers (): Promise<void>
