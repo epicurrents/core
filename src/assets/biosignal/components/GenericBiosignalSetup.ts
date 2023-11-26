@@ -18,10 +18,6 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
     constructor (id: string, channels?: BiosignalChannel[], config?: ConfigBiosignalSetup) {
         this._id = id
         this._name = id
-        if (config?.skipConfig) {
-            // Config wil be done in child class
-            return
-        }
         if (channels && config) {
             this.loadConfig(channels, config)
         }

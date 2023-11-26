@@ -294,7 +294,6 @@ export type ConfigBiosignalMontage = {
 export type ConfigBiosignalSetup = {
     channels: BiosignalChannelTemplate[]
     label: string
-    skipConfig?: boolean
 }
 export type ConfigChannelFilter  = {
     exclude?: number[]
