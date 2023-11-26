@@ -5,22 +5,23 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset, DataResource, SafeObject } from './application'
 import {
-    MutexExportProperties,
-    MutexMetaField,
-} from 'asymmetric-io-mutex'
+    BaseAsset,
+    DataResource,
+    SafeObject
+} from './application'
+import { MutexExportProperties, MutexMetaField } from 'asymmetric-io-mutex'
 import { ConfigBiosignalSetup, SettingsColor } from './config'
 import { StudyContext } from './study'
 import { HighlightContext, SignalHighlight } from './plot'
 import {
     AssetService,
+    MemoryManager,
     MessageHandled,
     SetupStudyResponse,
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
-    MemoryManager,
 } from './service'
 import { BiosignalMutex } from '../assets'
 
@@ -622,7 +623,7 @@ export type BiosignalMontageReferenceSignal = {
     /** Signal type. */
     type: string
 } | null
-export interface BiosignalMontageService {
+export interface BiosignalMontageService extends AssetService {
     /** Mutex holding the cached signals, if using SharedArrayBuffers. */
     mutex: BiosignalMutex | null
     /** Name of the montage. */
