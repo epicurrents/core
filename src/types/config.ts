@@ -284,6 +284,12 @@ export type CommonBiosignalSettings = {
     }
     yPadding: number
 }
+export type ConfigBiosignalMontage = {
+    /** Descriptive name for this montage (overrides possible default name). */
+    label?: string
+    /** Skip setups in parent classes (setup must be performed in the final extending class). */
+    skipSetup?: true
+}
 // Method config properties.
 export type ConfigBiosignalSetup = {
     channels: BiosignalChannelTemplate[]

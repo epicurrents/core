@@ -14,7 +14,11 @@ import {
     type MontageChannel,
     type UpdateFiltersResponse,
 } from '#types/biosignal'
-import { type ConfigChannelFilter, type ConfigMapChannels } from '#types/config'
+import {
+    type ConfigBiosignalMontage,
+    type ConfigChannelFilter,
+    type ConfigMapChannels,
+} from '#types/config'
 import { type HighlightContext, type SignalHighlight } from '#types/plot'
 import {
     type MemoryManager,
@@ -62,10 +66,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         recording: BiosignalResource,
         setup: BiosignalSetup,
         manager?: MemoryManager,
-        label?: string,
+        config?: ConfigBiosignalMontage,
     ) {
         super(name, GenericAsset.SCOPES.BIOSIGNAL, 'mtg')
-        this._label = label || name
+        this._label = config?.label || name
         this._recording = recording
         this._setup = setup
         this._service = new MontageService(recording.type, this, manager)
