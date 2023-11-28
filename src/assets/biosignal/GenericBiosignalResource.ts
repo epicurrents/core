@@ -26,7 +26,7 @@ import { type StudyContext } from "#types/study"
 import { nullPromise } from "#util/general"
 import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from "#util/signal"
 import GenericResource from "#assets/GenericResource"
-import Log from 'scoped-ts-log'
+import Log from "scoped-ts-log"
 import SETTINGS from "#config/Settings"
 
 const SCOPE = 'GenericBiosignalResource'

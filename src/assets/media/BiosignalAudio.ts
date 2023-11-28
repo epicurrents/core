@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { type AudioRecording } from '#types/media'
-import { Log } from 'scoped-ts-log'
+import { type AudioRecording } from "#types/media"
+import { Log } from "scoped-ts-log"
 
 const SCOPE = 'BiosignalAudio'
 

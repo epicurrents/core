@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { Log } from 'scoped-ts-log'
+import { Log } from "scoped-ts-log"
 import {
     type BiosignalMontage,
     type BiosignalMontageReferenceSignal,
@@ -14,29 +14,29 @@ import {
     type BiosignalSetup,
     type MontageChannel,
     type SetFiltersResponse,
-} from '#types/biosignal'
+} from "#types/biosignal"
 import {
     type ConfigBiosignalMontage,
     type ConfigChannelFilter,
     type ConfigMapChannels,
-} from '#types/config'
-import { type HighlightContext, type SignalHighlight } from '#types/plot'
+} from "#types/config"
+import { type HighlightContext, type SignalHighlight } from "#types/plot"
 import {
     type MemoryManager,
     type SignalCachePart,
     type SignalCacheResponse,
-} from '#types/service'
-import { type MutexExportProperties } from 'asymmetric-io-mutex'
+} from "#types/service"
+import { type MutexExportProperties } from "asymmetric-io-mutex"
 import {
     combineAllSignalParts,
     combineSignalParts,
     isContinuousSignal,
     mapMontageChannels,
     shouldDisplayChannel,
-} from '#util/signal'
-import { NUMERIC_ERROR_VALUE } from '#util/constants'
-import GenericAsset from '#assets/GenericAsset'
-import MontageService from '../service/MontageService'
+} from "#util/signal"
+import { NUMERIC_ERROR_VALUE } from "#util/constants"
+import GenericAsset from "#assets/GenericAsset"
+import MontageService from "../service/MontageService"
 
 const SCOPE = 'GenericBiosignalMontage'
 

@@ -5,13 +5,13 @@
  * @license    Apache-2.0
  */
 
-import { Log } from 'scoped-ts-log'
+import { Log } from "scoped-ts-log"
 import {
     type BiosignalAnnotation,
     type BiosignalFilters,
     type BiosignalHeaderRecord,
     type BiosignalHeaderSignal,
-} from '#types/biosignal'
+} from "#types/biosignal"
 
 const SCOPE = 'GenericBiosignalHeaders'
 

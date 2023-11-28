@@ -9,11 +9,11 @@ import {
     BaseAsset,
     DataResource,
     SafeObject
-} from './application'
-import { MutexExportProperties, MutexMetaField } from 'asymmetric-io-mutex'
-import { ConfigBiosignalSetup, SettingsColor } from './config'
-import { StudyContext } from './study'
-import { HighlightContext, SignalHighlight } from './plot'
+} from "./application"
+import { MutexExportProperties, MutexMetaField } from "asymmetric-io-mutex"
+import { ConfigBiosignalSetup, SettingsColor } from "./config"
+import { StudyContext } from "./study"
+import { HighlightContext, SignalHighlight } from "./plot"
 import {
     AssetService,
     MemoryManager,
@@ -22,8 +22,8 @@ import {
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
-} from './service'
-import { BiosignalMutex } from '../assets'
+} from "./service"
+import { BiosignalMutex } from "../assets"
 
 /**
  * Annotation for a single moment or period of time in a biosignal resource.

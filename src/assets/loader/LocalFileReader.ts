@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { type FileReader } from '#types/loader'
-import MixedFileSystemItem from './filesystem/MixedFileSystemItem'
+import { type FileReader } from "#types/loader"
+import MixedFileSystemItem from "./filesystem/MixedFileSystemItem"
 
 export default class LocalFileReader implements FileReader {
     /**
