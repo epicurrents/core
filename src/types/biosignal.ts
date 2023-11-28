@@ -212,8 +212,7 @@ export type BiosignalChannelProperties = {
     visible?: boolean
 }
 /**
- * This is a basic template for biosignal setup channels.
- * Any setup configuration JSONs should follow this template when defining recorded channels/signals.
+ * A basic template for biosignal channel configurations.
  */
 export type BiosignalChannelTemplate = {
     /** Short label for the channel (visible to the user). */
@@ -611,10 +610,10 @@ export interface BiosignalMontage extends BaseAsset {
     updateFilters (): Promise<UpdateFiltersResponse>
 }
 /**
- * Montage common reference signal definition.
+ * Montage reference signal definition.
  */
 export type BiosignalMontageReferenceSignal = {
-    /** Is this a common reference (practivally always true, else this whole property is null). */
+    /** Is this a common reference (same signal for every channel). */
     common: boolean
     /** Signal description. */
     description: string
@@ -622,6 +621,8 @@ export type BiosignalMontageReferenceSignal = {
     label: string
     /** Signal type. */
     type: string
+    /** Physical unit of the reference signal. */
+    unit?: string
 } | null
 export interface BiosignalMontageService extends AssetService {
     /** Mutex holding the cached signals, if using SharedArrayBuffers. */
@@ -671,6 +672,39 @@ export interface BiosignalMontageService extends AssetService {
      * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
      */
     setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupSharedWorkerResponse>
+}
+/**
+ * Template for constructing a biosignal montage.
+ * Any setup configuration JSONs should follow this template when defining montages.
+ */
+export type BiosignalMontageTemplate = {
+    /**
+     * Templates for channel derivations in this montage.
+     */
+    channels: BiosignalChannelTemplate[]
+    /**
+     * Montage description, multiple lines are stored as an array.
+     */
+    description: string | string[]
+    /**
+     * Descriptive label for this montage.
+     */
+    label: string
+    /**
+     * Channel layout as an array of numbers, each representing the number of channels in a group.
+     * @example
+     * // Montage with eight channels divided into two groups of three channels and one of two channels:
+     * layout = [3, 3, 2]
+     */
+    layout: number[]
+    /**
+     * Channel names present in this template (as active or reference in the channels array).
+     */
+    names: string[]
+    /**
+     * Reference channel properties.
+     */
+    reference: BiosignalMontageReferenceSignal
 }
 /**
  * BiosignalResource is a collection of uniform or polygraphic biosignals.
