@@ -9,6 +9,7 @@ import { Log } from 'scoped-ts-log'
 import {
     type BiosignalMontage,
     type BiosignalMontageReferenceSignal,
+    type BiosignalMontageTemplate,
     type BiosignalResource,
     type BiosignalSetup,
     type MontageChannel,
@@ -47,7 +48,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         signals: []
     } as SignalCachePart
     protected _cacheParts = [] as SignalCachePart[]
-    protected _config: unknown =  null
+    protected _config: BiosignalMontageTemplate | null =  null
     protected _dataGaps = new Map<number, number>()
     protected _filters = {
         highpass: 0,
