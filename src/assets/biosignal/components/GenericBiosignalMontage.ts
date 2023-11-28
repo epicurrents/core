@@ -12,7 +12,7 @@ import {
     type BiosignalResource,
     type BiosignalSetup,
     type MontageChannel,
-    type UpdateFiltersResponse,
+    type SetFiltersResponse,
 } from '#types/biosignal'
 import {
     type ConfigBiosignalMontage,
@@ -432,7 +432,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     }
 
-    async updateFilters (): Promise<UpdateFiltersResponse> {
+    async updateFilters (): Promise<SetFiltersResponse> {
         const response = await this._service.setFilters()
         if (response) {
             // Fire property update change.

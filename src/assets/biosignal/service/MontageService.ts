@@ -12,7 +12,7 @@ import {
     type MontageChannel,
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
-    type UpdateFiltersResponse,
+    type SetFiltersResponse,
 } from "#types/biosignal"
 import { type ConfigChannelFilter } from "#types/config"
 import {
@@ -197,7 +197,7 @@ export default class MontageService extends GenericService implements BiosignalM
                 ['channels', channelFilters],
             ])
         )
-        return filters.promise as Promise<UpdateFiltersResponse>
+        return filters.promise as Promise<SetFiltersResponse>
     }
 
     async setupMontageWithInputMutex (inputProps: MutexExportProperties) {

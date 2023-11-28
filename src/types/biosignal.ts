@@ -558,7 +558,7 @@ export interface BiosignalMontage extends BaseAsset {
      * @param value - Filter frequency (in Hz) or undefined.
      * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setHighpassFilter (target: string | number, value: number): Promise<UpdateFiltersResponse>
+    setHighpassFilter (target: string | number, value: number): Promise<SetFiltersResponse>
     /**
      * Set low-pass filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
@@ -566,7 +566,7 @@ export interface BiosignalMontage extends BaseAsset {
      * @param value - Filter frequency (in Hz) or undefined.
      * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setLowpassFilter (target: string | number, value: number): Promise<UpdateFiltersResponse>
+    setLowpassFilter (target: string | number, value: number): Promise<SetFiltersResponse>
     /**
      * Set notch filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
@@ -574,7 +574,7 @@ export interface BiosignalMontage extends BaseAsset {
      * @param value - Filter frequency (in Hz) or undefined.
      * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setNotchFilter (target: string | number, value: number): Promise<UpdateFiltersResponse>
+    setNotchFilter (target: string | number, value: number): Promise<SetFiltersResponse>
     /**
      * Set up a data loader using a data source mutex output properties as input for the loader.
      * @param inputProps - The source mutex export properties to use as input.
@@ -607,7 +607,7 @@ export interface BiosignalMontage extends BaseAsset {
      * Calling this method does not automatically start caching data with the updated values.
      * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    updateFilters (): Promise<UpdateFiltersResponse>
+    updateFilters (): Promise<SetFiltersResponse>
 }
 /**
  * Montage reference signal definition.
@@ -659,7 +659,7 @@ export interface BiosignalMontageService extends AssetService {
      * Set the filters in the web worker to match current montage filters.
      * @returns Promise that resolves as true if some filter was updated, false otherwise.
      */
-    setFilters (): Promise<UpdateFiltersResponse>
+    setFilters (): Promise<SetFiltersResponse>
     /**
      * Set up the worker to load montage signals using an input mutex as raw signal source.
      * @param inputProps - Properties from the raw signal data mutex.
@@ -968,11 +968,6 @@ export type SetupSharedWorkerResponse = {
 export type SignalPolarity = -1 | 0 | 1
 /** Start and end of a signal range. */
 export type SignalRange = { start: number, end: number }
-/**
- * A response from the worker to an instruction to update filter values.
- * Response is `true` if at least one filter value was changed, `false` otherwise.
- */
-export type UpdateFiltersResponse = boolean
 /**
  * Video attachment synchronized to biosignal data.
  */
