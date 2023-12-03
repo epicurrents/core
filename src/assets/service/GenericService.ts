@@ -39,7 +39,7 @@ export default class GenericService extends GenericAsset implements AssetService
     /** Message port of a shared worker (as an alternative to a dedicated worker). */
     protected _port: MessagePort | null = null
     /** Is buffer initiation underway. */
-    protected _setupBuffer = false
+    protected _setupCache = false
     /** Is buffer shifting. */
     protected _shiftBuffer = false
     protected _manager: MemoryManager | null
@@ -59,7 +59,7 @@ export default class GenericService extends GenericAsset implements AssetService
     }
 
     protected async _isBufferReady (): Promise<boolean> {
-        if (this._setupBuffer) {
+        if (this._setupCache) {
             const bufferSetup = new Promise<boolean>(success => {
                 this._awaitBufferSetup.push(success)
             })
@@ -96,7 +96,7 @@ export default class GenericService extends GenericAsset implements AssetService
         } else {
             if (!this._memoryRange) {
                 return false
-            } else if (this._setupBuffer) {
+            } else if (this._setupCache) {
                 return false
             }
             return true
@@ -209,9 +209,9 @@ export default class GenericService extends GenericAsset implements AssetService
         }
         const commission = this._getCommissionForMessage(message)
         if (commission) {
-            if (data.action === 'setup-buffer') {
+            if (data.action === 'setup-cache') {
                 if (data.success) {
-                    Log.debug(`Buffer initiation complete in biosignal loader worker.`, SCOPE)
+                    Log.debug(`Cache initiation complete in biosignal loader worker.`, SCOPE)
                     commission.resolve(data.cacheProperties)
                     this._workerReady = true
                     this.onPropertyUpdate('is-ready')
@@ -220,7 +220,7 @@ export default class GenericService extends GenericAsset implements AssetService
                 }
                 return true
             } else if (
-                message.data.action === 'release-buffer' ||
+                message.data.action === 'release-cache' ||
                 message.data.action === 'shutdown'
             ) {
                 const decommission = this._commissions.get('decommission')
@@ -375,7 +375,7 @@ export default class GenericService extends GenericAsset implements AssetService
         this._shiftBuffer = false
     }
 
-    async setupBuffer (): Promise<MutexExportProperties|null> {
+    async setupCache (): Promise<MutexExportProperties|null> {
         if (!this._manager) {
             Log.error(`Cannot initialize buffer, memory manager has not been set up.`, SCOPE)
             return null
@@ -384,10 +384,10 @@ export default class GenericService extends GenericAsset implements AssetService
             Log.error(`Cannot initialize buffer, loader doesn't have any allocated memory.`, SCOPE)
             return null
         }
-        Log.debug(`Initiating buffers in biosignal loader worker.`, SCOPE)
-        this._setupBuffer = true
+        Log.debug(`Initiating buffers in worker.`, SCOPE)
+        this._setupCache = true
         const commission = this._commissionWorker(
-            'setup-buffer',
+            'setup-cache',
             new Map<string, unknown>([
                 ['buffer', this._manager.buffer],
                 ['range', this._memoryRange],
@@ -395,7 +395,7 @@ export default class GenericService extends GenericAsset implements AssetService
         )
         const initResult = await commission.promise as boolean
         this._notifyWaiters(this._awaitBufferSetup, initResult)
-        this._setupBuffer = false
+        this._setupCache = false
         if (!initResult) {
             Log.error(`Initializing memory buffer in the worker failed.`, SCOPE)
             return null
@@ -433,7 +433,7 @@ export default class GenericService extends GenericAsset implements AssetService
     }
 
     unload () {
-        const response = this._commissionWorker('release-buffer')
+        const response = this._commissionWorker('release-cache')
         // Decommission doesn't need a request number
         const decommission = getOrSetValue(
             this._commissions, 'decommission',

@@ -72,10 +72,10 @@ export interface AssetService extends BaseAsset {
      */
     setBufferRange: (range: number[]) => Promise<void>
     /**
-     * Set up the buffer in the web worker, returning the created buffer's export properties or null if
+     * Set up the buffer in the web worker cache, returning the created buffer's export properties or null if
      * an error occurred.
      */
-    setupBuffer (): Promise<MutexExportProperties|null>
+    setupCache (): Promise<MutexExportProperties|null>
     /**
      * Set the given `worker` to this worker and run any required initialization to make this service ready for use.
      * Alternatively, a message port to a shared worker can be given instead of a worker.

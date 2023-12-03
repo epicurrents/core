@@ -9,7 +9,7 @@ import {
     type BiosignalSetup,
     type GetSignalsResponse,
     type MontageChannel,
-    type ReleaseBuffersResponse,
+    type ReleaseCacheResponse,
     type SetFiltersResponse,
     type SetupChannel,
     type SetupMutexResponse,
@@ -118,13 +118,13 @@ onmessage = async (message: WorkerMessage) => {
     } else if (action === 'map-channels') {
         const config = message.data.config as ConfigMapChannels
         mapChannels(config)
-    } else if (action === 'release-buffer') {
-        await releaseBuffers()
+    } else if (action === 'release-cache') {
+        await releaseCache()
         postMessage({
             action: action,
             success: true,
             rn: message.data.rn,
-        } as ReleaseBuffersResponse)
+        } as ReleaseCacheResponse)
     } else if (action === 'set-data-gaps') {
         DATA_GAPS.clear()
         const dataGaps = message.data.dataGaps as { start: number, duration: number }[]
@@ -267,7 +267,7 @@ const calculateSignalsForPart = async (
 ) => {
     // Check that cache is ready.
     if (!CACHE) {
-        log(postMessage, 'ERROR', "Cannot return signal part, signal buffers have not been set up yet.", SCOPE)
+        log(postMessage, 'ERROR', "Cannot return signal part, signal cache has not been set up yet.", SCOPE)
         return false
     }
     const cacheStart = recordingTimeToCacheTime(start)
@@ -530,7 +530,7 @@ const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
         return null
     }
     if (!CACHE) {
-        log(postMessage, 'ERROR', "Cannot load signals, signal buffers have not been set up yet.", SCOPE)
+        log(postMessage, 'ERROR', "Cannot load signals, signal cache has not been set up yet.", SCOPE)
         return null
     }
     let requestedSigs: SignalCachePart | null = null
@@ -734,7 +734,7 @@ const recordingTimeToCacheTime = (time: number): number => {
 /**
  * Release buffers removing all references to them and decomissioning this worker.
  */
-const releaseBuffers = async () => {
+const releaseCache = async () => {
     CACHE?.releaseBuffers()
     CACHE = null
 }

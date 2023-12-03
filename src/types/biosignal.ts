@@ -889,7 +889,7 @@ export interface MontageChannel extends BiosignalChannel {
 /**
  * Response sent after a request to release cache buffers.
  */
-export type ReleaseBuffersResponse = {
+export type ReleaseCacheResponse = {
     success: boolean
 }
 /**
