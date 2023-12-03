@@ -51,7 +51,6 @@ module.exports = {
         "^.+\\.ts$": "ts-jest",
     },
     transformIgnorePatterns: [
-        "node_modules/(?!(@babel)/)",
     ],
     //testRegex: "(test/.*|(\\.|/)(test|spec))\\.(tsx?)$",
     testRegex: "tests.ts$",
