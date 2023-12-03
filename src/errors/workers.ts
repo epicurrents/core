@@ -12,5 +12,5 @@
 // EDF Worker (SharedArrayBuffer version)
 export const CACHE_ALREADY_INITIALIZED = `Signal cache has already been initialized.`
 export const COMBINING_SIGNALS_FAILED = `Combining new and existing signals failed.`
-export const SIGNAL_BUFFERS_NOT_INITIALIZED = `Signal buffers have not been initialized.`
+export const SIGNAL_CACHE_NOT_INITIALIZED = `Signal cache has not been initialized.`
 export const STUDY_PARAMETERS_NOT_SET = `Study parameters have not been set.`
