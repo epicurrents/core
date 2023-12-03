@@ -117,6 +117,43 @@ export type FileSystemItemType = 'directory' | 'file'
  */
 export type LoadDirection = 'backward' | 'alternate' | 'forward'
 export type LoaderMode = 'file' | 'folder' | 'study'
+/**
+ * SignalDileLoader serves as an interface for file reading. After setting the required metadata, parts of the signal
+ * file can be loaded using time indices and the class handles all coversions between file time and byte positions,
+ * taking into account possible data unit (record) lengths and maximum allowed single load (chunk) sizes.
+ *
+ * For larger files it will keep loading the file progressively until the maximum cache size has been reached (NYI).
+ *
+ * Data loading methods return a promise which resolves when the requested data has been loaded or rejects if there
+ * is an error.
+ */
+export interface SignalDataLoader {
+    /**
+     * Start loading signal data from the given file.
+     * @param file - File object.
+     * @param startFrom - Optional starting point of the loading process in seconds of file duration.
+     */
+    cacheFile (file: File, startFrom?: number): Promise<void>
+    /**
+     * Load and cache the entire file from the given URL.
+     * @param url - Optional URL of the file (defaults to cached URL).
+     * @returns Loading success (true/false).
+     */
+    loadFileFromUrl (url?: string): Promise<boolean>
+    /**
+     * Load a single part from the cached file.
+     * @param startFrom - Starting point of the loading process in seconds of file duration.
+     * @param dataLength - Length of the requested data in seconds.
+     */
+    loadPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
+}
+/**
+ * Partially loaded file containing:
+ * - `data` as a pseudo-File object.
+ * - `length` of the loaded part in seconds (recording time).
+ * - `start` position of the loaded part in seconds (recording time).
+ */
+export type SignalFilePart = { data: File, length: number, start: number } | null
 export type SuccessReject = (reason: string) => void
 export type SuccessResolve = (response: SuccessResponse) => void
 export type SuccessResponse = boolean

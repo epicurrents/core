@@ -68,6 +68,12 @@ export {
     SETTINGS,
 }
 import {
+    SignalFileLoader,
+} from "./loaders"
+export {
+    SignalFileLoader,
+}
+import {
     GenericOnnxService,
 } from "./onnx"
 export {
