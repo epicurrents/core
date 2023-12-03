@@ -5,9 +5,6 @@ module.exports = {
     coverageDirectory: "<rootDir>/tests/coverage/",
     extensionsToTreatAsEsm: ['.ts'],
     globals: {
-        "vue3-jest": {
-            "tsconfig": false
-        },
         'ts-jest': {
             useESM: true,
             tsconfig: {
