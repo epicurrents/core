@@ -33,6 +33,7 @@ import {
     MixedMediaDataset,
     MontageService,
     ServiceMemoryManager,
+    SignalFileLoader,
     StudyCollection,
     studyContextTemplate,
 } from "./assets"
@@ -60,18 +61,13 @@ export {
     MixedMediaDataset,
     MontageService,
     ServiceMemoryManager,
+    SignalFileLoader,
     StudyCollection,
     studyContextTemplate,
 }
 import SETTINGS from "#config/Settings"
 export {
     SETTINGS,
-}
-import {
-    SignalFileLoader,
-} from "./loaders"
-export {
-    SignalFileLoader,
 }
 import {
     GenericOnnxService,

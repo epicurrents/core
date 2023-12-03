@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { GenericAsset } from "#assets"
 import { type FileFormatLoader } from "#types/loader"
 import { type MemoryManager } from "#types/service"
 import {
@@ -14,7 +15,7 @@ import {
 } from "#types/study"
 import { studyContextTemplate } from "#assets/study/loaders/GenericStudyLoader"
 
-export default abstract class GenericFileLoader implements FileFormatLoader {
+export default abstract class GenericFileLoader extends GenericAsset implements FileFormatLoader {
     /**
      * File headers to mime type associations.
      * @remarks
@@ -66,6 +67,7 @@ export default abstract class GenericFileLoader implements FileFormatLoader {
     protected _studyLoader: StudyLoader | null = null
 
     constructor (name: string, scopes: string[], fileExtensions = [] as string[], namePatterns = [] as string[]) {
+        super(name, GenericAsset.SCOPES.LOADER, "unk")
         this._scopes = scopes
         this._fileExtensions = fileExtensions
         this._name = name

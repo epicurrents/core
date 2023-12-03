@@ -22,6 +22,7 @@ export default abstract class GenericAsset implements BaseAsset {
         COMPONENT: 'cmp',
         DATASET: 'dat',
         DOCUMENT: 'doc',
+        LOADER: 'ldr',
         PRESENTATION: 'prs',
         SERVICE: 'srv',
         UNKNOWN: 'unk',

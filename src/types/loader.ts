@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { BaseAsset } from "./application"
 import { MemoryManager } from "./service"
 import {
     StudyContext,
@@ -36,7 +37,7 @@ export interface FileDecoder {
      */
     setInput (buffer: ArrayBuffer): void
 }
-export interface FileFormatLoader {
+export interface FileFormatLoader extends BaseAsset {
     fileType: string
     /** `StudyContext` registered to this loader. */
     study: StudyContext | null

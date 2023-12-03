@@ -22,6 +22,7 @@ import {
     GenericFileLoader,
     LocalFileReader,
     MixedFileSystemItem,
+    SignalFileLoader,
 } from "./loader"
 import {
     BiosignalAudio,
@@ -58,6 +59,7 @@ export {
     MixedMediaDataset,
     MontageService,
     ServiceMemoryManager,
+    SignalFileLoader,
     StudyCollection,
     studyContextTemplate,
 }
