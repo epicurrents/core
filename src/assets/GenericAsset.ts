@@ -17,7 +17,10 @@ export default abstract class GenericAsset implements BaseAsset {
      * Reference to the root EpiCurrents application must be added to this array before any assets are created.
      */
     static INSTANCES = [] as EpiCurrentsApplication[]
-    static SCOPES = safeObjectFrom({
+    /**
+     * Available application scopes for resources inheriting GenericAsset.
+     */
+    static SCOPES = {
         BIOSIGNAL: 'sig',
         COMPONENT: 'cmp',
         DATASET: 'dat',
@@ -26,7 +29,7 @@ export default abstract class GenericAsset implements BaseAsset {
         PRESENTATION: 'prs',
         SERVICE: 'srv',
         UNKNOWN: 'unk',
-    })
+    }
     /**
      * This will be automatically populated with a reference to the application instance.
      * @remarks

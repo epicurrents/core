@@ -119,7 +119,7 @@ export type FileSystemItemType = 'directory' | 'file'
 export type LoadDirection = 'backward' | 'alternate' | 'forward'
 export type LoaderMode = 'file' | 'folder' | 'study'
 /**
- * SignalDileLoader serves as an interface for file reading. After setting the required metadata, parts of the signal
+ * SignalDataLoader serves as an interface for file reading. After setting the required metadata, parts of the signal
  * file can be loaded using time indices and the class handles all coversions between file time and byte positions,
  * taking into account possible data unit (record) lengths and maximum allowed single load (chunk) sizes.
  *
@@ -147,6 +147,27 @@ export interface SignalDataLoader {
      * @param dataLength - Length of the requested data in seconds.
      */
     loadPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
+}
+/**
+ * SignalFileLoader has additional methods for loading the signal header and actuals signal data.
+ */
+export interface SignalFileLoader extends FileFormatLoader {
+    /**
+     * Load information about the recording contained in this file from the file header. Information is also saved
+     * into the cached study's `meta.header` property for later use.
+     * @param source - Data source as an ArrayBuffer.
+     * @param config - Optional configuration for the operation.
+     * @returns Loaded header entity.
+     */
+    loadHeader: (source: ArrayBuffer, config?: any) => unknown
+    /**
+     * Load signal information into the cached study's `meta.channels` property. Signal data is loaded directly into
+     * the channel's `signal` property if direct loading is possible; otherwise the data is meant to be loaded
+     * asynchronously later.
+     * @param source - Signal data source as an ArrayBuffer.
+     * @param config - Optional configuration for the operation.
+     */
+    loadSignals: (source: ArrayBuffer, config?: any) => Promise<void>
 }
 /**
  * Partially loaded file containing:
