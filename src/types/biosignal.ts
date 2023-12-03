@@ -69,11 +69,6 @@ export interface BiosignalChannel extends BaseAsset {
     amplification: number
     /** Is this channel average referenced. */
     averaged: boolean
-    /** Channel-specific cursors. */
-    cursors: {
-        horizontal: BiosignalCursor[]
-        vertical: BiosignalCursor[]
-    }
     /** Display polarity of the signal on this channel. */
     displayPolarity: SignalPolarity
     /** Possible individual high-pass filter in Hz. If null, use default from recording. */
@@ -110,17 +105,6 @@ export interface BiosignalChannel extends BaseAsset {
     sensitivity: number
     /** The computed channel signal. */
     signal: Float32Array
-    /** List of signal indices that cross the set trigger value. */
-    triggerPoints: number[]
-    /**
-     * Position of the trigger point on the page x-axis (as a fraction of page length).
-     * @example
-     * triggerPosition = 0.5 // middle of the page
-     * triggerPosition = 0.25 // between the first and second quarter of the page
-     */
-    triggerPosition: number
-    /** Amplitude value to use as signal trigger (in uV). */
-    triggerValue: number
     /** Unit of the signal on this channel (e.g. 'uV'). */
     unit: string
     /** Is this channel visible to the user. */
@@ -130,28 +114,6 @@ export interface BiosignalChannel extends BaseAsset {
      * @param markers - Markers to add to the channel.
      */
     addMarkers (...markers: BiosignalChannelMarker[]): void
-
-    addTriggerPoints (...points: number[]): void
-
-    /**
-     * Clear all cached trigger points.
-     */
-    clearTriggerPoints (): void
-
-    /**
-     * Find all points in the channel's signal that match or cross a set trigger value.
-     * @param value - Specific value used only for this operation (default is channel's triggerValue).
-     * @return Trigger points as an array of signal data point indices.
-     */
-    findTriggerPoints (value?: number): number[]
-
-    /**
-     * Get a list of *first* trigger points for each window of the given width.
-     * @param win - Window width in milliseconds.
-     * @returns Trigger points as an array of signal data point indices.
-     */
-    getTriggerPointsForWindow (win: number): number[]
-
     /**
      * Replace this channel's signal data with the given array of data points.
      * @param signal - Signal data.
@@ -245,7 +207,9 @@ export type BiosignalConfig = {
     sensitivity?: number
     type?: string
 }
-
+/**
+ * A cursor spanning the whole height or width of the viewport.
+ */
 export type BiosignalCursor = {
     /**
      * Is this cursor active.
