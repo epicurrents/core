@@ -18,12 +18,11 @@ import {
 } from "#types/service"
 import { Log } from "scoped-ts-log"
 import SETTINGS from "#config/Settings"
-import { GB_BYTES, NUMERIC_ERROR_VALUE } from "#util/constants"
+import { NUMERIC_ERROR_VALUE } from "#util/constants"
 import { nullPromise, safeObjectFrom } from "#util/general"
 
 const SCOPE = 'ServiceMemoryManager'
 
-let totalBuf = 0
 export default class ServiceMemoryManager implements MemoryManager {
     private static MASTER_LOCK_POS = 0
     private static BUFFER_START_POS = 1
@@ -62,7 +61,6 @@ export default class ServiceMemoryManager implements MemoryManager {
      * @param bufferSize - The total size of the buffer in bytes; from this on, sizes are always in 32-bit units.
      */
     constructor (bufferSize: number) {
-        totalBuf += bufferSize + 4
         this._buffer = new SharedArrayBuffer(bufferSize + 4)
         this._masterLock = new Int32Array(this._buffer).subarray(
             ServiceMemoryManager.MASTER_LOCK_POS,

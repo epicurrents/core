@@ -13,6 +13,26 @@ import {
     StudyLoader,
 } from "./study"
 
+/**
+ * Header loader optional configuration.
+ * @param byteSize - Byte size of the header part of the file.
+ */
+export type ConfigLoadHeader = {
+    byteSize?: number
+}
+/**
+ * Signal loader optional configuration.
+ * @param signals - Array of objects describing the loaded signals.
+ */
+export type ConfigLoadSignals = {
+    signals: {
+        label?: string
+        name?: string
+        samplingRate?: number
+        type?: string
+    }[]
+}
+
 export interface FileDecoder {
     /** Decoded input data. */
     output: unknown
@@ -159,7 +179,7 @@ export interface SignalFileLoader extends FileFormatLoader {
      * @param config - Optional configuration for the operation.
      * @returns Loaded header entity.
      */
-    loadHeader: (source: ArrayBuffer, config?: any) => unknown
+    loadHeader: (source: ArrayBuffer, config?: ConfigLoadHeader) => unknown
     /**
      * Load signal information into the cached study's `meta.channels` property. Signal data is loaded directly into
      * the channel's `signal` property if direct loading is possible; otherwise the data is meant to be loaded
@@ -167,7 +187,7 @@ export interface SignalFileLoader extends FileFormatLoader {
      * @param source - Signal data source as an ArrayBuffer.
      * @param config - Optional configuration for the operation.
      */
-    loadSignals: (source: ArrayBuffer, config?: any) => Promise<void>
+    loadSignals: (source: ArrayBuffer, config?: ConfigLoadSignals) => Promise<void>
 }
 /**
  * Partially loaded file containing:

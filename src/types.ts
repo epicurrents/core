@@ -214,6 +214,8 @@ export {
 /////////////////////////////////////////////////
 
 import {
+    type ConfigLoadHeader,
+    type ConfigLoadSignals,
     type FileDecoder,
     type FileFormatLoader,
     type FileFormatLoaderSpecs,
@@ -230,6 +232,8 @@ import {
     type SuccessResponse,
 } from "./types/loader"
 export {
+    ConfigLoadHeader,
+    ConfigLoadSignals,
     FileDecoder,
     FileFormatLoader,
     FileFormatLoaderSpecs,

@@ -9,7 +9,6 @@ import {
     BiosignalChannelProperties,
     type BiosignalChannel,
     type BiosignalFilters,
-    type BiosignalMontage,
     type BiosignalSetup,
     type FftAnalysisResult,
     type MontageChannel,

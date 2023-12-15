@@ -39,7 +39,7 @@ export default class SignalFileLoader implements SignalDataLoader {
     /** Index of next data record to load. */
     protected _filePos = 0
     /** Callback to use whenever the loader is done processing something. */
-    protected _callback: ((message: any) => void)
+    protected _callback: ((update: unknown) => void)
     /**
      * postMessage method of the parent worker.
      * This is not really the correct type for postMessage, but it serves its purpose.
@@ -50,7 +50,7 @@ export default class SignalFileLoader implements SignalDataLoader {
     /** File data url. */
     protected _url = ''
 
-    constructor (callback: ((message: any) => void), postMessage: (message: string) => void) {
+    constructor (callback: ((update: unknown) => void), postMessage: (message: string) => void) {
         this._callback = callback
         this._postMessage = postMessage
     }
@@ -64,6 +64,23 @@ export default class SignalFileLoader implements SignalDataLoader {
     }
     set url (url: string) {
         this._url = url
+    }
+
+    /**
+     * Expand the given blob into a file-like object.
+     * @param blob - Blob to modify.
+     * @param name - Name of the file.
+     * @param path - Optional webkitRelativePath (defaults to "").
+     * @returns Pseudo-file created from the blob.
+     */
+    protected _blobToFile (blob: Blob, name: string, path?: string): File {
+        // Import properties expected of a file object.
+        Object.assign(blob, {
+            lastModified: Date.now(),
+            name: name,
+            webkitRelativePath: path || "",
+        })
+        return <File>blob
     }
 
     /**
@@ -205,12 +222,6 @@ export default class SignalFileLoader implements SignalDataLoader {
             SCOPE)
             // Cache info for data loading.
             this._dataOffset = 0
-            const blobToFile = (blob: Blob): File => {
-                // "Convert" a blob to a valid file object.
-                ;(blob as any).lastModifiedDate = new Date()
-                ;(blob as any).name = file.name
-                return <File>blob
-            }
             // Next, load the rest of the "active third".
             const startPos = Math.floor(startFrom/this._dataUnitSize)
             const thirdSize = Math.floor(SETTINGS.app.maxLoadCacheSize/(3*this._dataUnitSize))
@@ -219,7 +230,11 @@ export default class SignalFileLoader implements SignalDataLoader {
             const activeThirdLength = activeThirdEnd - activeThirdStart
             const activeDataStart = this._dataOffset + activeThirdStart*this._dataUnitSize
             const activeDataEnd = this._dataOffset + activeThirdEnd*this._dataUnitSize
-            const activePart = blobToFile(file.slice(activeDataStart, activeDataEnd))
+            const activePart = this._blobToFile(
+                file.slice(activeDataStart, activeDataEnd),
+                file.name,
+                file.webkitRelativePath
+            )
             this._cachedParts.active = {
                 data: activePart,
                 length: activeThirdLength,
@@ -240,7 +255,11 @@ export default class SignalFileLoader implements SignalDataLoader {
             if (trailingThirdStart < this._dataUnitCount) {
                 const trailingDataStart = this._dataOffset + trailingThirdStart*this._dataUnitSize
                 const trailingDataEnd = this._dataOffset + trailingThirdEnd*this._dataUnitSize
-                const trailingPart = blobToFile(file.slice(trailingDataStart, trailingDataEnd))
+                const trailingPart = this._blobToFile(
+                    file.slice(trailingDataStart, trailingDataEnd),
+                    file.name,
+                    file.webkitRelativePath
+                )
                 this._cachedParts.trailing = {
                     data: trailingPart,
                     length: trailingThirdLength,
@@ -249,7 +268,11 @@ export default class SignalFileLoader implements SignalDataLoader {
                 // Combine the active and trailing parts.
                 if (this._cachedParts.active) {
                     this._file = {
-                        data: blobToFile(new Blob([ this._cachedParts.active.data, this._cachedParts.trailing.data])),
+                        data: this._blobToFile(
+                            new Blob([ this._cachedParts.active.data, this._cachedParts.trailing.data]),
+                            file.name,
+                            file.webkitRelativePath
+                        ),
                         length: this._cachedParts.active.length + trailingThirdLength,
                         start: this._cachedParts.active.start,
                     }
@@ -270,7 +293,7 @@ export default class SignalFileLoader implements SignalDataLoader {
                     length: this._dataUnitCount*this._dataUnitDuration
                 }
                 return true
-            }).catch((reason: any) => {
+            }).catch((reason: unknown) => {
                 log(this._postMessage, 'ERROR',
                     `Error loading file from URL '${url || this._url}':`,
                 SCOPE, reason)
@@ -289,12 +312,6 @@ export default class SignalFileLoader implements SignalDataLoader {
         }
         // Save starting time for debugging.
         this._startTime = Date.now()
-        const blobToFile = (blob: Blob, name: string): File => {
-            // "Convert" a blob to a valid file object.
-            ;(blob as any).lastModifiedDate = new Date()
-            ;(blob as any).name = name
-            return <File>blob
-        }
         const unitStart = Math.max(
             0,
             Math.floor(this._timeToDataUnitIndex(startFrom))
@@ -316,7 +333,10 @@ export default class SignalFileLoader implements SignalDataLoader {
         }
         const startTime = this._dataUnitIndexToTime(unitStart)
         const partLength = this._dataUnitIndexToTime(unitEnd - unitStart)
-        const SignalFilePart = blobToFile(await getBlob(), `SignalFilePart[${startTime},${startTime + partLength}]`)
+        const SignalFilePart = this._blobToFile(
+            await getBlob(),
+            `SignalFilePart[${startTime},${startTime + partLength}]`
+        )
         // Cache only the visible part.
         return {
             data: SignalFilePart,

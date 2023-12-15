@@ -585,7 +585,7 @@ const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
     const gapsTotal = getGapTimeBetween(0, range[1])
     const rangeStart = range[0] - priorGapsTotal
     const rangeEnd = range[1] - gapsTotal
-    const responseSigs = [] as SignalCachePart['signals']
+    //const responseSigs = [] as SignalCachePart['signals']
     for (let i=0; i<requestedSigs.signals.length; i++) {
         const signalForRange = new Float32Array(Math.round((range[1] - range[0])*requestedSigs.signals[i].samplingRate)).fill(0.0)
         if (rangeStart === rangeEnd) {
