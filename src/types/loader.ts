@@ -33,6 +33,22 @@ export type ConfigLoadSignals = {
     }[]
 }
 
+/**
+ * URL loader optional configuration.
+ * @param headerLoader - Header loader configuration.
+ * @param mime - Mime type of the file.
+ * @param name - Name of the file.
+ * @param signalLoader - Signal loader configuration.
+ * @param url - Study file URL, if different from the source URL.
+ */
+export type ConfigLoadUrl = {
+    headerLoader?: ConfigLoadHeader
+    mime?: string
+    name?: string
+    signalLoader?: ConfigLoadSignals
+    url?: string
+}
+
 export interface FileDecoder {
     /** Decoded input data. */
     output: unknown

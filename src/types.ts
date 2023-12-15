@@ -216,6 +216,7 @@ export {
 import {
     type ConfigLoadHeader,
     type ConfigLoadSignals,
+    type ConfigLoadUrl,
     type FileDecoder,
     type FileFormatLoader,
     type FileFormatLoaderSpecs,
@@ -234,6 +235,7 @@ import {
 export {
     ConfigLoadHeader,
     ConfigLoadSignals,
+    ConfigLoadUrl,
     FileDecoder,
     FileFormatLoader,
     FileFormatLoaderSpecs,
