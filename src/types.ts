@@ -384,3 +384,14 @@ export {
     StudyLoaderContext,
     StudyLoaderProtocolContext,
 }
+
+/////////////////////////////////////////////////
+//                   UTIL                      //
+/////////////////////////////////////////////////
+
+import {
+    type Modify,
+} from "./types/util"
+export {
+    Modify,
+}
