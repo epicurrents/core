@@ -12,9 +12,9 @@ import {
     type WebGlCompatibleColor,
     type WebGlPlotConfig,
     type WebGlTrace,
-} from "#types/plot"
-import { Log } from "scoped-ts-log"
-import PlotColor from "./PlotColor"
+} from '#types/plot'
+import { Log } from 'scoped-ts-log'
+import PlotColor from './PlotColor'
 
 const SCOPE = "WebGlPlot"
 

@@ -1,4 +1,4 @@
-import GenericDocumentResource from "./GenericDocumentResource"
+import GenericDocumentResource from './GenericDocumentResource'
 
 export {
     GenericDocumentResource,

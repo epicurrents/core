@@ -16,7 +16,7 @@ import {
     NANO,
     NO_MOUSE_BUTTON_DOWN,
     NUMERIC_ERROR_VALUE,
-} from "./constants"
+} from './constants'
 import {
     hexToSettingsColor,
     lastFractOnlyIfSignificant,
@@ -28,7 +28,7 @@ import {
     settingsColorToRgba,
     settingsDashArrayToSvgStrokeDasharray,
     timePartsToShortString,
-} from "./conversions"
+} from './conversions'
 import {
     enumerate,
     isEmptyObject,
@@ -36,7 +36,7 @@ import {
     nullPromise,
     safeObjectFrom,
     sleep
-} from "./general"
+} from './general'
 import {
     calculateSignalOffsets,
     combineAllSignalParts,
@@ -55,12 +55,12 @@ import {
     resampleSignal,
     shouldDisplayChannel,
     shouldFilterSignal,
-} from "./signal"
+} from './signal'
 import {
     log,
     syncSettings,
     type RelayLogMessage,
-} from "./worker"
+} from './worker'
 export {
     GB_BYTES,
     GIGA,

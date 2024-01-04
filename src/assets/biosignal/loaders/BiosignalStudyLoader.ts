@@ -5,11 +5,11 @@
  * @license    Apache-2.0
  */
 
-import { type VideoAttachment } from "#types/biosignal"
-import { type ConfigStudyContext, type ConfigStudyLoader } from "#types/config"
-import { type FileFormatLoader } from "#types/loader"
-import { type StudyContext } from "#types/study"
-import GenericStudyLoader from "#assets/study/loaders/GenericStudyLoader"
+import { type VideoAttachment } from '#types/biosignal'
+import { type ConfigStudyContext, type ConfigStudyLoader } from '#types/config'
+import { type FileFormatLoader } from '#types/loader'
+import { type StudyContext } from '#types/study'
+import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
 
 //const SCOPE = 'BiosignalStudyLoader'
 

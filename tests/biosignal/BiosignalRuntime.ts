@@ -1,4 +1,4 @@
-import { DataResource, StateManager } from "../../src/types"
+import { DataResource, StateManager } from '../../src/types'
 
 export const BIOSIG_MODULE = {
     __proto__: null,

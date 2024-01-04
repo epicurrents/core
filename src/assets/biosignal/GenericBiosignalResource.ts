@@ -15,19 +15,19 @@ import {
     type BiosignalResource,
     type BiosignalSetup,
     type VideoAttachment
-} from "#types/biosignal"
-import { type CommonBiosignalSettings, type ConfigChannelFilter } from "#types/config"
+} from '#types/biosignal'
+import { type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
 import {
     type MemoryManager,
     type SignalCachePart,
     type SignalCacheResponse,
-} from "#types/service"
-import { type StudyContext } from "#types/study"
-import { nullPromise } from "#util/general"
-import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from "#util/signal"
-import GenericResource from "#assets/GenericResource"
-import Log from "scoped-ts-log"
-import SETTINGS from "#config/Settings"
+} from '#types/service'
+import { type StudyContext } from '#types/study'
+import { nullPromise } from '#util/general'
+import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
+import GenericResource from '#assets/GenericResource'
+import Log from 'scoped-ts-log'
+import SETTINGS from '#config/Settings'
 
 const SCOPE = 'GenericBiosignalResource'
 

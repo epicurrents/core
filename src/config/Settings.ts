@@ -7,18 +7,18 @@
 
 import {
     type PropertyUpdateHandler
-} from "#root/src/types/application"
+} from '#root/src/types/application'
 import {
     type AppSettings,
     type BaseModuleSettings,
     type ClonableAppSettings,
     type ClonableModuleSettings,
     type SettingsValue,
-} from "#types/config"
-import { MB_BYTES } from "#util/constants"
-import { hexToSettingsColor, rgbaToSettingsColor } from "#util/conversions"
-import { safeObjectFrom } from "#util/general"
-import { Log } from "scoped-ts-log"
+} from '#types/config'
+import { MB_BYTES } from '#util/constants'
+import { hexToSettingsColor, rgbaToSettingsColor } from '#util/conversions'
+import { safeObjectFrom } from '#util/general'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'Settings'
 

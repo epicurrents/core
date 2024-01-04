@@ -9,14 +9,14 @@ import {
     GenericBiosignalSetup,
     MontageService,
     SharedWorkerCache,
-} from "./biosignal"
+} from './biosignal'
 import {
     GenericDataset,
     MixedMediaDataset,
-} from "./dataset"
+} from './dataset'
 import {
     GenericDocumentResource,
-} from "./document"
+} from './document'
 import {
     FileSystemDirectory,
     FileSystemFile,
@@ -24,19 +24,19 @@ import {
     LocalFileReader,
     MixedFileSystemItem,
     SignalFileLoader,
-} from "./loader"
+} from './loader'
 import {
     BiosignalAudio,
-} from "./media"
+} from './media'
 import {
     GenericService,
     ServiceMemoryManager,
-} from "./service"
+} from './service'
 import {
     GenericStudyLoader,
     StudyCollection,
     studyContextTemplate,
-} from "./study"
+} from './study'
 
 export {
     BiosignalAudio,
@@ -65,8 +65,8 @@ export {
     StudyCollection,
     studyContextTemplate,
 }
-import GenericAsset from "./GenericAsset"
-import GenericResource from "./GenericResource"
+import GenericAsset from './GenericAsset'
+import GenericResource from './GenericResource'
 export {
     GenericAsset,
     GenericResource,

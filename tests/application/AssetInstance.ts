@@ -1,5 +1,5 @@
-import { GenericAsset } from "../../src"
-import { BaseAsset } from "../../src/types"
+import { GenericAsset } from '../../src'
+import { BaseAsset } from '../../src/types'
 
 export default class AssetInstance extends GenericAsset implements BaseAsset {
     constructor (name: string, scope: string, type: string) {

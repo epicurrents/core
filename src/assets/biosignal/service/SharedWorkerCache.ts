@@ -5,10 +5,10 @@
  * @license    Apache-2.0
  */
 
-import { GenericService } from "#assets"
-import { combineSignalParts, log } from "#root/src/util"
-import { type SignalRange, type WorkerSignalCache } from "#types/biosignal"
-import { type SignalCachePart, type WorkerCommission } from "#types/service"
+import { GenericService } from '#assets'
+import { combineSignalParts, log } from '#root/src/util'
+import { type SignalRange, type WorkerSignalCache } from '#types/biosignal'
+import { type SignalCachePart, type WorkerCommission } from '#types/service'
 
 export default class SharedWorkerCache extends GenericService implements WorkerSignalCache {
     protected _postMessage: typeof postMessage
@@ -59,7 +59,7 @@ export default class SharedWorkerCache extends GenericService implements WorkerS
     protected _commissionWorker(
         action: string,
         props?: Map<string, unknown> | undefined,
-        callbacks?: { 
+        callbacks?: {
             resolve: (value?: unknown) => void,
             reject: (reason?: string | undefined) => void
         } | undefined,

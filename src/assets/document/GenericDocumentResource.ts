@@ -5,10 +5,10 @@
  * @license    Apache-2.0
  */
 
-import { type DocumentFormat, type DocumentResource } from "#types/document"
-import { type StudyContext } from "#types/study"
-import GenericResource from "#assets/GenericResource"
-import { nullPromise } from "#util/general"
+import { type DocumentFormat, type DocumentResource } from '#types/document'
+import { type StudyContext } from '#types/study'
+import GenericResource from '#assets/GenericResource'
+import { nullPromise } from '#util/general'
 
 //const SCOPE = 'GenericDocumentResource'
 

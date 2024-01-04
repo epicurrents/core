@@ -15,13 +15,13 @@ import {
     type WorkerCommission,
     type WorkerMessage,
     type WorkerResponse,
-} from "#types/service"
-import { Log } from "scoped-ts-log"
-import SETTINGS from "#config/Settings"
-import GenericAsset from "#assets/GenericAsset"
-import { NUMERIC_ERROR_VALUE } from "#util/constants"
-import { getOrSetValue, nullPromise, safeObjectFrom } from "#util/general"
-import { MutexExportProperties } from "asymmetric-io-mutex"
+} from '#types/service'
+import { Log } from 'scoped-ts-log'
+import SETTINGS from '#config/Settings'
+import GenericAsset from '#assets/GenericAsset'
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import { getOrSetValue, nullPromise, safeObjectFrom } from '#util/general'
+import { MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericService'
 

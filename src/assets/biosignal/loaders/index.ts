@@ -1,4 +1,4 @@
-import BiosignalStudyLoader from "./BiosignalStudyLoader"
+import BiosignalStudyLoader from './BiosignalStudyLoader'
 
 export {
     BiosignalStudyLoader,

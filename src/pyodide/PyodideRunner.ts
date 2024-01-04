@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { loadPyodide } from "pyodide/pyodide.js"
-import { Log } from "scoped-ts-log"
+import { loadPyodide } from 'pyodide/pyodide.js'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'PyodideRunner'
 

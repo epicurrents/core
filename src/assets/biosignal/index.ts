@@ -1,19 +1,19 @@
-import GenericBiosignalResource from "./GenericBiosignalResource"
+import GenericBiosignalResource from './GenericBiosignalResource'
 import {
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
     GenericBiosignalSetup,
-} from "./components"
+} from './components'
 import {
     BiosignalStudyLoader,
-} from "./loaders"
+} from './loaders'
 import {
     BiosignalMutex,
     GenericBiosignalService,
     MontageService,
     SharedWorkerCache,
-} from "./service"
+} from './service'
 
 export {
     BiosignalMutex,

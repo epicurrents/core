@@ -1,4 +1,4 @@
-import BiosignalAudio from "./BiosignalAudio"
+import BiosignalAudio from './BiosignalAudio'
 
 export {
     BiosignalAudio,

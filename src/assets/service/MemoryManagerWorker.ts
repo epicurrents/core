@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { type WorkerMessage } from "#types/service"
-import IOMutex from "asymmetric-io-mutex"
-import { log } from "#util/worker"
+import { type WorkerMessage } from '#types/service'
+import IOMutex from 'asymmetric-io-mutex'
+import { log } from '#util/worker'
 
 let BUFFER = null as SharedArrayBuffer | null
 let VIEW = null as Int32Array | null

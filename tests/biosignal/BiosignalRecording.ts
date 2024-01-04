@@ -1,5 +1,5 @@
-import { GenericBiosignalResource } from "../../src"
-import { BiosignalResource, MemoryManager } from "../../src/types"
+import { GenericBiosignalResource } from '../../src'
+import { BiosignalResource, MemoryManager } from '../../src/types'
 
 export class BiosignalRecording extends GenericBiosignalResource implements BiosignalResource {
     constructor (

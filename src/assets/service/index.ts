@@ -1,5 +1,5 @@
-import GenericService from "./GenericService"
-import ServiceMemoryManager from "./ServiceMemoryManager"
+import GenericService from './GenericService'
+import ServiceMemoryManager from './ServiceMemoryManager'
 
 export {
     GenericService,

@@ -1,4 +1,4 @@
-import { GenericOnnxService } from "./GenericOnnxService"
+import { GenericOnnxService } from './GenericOnnxService'
 
 export {
     GenericOnnxService,

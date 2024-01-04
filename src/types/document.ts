@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { DataResource } from "./application"
+import { DataResource } from './application'
 
 /** Valid HTML resource formats. */
 export type DocumentFormat = 'html' | 'markdown' | 'pdf'

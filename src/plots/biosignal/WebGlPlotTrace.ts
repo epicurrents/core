@@ -9,8 +9,8 @@ import {
     type BiosignalPlot,
     type WebGlCompatibleColor,
     type WebGlTrace
-} from "#types/plot"
-import { Log } from "scoped-ts-log"
+} from '#types/plot'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'WebGlPlotTrace'
 

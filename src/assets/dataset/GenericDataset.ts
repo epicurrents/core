@@ -5,15 +5,15 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource } from "#root/src/types/application"
+import { type DataResource } from '#root/src/types/application'
 import {
     type BaseDataset,
     type DatasetCredentials,
     type ResourceSortingInstructions,
     type ResourceSortingScheme
-} from "#types/dataset"
-import { Log } from "scoped-ts-log"
-import GenericAsset from "../GenericAsset"
+} from '#types/dataset'
+import { Log } from 'scoped-ts-log'
+import GenericAsset from '../GenericAsset'
 
 const SCOPE = 'GenericDataset'
 

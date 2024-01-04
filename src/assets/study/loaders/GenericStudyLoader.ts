@@ -5,18 +5,18 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource } from "#root/src/types/application"
-import { type ConfigStudyLoader } from "#types/config"
-import { type FileFormatLoader, type FileSystemItem } from "#types/loader"
-import { type MemoryManager } from "#types/service"
+import { type DataResource } from '#root/src/types/application'
+import { type ConfigStudyLoader } from '#types/config'
+import { type FileFormatLoader, type FileSystemItem } from '#types/loader'
+import { type MemoryManager } from '#types/service'
 import {
     type StudyContext,
     type StudyContextCollection,
     type StudyLoader,
     type UseStudyResponse,
-} from "#types/study"
-import { Log } from "scoped-ts-log"
-import ServiceMemoryManager from "#assets/service/ServiceMemoryManager"
+} from '#types/study'
+import { Log } from 'scoped-ts-log'
+import ServiceMemoryManager from '#assets/service/ServiceMemoryManager'
 
 export const studyContextTemplate = () => {
     return {

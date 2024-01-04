@@ -1,4 +1,4 @@
-import GenericStudyLoader, { studyContextTemplate } from "./GenericStudyLoader"
+import GenericStudyLoader, { studyContextTemplate } from './GenericStudyLoader'
 
 export {
     GenericStudyLoader,

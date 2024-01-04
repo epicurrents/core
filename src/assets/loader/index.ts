@@ -1,11 +1,11 @@
-import GenericFileLoader from "./GenericFileLoader"
-import LocalFileReader from "./LocalFileReader"
-import SignalFileLoader from "./SignalFileLoader"
+import GenericFileLoader from './GenericFileLoader'
+import LocalFileReader from './LocalFileReader'
+import SignalFileLoader from './SignalFileLoader'
 import {
     FileSystemDirectory,
     FileSystemFile,
     MixedFileSystemItem,
-} from "./filesystem"
+} from './filesystem'
 
 export {
     FileSystemDirectory,

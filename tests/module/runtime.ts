@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource, type RuntimeResourceModule, type StateManager, type SafeObject } from "../../src/types"
-import { logInvalidMutation } from "../../src/runtime/util"
+import { type DataResource, type RuntimeResourceModule, type StateManager, type SafeObject } from '../../src/types'
+import { logInvalidMutation } from '../../src/runtime/util'
 
 const runtime: RuntimeResourceModule = {
     __proto__: null,

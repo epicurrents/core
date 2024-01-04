@@ -9,19 +9,19 @@ import {
     AppSettings,
     BaseModuleSettings,
     SettingsValue,
-} from "./config"
-import { DatasetLoader, MediaDataset } from "./dataset"
-import { FileSystemItem, LoaderMode } from "./loader"
-import { OnnxService } from "./onnx"
-import { BiosignalPlot } from "./plot"
-import { AssetService } from "./service"
+} from './config'
+import { DatasetLoader, MediaDataset } from './dataset'
+import { FileSystemItem, LoaderMode } from './loader'
+import { OnnxService } from './onnx'
+import { BiosignalPlot } from './plot'
+import { AssetService } from './service'
 import {
     StudyContext,
     StudyLoaderProtocolContext,
     StudyLoader,
     StudyLoaderContext,
-} from "./study"
-import { Modify } from "./util"
+} from './study'
+import { Modify } from './util'
 
 /**
  * The most basic type defining properties that must exist in every asset.
@@ -105,8 +105,8 @@ export interface BaseAsset {
  * The main EpiCurrents application.
  */
 export interface EpiCurrentsApplication {
-    /** 
-     * Does the application instance use a memory manager. A memory manager requires 
+    /**
+     * Does the application instance use a memory manager. A memory manager requires
      * SharedArrayBuffer to be available.
      */
     useMemoryManager: boolean

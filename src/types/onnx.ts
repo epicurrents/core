@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset } from "./application"
-import { BiosignalResource } from "./biosignal"
-import { AssetService, MessageHandled } from "./service"
+import { BaseAsset } from './application'
+import { BiosignalResource } from './biosignal'
+import { AssetService, MessageHandled } from './service'
 
 /**
  * An ONNX model that is available in this scope.

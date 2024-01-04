@@ -7,7 +7,7 @@
 
 /* eslint-disable */
 
-import { Log } from "scoped-ts-log"
+import { Log } from 'scoped-ts-log'
 
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.19.1/full/pyodide.js")
 

@@ -6,15 +6,15 @@
  * @license    Apache-2.0
  */
 
-import { Log } from "scoped-ts-log"
+import { Log } from 'scoped-ts-log'
 import {
     type BiosignalLaterality,
     type BiosignalChannel,
     type BiosignalChannelMarker,
     type BiosignalCursor,
     type SignalPolarity,
-} from "#types/biosignal"
-import GenericAsset from "#assets/GenericAsset"
+} from '#types/biosignal'
+import GenericAsset from '#assets/GenericAsset'
 
 const SCOPE = "GenericBiosignalChannel"
 

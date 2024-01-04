@@ -5,13 +5,13 @@
  * @license    Apache-2.0
  */
 
-import { SETTINGS } from "#config"
+import { SETTINGS } from '#config'
 import {
     log,
     MB_BYTES,
     NUMERIC_ERROR_VALUE,
-} from "#util"
-import { type SignalFilePart, type SignalDataLoader } from "#types/loader"
+} from '#util'
+import { type SignalFilePart, type SignalDataLoader } from '#types/loader'
 
 const SCOPE = 'SignalFileLoader'
 

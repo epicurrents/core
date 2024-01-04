@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { Log } from "scoped-ts-log"
-import { NUMERIC_ERROR_VALUE } from "./constants"
+import { Log } from 'scoped-ts-log'
+import { NUMERIC_ERROR_VALUE } from './constants'
 
 const SCOPE = 'util:onnx'
 

@@ -3,7 +3,7 @@ import {
     PlotColor,
     WebGlPlot,
     WebGlPlotTrace,
-} from "./biosignal"
+} from './biosignal'
 
 export {
     CanvasPlot,

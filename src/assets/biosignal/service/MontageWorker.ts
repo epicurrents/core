@@ -15,23 +15,23 @@ import {
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
     type WorkerSignalCache,
-} from "#types/biosignal"
+} from '#types/biosignal'
 import {
     type CommonBiosignalSettings,
     type ConfigChannelFilter,
     type ConfigMapChannels,
-} from "#types/config"
+} from '#types/config'
 import {
     type SignalCachePart,
     type SignalCacheResponse,
     type WorkerMessage,
-} from "#types/service"
-import BiosignalMutex from "../service/BiosignalMutex"
-import GenericBiosignalSetup from "../components/GenericBiosignalSetup"
-import IOMutex, { MutexExportProperties } from "asymmetric-io-mutex"
-import { concatFloat32Arrays, filterSignal, getFilterPadding, mapMontageChannels, shouldDisplayChannel, shouldFilterSignal } from "#util/signal"
-import { NUMERIC_ERROR_VALUE } from "#util/constants"
-import { log } from "#util/worker"
+} from '#types/service'
+import BiosignalMutex from '../service/BiosignalMutex'
+import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
+import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
+import { concatFloat32Arrays, filterSignal, getFilterPadding, mapMontageChannels, shouldDisplayChannel, shouldFilterSignal } from '#util/signal'
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import { log } from '#util/worker'
 
 const SCOPE = "MontageWorker"
 

@@ -13,8 +13,8 @@ import {
     type BiosignalPlot,
     type BiosignalPlotConfig,
     type BiosignalTrace,
-} from "#types/plot"
-import { Log } from "scoped-ts-log"
+} from '#types/plot'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = "SignalPlot"
 

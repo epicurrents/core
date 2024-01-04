@@ -10,26 +10,26 @@ import {
     type BaseModuleSettings,
     type ConfigDatasetLoader,
     type SettingsValue,
-} from "#types/config"
+} from '#types/config'
 import {
     type DataResource,
     type RuntimeResourceModule,
     type RuntimeState,
     type StateManager
-} from "#root/src/types/application"
-import { type DatasetLoader, type MediaDataset } from "#types/dataset"
-import { type FileSystemItem } from "#types/loader"
-import { type AssetService } from "#types/service"
-import { type StudyContext, type StudyLoader } from "#types/study"
-import { Log } from "scoped-ts-log"
-import SETTINGS from "#config/Settings"
-import { MixedMediaDataset } from "#assets/dataset"
-import { PyodideService } from "#root/src/pyodide"
+} from '#root/src/types/application'
+import { type DatasetLoader, type MediaDataset } from '#types/dataset'
+import { type FileSystemItem } from '#types/loader'
+import { type AssetService } from '#types/service'
+import { type StudyContext, type StudyLoader } from '#types/study'
+import { Log } from 'scoped-ts-log'
+import SETTINGS from '#config/Settings'
+import { MixedMediaDataset } from '#assets/dataset'
+import { PyodideService } from '#root/src/pyodide'
 
-import { APP as APP_MODULE } from "./modules"
+import { APP as APP_MODULE } from './modules'
 export { APP_MODULE }
 
-import { logInvalidMutation } from "./util"
+import { logInvalidMutation } from './util'
 export { logInvalidMutation }
 
 const SCOPE = "runtime"

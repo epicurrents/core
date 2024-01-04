@@ -13,17 +13,17 @@ import {
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
     type SetFiltersResponse,
-} from "#types/biosignal"
-import { type ConfigChannelFilter } from "#types/config"
+} from '#types/biosignal'
+import { type ConfigChannelFilter } from '#types/config'
 import {
     type MemoryManager,
     type WorkerResponse,
-} from "#types/service"
-import { Log } from "scoped-ts-log"
-import BiosignalMutex from "./BiosignalMutex"
-import GenericService from "#assets/service/GenericService"
-import { MutexExportProperties } from "asymmetric-io-mutex"
-import { mapSignalsToSamplingRates } from "#util/signal"
+} from '#types/service'
+import { Log } from 'scoped-ts-log'
+import BiosignalMutex from './BiosignalMutex'
+import GenericService from '#assets/service/GenericService'
+import { MutexExportProperties } from 'asymmetric-io-mutex'
+import { mapSignalsToSamplingRates } from '#util/signal'
 
 const SCOPE = "MontageService"
 

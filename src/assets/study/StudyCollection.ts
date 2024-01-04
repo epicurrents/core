@@ -6,7 +6,7 @@
  * @license    Apache-2.0
  */
 
-import { StudyContextCollection, StudyContext } from "#types/study"
+import { StudyContextCollection, StudyContext } from '#types/study'
 
 
 export default class StudyCollection implements StudyContextCollection {

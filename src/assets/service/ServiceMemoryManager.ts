@@ -15,11 +15,11 @@ import {
     type WorkerCommission,
     type WorkerMessage,
     type WorkerResponse,
-} from "#types/service"
-import { Log } from "scoped-ts-log"
-import SETTINGS from "#config/Settings"
-import { NUMERIC_ERROR_VALUE } from "#util/constants"
-import { nullPromise, safeObjectFrom } from "#util/general"
+} from '#types/service'
+import { Log } from 'scoped-ts-log'
+import SETTINGS from '#config/Settings'
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import { nullPromise, safeObjectFrom } from '#util/general'
 
 const SCOPE = 'ServiceMemoryManager'
 

@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset, DataResource } from "./application"
-import { FileSystemItem } from "./loader"
-import { StudyContext } from "./study"
+import { BaseAsset, DataResource } from './application'
+import { FileSystemItem } from './loader'
+import { StudyContext } from './study'
 
 /**
  * Base type for all datasets.

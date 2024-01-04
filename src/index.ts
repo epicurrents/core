@@ -37,7 +37,7 @@ import {
     SignalFileLoader,
     StudyCollection,
     studyContextTemplate,
-} from "./assets"
+} from './assets'
 export {
     BiosignalAudio,
     BiosignalMutex,
@@ -67,13 +67,13 @@ export {
     StudyCollection,
     studyContextTemplate,
 }
-import SETTINGS from "#config/Settings"
+import SETTINGS from '#config/Settings'
 export {
     SETTINGS,
 }
 import {
     GenericOnnxService,
-} from "./onnx"
+} from './onnx'
 export {
     GenericOnnxService,
 }
@@ -82,7 +82,7 @@ import {
     PlotColor,
     WebGlPlot,
     WebGlPlotTrace,
-} from "./plots"
+} from './plots'
 export {
     CanvasPlot,
     PlotColor,
@@ -92,23 +92,23 @@ export {
 import {
     PyodideRunner,
     PyodideService,
-} from "./pyodide"
+} from './pyodide'
 export {
     PyodideRunner,
     PyodideService
 }
-import RuntimeStateManager from "./runtime"
+import RuntimeStateManager from './runtime'
 export {
     RuntimeStateManager,
 }
-import * as util from "./util"
+import * as util from './util'
 export { util }
 
 //////////////////////////////////////////////////////////////////
 //                            TYPES                             //
 //////////////////////////////////////////////////////////////////
 
-import { Log } from "scoped-ts-log"
+import { Log } from 'scoped-ts-log'
 import {
     type AssetService,
     type DataResource,
@@ -122,7 +122,7 @@ import {
     type ResourceModule,
     type SettingsValue,
     type StudyLoader,
-} from "#types"
+} from '#types'
 
 const SCOPE = 'index'
 

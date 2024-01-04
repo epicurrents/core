@@ -5,13 +5,13 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset } from "./application"
-import { MemoryManager } from "./service"
+import { BaseAsset } from './application'
+import { MemoryManager } from './service'
 import {
     StudyContext,
     StudyContextFile,
     StudyLoader,
-} from "./study"
+} from './study'
 
 /**
  * Header loader optional configuration.

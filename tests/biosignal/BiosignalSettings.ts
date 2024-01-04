@@ -1,4 +1,4 @@
-import { BaseModuleSettings, CommonBiosignalSettings } from "../../src/types"
+import { BaseModuleSettings, CommonBiosignalSettings } from '../../src/types'
 
 export const BIOSIG_SETTINGS = {
     annotations: {

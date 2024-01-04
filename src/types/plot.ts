@@ -5,8 +5,8 @@
  * @license    Apache-2.0
  */
 
-import { BiosignalChannel } from "./biosignal"
-import { SettingsColor } from "./config"
+import { BiosignalChannel } from './biosignal'
+import { SettingsColor } from './config'
 
 export interface BiosignalPlot {
     /**

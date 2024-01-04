@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { type RuntimeAppModule, type SafeObject } from "#root/src/types/application"
-import { type BiosignalPlot } from "#types/plot"
-import { type StudyLoaderContext, type StudyLoaderProtocolContext } from "#types/study"
+import { type RuntimeAppModule, type SafeObject } from '#root/src/types/application'
+import { type BiosignalPlot } from '#types/plot'
+import { type StudyLoaderContext, type StudyLoaderProtocolContext } from '#types/study'
 
 //const SCOPE = 'runtime-app-module'
 

@@ -19,7 +19,7 @@ import {
     type RuntimeState,
     type SafeObject,
     type StateManager,
-} from "./application"
+} from './application'
 export {
     BaseAsset,
     DataResource,
@@ -85,7 +85,7 @@ import {
     type VideoAttachment,
     type WorkerMontage,
     type WorkerSignalCache,
-} from "./biosignal"
+} from './biosignal'
 export {
     BiosignalAnnotation,
     BiosignalChannel,
@@ -150,7 +150,7 @@ import {
     type SettingsColor,
     type SettingsValue,
     type SettingsValueConstructor,
-} from "./config"
+} from './config'
 export {
     AppSettings,
     BaseModuleSettings,
@@ -180,7 +180,7 @@ import {
     type MediaDataset,
     type ResourceSortingInstructions,
     type ResourceSortingScheme,
-} from "./dataset"
+} from './dataset'
 export {
     BaseDataset,
     DatasetCredentials,
@@ -200,7 +200,7 @@ import {
     type DocumentServiceReject,
     type DocumentServiceResolve,
     type DocumentServiceResponse,
-} from "./document"
+} from './document'
 export {
     DocumentFormat,
     DocumentResource,
@@ -228,7 +228,7 @@ import {
     type SuccessReject,
     type SuccessResolve,
     type SuccessResponse,
-} from "./loader"
+} from './loader'
 export {
     FileDecoder,
     FileFormatLoader,
@@ -254,7 +254,7 @@ import {
     type AudioRecording,
     type WavHeader,
     type WavSignalChannel,
-} from "./media"
+} from './media'
 export {
     AudioRecording,
     WavHeader,
@@ -271,7 +271,7 @@ import {
     type OnnxService,
     type OnnxServiceReject,
     type OnnxServiceResolve,
-} from "./onnx"
+} from './onnx'
 export {
     AvailableOnnxModel,
     AvailableOnnxModelPublicProperties,
@@ -297,7 +297,7 @@ import {
     type WebGlCompatibleColor,
     type WebGlPlotConfig,
     type WebGlTrace,
-} from "./plot"
+} from './plot'
 export {
     BiosignalPlot,
     BiosignalPlotConfig,
@@ -333,7 +333,7 @@ import {
     type WorkerCommission,
     type WorkerMessage,
     type WorkerResponse,
-} from "./service"
+} from './service'
 export {
     ActionWatcher,
     AssetService,
@@ -366,7 +366,7 @@ import {
     type StudyLoader,
     type StudyLoaderContext,
     type StudyLoaderProtocolContext,
-} from "./study"
+} from './study'
 export {
     OrderedLoadingProtocol,
     StudyContext,
@@ -385,7 +385,7 @@ export {
 
 import {
     type Modify,
-} from "./util"
+} from './util'
 export {
     Modify,
 }

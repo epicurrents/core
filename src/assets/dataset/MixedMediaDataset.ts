@@ -5,10 +5,10 @@
  * @license    Apache-2.0
  */
 
-import { type MediaDataset } from "#types/dataset"
-import { type StudyContext } from "#types/study"
-import GenericDataset from "#assets/dataset/GenericDataset"
-import GenericResource from "#assets/GenericResource"
+import { type MediaDataset } from '#types/dataset'
+import { type StudyContext } from '#types/study'
+import GenericDataset from '#assets/dataset/GenericDataset'
+import GenericResource from '#assets/GenericResource'
 
 export default class MixedMediaDataset extends GenericDataset implements MediaDataset {
     protected _isPrepared = false

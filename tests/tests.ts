@@ -5,17 +5,17 @@
  * @license    Apache-2.0
  */
 
-import { EpiCurrents, SETTINGS, ServiceMemoryManager } from "../src"
+import { EpiCurrents, SETTINGS, ServiceMemoryManager } from '../src'
 // Mock module.
-import * as mod from "./module"
-import { ResourceModule } from "../src/types"
+import * as mod from './module'
+import { ResourceModule } from '../src/types'
 // Biosignal resource
-import { BiosignalDataService, BiosignalResource } from "../src/types"
-import { BiosignalRecording } from "./biosignal/BiosignalRecording"
-import { BiosignalService } from "./biosignal/BiosignalService"
-import { BIOSIG_MODULE } from "./biosignal/BiosignalRuntime"
-import { BIOSIG_SETTINGS } from "./biosignal/BiosignalSettings"
-import AssetInstance from "./application/AssetInstance"
+import { BiosignalDataService, BiosignalResource } from '../src/types'
+import { BiosignalRecording } from './biosignal/BiosignalRecording'
+import { BiosignalService } from './biosignal/BiosignalService'
+import { BIOSIG_MODULE } from './biosignal/BiosignalRuntime'
+import { BIOSIG_SETTINGS } from './biosignal/BiosignalSettings'
+import AssetInstance from './application/AssetInstance'
 
 /*
  * Mocks.

@@ -11,19 +11,19 @@ import {
     type BiosignalHeaderRecord,
     type BiosignalResource,
     type BiosignalSetupResponse,
-} from "#types/biosignal"
+} from '#types/biosignal'
 import {
     type MemoryManager,
     type SetupStudyResponse,
     type SignalCacheResponse,
     type WorkerResponse,
-} from "#types/service"
-import { type StudyContext } from "#types/study"
-import { NUMERIC_ERROR_VALUE } from "#util/constants"
-import { ConfigChannelFilter } from "#types/config"
-import GenericService from "#assets/service/GenericService"
-import Log from "scoped-ts-log"
-import SETTINGS from "#config/Settings"
+} from '#types/service'
+import { type StudyContext } from '#types/study'
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import { ConfigChannelFilter } from '#types/config'
+import GenericService from '#assets/service/GenericService'
+import Log from 'scoped-ts-log'
+import SETTINGS from '#config/Settings'
 
 const SCOPE = "GenericBiosignalService"
 

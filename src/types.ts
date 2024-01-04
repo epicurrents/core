@@ -19,7 +19,7 @@ import {
     type RuntimeState,
     type SafeObject,
     type StateManager,
-} from "./types/application"
+} from './types/application'
 export {
     BaseAsset,
     DataResource,
@@ -85,7 +85,7 @@ import {
     type VideoAttachment,
     type WorkerMontage,
     type WorkerSignalCache,
-} from "./types/biosignal"
+} from './types/biosignal'
 export {
     BiosignalAnnotation,
     BiosignalChannel,
@@ -150,7 +150,7 @@ import {
     type SettingsColor,
     type SettingsValue,
     type SettingsValueConstructor,
-} from "./types/config"
+} from './types/config'
 export {
     AppSettings,
     BaseModuleSettings,
@@ -180,7 +180,7 @@ import {
     type MediaDataset,
     type ResourceSortingInstructions,
     type ResourceSortingScheme,
-} from "./types/dataset"
+} from './types/dataset'
 export {
     BaseDataset,
     DatasetCredentials,
@@ -200,7 +200,7 @@ import {
     type DocumentServiceReject,
     type DocumentServiceResolve,
     type DocumentServiceResponse,
-} from "./types/document"
+} from './types/document'
 export {
     DocumentFormat,
     DocumentResource,
@@ -231,7 +231,7 @@ import {
     type SuccessReject,
     type SuccessResolve,
     type SuccessResponse,
-} from "./types/loader"
+} from './types/loader'
 export {
     ConfigLoadHeader,
     ConfigLoadSignals,
@@ -260,7 +260,7 @@ import {
     type AudioRecording,
     type WavHeader,
     type WavSignalChannel,
-} from "./types/media"
+} from './types/media'
 export {
     AudioRecording,
     WavHeader,
@@ -277,7 +277,7 @@ import {
     type OnnxService,
     type OnnxServiceReject,
     type OnnxServiceResolve,
-} from "./types/onnx"
+} from './types/onnx'
 export {
     AvailableOnnxModel,
     AvailableOnnxModelPublicProperties,
@@ -303,7 +303,7 @@ import {
     type WebGlCompatibleColor,
     type WebGlPlotConfig,
     type WebGlTrace,
-} from "./types/plot"
+} from './types/plot'
 export {
     BiosignalPlot,
     BiosignalPlotConfig,
@@ -339,7 +339,7 @@ import {
     type WorkerCommission,
     type WorkerMessage,
     type WorkerResponse,
-} from "./types/service"
+} from './types/service'
 export {
     ActionWatcher,
     AssetService,
@@ -372,7 +372,7 @@ import {
     type StudyLoader,
     type StudyLoaderContext,
     type StudyLoaderProtocolContext,
-} from "./types/study"
+} from './types/study'
 export {
     OrderedLoadingProtocol,
     StudyContext,
@@ -391,7 +391,7 @@ export {
 
 import {
     type Modify,
-} from "./types/util"
+} from './types/util'
 export {
     Modify,
 }

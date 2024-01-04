@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { type AsymmetricMutex, type MutexExportProperties } from "asymmetric-io-mutex"
-import { BaseAsset } from "./application"
-import { LoadDirection } from "./loader"
+import { type AsymmetricMutex, type MutexExportProperties } from 'asymmetric-io-mutex'
+import { BaseAsset } from './application'
+import { LoadDirection } from './loader'
 
 export type ActionWatcher = {
     actions: string[]

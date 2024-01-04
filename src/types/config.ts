@@ -5,14 +5,14 @@
  * @license    Apache-2.0
  */
 
-import { PropertyUpdateHandler } from "./application"
+import { PropertyUpdateHandler } from './application'
 import {
     BiosignalAnnotation,
     BiosignalChannelTemplate,
     SetupChannel,
-} from "./biosignal"
-import { PlotLineStyles } from "./plot"
-import { StudyContextCollection } from "./study"
+} from './biosignal'
+import { PlotLineStyles } from './plot'
+import { StudyContextCollection } from './study'
 
 /**
  * Core settings, expandable with modules.
@@ -84,7 +84,7 @@ export interface AppSettings {
      * @example
      * getFieldValue('settings.field.somewhere.deep') // Returns the value of the property 'deep'.
      * getFieldValue('settings.field.somewhere.deep', 1) // Returns the value of 'field' ('settings' being index 0).
-     * getFieldValue('settings.field.somewhere.deep', -1) // Returns the value of 'somewhere' (-1 offset from "deep").
+     * getFieldValue('settings.field.somewhere.deep', -1) // Returns the value of 'somewhere' (-1 offset from 'deep').
      */
     getFieldValue (field: string, depth?: number): SettingsValue
     /**

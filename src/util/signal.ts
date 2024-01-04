@@ -13,14 +13,14 @@ import {
     type FftAnalysisResult,
     type MontageChannel,
     type SetupChannel,
-} from "#types/biosignal"
-import { type SignalCachePart } from "#types/service"
-import * as d3 from "d3-interpolate"
-import Fili from "fili"
-import { Log } from "scoped-ts-log"
-//import { BiosignalMutex } from "#assets/biosignal"
-import { LTTB } from "downsample"
-import { NUMERIC_ERROR_VALUE } from "./constants"
+} from '#types/biosignal'
+import { type SignalCachePart } from '#types/service'
+import * as d3 from 'd3-interpolate'
+import Fili from 'fili'
+import { Log } from 'scoped-ts-log'
+//import { BiosignalMutex } from '#assets/biosignal'
+import { LTTB } from 'downsample'
+import { NUMERIC_ERROR_VALUE } from './constants'
 
 const SCOPE = 'util:signal'
 const iirCalculator = new Fili.CalcCascades()
