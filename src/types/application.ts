@@ -106,6 +106,10 @@ export interface BaseAsset {
  */
 export interface EpiCurrentsApplication {
     /**
+     * Path where public assets (mostly javascript) are served from.
+     */
+    publicPath: string
+    /**
      * Does the application instance use a memory manager. A memory manager requires
      * SharedArrayBuffer to be available.
      */

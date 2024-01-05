@@ -7,7 +7,8 @@
 
 /* eslint-disable */
 
-declare const __webpack_public_path__: string
+/** Path where WebPack serves its publick assets (js) from. */
+declare let __webpack_public_path__: string
 declare module 'codecutils' {
     const CodecUtils: {
         extractTypedArray: Float32Array | Float64Array |

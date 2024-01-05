@@ -127,7 +127,7 @@ import {
 const SCOPE = 'index'
 
 export class EpiCurrents implements EpiCurrentsApplication {
-    // Properties
+    // Private poperties.
     #app = null as null | InterfaceModule
     #instanceNum: number
     #interface = null as null | InterfaceModuleConstructor
@@ -141,6 +141,14 @@ export class EpiCurrents implements EpiCurrentsApplication {
         } else {
             this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
         }
+    }
+
+    // Public properties.
+    get publicPath () {
+        return __webpack_public_path__
+    }
+    set publicPath (value: string) {
+        __webpack_public_path__ = value
     }
 
     get useMemoryManager () {
