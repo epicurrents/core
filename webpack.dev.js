@@ -16,7 +16,7 @@ module.exports = merge(common, {
         'types': { import: path.join(__dirname, 'src', 'types', 'index.ts') },
     },
     output: {
-        path: path.resolve(__dirname, 'build', 'testing'),
+        path: path.resolve(__dirname, 'dev'),
         publicPath: ASSET_PATH,
         filename: '[name].js',
         chunkFilename: '[name].js?v=[contenthash]',
