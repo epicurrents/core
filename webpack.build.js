@@ -13,10 +13,13 @@ module.exports = merge(common, {
         'index': { import: path.join(__dirname, 'src', 'index.ts') },
     },
     output: {
-        path: path.resolve(__dirname, 'build'),
+        path: path.resolve(__dirname, 'umd'),
         publicPath: ASSET_PATH,
         filename: '[name].min.js',
-        chunkFilename: 'chunks/[name].min.js',
+        chunkFilename (chunkData) {
+            const outDir = chunkData.chunk.name?.endsWith('-worker') ? 'workers/' : 'chunks/'
+            return `${outDir}[name].min.js`
+        },
         library: '[name]',
         libraryTarget: 'umd'
     },

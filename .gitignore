@@ -2,9 +2,9 @@
 .npmrc
 .vscode
 node_modules
-build/*
 dev/*
 dist/*
+umd/*
 tests/coverage
 
 ._*

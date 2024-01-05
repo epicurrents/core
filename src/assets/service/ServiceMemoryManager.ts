@@ -66,7 +66,11 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        this._worker = new Worker(new URL(`./MemoryManagerWorker.ts`, import.meta.url))
+        this._worker = new Worker(new URL(
+            /* webpackChunkName: 'memory-manager-worker' */
+            `./MemoryManagerWorker.ts`,
+            import.meta.url
+        ))
         this._worker.addEventListener('message', this._handleMessage.bind(this))
         this._worker.postMessage({
             action: 'set-buffer',

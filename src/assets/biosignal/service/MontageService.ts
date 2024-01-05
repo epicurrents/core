@@ -39,7 +39,11 @@ export default class MontageService extends GenericService implements BiosignalM
     }
 
     constructor (namespace: string, montage: BiosignalMontage, manager?: MemoryManager) {
-        super(SCOPE, new Worker(new URL(`./MontageWorker.ts`, import.meta.url)), manager)
+        super(SCOPE, new Worker(new URL(
+            /* webpackChunkName: 'montage-worker' */
+            `./MontageWorker.ts`,
+            import.meta.url
+        )), manager)
         this._worker?.postMessage({
             action: 'settings-namespace',
             value: namespace,
