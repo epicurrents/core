@@ -10,7 +10,7 @@ module.exports = merge(common, {
     mode: 'production',
     devtool: 'source-map',
     entry: {
-        'index': { import: path.join(__dirname, 'src', 'index.ts') },
+        'epicurrents': { import: path.join(__dirname, 'src', 'index.ts') },
     },
     output: {
         path: path.resolve(__dirname, 'umd'),
@@ -20,7 +20,7 @@ module.exports = merge(common, {
             const outDir = chunkData.chunk.name?.endsWith('-worker') ? 'workers/' : 'chunks/'
             return `${outDir}[name].min.js`
         },
-        library: '[name]',
+        library: 'epicurrents',
         libraryTarget: 'umd'
     },
     optimization: {
