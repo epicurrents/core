@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { GenericAsset } from '#assets'
+import GenericAsset from '#assets/GenericAsset'
 import { type FileFormatLoader } from '#types/loader'
 import { type MemoryManager } from '#types/service'
 import {

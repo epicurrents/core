@@ -26,7 +26,7 @@ export default class PyodideService extends GenericService implements AssetServi
     protected _scripts = {} as { [name: string]: ScriptState }
 
     constructor () {
-        super(SCOPE, new Worker(new URL("./PyodideWorker.js", import.meta.url)))
+        super(SCOPE, new Worker(new URL("./PyodideWorker.ts", import.meta.url)))
     }
 
     /**

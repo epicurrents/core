@@ -13,7 +13,7 @@ module.exports = merge(common, {
         'index': { import: path.join(__dirname, 'src', 'index.ts') },
     },
     output: {
-        path: path.resolve(__dirname, 'build', 'lib'),
+        path: path.resolve(__dirname, 'build'),
         publicPath: ASSET_PATH,
         filename: '[name].min.js',
         chunkFilename: 'chunks/[name].min.js',

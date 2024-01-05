@@ -28,7 +28,15 @@ module.exports = {
         extensions: ['.ts', '.js', '.json'],
         alias: {
             '#root': path.resolve(__dirname, './'),
-            '#': path.resolve(__dirname, 'src/'),
+            '#assets': path.resolve(__dirname, 'src', 'assets'),
+            '#config': path.resolve(__dirname, 'src', 'config'),
+            '#errors': path.resolve(__dirname, 'src', 'errors'),
+            '#onnx': path.resolve(__dirname, 'src', 'onnx'),
+            '#plots': path.resolve(__dirname, 'src', 'plots'),
+            '#pyodide': path.resolve(__dirname, 'src', 'pyodide'),
+            '#runtime': path.resolve(__dirname, 'src', 'runtime'),
+            '#types': path.resolve(__dirname, 'src', 'types'),
+            '#util': path.resolve(__dirname, 'src', 'util'),
         },
         symlinks: false
     },

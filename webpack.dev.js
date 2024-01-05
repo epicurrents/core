@@ -13,7 +13,7 @@ module.exports = merge(common, {
     devtool: 'inline-cheap-source-map',
     entry: {
         'index': { import: path.join(__dirname, 'src', 'index.ts') },
-        'types': { import: path.join(__dirname, 'types', 'index.ts') },
+        'types': { import: path.join(__dirname, 'src', 'types', 'index.ts') },
     },
     output: {
         path: path.resolve(__dirname, 'build', 'testing'),

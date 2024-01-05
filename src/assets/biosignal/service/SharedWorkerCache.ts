@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { GenericService } from '#assets'
+import GenericService from '#assets/service/GenericService'
 import { combineSignalParts, log } from '#root/src/util'
 import { type SignalRange, type WorkerSignalCache } from '#types/biosignal'
 import { type SignalCachePart, type WorkerCommission } from '#types/service'
