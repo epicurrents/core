@@ -1,27 +1,24 @@
 const path = require('path')
-const { merge } = require('webpack-merge')
-const common = require('./webpack.config.js')
 const Dotenv = require('dotenv-webpack')
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const CircularDependencyPlugin = require('circular-dependency-plugin')
 
-const ASSET_PATH = process.env.ASSET_PATH || '/testing/'
+const ASSET_PATH = process.env.ASSET_PATH || '/dev/'
 const ROOT_PATH = process.env.ROOT_PATH || '/'
 
-module.exports = merge(common, {
+module.exports = {
     mode: 'development',
-    devtool: 'inline-cheap-source-map',
     entry: {
-        'index': { import: path.join(__dirname, 'src', 'index.ts') },
-        'types': { import: path.join(__dirname, 'src', 'types', 'index.ts') },
+        'epicurrents': { import: path.join(__dirname, 'src', 'index.ts') },
     },
-    output: {
-        path: path.resolve(__dirname, 'dev'),
-        publicPath: ASSET_PATH,
-        filename: '[name].js',
-        chunkFilename: '[name].js?v=[contenthash]',
-        library: '[name]',
-        libraryTarget: 'umd'
+    module: {
+        rules: [
+        {
+            test: /\.tsx?$/,
+            use: 'ts-loader',
+            exclude: /node_modules/,
+        },
+        ],
     },
     devServer: {
         allowedHosts: 'all',
@@ -35,14 +32,19 @@ module.exports = merge(common, {
             'Cross-Origin-Embedder-Policy': 'require-corp',
         },
         historyApiFallback: true,
-        port: 8080,
+        port: 8081,
         static: {
-            directory: path.join(__dirname, 'dist'),
+            directory: path.join(__dirname, 'umd'),
             publicPath: ROOT_PATH,
         },
     },
-    performance: {
-        hints: false
+    output: {
+        path: path.resolve(__dirname, 'umd', 'dev'),
+        publicPath: ASSET_PATH,
+        filename: '[name].js',
+        chunkFilename: '[name].js?v=[contenthash]',
+        library: 'EpiCurrents',
+        libraryTarget: 'umd'
     },
     plugins: [
         new BundleAnalyzerPlugin(),
@@ -58,13 +60,25 @@ module.exports = merge(common, {
             allowAsyncCycles: false,
             // set the current working directory for displaying module paths
             cwd: process.cwd(),
-        }),
-        new Dotenv()
+        })
     ],
+    resolve: {
+        extensions: ['.ts', '.js', '.json'],
+        alias: {
+            '#root': path.resolve(__dirname, './'),
+            '#assets': path.resolve(__dirname, 'src', 'assets'),
+            '#config': path.resolve(__dirname, 'src', 'config'),
+            '#errors': path.resolve(__dirname, 'src', 'errors'),
+            '#onnx': path.resolve(__dirname, 'src', 'onnx'),
+            '#plots': path.resolve(__dirname, 'src', 'plots'),
+            '#pyodide': path.resolve(__dirname, 'src', 'pyodide'),
+            '#runtime': path.resolve(__dirname, 'src', 'runtime'),
+            '#types': path.resolve(__dirname, 'src', 'types'),
+            '#util': path.resolve(__dirname, 'src', 'util'),
+        },
+        symlinks: false
+    },
     stats: {
         errorDetails: true
     },
-    watchOptions: {
-        ignored: /node_modules/
-    },
-})
+}
