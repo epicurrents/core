@@ -5,6 +5,9 @@ module.exports = {
     coverageDirectory: "<rootDir>/tests/coverage/",
     extensionsToTreatAsEsm: ['.ts'],
     globals: {
+        'babel-jest': {
+            useESM: true,
+        },
         'ts-jest': {
             useESM: true,
             tsconfig: {
@@ -47,13 +50,12 @@ module.exports = {
     snapshotSerializers: [
     ],
     transform: {
-        "^.+\\.js$": "babel-jest",
         "^.+\\.ts$": "ts-jest",
     },
     transformIgnorePatterns: [
     ],
     //testRegex: "(test/.*|(\\.|/)(test|spec))\\.(tsx?)$",
-    testRegex: "tests.ts$",
+    testRegex: "tests.(t|j)s$",
     testEnvironment: "jsdom",
     testEnvironmentOptions: {
         browsers: [
