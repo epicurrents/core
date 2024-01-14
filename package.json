@@ -49,6 +49,7 @@
     "lint": "npm run lint:src",
     "lint:src": "node node_modules/eslint/bin/eslint src",
     "prepack": "npm run build",
+    "release": "npm publish --access=public",
     "serve": "node node_modules/webpack/bin/webpack.js serve --progress --config webpack.dev.js",
     "test": "npm run test:unit",
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --verbose --no-cache --runInBand"
