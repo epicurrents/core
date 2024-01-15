@@ -43,7 +43,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node node_modules/typescript/bin/tsc && node node_modules/tsconfig-replace-paths/dist/commonjs --project tsconfig.json",
+    "build": "npm run build:tsc && npm run build:umd",
+    "build:tsc": "node node_modules/typescript/bin/tsc && node node_modules/tsconfig-replace-paths/dist/commonjs --project tsconfig.json",
     "build:umd": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
     "dev": "node node_modules/webpack/bin/webpack.js serve --progress --config webpack.dev.js",
     "lint": "npm run lint:src",

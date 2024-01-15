@@ -23,7 +23,7 @@ module.exports = {
     },
     output: {
         path: path.resolve(__dirname, 'umd'),
-        library: "EpiCurrents"
+        library: "EpiCurrentsLib"
     },
     resolve: {
         extensions: ['.ts', '.js', '.json'],
