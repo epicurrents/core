@@ -71,7 +71,8 @@ export default class ServiceMemoryManager implements MemoryManager {
                 /* webpackChunkName: 'memory-manager.worker' */
                 `#workers/memory-manager.worker.ts`,
                 import.meta.url
-            )
+            ),
+            { type: 'module'}
         )
         this._worker.addEventListener('message', this._handleMessage.bind(this))
         this._worker.postMessage({
