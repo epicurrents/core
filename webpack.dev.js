@@ -1,10 +1,9 @@
 const path = require('path')
-const Dotenv = require('dotenv-webpack')
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const CircularDependencyPlugin = require('circular-dependency-plugin')
 
-const ASSET_PATH = process.env.ASSET_PATH || '/dev/'
-const ROOT_PATH = process.env.ROOT_PATH || '/'
+const ASSET_PATH = '/'
+const ROOT_PATH = '/'
 
 module.exports = {
     mode: 'development',
@@ -34,12 +33,12 @@ module.exports = {
         historyApiFallback: true,
         port: 8081,
         static: {
-            directory: path.join(__dirname, 'umd'),
+            directory: path.join(__dirname, 'dev'),
             publicPath: ROOT_PATH,
         },
     },
     output: {
-        path: path.resolve(__dirname, 'umd', 'dev'),
+        path: path.resolve(__dirname, 'dev'),
         publicPath: ASSET_PATH,
         filename: '[name].js',
         chunkFilename: '[name].js?v=[contenthash]',

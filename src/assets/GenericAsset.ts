@@ -13,10 +13,6 @@ const SCOPE = "GenericAsset"
 
 export default abstract class GenericAsset implements BaseAsset {
     /**
-     * Reference to the root EpiCurrents application must be added to this array before any assets are created.
-     */
-    static INSTANCES = [] as EpiCurrentsApplication[]
-    /**
      * Available application scopes for resources inheriting GenericAsset.
      */
     static SCOPES = {
@@ -36,7 +32,6 @@ export default abstract class GenericAsset implements BaseAsset {
      * so this should always point to the correct instance. That said, this is an
      * incredibly hacky solution and should be improved somehow.
      */
-    protected _app = GenericAsset.INSTANCES[0]
     protected _id: string
     protected _isActive: boolean = false
     protected _name: string
@@ -50,10 +45,6 @@ export default abstract class GenericAsset implements BaseAsset {
     protected _type: string
 
     constructor (name: string, scope: string, type: string) {
-        if (!GenericAsset.INSTANCES.length) {
-            Log.error(`Base instance of the application has not been added to the static property INSTANCES. ` +
-                      `Application will not work correctly!`, SCOPE)
-        }
         this._id = Math.random().toString(36).substring(2, 10)
         this._scope = GenericAsset.SCOPES.UNKNOWN
         for (const validScope of Object.values(GenericAsset.SCOPES)) {

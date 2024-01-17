@@ -1,6 +1,8 @@
 const path = require('path')
-const webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin')
+require('dotenv').config()
+
+const ASSET_PATH = process.env.ASSET_PATH || '/epicurrents/'
 
 module.exports = {
     mode: 'production',
@@ -21,19 +23,13 @@ module.exports = {
         minimizer: [
             new TerserPlugin(),
         ],
-        runtimeChunk: {
-            name: 'shared',
-        },
     },
     output: {
         path: path.resolve(__dirname, 'umd'),
+        publicPath: ASSET_PATH,
         library: 'EpiCurrentsCore',
+        libraryTarget: 'umd',
     },
-    plugins: [
-        new webpack.optimize.LimitChunkCountPlugin({
-            maxChunks: 1,
-        }),
-    ],
     resolve: {
         extensions: ['.ts', '.js', '.json'],
         alias: {
@@ -47,11 +43,7 @@ module.exports = {
             '#runtime': path.resolve(__dirname, 'src', 'runtime'),
             '#types': path.resolve(__dirname, 'src', 'types'),
             '#util': path.resolve(__dirname, 'src', 'util'),
-            '#workers': path.resolve(__dirname, 'src', 'workers'),
         },
         symlinks: false
     },
-    stats: {
-        children: true
-    }
 }

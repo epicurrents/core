@@ -135,13 +135,11 @@ const SCOPE = 'index'
 export class EpiCurrents implements EpiCurrentsApplication {
     // Private poperties.
     #app = null as null | InterfaceModule
-    #instanceNum: number
     #interface = null as null | InterfaceModuleConstructor
     #memoryManager = null as null | ServiceMemoryManager
     #state = new RuntimeStateManager()
 
     constructor () {
-        this.#instanceNum = GenericAsset.INSTANCES.push(this) - 1
         if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
             Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
         } else {
@@ -202,7 +200,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
 
     async launch (
         containerId: string = '',
-        appId: string = `app${this.#instanceNum}`,
+        appId: string = `epicurrents`,
         locale: string = 'en'
     ): Promise<boolean> {
         if (!this.#interface) {
