@@ -58,7 +58,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/epicurrents/core.git"
+    "url": "git+https://github.com/epicurrents/core.git"
   },
   "author": "Sampsa Lohi",
   "license": "Apache-2.0",
