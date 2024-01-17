@@ -25,15 +25,15 @@ module.exports = {
             name: 'shared',
         },
     },
+    output: {
+        path: path.resolve(__dirname, 'umd'),
+        library: 'EpiCurrentsCore',
+    },
     plugins: [
         new webpack.optimize.LimitChunkCountPlugin({
             maxChunks: 1,
         }),
     ],
-    output: {
-        path: path.resolve(__dirname, 'umd'),
-        library: 'EpiCurrentsCore',
-    },
     resolve: {
         extensions: ['.ts', '.js', '.json'],
         alias: {
