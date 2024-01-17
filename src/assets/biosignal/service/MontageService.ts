@@ -43,7 +43,7 @@ export default class MontageService extends GenericService implements BiosignalM
             new Worker(
                 new URL(
                     /* webpackChunkName: 'montage.worker' */
-                    `../../../workers/montage.worker.ts`,
+                    `../../../workers/montage.worker`,
                     import.meta.url
                 ),
                 { type: 'module'}
