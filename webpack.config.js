@@ -1,4 +1,5 @@
 const path = require('path')
+const webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin')
 
 module.exports = {
@@ -8,11 +9,11 @@ module.exports = {
     },
     module: {
         rules: [
-        {
-            test: /\.tsx?$/,
-            use: 'ts-loader',
-            exclude: /node_modules/,
-        },
+            {
+                test: /\.tsx?$/,
+                exclude: /node_modules/,
+                use: 'ts-loader',
+            },
         ],
     },
     optimization: {
@@ -20,10 +21,18 @@ module.exports = {
         minimizer: [
             new TerserPlugin(),
         ],
+        runtimeChunk: {
+            name: 'shared',
+        },
     },
+    plugins: [
+        new webpack.optimize.LimitChunkCountPlugin({
+            maxChunks: 1,
+        }),
+    ],
     output: {
         path: path.resolve(__dirname, 'umd'),
-        library: "EpiCurrentsLib"
+        library: 'EpiCurrentsCore',
     },
     resolve: {
         extensions: ['.ts', '.js', '.json'],
@@ -38,7 +47,11 @@ module.exports = {
             '#runtime': path.resolve(__dirname, 'src', 'runtime'),
             '#types': path.resolve(__dirname, 'src', 'types'),
             '#util': path.resolve(__dirname, 'src', 'util'),
+            '#workers': path.resolve(__dirname, 'src', 'workers'),
         },
         symlinks: false
     },
+    stats: {
+        children: true
+    }
 }

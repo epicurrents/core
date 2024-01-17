@@ -8,7 +8,23 @@
 import { type SafeObject } from '#root/src/types/application'
 import { Log } from 'scoped-ts-log'
 
-const SCOPE = "DefaultWorker"
+const SCOPE = "util:worker"
+
+/**
+ * Create a Worker from a code string. The source must be compiled JavaScript (not TypeScript)!
+ * @param name - Name of the worker (for logging).
+ * @param code - Worker source code as string.
+ * @returns Worker with the given source.
+ */
+export const inlineWorker = (name: string, code: string): Worker => {
+    let blob = new Blob()
+    try {
+        blob = new Blob([code], { type: 'application/javascript' })
+    } catch (e) {
+        Log.error(`Could not turn code string into blob, worker '${name} creation failed.`, SCOPE)
+    }
+    return new Worker(URL.createObjectURL(blob))
+}
 
 /**
  * Transmit log messages back to the main application thread Log instance using the web worker's postMessage method.

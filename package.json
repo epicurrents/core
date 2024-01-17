@@ -44,8 +44,9 @@
   ],
   "scripts": {
     "build": "npm run build:tsc && npm run build:umd",
+    "build:assets": "node node_modules/webpack/bin/webpack.js --progress --stats-error-details --config webpack.assets.js",
     "build:tsc": "node node_modules/typescript/bin/tsc && node node_modules/tsconfig-replace-paths/dist/commonjs --project tsconfig.json",
-    "build:umd": "node node_modules/webpack/bin/webpack.js --progress --config webpack.build.js",
+    "build:umd": "node node_modules/webpack/bin/webpack.js --progress --stats-error-details --config webpack.config.js",
     "dev": "node node_modules/webpack/bin/webpack.js serve --progress --config webpack.dev.js",
     "lint": "npm run lint:src",
     "lint:src": "node node_modules/eslint/bin/eslint src",
@@ -93,6 +94,7 @@
     "webpack-bundle-analyzer": "^4.5.0",
     "webpack-cli": "^4.9.2",
     "webpack-dev-server": "^4.9.2",
-    "webpack-merge": "^5.8.0"
+    "webpack-merge": "^5.8.0",
+    "workerize-loader": "^2.0.2"
   }
 }

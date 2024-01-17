@@ -8,7 +8,6 @@ import {
     GenericBiosignalResource,
     GenericBiosignalSetup,
     MontageService,
-    SharedWorkerCache,
 } from './biosignal'
 import {
     GenericDataset,
@@ -60,7 +59,6 @@ export {
     MixedMediaDataset,
     MontageService,
     ServiceMemoryManager,
-    SharedWorkerCache,
     SignalFileLoader,
     StudyCollection,
     studyContextTemplate,

@@ -27,8 +27,8 @@ export default class PyodideService extends GenericService implements AssetServi
 
     constructor () {
         super(SCOPE, new Worker(new URL(
-            /* webpackChunkName: 'pyodide-worker' */
-            "./PyodideWorker.ts",
+            /* webpackChunkName: 'pyodide.worker' */
+            `#workers/pyodide.worker.ts`,
             import.meta.url
         )))
     }

@@ -13,11 +13,11 @@ module.exports = {
     },
     module: {
         rules: [
-        {
-            test: /\.tsx?$/,
-            use: 'ts-loader',
-            exclude: /node_modules/,
-        },
+            {
+                test: /\.tsx?$/,
+                exclude: /node_modules/,
+                use: 'ts-loader',
+            },
         ],
     },
     devServer: {
@@ -43,7 +43,7 @@ module.exports = {
         publicPath: ASSET_PATH,
         filename: '[name].js',
         chunkFilename: '[name].js?v=[contenthash]',
-        library: 'EpiCurrentsLib',
+        library: 'EpiCurrentsCore',
         libraryTarget: 'umd'
     },
     plugins: [
@@ -75,6 +75,7 @@ module.exports = {
             '#runtime': path.resolve(__dirname, 'src', 'runtime'),
             '#types': path.resolve(__dirname, 'src', 'types'),
             '#util': path.resolve(__dirname, 'src', 'util'),
+            '#workers': path.resolve(__dirname, 'src', 'workers'),
         },
         symlinks: false
     },

@@ -33,7 +33,6 @@ import {
     MixedMediaDataset,
     MontageService,
     ServiceMemoryManager,
-    SharedWorkerCache,
     SignalFileLoader,
     StudyCollection,
     studyContextTemplate,
@@ -62,11 +61,18 @@ export {
     MixedMediaDataset,
     MontageService,
     ServiceMemoryManager,
-    SharedWorkerCache,
     SignalFileLoader,
     StudyCollection,
     studyContextTemplate,
 }
+
+import {
+    SharedWorkerCache,
+} from './workers'
+export {
+    SharedWorkerCache,
+}
+
 import SETTINGS from '#config/Settings'
 export {
     SETTINGS,

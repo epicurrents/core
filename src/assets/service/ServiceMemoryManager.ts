@@ -68,8 +68,8 @@ export default class ServiceMemoryManager implements MemoryManager {
         )
         this._worker = new Worker(
             new URL(
-                /* webpackChunkName: 'memory-manager-worker' */
-                `./MemoryManagerWorker.ts`,
+                /* webpackChunkName: 'memory-manager.worker' */
+                `#workers/memory-manager.worker.ts`,
                 import.meta.url
             )
         )

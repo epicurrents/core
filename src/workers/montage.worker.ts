@@ -26,12 +26,21 @@ import {
     type SignalCacheResponse,
     type WorkerMessage,
 } from '#types/service'
-import BiosignalMutex from '../service/BiosignalMutex'
-import GenericBiosignalSetup from '../components/GenericBiosignalSetup'
-import IOMutex, { MutexExportProperties } from 'asymmetric-io-mutex'
-import { concatFloat32Arrays, filterSignal, getFilterPadding, mapMontageChannels, shouldDisplayChannel, shouldFilterSignal } from '#util/signal'
+import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
+import GenericBiosignalSetup from '#assets/biosignal/components/GenericBiosignalSetup'
+import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
+import {
+    concatFloat32Arrays,
+    filterSignal,
+    getFilterPadding,
+    mapMontageChannels,
+    shouldDisplayChannel,
+    shouldFilterSignal,
+} from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { log } from '#util/worker'
+
+import SharedWorkerCache from './SharedWorkerCache'
 
 const SCOPE = "MontageWorker"
 
@@ -557,7 +566,7 @@ const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
         }
     } else {
         // Use cached signals.
-        requestedSigs = await CACHE.asCachePart()
+        requestedSigs = (await CACHE.asCachePart()) as SignalCachePart
         // Filter channels, if needed.
         if (config?.include?.length || config?.exclude?.length) {
             const filtered = [] as typeof requestedSigs.signals
@@ -593,7 +602,7 @@ const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
             requestedSigs.signals[i].data = signalForRange
             continue
         }
-        const startSignalIndex = Math.round((rangeStart - requestedSigs.start)*requestedSigs.signals[i].samplingRate)
+        const startSignalIndex = Math.round((rangeStart - requestedSigs.start)*requestedSigs?.signals[i].samplingRate)
         const endSignalIndex = Math.round((rangeEnd - requestedSigs.start)*requestedSigs.signals[i].samplingRate)
         signalForRange.set(requestedSigs.signals[i].data.slice(startSignalIndex, endSignalIndex))
         for (const gap of dataGaps) {
@@ -813,7 +822,7 @@ const setupInputMutex = async (
     setupChannels: SetupChannel[],
     dataGaps = [] as { duration: number, start: number }[]
 ) => {
-    SETUP = new GenericBiosignalSetup(montage)
+    SETUP = new GenericBiosignalSetup(montage) as BiosignalSetup
     SETUP.channels = setupChannels
     mapChannels(config)
     // Construct a SignalCachePart to initialize the mutex.
@@ -862,7 +871,7 @@ const setupSharedWorker = async (
     setupChannels: SetupChannel[],
     dataGaps = [] as { duration: number, start: number }[]
 ) => {
-    SETUP = new GenericBiosignalSetup(montage)
+    SETUP = new GenericBiosignalSetup(montage) as BiosignalSetup
     SETUP.channels = setupChannels
     mapChannels(config)
     // Construct a SignalCachePart to initialize the mutex.
@@ -883,6 +892,6 @@ const setupSharedWorker = async (
     for (const gap of dataGaps) {
         DATA_GAPS.set(gap.start, gap.duration)
     }
-    CACHE = new (await import("./SharedWorkerCache")).default(input, postMessage)
+    CACHE = new SharedWorkerCache(input, postMessage)
     return true
 }

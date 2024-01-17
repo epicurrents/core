@@ -12,7 +12,6 @@ import {
     BiosignalMutex,
     GenericBiosignalService,
     MontageService,
-    SharedWorkerCache,
 } from './service'
 
 export {
@@ -25,5 +24,4 @@ export {
     GenericBiosignalResource,
     GenericBiosignalSetup,
     MontageService,
-    SharedWorkerCache,
 }
