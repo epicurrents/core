@@ -43,7 +43,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "npm run build:tsc && npm run build:umd",
+    "build": "npm run build:umd && npm run build:tsc",
     "build:assets": "node node_modules/webpack/bin/webpack.js --progress --stats-error-details --config webpack.assets.js",
     "build:tsc": "node node_modules/typescript/bin/tsc && node node_modules/tsconfig-replace-paths/dist/commonjs --project tsconfig.json",
     "build:umd": "node node_modules/webpack/bin/webpack.js --progress --stats-error-details --config webpack.config.js",
