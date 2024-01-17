@@ -6,7 +6,7 @@
  * @license    Apache-2.0
  */
 
-import { type BaseAsset, type EpiCurrentsApplication } from '#root/src/types/application'
+import { type BaseAsset } from '#root/src/types/application'
 import { Log } from 'scoped-ts-log'
 
 const SCOPE = "GenericAsset"
