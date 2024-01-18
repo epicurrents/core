@@ -346,7 +346,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
         this.#state.setSettingsValue(field, value)
     }
 
-    setWorkerOverride (name: string, worker: Worker) {
+    setWorkerOverride (name: string, worker: Worker|null) {
         this.#state.setWorkerOverride(name, worker)
     }
 }

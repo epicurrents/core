@@ -45,7 +45,7 @@ const services = new Map<string, AssetService>()
 /**
  * A map over worker overrides.
  */
-const workers = new Map<string, Worker>()
+const workers = new Map<string, Worker|null>()
 
 /**
  * Initial runtime state.
@@ -396,7 +396,7 @@ export default class RuntimeStateManager implements StateManager {
         }
         state.SETTINGS.setFieldValue(field, value)
     }
-    setWorkerOverride (name: string, worker: Worker) {
+    setWorkerOverride (name: string, worker: Worker|null) {
         state.WORKERS.set(name, worker)
     }
 }

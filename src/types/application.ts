@@ -219,9 +219,9 @@ export interface EpiCurrentsApplication {
     /**
      * Override a default worker with an already initiated worker instance.
      * @param name - Name of the worker to override.
-     * @param worker - The worker instance to use instead.
+     * @param worker - The worker instance to use instead, or null to use default.
      */
-    setWorkerOverride (name: string, worker: Worker): void
+    setWorkerOverride (name: string, worker: Worker|null): void
 }
 /**
  * A modular interface for the main application.
@@ -344,7 +344,7 @@ export type RuntimeState = NullProtoObject & {
     MODULES: Map<string, RuntimeResourceModule>
     SERVICES: Map<string, AssetService>
     SETTINGS: AppSettings
-    WORKERS: Map<string, Worker>
+    WORKERS: Map<string, Worker|null>
 }
 /**
  * An object with the property (pointer) __proto__ removed. This will prevent using any objects
@@ -483,7 +483,7 @@ export interface StateManager {
     /**
      * Override a default worker with an already initiated worker instance.
      * @param name - Name of the worker to override.
-     * @param worker - The worker instance to use instead.
+     * @param worker - The worker instance to use instead, or null to use default.
      */
-    setWorkerOverride (name: string, worker: Worker): void
+    setWorkerOverride (name: string, worker: Worker|null): void
 }
