@@ -132,6 +132,11 @@ export interface EpiCurrentsApplication {
     configure (config: { [field: string]: SettingsValue }): void
     getFileWorkerSource (name: string): (() => Worker) | undefined
     /**
+     * Get a worker instance to override a default worker or null if no override exists.
+     * @param name - Name of the worker to override.
+     */
+    getWorkerOverride (name: string): Worker | null
+    /**
      * Launch a viewer app in the given container div.
      * @param containerId - Id of the container div element.
      * @param appId - Optional id for the app.
@@ -211,6 +216,12 @@ export interface EpiCurrentsApplication {
      * ```
      */
     setSettingsValue (field: string, value: SettingsValue): void
+    /**
+     * Override a default worker with an already initiated worker instance.
+     * @param name - Name of the worker to override.
+     * @param worker - The worker instance to use instead.
+     */
+    setWorkerOverride (name: string, worker: Worker): void
 }
 /**
  * A modular interface for the main application.
@@ -333,6 +344,7 @@ export type RuntimeState = NullProtoObject & {
     MODULES: Map<string, RuntimeResourceModule>
     SERVICES: Map<string, AssetService>
     SETTINGS: AppSettings
+    WORKERS: Map<string, Worker>
 }
 /**
  * An object with the property (pointer) __proto__ removed. This will prevent using any objects
@@ -392,6 +404,11 @@ export interface StateManager {
      * @returns Service or null, if not found
      */
     getService (name: string): AssetService | undefined
+    /**
+     * Get a worker instance to override a default worker or null if no override exists.
+     * @param name - Name of the worker to override.
+     */
+    getWorkerOverride (name: string): Worker | null
     /**
      * Initialize the app runtime instance.
      * @param initValues - Optional values as an object of { field: value } pairs (eg. { appId: 'app', SETTINGS: { 'eeg.trace.margin.top': 10 } })
@@ -463,4 +480,10 @@ export interface StateManager {
      * @param value - The new value.
      */
     setSettingsValue (field: string, value: SettingsValue): void
+    /**
+     * Override a default worker with an already initiated worker instance.
+     * @param name - Name of the worker to override.
+     * @param worker - The worker instance to use instead.
+     */
+    setWorkerOverride (name: string, worker: Worker): void
 }

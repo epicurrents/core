@@ -20,6 +20,8 @@ import { Log } from 'scoped-ts-log'
 import SETTINGS from '#config/Settings'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { nullPromise, safeObjectFrom } from '#util/general'
+// TODO: Provide access to the root application instance so this hasn't to be accessed directly.
+import { state as runtimeState } from '#runtime'
 
 const SCOPE = 'ServiceMemoryManager'
 
@@ -66,7 +68,8 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        this._worker = new Worker(
+        const overrideWorker = runtimeState.WORKERS.get('memory-manager')
+        this._worker = overrideWorker || new Worker(
             new URL(
                 /* webpackChunkName: 'memory-manager.worker' */
                 `../../workers/memory-manager.worker`,

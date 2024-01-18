@@ -73,7 +73,7 @@ export {
     SharedWorkerCache,
 }
 
-import SETTINGS from '#config/Settings'
+import SETTINGS from './config/Settings'
 export {
     SETTINGS,
 }
@@ -128,16 +128,33 @@ import {
     type ResourceModule,
     type SettingsValue,
     type StudyLoader,
-} from '#types'
+} from './types'
 
 const SCOPE = 'index'
 
 export class EpiCurrents implements EpiCurrentsApplication {
     // Private poperties.
+    /**
+     * The actual user-facing app.
+     */
     #app = null as null | InterfaceModule
+    /**
+     * Constructor for an interface module to use for the app.
+     */
     #interface = null as null | InterfaceModuleConstructor
+    /**
+     * Memory manager used to control the shared array buffer (or null if not used).
+     */
     #memoryManager = null as null | ServiceMemoryManager
+    /**
+     * Application state.
+     */
     #state = new RuntimeStateManager()
+    /**
+     * Possible worker overrides from the default workers. This is mainly used to avoid cross-origin issues
+     * when using source from CDNs.
+     */
+    #workers = new Map<string, Worker>()
 
     constructor () {
         if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
@@ -196,6 +213,10 @@ export class EpiCurrents implements EpiCurrentsApplication {
 
     getFileWorkerSource (name: string) {
         return this.#state.APP.fileWorkerSources.get(name)
+    }
+
+    getWorkerOverride (name: string) {
+        return this.#state.getWorkerOverride(name)
     }
 
     async launch (
@@ -323,5 +344,9 @@ export class EpiCurrents implements EpiCurrentsApplication {
 
     setSettingsValue (field: string, value: SettingsValue) {
         this.#state.setSettingsValue(field, value)
+    }
+
+    setWorkerOverride (name: string, worker: Worker) {
+        this.#state.setWorkerOverride(name, worker)
     }
 }

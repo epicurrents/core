@@ -24,6 +24,8 @@ import BiosignalMutex from './BiosignalMutex'
 import GenericService from '#assets/service/GenericService'
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { mapSignalsToSamplingRates } from '#util/signal'
+// TODO: Provide access to the root application instance so this hasn't to be accessed directly.
+import { state as runtimeState } from '#runtime'
 
 const SCOPE = "MontageService"
 
@@ -39,17 +41,16 @@ export default class MontageService extends GenericService implements BiosignalM
     }
 
     constructor (namespace: string, montage: BiosignalMontage, manager?: MemoryManager) {
-        super(SCOPE,
-            new Worker(
-                new URL(
-                    /* webpackChunkName: 'montage.worker' */
-                    `../../../workers/montage.worker`,
-                    import.meta.url
-                ),
-                { type: 'module'}
+        const overrideWorker = runtimeState.WORKERS.get('montage')
+        const worker = overrideWorker || new Worker(
+            new URL(
+                /* webpackChunkName: 'montage.worker' */
+                `../../../workers/montage.worker`,
+                import.meta.url
             ),
-            manager
+            { type: 'module'}
         )
+        super(SCOPE, worker, manager)
         this._worker?.postMessage({
             action: 'settings-namespace',
             value: namespace,
