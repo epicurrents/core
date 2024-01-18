@@ -65,6 +65,7 @@ export default abstract class GenericFileLoader extends GenericAsset implements 
     protected _scopes: string[]
     protected _study: StudyContext = studyContextTemplate()
     protected _studyLoader: StudyLoader | null = null
+    protected _workerOverride = new Map<string, Worker|null>()
 
     constructor (name: string, scopes: string[], fileExtensions = [] as string[], namePatterns = [] as string[]) {
         super(name, GenericAsset.SCOPES.LOADER, "unk")
@@ -163,5 +164,9 @@ export default abstract class GenericFileLoader extends GenericAsset implements 
         if (study) {
             this._study = study
         }
+    }
+
+    setWorkerOverride (name: string, worker: Worker|null) {
+        this._workerOverride.set(name, worker)
     }
 }

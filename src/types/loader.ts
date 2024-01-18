@@ -117,6 +117,12 @@ export interface FileFormatLoader extends BaseAsset {
      * @param study - `StudyContext` to modify and add the loaded files to.
      */
     registerStudy (study: StudyContext): void
+    /**
+     * Set an already initiated Worker to override a default worker.
+     * @param name - Name of the worker to override.
+     * @param worker - The initialized Worker instance to use or null to unset.
+     */
+    setWorkerOverride (name: string, worker: Worker|null): void
 }
 export type FileFormatLoaderSpecs = {
     /** Patterns to match the filename against. */
