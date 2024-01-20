@@ -42,7 +42,7 @@ export default class MontageService extends GenericService implements BiosignalM
 
     constructor (namespace: string, montage: BiosignalMontage, manager?: MemoryManager) {
         const overrideWorker = runtimeState.WORKERS.get('montage')
-        const worker = overrideWorker || new Worker(
+        const worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'montage.worker' */
                 `../../../workers/montage.worker`,

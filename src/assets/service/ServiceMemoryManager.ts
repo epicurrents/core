@@ -69,7 +69,7 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.BUFFER_START_POS
         )
         const overrideWorker = runtimeState.WORKERS.get('memory-manager')
-        this._worker = overrideWorker || new Worker(
+        this._worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'memory-manager.worker' */
                 `../../workers/memory-manager.worker`,

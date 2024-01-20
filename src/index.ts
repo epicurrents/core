@@ -150,11 +150,6 @@ export class EpiCurrents implements EpiCurrentsApplication {
      * Application state.
      */
     #state = new RuntimeStateManager()
-    /**
-     * Possible worker overrides from the default workers. This is mainly used to avoid cross-origin issues
-     * when using source from CDNs.
-     */
-    #workers = new Map<string, Worker>()
 
     constructor () {
         if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
@@ -346,7 +341,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
         this.#state.setSettingsValue(field, value)
     }
 
-    setWorkerOverride (name: string, worker: Worker|null) {
-        this.#state.setWorkerOverride(name, worker)
+    setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
+        this.#state.setWorkerOverride(name, getWorker)
     }
 }

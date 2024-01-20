@@ -45,7 +45,7 @@ const services = new Map<string, AssetService>()
 /**
  * A map over worker overrides.
  */
-const workers = new Map<string, Worker|null>()
+const workers = new Map<string, (() => Worker)|null>()
 
 /**
  * Initial runtime state.
@@ -204,8 +204,8 @@ export default class RuntimeStateManager implements StateManager {
         return state.SERVICES.get(name)
     }
     getWorkerOverride (name: string) {
-        const worker = state.WORKERS.get(name)
-        return worker || null
+        const getWorker = state.WORKERS.get(name)
+        return getWorker ? getWorker() : null
     }
     init (initValues: { [module: string]: unknown } = {}) {
         // FIRST set logging threshold, so all possible messages are seen
@@ -396,7 +396,7 @@ export default class RuntimeStateManager implements StateManager {
         }
         state.SETTINGS.setFieldValue(field, value)
     }
-    setWorkerOverride (name: string, worker: Worker|null) {
-        state.WORKERS.set(name, worker)
+    setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
+        state.WORKERS.set(name, getWorker)
     }
 }
