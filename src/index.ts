@@ -132,20 +132,7 @@ import {
 
 const SCOPE = 'index'
 
-/**
- * Memory manager worker must be overridden before initialization.
- * This seem overly complicated and should probably be redesigned at some point.
- */
-let memoryManagerWorkerOverride = null as null | (() => Worker)
-
 export class EpiCurrents implements EpiCurrentsApplication {
-    /**
-     * Override the default worker used for memory manager.
-     * @param getWorker - Method that return a new worker instance.
-     */
-    static overrideMemoryManagerWorker (getWorker: null | (() => Worker)) {
-        memoryManagerWorkerOverride = getWorker
-    }
     // Private poperties.
     /**
      * The actual user-facing app.
@@ -164,17 +151,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
      */
     #state = new RuntimeStateManager()
 
-    constructor () {
-        if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
-            Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
-        } else {
-            if (memoryManagerWorkerOverride) {
-                // Set possible worker override before intializing the memory manager.
-                this.setWorkerOverride('memory-manager', memoryManagerWorkerOverride)
-            }
-            this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
-        }
-    }
+    constructor () {}
 
     // Public properties.
     get publicPath () {
@@ -239,6 +216,11 @@ export class EpiCurrents implements EpiCurrentsApplication {
         if (!this.#interface) {
             Log.error(`Cannot launch app before an interface has been registered.`, 'index')
             return false
+        }
+        if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
+            Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
+        } else {
+            this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
         }
         // Make sure that the container element exists.
         // Prepend a hyphed to the container id, otherwise just use 'epicv'.
