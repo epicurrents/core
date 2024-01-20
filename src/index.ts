@@ -132,7 +132,20 @@ import {
 
 const SCOPE = 'index'
 
+/**
+ * Memory manager worker must be overridden before initialization.
+ * This seem overly complicated and should probably be redesigned at some point.
+ */
+let memoryManagerWorkerOverride = null as null | (() => Worker)
+
 export class EpiCurrents implements EpiCurrentsApplication {
+    /**
+     * Override the default worker used for memory manager.
+     * @param getWorker - Method that return a new worker instance.
+     */
+    static overrideMemoryManagerWorker (getWorker: null | (() => Worker)) {
+        memoryManagerWorkerOverride = getWorker
+    }
     // Private poperties.
     /**
      * The actual user-facing app.
@@ -155,6 +168,10 @@ export class EpiCurrents implements EpiCurrentsApplication {
         if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
             Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
         } else {
+            if (memoryManagerWorkerOverride) {
+                // Set possible worker override before intializing the memory manager.
+                this.setWorkerOverride('memory-manager', memoryManagerWorkerOverride)
+            }
             this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
         }
     }
@@ -194,14 +211,8 @@ export class EpiCurrents implements EpiCurrentsApplication {
             return
         }
         for (const [field, value] of Object.entries(config)) {
-            // Memory manager worker is a special case, as it must be set before initialization.
-            if (field === 'memory-manager-worker') {
-                Log.debug(`Overriding memory manager worker.`, SCOPE)
-                this.setWorkerOverride('memory-manager', value as unknown as (() => Worker))
-            } else {
-                Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
-                SETTINGS.setFieldValue(field, value)
-            }
+            Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
+            SETTINGS.setFieldValue(field, value)
         }
     }
 
