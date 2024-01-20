@@ -303,6 +303,9 @@ export class EpiCurrents implements EpiCurrentsApplication {
     }
 
     registerStudyLoader (name: string, label: string, mode: LoaderMode, loader: StudyLoader) {
+        if (this.#memoryManager) {
+            loader.registerMemoryManager(this.#memoryManager)
+        }
         this.#state.APP.studyLoaders.set(
             name,
             {

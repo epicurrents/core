@@ -23,6 +23,7 @@ module.exports = {
         minimizer: [
             new TerserPlugin(),
         ],
+        splitChunks: false,
     },
     output: {
         path: path.resolve(__dirname, 'umd'),
