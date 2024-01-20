@@ -194,8 +194,14 @@ export class EpiCurrents implements EpiCurrentsApplication {
             return
         }
         for (const [field, value] of Object.entries(config)) {
-            Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
-            SETTINGS.setFieldValue(field, value)
+            // Memory manager worker is a special case, as it must be set before initialization.
+            if (field === 'memory-manager-worker') {
+                Log.debug(`Overriding memory manager worker.`, SCOPE)
+                this.setWorkerOverride('memory-manager', value as unknown as (() => Worker))
+            } else {
+                Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
+                SETTINGS.setFieldValue(field, value)
+            }
         }
     }
 
