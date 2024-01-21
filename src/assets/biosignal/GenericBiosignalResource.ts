@@ -593,7 +593,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             this._activeMontage.setLowpassFilter(value, target)
-        } else if (typeof target === 'string') {
+        } else {
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.lowpass = value
@@ -619,7 +619,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             this._activeMontage.setNotchFilter(value, target)
-        } else if (typeof target === 'string') {
+        } else {
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.notch = value
