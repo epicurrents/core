@@ -134,7 +134,7 @@ export default class MontageService extends GenericService implements BiosignalM
             }
             return true
         } else if (data.action === 'set-filters') {
-            if (data.success && data.updated) {
+            if (data.success) {
                 if (data.updated) {
                     commission.resolve(true)
                 } else {
