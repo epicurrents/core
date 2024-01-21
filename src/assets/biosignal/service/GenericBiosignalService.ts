@@ -1,5 +1,5 @@
 /**
- * Biosignal service using SharedArrayBuffers.
+ * Biosignal service base class.
  * @package    epicurrents-core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
@@ -19,7 +19,7 @@ import {
     type WorkerResponse,
 } from '#types/service'
 import { type StudyContext } from '#types/study'
-import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import { INDEX_NOT_ASSIGNED } from '#util/constants'
 import { ConfigChannelFilter } from '#types/config'
 import GenericService from '#assets/service/GenericService'
 import Log from 'scoped-ts-log'
@@ -35,7 +35,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
     protected _recording: BiosignalResource
     /** Resolved or rejected based on the success of worker setup. */
     protected _setupWorker: Promise<BiosignalSetupResponse> | null = null
-    protected _signalBufferStart = NUMERIC_ERROR_VALUE
+    protected _signalBufferStart = INDEX_NOT_ASSIGNED
 
     get isReady () {
         return super.isReady && this._workerReady
