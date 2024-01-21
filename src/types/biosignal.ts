@@ -924,6 +924,10 @@ export type SetupMutexResponse = {
 export type SetupSharedWorkerResponse = {
     success: boolean
 }
+export type SignalPart = {
+    data: Float32Array
+    samplingRate: number
+}
 /** Signal polarity as one of:
  * - 1 = positivie up
  * - -1 = negative up (inverse)

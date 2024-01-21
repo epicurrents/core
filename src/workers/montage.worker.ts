@@ -14,6 +14,7 @@ import {
     type SetupChannel,
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
+    type SignalPart,
     type WorkerSignalCache,
 } from '#types/biosignal'
 import {
@@ -294,7 +295,7 @@ const calculateSignalsForPart = async (
     }
     const relStart = cacheStart - inputRangeStart
     const relEnd = cacheEnd - inputRangeStart
-    const derivedSignals = [] as { data: Float32Array, samplingRate: number }[]
+    const derivedSignals = [] as SignalPart[]
     // Only calculate averages once.
     const avgMap = [] as number[]
     // Filter channels, if needed.

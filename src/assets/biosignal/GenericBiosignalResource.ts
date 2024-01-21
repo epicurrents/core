@@ -14,6 +14,7 @@ import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
+    type SignalPart,
     type VideoAttachment
 } from '#types/biosignal'
 import { type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
@@ -370,10 +371,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     async getAllRawSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
         // First check if we have the requested signals cached.
-        const responseSigs = [] as {
-            data: Float32Array
-            samplingRate: number
-        }[]
+        const responseSigs = [] as SignalPart[]
         let allCached = true
         for (const chan of getIncludedChannels(this._channels, config)) {
             const startSignalIndex = range.length >= 1

@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { BiosignalChannel } from './biosignal'
+import { BiosignalChannel, SignalPart } from './biosignal'
 import { SettingsColor } from './config'
 
 export interface BiosignalPlot {
@@ -224,7 +224,7 @@ export type PlotTraceSelection = {
     maxValue: number
     minValue: number
     range: number[]
-    signal: Float32Array | null
+    signal: SignalPart | null
 }
 /**
  * Highlight applied to the backdrop of a signal channel/channels.

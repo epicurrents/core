@@ -8,6 +8,7 @@
 import { type AsymmetricMutex, type MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import { LoadDirection } from './loader'
+import { SignalPart } from './biosignal'
 
 export type ActionWatcher = {
     actions: string[]
@@ -361,15 +362,13 @@ export type SignalCachePart = {
     start: number
     /** In seconds. */
     end: number
-    signals: {
-        data: Float32Array
-        samplingRate: number
+    signals: (SignalPart & {
         originalSamplingRate?: number
         /** As array index. */
         start?: number
         /** As array index. */
         end?: number
-    }[]
+    })[]
 }
 
 export type SignalCacheProcess = {
