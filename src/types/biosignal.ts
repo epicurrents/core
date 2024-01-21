@@ -522,7 +522,7 @@ export interface BiosignalMontage extends BaseAsset {
      * @param value - Filter frequency (in Hz) or undefined.
      * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setHighpassFilter (target: string | number, value: number): Promise<SetFiltersResponse>
+    setHighpassFilter (value: number, target?: string | number): Promise<SetFiltersResponse>
     /**
      * Set low-pass filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
@@ -530,7 +530,7 @@ export interface BiosignalMontage extends BaseAsset {
      * @param value - Filter frequency (in Hz) or undefined.
      * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setLowpassFilter (target: string | number, value: number): Promise<SetFiltersResponse>
+    setLowpassFilter (value: number, target?: string | number): Promise<SetFiltersResponse>
     /**
      * Set notch filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
@@ -538,7 +538,7 @@ export interface BiosignalMontage extends BaseAsset {
      * @param value - Filter frequency (in Hz) or undefined.
      * @returns Promise that fulfills with true if any filter was changed in the worker, false otherwise.
      */
-    setNotchFilter (target: string | number, value: number): Promise<SetFiltersResponse>
+    setNotchFilter (value: number, target?: string | number): Promise<SetFiltersResponse>
     /**
      * Set up a data loader using a data source mutex output properties as input for the loader.
      * @param inputProps - The source mutex export properties to use as input.

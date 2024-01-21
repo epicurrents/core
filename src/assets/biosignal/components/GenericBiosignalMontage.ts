@@ -366,7 +366,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
     }
 
-    async setHighpassFilter (target: string | number, value: number) {
+    async setHighpassFilter (value: number, target?: string | number) {
         if (typeof target === 'number') {
             this._channels[target].highpassFilter = value
         } else {
@@ -379,7 +379,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return updated
     }
 
-    async setLowpassFilter (target: string | number, value: number) {
+    async setLowpassFilter (value: number, target?: string | number) {
         if (typeof target === 'number') {
             this._channels[target].lowpassFilter = value
         } else {
@@ -392,7 +392,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return updated
     }
 
-    async setNotchFilter (target: string | number, value: number) {
+    async setNotchFilter (value: number, target?: string | number) {
         if (typeof target === 'number') {
             this._channels[target].notchFilter = value
         } else {

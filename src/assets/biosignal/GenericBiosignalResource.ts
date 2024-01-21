@@ -569,15 +569,15 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
-            this._activeMontage.setHighpassFilter(target, value)
-        } else if (typeof target === 'string') {
+            this._activeMontage.setHighpassFilter(value, target)
+        } else {
             if (scope === 'recording') {
                 // TODO: Actually check for the type and only alter those channels.
                 if (!target) {
                     this._filters.highpass = value
                 }
             } else if (this._activeMontage) {
-                this._activeMontage.setHighpassFilter(target, value)
+                this._activeMontage.setHighpassFilter(value, target)
             }
         }
         this._activeMontage?.updateFilters()
@@ -592,14 +592,14 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
-            this._activeMontage.setLowpassFilter(target, value)
+            this._activeMontage.setLowpassFilter(value, target)
         } else if (typeof target === 'string') {
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.lowpass = value
                 }
             } else if (this._activeMontage) {
-                this._activeMontage.setLowpassFilter(target, value)
+                this._activeMontage.setLowpassFilter(value, target)
             }
         }
         this._activeMontage?.updateFilters()
@@ -618,14 +618,14 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
-            this._activeMontage.setNotchFilter(target, value)
+            this._activeMontage.setNotchFilter(value, target)
         } else if (typeof target === 'string') {
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.notch = value
                 }
             } else if (this._activeMontage) {
-                this._activeMontage.setNotchFilter(target, value)
+                this._activeMontage.setNotchFilter(value, target)
             }
         }
         this._activeMontage?.updateFilters()

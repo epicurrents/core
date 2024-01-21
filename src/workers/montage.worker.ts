@@ -145,15 +145,15 @@ onmessage = async (message: WorkerMessage) => {
         const newFilters = JSON.parse(message.data.filters as string) as typeof FILTERS
         let someUpdated = false
         if (newFilters.highpass !== FILTERS.highpass) {
-            setHighpassFilter('eeg', newFilters.highpass)
+            setHighpassFilter(newFilters.highpass)
             someUpdated = true
         }
         if (newFilters.lowpass !== FILTERS.lowpass) {
-            setLowpassFilter('eeg', newFilters.lowpass)
+            setLowpassFilter(newFilters.lowpass)
             someUpdated = true
         }
         if (newFilters.notch !== FILTERS.notch) {
-            setNotchFilter('eeg', newFilters.notch)
+            setNotchFilter(newFilters.notch)
             someUpdated = true
         }
         if (message.data.channels) {
@@ -161,15 +161,15 @@ onmessage = async (message: WorkerMessage) => {
             for (let i=0; i<channels.length; i++) {
                 const chan = channels[i]
                 if (chan.highpass !== CHANNELS[i].highpassFilter) {
-                    setHighpassFilter(i, chan.highpass)
+                    setHighpassFilter(chan.highpass, i)
                     someUpdated = true
                 }
                 if (chan.lowpass !== CHANNELS[i].lowpassFilter) {
-                    setLowpassFilter(i, chan.lowpass)
+                    setLowpassFilter(chan.lowpass, i)
                     someUpdated = true
                 }
                 if (chan.notch !== CHANNELS[i].notchFilter) {
-                    setNotchFilter(i, chan.notch)
+                    setNotchFilter(chan.notch, i)
                     someUpdated = true
                 }
             }
@@ -761,7 +761,7 @@ const resetChannels = () => {
  * @param target - Channel index or type (applies too all channels of the given type).
  * @param value - Frequency value or undefined.
  */
-const setHighpassFilter = (target: string | number, value: number) => {
+const setHighpassFilter = (value: number, target?: string | number) => {
     if (typeof target === 'number') {
         CHANNELS[target].highpassFilter = value
         CACHE?.invalidateOutputSignals([value])
@@ -776,7 +776,7 @@ const setHighpassFilter = (target: string | number, value: number) => {
  * @param target - Channel index or type (applies too all channels of the given type).
  * @param value - Frequency value or undefined.
  */
-const setLowpassFilter = (target: string | number, value: number) => {
+const setLowpassFilter = (value: number, target?: string | number) => {
     if (typeof target === 'number') {
         CHANNELS[target].lowpassFilter = value
         CACHE?.invalidateOutputSignals([value])
@@ -791,7 +791,7 @@ const setLowpassFilter = (target: string | number, value: number) => {
  * @param target - Channel index or type (applies too all channels of the given type).
  * @param value - Frequency value or undefined.
  */
-const setNotchFilter = (target: string | number, value: number) => {
+const setNotchFilter = (value: number, target?: string | number) => {
     if (typeof target === 'number') {
         CHANNELS[target].notchFilter = value
         CACHE?.invalidateOutputSignals([value])
