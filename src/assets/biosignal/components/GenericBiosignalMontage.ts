@@ -239,18 +239,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             return null
         }
         for (let i=0; i<response.signals.length; i++) {
-            // Exlude channels based on request or missing active signal.
-            if (
-                config?.include?.length && config.include.indexOf(i) === -1 ||
-                config?.exclude?.length && config.exclude.indexOf(i) !== -1 ||
-                this._channels[i].active === NUMERIC_ERROR_VALUE
-            ) {
-                derivedSignals.signals.push({
-                    data: new Float32Array(),
-                    samplingRate: 0,
-                })
-                continue
-            }
             derivedSignals.signals.push(response.signals[i])
         }
         return derivedSignals
