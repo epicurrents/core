@@ -190,16 +190,16 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
 
     async getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
-        // Check if we have the requested signals in cache
+        // Check if we have the requested signals in cache.
         const derivedSignals = {
             start: range[0],
             end: range[1],
             signals: []
         } as SignalCachePart
-        // First check if the requested range has been cached
+        // First check if the requested range has been cached.
         if (this._cachedSignals.start <= range[0] && this._cachedSignals.end >= range[1]) {
             for (let i=0; i<this._cachedSignals.signals.length; i++) {
-                // Exlude channels based on request or missing active signal
+                // Exlude channels based on request or missing active signal.
                 if (
                     config?.include?.length && config.include.indexOf(i) === -1 ||
                     config?.exclude?.length && config.exclude.indexOf(i) !== -1 ||
@@ -231,15 +231,15 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             Log.error(`Could not get signals for requested range [${range[0]}, ${range[1]}].`, SCOPE)
             return null
         }
-        // Check that montages actually match
-        if (this._channels.length !== response.signals.length) {
+        // Check that montages actually match.
+        if (!config && this._channels.length !== response.signals.length) {
             Log.error(`Worker response had an invalid number of montage channels (` +
                 `expected ${this._channels.length}, received ${response.signals.length}` +
             `).`, SCOPE)
             return null
         }
         for (let i=0; i<response.signals.length; i++) {
-            // Exlude channels based on request or missing active signal
+            // Exlude channels based on request or missing active signal.
             if (
                 config?.include?.length && config.include.indexOf(i) === -1 ||
                 config?.exclude?.length && config.exclude.indexOf(i) !== -1 ||
@@ -258,9 +258,9 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     async getChannelSignal (channel: number | string, range: number[], config?: ConfigChannelFilter):
     Promise<SignalCacheResponse> {
-        // This is just an alias for getAllSignals with a channel filter
+        // This is just an alias for getAllSignals with a channel filter.
         if (!config) {
-            // Initialize config
+            // Initialize config.
             config = { include: [] as number[] }
         }
         if (typeof channel === 'string') {
@@ -269,7 +269,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
                     config.include = [i]
                     break
                 } else if (i === this._channels.length - 1) {
-                    // Did not find the requested channel, return empty array
+                    // Did not find the requested channel, return empty array.
                     return null
                 }
             }
