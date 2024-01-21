@@ -196,9 +196,9 @@ export default class MontageService extends GenericService implements BiosignalM
         // This can happen when changing filters on multiple channels at the same time.
         const channelFilters = this._montage.channels.map(c => {
             return {
-                highpass: c?.highpassFilter || 0,
-                lowpass: c?.lowpassFilter || 0,
-                notch: c?.notchFilter || 0,
+                highpass: c?.highpassFilter,
+                lowpass: c?.lowpassFilter,
+                notch: c?.notchFilter,
             }
         })
         const filters = this._commissionWorker(
