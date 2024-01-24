@@ -30,8 +30,6 @@ export default class SignalFileLoader implements SignalDataLoader {
         resolve: () => void,
         timeout: unknown,
     }
-    /** Callback to use to communicate with the worker when the loader is done processing something. */
-    protected _callback = null as ((update: unknown) => void) | null
     /** The first visible part loaded and cached. */
     protected _cachedParts = {
         active: null as SignalFilePart,
@@ -79,10 +77,7 @@ export default class SignalFileLoader implements SignalDataLoader {
     protected _url = ''
     protected _worker = null as WorkerSignalCache | null
 
-    constructor (callback?: ((update: unknown) => void)) {
-        if (callback) {
-            this._callback = callback
-        }
+    constructor () {
     }
 
     protected get _cache (): SignalCacheMutex | WorkerSignalCache | null {
@@ -180,14 +175,6 @@ export default class SignalFileLoader implements SignalDataLoader {
         ) {
             this._logMessage('ERROR', `Requested file part has not been cached.`)
         }
-        if (this._callback) {
-            this._callback({
-                action: 'load-file-part',
-                file: this._file.data,
-                start: this._filePos,
-                end: partEnd,
-            })
-        }
         this._filePos = partEnd
     }
 
@@ -261,11 +248,7 @@ export default class SignalFileLoader implements SignalDataLoader {
                 this._filePos = 0
                 this._loadNextPart()
             } catch (e) {
-                if (this._callback) {
-                    this._callback({ error: e })
-                } else {
-                    Log.error(`Encountered an error when loading signal file.`, SCOPE, e as Error)
-                }
+                this._logMessage('ERROR', `Encountered an error when loading signal file.`, e as Error)
             }
         } else {
             // The idea is to consider the cached file data in three parts.
