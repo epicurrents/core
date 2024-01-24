@@ -1,7 +1,7 @@
 /**
- * EpiCurrents signal file loader utility.
+ * EpiCurrents signal file loader utility. This class can be used inside a worker or the main thread.
  * @package    @epicurrents/core
- * @copyright  2023 Sampsa Lohi
+ * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0
  */
 
@@ -11,17 +11,52 @@ import {
     MB_BYTES,
     NUMERIC_ERROR_VALUE,
 } from '#util'
-import { type SignalFilePart, type SignalDataLoader } from '#types/loader'
+import {
+    type SignalCacheMutex,
+    type SignalCacheProcess,
+    type SignalDataLoader,
+    type SignalFilePart,
+    type WorkerSignalCache,
+} from '#types'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'SignalFileLoader'
 
 export default class SignalFileLoader implements SignalDataLoader {
+
+    /** Promise awaiting data to update. */
+    protected _awaitData = null as null | {
+        range: number[],
+        resolve: () => void,
+        timeout: unknown,
+    }
+    /** Callback to use to communicate with the worker when the loader is done processing something. */
+    protected _callback = null as ((update: unknown) => void) | null
+    /** The first visible part loaded and cached. */
+    protected _cachedParts = {
+        active: null as SignalFilePart,
+        preceding: null as SignalFilePart,
+        trailing: null as SignalFilePart,
+    }
+    /** Ongoing cache process. */
+    protected _cacheProcesses = [] as SignalCacheProcess[]
     /** Number of records to load as a chunk. */
     protected _chunkLoadSize = 0
     /** Number of data units to load as a single chunk. */
     protected _chunkUnitCount = 0
+    /** Recording data block structure. */
+    protected _dataBlocks = [] as {
+        startRecord: number
+        endRecord: number
+        startTime: number
+        endTime: number
+    }[]
+    /** Actual signal data length without gaps. */
+    protected _dataLength = 0
     /** Byte position of the first data record (= header size in bytes). */
     protected _dataOffset = 0
+    /** Size of a single data record in bytes. */
+    protected _dataRecordSize = 0
     /** Number of data units in in the source file. */
     protected _dataUnitCount = 0
     /** Duration of single data unit in seconds. */
@@ -30,29 +65,33 @@ export default class SignalFileLoader implements SignalDataLoader {
     protected _dataUnitSize = 0
     /** The file to load. */
     protected _file = null as SignalFilePart
-    /** The first visible part loaded and cached. */
-    protected _cachedParts = {
-        active: null as SignalFilePart,
-        preceding: null as SignalFilePart,
-        trailing: null as SignalFilePart,
-    }
     /** Index of next data record to load. */
     protected _filePos = 0
-    /** Callback to use whenever the loader is done processing something. */
-    protected _callback: ((update: unknown) => void)
-    /**
-     * postMessage method of the parent worker.
-     * This is not really the correct type for postMessage, but it serves its purpose.
-     */
-    protected _postMessage: (message: string) => void
+    /** Is the mutex fully setup and ready. */
+    protected _isMutexReady = false
+    protected _maxDataBlocks = 0
+    protected _mutex = null as SignalCacheMutex | null
     /** Loading process start time (for debugging). */
     protected _startTime = 0
+    /** Total recording length including possible gaps. */
+    protected _totalLength = 0
     /** File data url. */
     protected _url = ''
+    protected _worker = null as WorkerSignalCache | null
 
-    constructor (callback: ((update: unknown) => void), postMessage: (message: string) => void) {
-        this._callback = callback
-        this._postMessage = postMessage
+    constructor (callback?: ((update: unknown) => void)) {
+        if (callback) {
+            this._callback = callback
+        }
+    }
+
+    protected get _cache (): SignalCacheMutex | WorkerSignalCache | null {
+        if (this._mutex && this._isMutexReady) {
+            return this._mutex
+        } else if (this._worker) {
+            return this._worker
+        }
+        return null
     }
 
     get dataUnitSize () {
@@ -88,9 +127,9 @@ export default class SignalFileLoader implements SignalDataLoader {
      */
     protected _cancelLoading () {
         const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        log(this._postMessage, 'INFO',
+        this._logMessage('INFO',
             `File loading canceled, managed to load ${this._filePos} bytes in ${loadTime} seconds.`,
-        SCOPE)
+        )
         this._chunkLoadSize = 0
         this._file = null
         this._filePos = 0
@@ -117,9 +156,9 @@ export default class SignalFileLoader implements SignalDataLoader {
     protected _finishLoading () {
         // Log message
         const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        log(this._postMessage, 'DEBUG',
+        this._logMessage('DEBUG',
             `File loading complete, ${this._filePos} bytes loaded in ${loadTime} seconds.`,
-        SCOPE)
+        )
         this._chunkLoadSize = 0
         this._file = null
         this._filePos = 0
@@ -139,25 +178,41 @@ export default class SignalFileLoader implements SignalDataLoader {
             this._file.start > this._filePos ||
             (this._file.length - this._file.start + this._filePos) < partEnd
         ) {
-            log(this._postMessage, 'ERROR', `Requested file part has not been cached.`, SCOPE)
+            this._logMessage('ERROR', `Requested file part has not been cached.`)
         }
-        this._callback({
-            action: 'load-file-part',
-            file: this._file.data,
-            start: this._filePos,
-            end: partEnd,
-        })
+        if (this._callback) {
+            this._callback({
+                action: 'load-file-part',
+                file: this._file.data,
+                start: this._filePos,
+                end: partEnd,
+            })
+        }
         this._filePos = partEnd
     }
 
     /**
+     * Log a message either directly or via the worker.
+     * @param level - Logging level.
+     * @param message - Message to log.
+     * @param extra - Possible extra information.
+     */
+    protected _logMessage (level: keyof typeof Log.LEVELS, message: string, extra?: unknown) {
+        if (typeof postMessage !== 'undefined') {
+            log(postMessage, 'INFO', message, SCOPE, extra)
+        } else {
+            Log.add(level, message, SCOPE, extra)
+        }
+    }
+
+    /**
      * Stop current loading process, but don't reset cached file data.
+     * @remarks
+     * This method doesn't seem to actually do anything?
      */
     protected _stopLoading () {
         const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        log(this._postMessage, 'INFO',
-            `File loading stopped after loading ${this._filePos} bytes in ${loadTime} seconds.`,
-        SCOPE)
+        this._logMessage('INFO', `File loading stopped after loading ${this._filePos} bytes in ${loadTime} seconds.`)
     }
 
     /**
@@ -193,9 +248,9 @@ export default class SignalFileLoader implements SignalDataLoader {
         // Signal data is converted from int16 to float32, so it will take double the size of the file itself.
         if (file.size < SETTINGS.app.maxLoadCacheSize/2 && !startFrom) {
             // Load file in stages.
-            log(this._postMessage, 'INFO',
+            this._logMessage('INFO',
                 `Starting progressive loading of a file of size ${(file.size/MB_BYTES).toFixed(2)} MiB.`,
-            SCOPE)
+            )
             // Cache the entire file.
             this._file = {
                 data: file,
@@ -206,7 +261,11 @@ export default class SignalFileLoader implements SignalDataLoader {
                 this._filePos = 0
                 this._loadNextPart()
             } catch (e) {
-                this._callback({ error: e })
+                if (this._callback) {
+                    this._callback({ error: e })
+                } else {
+                    Log.error(`Encountered an error when loading signal file.`, SCOPE, e as Error)
+                }
             }
         } else {
             // The idea is to consider the cached file data in three parts.
@@ -216,10 +275,10 @@ export default class SignalFileLoader implements SignalDataLoader {
             // to that end and the third at the far end is scrapped.
             // First, determine a meaningful starting point considering the record data block structure
             // and needed filter padding, so we can display the initial view as soon as possible.
-            log(this._postMessage, 'INFO',
+            this._logMessage('INFO',
                 `Not starting from beginning of file or file size ${file.size} bytes exceeds allowed cache size, `+
                 `loading file in parts.`,
-            SCOPE)
+            )
             // Cache info for data loading.
             this._dataOffset = 0
             // Next, load the rest of the "active third".
@@ -294,20 +353,18 @@ export default class SignalFileLoader implements SignalDataLoader {
                 }
                 return true
             }).catch((reason: unknown) => {
-                log(this._postMessage, 'ERROR',
-                    `Error loading file from URL '${url || this._url}':`,
-                SCOPE, reason)
+                this._logMessage('ERROR', `Error loading file from URL '${url || this._url}':`, reason)
                 return false
             })
     }
 
     async loadPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart> {
         if (!this._url.length) {
-            log(this._postMessage, 'ERROR', `Could not load file part, there is no source URL to load from.`, SCOPE)
+            this._logMessage('ERROR', `Could not load file part, there is no source URL to load from.`)
             return null
         }
         if (!this._dataUnitSize) {
-            log(this._postMessage, 'ERROR', `Could not load file part, data unit size has not been set.`, SCOPE)
+            this._logMessage('ERROR', `Could not load file part, data unit size has not been set.`)
             return null
         }
         // Save starting time for debugging.
@@ -323,8 +380,10 @@ export default class SignalFileLoader implements SignalDataLoader {
         const dataStart = this._dataOffset + unitStart*this._dataUnitSize
         const dataEnd = this._dataOffset + unitEnd*this._dataUnitSize
         const getBlob = this._file?.data ? async () => {
+            // Slice the data directly from the file.
             return this._file?.data.slice(dataStart, dataEnd) as Blob
         } : async () => {
+            // Fetch the data from the file URL.
             const headers = new Headers()
             headers.set('range', `bytes=${dataStart}-${dataEnd - 1}`)
             return await fetch(this._url, {
@@ -333,13 +392,13 @@ export default class SignalFileLoader implements SignalDataLoader {
         }
         const startTime = this._dataUnitIndexToTime(unitStart)
         const partLength = this._dataUnitIndexToTime(unitEnd - unitStart)
-        const SignalFilePart = this._blobToFile(
+        const signalFilePart = this._blobToFile(
             await getBlob(),
             `SignalFilePart[${startTime},${startTime + partLength}]`
         )
         // Cache only the visible part.
         return {
-            data: SignalFilePart,
+            data: signalFilePart,
             length: partLength,
             start: startTime,
         }

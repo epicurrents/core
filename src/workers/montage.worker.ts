@@ -41,7 +41,7 @@ import {
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { log } from '#util/worker'
 
-import SharedWorkerCache from './SharedWorkerCache'
+import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
 
 const SCOPE = "MontageWorker"
 

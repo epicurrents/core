@@ -264,7 +264,7 @@ const _settings = {
             Log.warn(
                 `Field ${field} passed to setFieldValue contains insecure property name '_proto__' and weas ignored.`,
             SCOPE)
-            return
+            return false
         }
         // Traverse field's "path" to target property.
         const fPath = field.split('.')
@@ -280,7 +280,7 @@ const _settings = {
                         `' is invalid: cannot find property '`+
                         `${fPath.slice(0, i + 1).join('.')}'.`,
                     SCOPE)
-                    return
+                    return false
                 } else if (settingsField[i][f as keyof typeof settingsField] === undefined) {
                     Log.warn(
                         `Default configuration field '`+
@@ -290,7 +290,7 @@ const _settings = {
                         `'. Valid properties are:
                         '${Object.keys(settingsField[i]).join("', '")}'.`,
                     SCOPE)
-                    return
+                    return false
                 }
                 // Final field.
                 const local = settingsField.pop()
@@ -306,8 +306,9 @@ const _settings = {
                     local[f] = value
                     Log.debug(`Changed settings field '${field}' value.`, SCOPE)
                     _settings.onPropertyUpdate(field, value, old)
+                    return true
                 }
-                return
+                return false
             } else {
                 settingsField.push(settingsField[i][f as keyof typeof settingsField])
             }
@@ -315,6 +316,7 @@ const _settings = {
         }
         // Is it even possible to reach this point?
         Log.error(`Could not change settings field '${field}'; the field was not found.`, SCOPE)
+        return false
     }
 } as AppSettings
 

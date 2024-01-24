@@ -392,9 +392,9 @@ export default class RuntimeStateManager implements StateManager {
     setSettingsValue (field: string, value: SettingsValue) {
         if (typeof field !== 'string') {
             Log.error('Invalid setting field type, expected string.', SCOPE)
-            return
+            return false
         }
-        state.SETTINGS.setFieldValue(field, value)
+        return state.SETTINGS.setFieldValue(field, value)
     }
     setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
         state.WORKERS.set(name, getWorker)

@@ -478,8 +478,9 @@ export interface StateManager {
      * appropriate handlers afterwards.
      * @param field - Name or path of the field.
      * @param value - The new value.
+     * @returns true if a field value was changed, false otherwise.
      */
-    setSettingsValue (field: string, value: SettingsValue): void
+    setSettingsValue (field: string, value: SettingsValue): boolean
     /**
      * Override a default worker with a method that returns a worker instance.
      * @param name - Name of the worker to override.

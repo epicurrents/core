@@ -126,8 +126,9 @@ export interface AppSettings {
      * Set a new `value` the the given settings `field`.
      * @param field - Name of the settings field.
      * @param value - New value for the field.
+     * @returns true if a field value was changed, false otherwise.
      */
-    setFieldValue (field: string, value: SettingsValue): void
+    setFieldValue (field: string, value: SettingsValue): boolean
 }
 /**
  * Common settings for all modules.
