@@ -5,25 +5,26 @@
  * @license    Apache-2.0
  */
 
-import { SETTINGS } from '#config'
 import {
-    log,
-    MB_BYTES,
     NUMERIC_ERROR_VALUE,
+    nullPromise,
 } from '#util'
 import {
+    BiosignalAnnotation,
     type SignalCacheMutex,
     type SignalCacheProcess,
+    type SignalDataCache,
     type SignalDataLoader,
     type SignalFilePart,
-    type WorkerSignalCache,
 } from '#types'
 import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'SignalFileLoader'
 
-export default class SignalFileLoader implements SignalDataLoader {
+export default abstract class SignalFileLoader implements SignalDataLoader {
 
+    /** Map of annotations as <position in seconds, list of annotations>. */
+    protected _annotations = new Map<number, BiosignalAnnotation[]>()
     /** Promise awaiting data to update. */
     protected _awaitData = null as null | {
         range: number[],
@@ -38,7 +39,7 @@ export default class SignalFileLoader implements SignalDataLoader {
     }
     /** Ongoing cache process. */
     protected _cacheProcesses = [] as SignalCacheProcess[]
-    /** Number of records to load as a chunk. */
+    /** Number of data units to load as a chunk. */
     protected _chunkLoadSize = 0
     /** Number of data units to load as a single chunk. */
     protected _chunkUnitCount = 0
@@ -49,21 +50,25 @@ export default class SignalFileLoader implements SignalDataLoader {
         startTime: number
         endTime: number
     }[]
+    /** Map of data gaps as <gap position, gap length> in seconds. */
+    protected _dataGaps = new Map<number, number>()
     /** Actual signal data length without gaps. */
     protected _dataLength = 0
-    /** Byte position of the first data record (= header size in bytes). */
+    /** Byte position of the first data unit (= header size in bytes). */
     protected _dataOffset = 0
-    /** Size of a single data record in bytes. */
-    protected _dataRecordSize = 0
     /** Number of data units in in the source file. */
     protected _dataUnitCount = 0
     /** Duration of single data unit in seconds. */
     protected _dataUnitDuration = 0
     /** Size of single data unit in bytes. */
     protected _dataUnitSize = 0
+    /** Is the source file discontinous. */
+    protected _discontinuous = false
+    /** A plain fallback data cache in case mutex is not usable. */
+    protected _fallbackCache = null as SignalDataCache | null
     /** The file to load. */
     protected _file = null as SignalFilePart
-    /** Index of next data record to load. */
+    /** Index of next data data unit to load. */
     protected _filePos = 0
     /** Is the mutex fully setup and ready. */
     protected _isMutexReady = false
@@ -75,16 +80,15 @@ export default class SignalFileLoader implements SignalDataLoader {
     protected _totalLength = 0
     /** File data url. */
     protected _url = ''
-    protected _worker = null as WorkerSignalCache | null
 
     constructor () {
     }
 
-    protected get _cache (): SignalCacheMutex | WorkerSignalCache | null {
+    protected get _cache (): SignalCacheMutex | SignalDataCache | null {
         if (this._mutex && this._isMutexReady) {
             return this._mutex
-        } else if (this._worker) {
-            return this._worker
+        } else if (this._fallbackCache) {
+            return this._fallbackCache
         }
         return null
     }
@@ -122,9 +126,7 @@ export default class SignalFileLoader implements SignalDataLoader {
      */
     protected _cancelLoading () {
         const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        this._logMessage('INFO',
-            `File loading canceled, managed to load ${this._filePos} bytes in ${loadTime} seconds.`,
-        )
+        Log.info(`File loading canceled, managed to load ${this._filePos} bytes in ${loadTime} seconds.`, SCOPE)
         this._chunkLoadSize = 0
         this._file = null
         this._filePos = 0
@@ -151,9 +153,7 @@ export default class SignalFileLoader implements SignalDataLoader {
     protected _finishLoading () {
         // Log message
         const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        this._logMessage('DEBUG',
-            `File loading complete, ${this._filePos} bytes loaded in ${loadTime} seconds.`,
-        )
+        Log.debug(`File loading complete, ${this._filePos} bytes loaded in ${loadTime} seconds.`, SCOPE)
         this._chunkLoadSize = 0
         this._file = null
         this._filePos = 0
@@ -173,23 +173,9 @@ export default class SignalFileLoader implements SignalDataLoader {
             this._file.start > this._filePos ||
             (this._file.length - this._file.start + this._filePos) < partEnd
         ) {
-            this._logMessage('ERROR', `Requested file part has not been cached.`)
+            Log.error(`Requested file part has not been cached.`, SCOPE)
         }
         this._filePos = partEnd
-    }
-
-    /**
-     * Log a message either directly or via the worker.
-     * @param level - Logging level.
-     * @param message - Message to log.
-     * @param extra - Possible extra information.
-     */
-    protected _logMessage (level: keyof typeof Log.LEVELS, message: string, extra?: unknown) {
-        if (typeof postMessage !== 'undefined') {
-            log(postMessage, 'INFO', message, SCOPE, extra)
-        } else {
-            Log.add(level, message, SCOPE, extra)
-        }
     }
 
     /**
@@ -199,7 +185,7 @@ export default class SignalFileLoader implements SignalDataLoader {
      */
     protected _stopLoading () {
         const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        this._logMessage('INFO', `File loading stopped after loading ${this._filePos} bytes in ${loadTime} seconds.`)
+        Log.info(`File loading stopped after loading ${this._filePos} bytes in ${loadTime} seconds.`, SCOPE)
     }
 
     /**
@@ -217,112 +203,221 @@ export default class SignalFileLoader implements SignalDataLoader {
         return time/this._dataUnitDuration
     }
 
-    async cacheFile (file: File, startFrom: number = 0) {
-        // If there is a previous loading task in progress, we need to stop or cancel it first.
-        if (this._file) {
-            if (file === this._file.data) {
-                // Stop loading but keep file data.
-                this._stopLoading()
+    async cacheFile(_file: File, _startFrom?: number | undefined): Promise<void> {
+        Log.error(`cacheFile has not been overridden by child class.`, SCOPE)
+    }
+
+    /**
+     * Add new, unique annotations to the annotation cache.
+     * @param annotations - New annotations to check and cache.
+     */
+    cacheNewAnnotations (...annotations: BiosignalAnnotation[]) {
+        // Arrange the annotations by record.
+        const recordAnnos = [] as BiosignalAnnotation[][]
+        for (const anno of annotations) {
+            if (!anno) {
+                continue
+            }
+            const annoRec = Math.round(anno.start/this._dataUnitSize)
+            if (!recordAnnos[annoRec]) {
+                recordAnnos[annoRec] = []
+            }
+            recordAnnos[annoRec].push(anno)
+        }
+        new_loop:
+        for (const newKey of recordAnnos.keys()) {
+            for (const exsistingKey of Object.keys(this._annotations)) {
+                if (newKey === parseFloat(exsistingKey)) {
+                    continue new_loop
+                }
+            }
+            this._annotations.set(newKey, recordAnnos[newKey])
+        }
+    }
+
+    /**
+     * Add new, unique data gaps to the data gap cache.
+     * @param newGaps - New data gaps to check and cache.
+     */
+    cacheNewDataGaps (newGaps: Map<number, number>) {
+        new_loop:
+        for (const newGap of newGaps) {
+            if (!newGap[1] || newGap[1] < 0) {
+                continue
+            }
+            for (const exsistingGap of this._dataGaps) {
+                if (newGap[0] === exsistingGap[0]) {
+                    continue new_loop
+                }
+            }
+            this._dataGaps.set(newGap[0], newGap[1])
+        }
+        // We need to sort the gaps to make sure keys appear in ascending order.
+        this._dataGaps = new Map([...this._dataGaps.entries()].sort((a, b) => a[0] - b[0]))
+    }
+
+    /**
+     * Convert cache time (i.e. time without data gaps) to recording time.
+     * @param time - Cache time without gaps.
+     * @returns Matching recording time (with gaps).
+     */
+    cacheTimeToRecordingTime (time: number): number {
+        if (time === NUMERIC_ERROR_VALUE) {
+            return time
+        }
+        if (time < 0 || time > this._dataLength) {
+            Log.error(
+                `Cannot convert cache time to recording time, given time ${time} is out of recording bounds ` +
+                `(0 - ${this._dataLength}).`,
+            SCOPE)
+            return NUMERIC_ERROR_VALUE
+        }
+        if (!time || !this._discontinuous) {
+            return time
+        }
+        return this.dataUnitIndexToTime(time/this._dataUnitDuration)
+    }
+
+    /**
+     * Convert a data unit index into timestamp.
+     * @param index - Data unit index to convert.
+     * @returns Recording timestamp in seconds.
+     */
+    dataUnitIndexToTime (index: number) {
+        if (index < 0 || index > this._dataUnitCount) {
+            Log.error(
+                `Cannot convert data unit index to time, given index ${index} is out of recording bounds ` +
+                `(0 - ${this._dataUnitCount}).`,
+            SCOPE)
+            return NUMERIC_ERROR_VALUE
+        }
+        let priorGapsTotal = 0
+        for (const gap of this._dataGaps) {
+            if (gap[0] < index*this._dataUnitDuration) {
+                priorGapsTotal += gap[1]
+            }
+        }
+        return index*this._dataUnitDuration + priorGapsTotal
+    }
+
+    /**
+     * Get any cached annotations from data units in the provided `range`.
+     * @param range - Recording range in seconds [inluded, excluded].
+     * @returns List of annotations as BiosignalAnnotation[].
+     */
+    getAnnotations (range?: number[]): BiosignalAnnotation[] {
+        const [start, end] = range && range.length === 2
+                             ? [range[0], Math.min(range[1], this._totalLength)]
+                             : [0, this._totalLength]
+        if (!this._cache) {
+            Log.error(`Cannot load annoations before signal cache has been initiated.`, SCOPE)
+            return []
+        }
+        if (start < 0 || start >= this._totalLength) {
+            Log.error(`Requested annotation range ${start} - ${end} was out of recording bounds.`, SCOPE)
+            return []
+        }
+        if (start >= end) {
+            Log.error(`Requested annotation range ${start} - ${end} was empty or invalid.`, SCOPE)
+            return []
+        }
+        const annotations = [] as BiosignalAnnotation[]
+        for (const annos of this._annotations.entries()) {
+            for (const anno of annos[1]) {
+                if (anno.start >= start && anno.start < end) {
+                    annotations.push(anno)
+                }
+            }
+        }
+        return annotations
+    }
+
+    /**
+     * Retrieve data gaps in the given `range`.
+     * @param range - Time range to check in seconds (both exclusive).
+     * @remarks
+     * For file structures based on data units, both the starting and ending data unit are excluded,
+     * because there cannot be a data gap inside just one unit.
+     */
+    getDataGaps (range?: number[]): { duration: number, start: number }[] {
+        const [start, end] = range && range.length === 2
+                             ? [range[0], Math.min(range[1], this._totalLength)]
+                             : [0, this._totalLength]
+        const dataGaps = [] as { duration: number, start: number }[]
+        if (!this._cache) {
+            Log.error(`Cannot return data gaps before signal cache has been initiated.`, SCOPE)
+            return dataGaps
+        }
+        if (start < 0) {
+            Log.error(`Requested data gap range start ${start} was smaller than zero.`, SCOPE)
+            return dataGaps
+        }
+        if (start >= end - this._dataUnitDuration) {
+            // This checks for ranges shorter than one data unit or in case of file with no data units
+            // (dataUnitDuration=0) range of zero or less.
+            return dataGaps
+        }
+        let priorGapsTotal = 0
+        for (const gap of this._dataGaps) {
+            const gapTime = gap[0] + priorGapsTotal
+            priorGapsTotal += gap[1]
+            if (gapTime + gap[1] <= start) {
+                continue
+            } else if (gapTime < start && gapTime + gap[1] > start) {
+                // Prior gap partially extends to the checked range.
+                if (gapTime + gap[1] < end) {
+                    dataGaps.push({ start: start, duration: gapTime + gap[1] - start })
+                } else {
+                    dataGaps.push({ start: start, duration: end - start })
+                    break
+                }
+            } else if (gapTime >= start && gapTime < end) {
+                if (gapTime + gap[1] < end) {
+                    dataGaps.push({ start: gapTime, duration: gap[1] })
+                } else {
+                    dataGaps.push({ start: gapTime, duration: end - gapTime })
+                    break
+                }
             } else {
-                // Cancel loading and start anew.
-                this._cancelLoading()
+                break
             }
         }
-        // Save starting time for debugging.
-        this._startTime = Date.now()
-        /** The number of data units in the file to be loaded. */
-        this._dataUnitCount = Math.floor((file.size - this._dataOffset)/this._dataUnitSize)
-        // Signal data is converted from int16 to float32, so it will take double the size of the file itself.
-        if (file.size < SETTINGS.app.maxLoadCacheSize/2 && !startFrom) {
-            // Load file in stages.
-            this._logMessage('INFO',
-                `Starting progressive loading of a file of size ${(file.size/MB_BYTES).toFixed(2)} MiB.`,
-            )
-            // Cache the entire file.
-            this._file = {
-                data: file,
-                length: this._dataUnitCount*this._dataUnitDuration,
-                start: 0,
-            }
-            try {
-                this._filePos = 0
-                this._loadNextPart()
-            } catch (e) {
-                this._logMessage('ERROR', `Encountered an error when loading signal file.`, e as Error)
-            }
-        } else {
-            // The idea is to consider the cached file data in three parts.
-            // - Middle part is where the active view is.
-            // - In addition, one third of cached data precedes it and one third follows it.
-            // Whenever the active view enters the preceding or following third, a new "third" is loaded
-            // to that end and the third at the far end is scrapped.
-            // First, determine a meaningful starting point considering the record data block structure
-            // and needed filter padding, so we can display the initial view as soon as possible.
-            this._logMessage('INFO',
-                `Not starting from beginning of file or file size ${file.size} bytes exceeds allowed cache size, `+
-                `loading file in parts.`,
-            )
-            // Cache info for data loading.
-            this._dataOffset = 0
-            // Next, load the rest of the "active third".
-            const startPos = Math.floor(startFrom/this._dataUnitSize)
-            const thirdSize = Math.floor(SETTINGS.app.maxLoadCacheSize/(3*this._dataUnitSize))
-            const activeThirdStart = Math.max(Math.floor(startPos - thirdSize/2), 0)
-            const activeThirdEnd = Math.min(activeThirdStart + thirdSize, this._dataUnitCount)
-            const activeThirdLength = activeThirdEnd - activeThirdStart
-            const activeDataStart = this._dataOffset + activeThirdStart*this._dataUnitSize
-            const activeDataEnd = this._dataOffset + activeThirdEnd*this._dataUnitSize
-            const activePart = this._blobToFile(
-                file.slice(activeDataStart, activeDataEnd),
-                file.name,
-                file.webkitRelativePath
-            )
-            this._cachedParts.active = {
-                data: activePart,
-                length: activeThirdLength,
-                start: activeThirdStart,
-            }
-            // Cache the active part.
-            this._file = this._cachedParts.active
-            // Load the new data etiher in chunks or in one go.
-            this._chunkLoadSize = activeThirdLength/2 > SETTINGS.app.dataChunkSize/this._dataUnitSize
-                                        ? Math.floor(SETTINGS.app.dataChunkSize/(this._dataUnitSize)) - 1
-                                        : 1
-            this._filePos = 0
-            this._loadNextPart()
-            // Next, load the trailing third of the cache, if not already loaded.
-            const trailingThirdStart = this._cachedParts.active.start + this._cachedParts.active.length
-            const trailingThirdEnd = Math.min(trailingThirdStart + thirdSize, this._dataUnitCount)
-            const trailingThirdLength = trailingThirdEnd - trailingThirdStart
-            if (trailingThirdStart < this._dataUnitCount) {
-                const trailingDataStart = this._dataOffset + trailingThirdStart*this._dataUnitSize
-                const trailingDataEnd = this._dataOffset + trailingThirdEnd*this._dataUnitSize
-                const trailingPart = this._blobToFile(
-                    file.slice(trailingDataStart, trailingDataEnd),
-                    file.name,
-                    file.webkitRelativePath
-                )
-                this._cachedParts.trailing = {
-                    data: trailingPart,
-                    length: trailingThirdLength,
-                    start: trailingThirdStart,
-                }
-                // Combine the active and trailing parts.
-                if (this._cachedParts.active) {
-                    this._file = {
-                        data: this._blobToFile(
-                            new Blob([ this._cachedParts.active.data, this._cachedParts.trailing.data]),
-                            file.name,
-                            file.webkitRelativePath
-                        ),
-                        length: this._cachedParts.active.length + trailingThirdLength,
-                        start: this._cachedParts.active.start,
-                    }
-                }
-                // Load the new data either in chunks or in one go.
-                this._loadNextPart()
-            }
+        return dataGaps
+    }
+
+    getGapTimeBetween (start: number, end: number): number {
+        if (!this._discontinuous) {
+            return 0
         }
+        let gapTotal = 0
+        for (const gap of this.getDataGaps([start, end])) {
+            gapTotal += gap.duration
+        }
+        return gapTotal
+    }
+
+    /**
+     * Get current signal cache range.
+     * @returns Range as { start: number, end: number } measured in seconds or NUMERIC_ERROR_VALUE if an error occurred.
+     */
+    async getSignalCacheRange () {
+        if (!this._cache) {
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        const rangeStart = await this._cache.outputRangeStart
+        const rangeEnd = await this._cache.outputRangeEnd
+        if (rangeStart === null || rangeEnd === null) {
+            Log.error(
+                `Signal cache did not report a valid range: start (${rangeStart}) or end (${rangeEnd}).`,
+            SCOPE)
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        return { start: rangeStart, end: rangeEnd }
+    }
+
+    async loadPartFromFile(_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
+        Log.error(`loadPartFromFile has not been overridden by child class.`, SCOPE)
+        return nullPromise
     }
 
     async loadFileFromUrl (url?: string) {
@@ -332,58 +427,69 @@ export default class SignalFileLoader implements SignalDataLoader {
                 this._file = {
                     data: new File([blobFile], "recording"),
                     start: 0,
-                    length: this._dataUnitCount*this._dataUnitDuration
+                    length: this._dataLength
                 }
                 return true
-            }).catch((reason: unknown) => {
-                this._logMessage('ERROR', `Error loading file from URL '${url || this._url}':`, reason)
+            }).catch((reason: Error) => {
+                Log.error(`Error loading file from URL '${url || this._url}':`, SCOPE, reason)
                 return false
             })
     }
 
-    async loadPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart> {
-        if (!this._url.length) {
-            this._logMessage('ERROR', `Could not load file part, there is no source URL to load from.`)
-            return null
+    /**
+     * Convert recording time to cache time (i.e. time without data gaps).
+     * @param time - Recording time.
+     * @returns Matching cache time (without gaps).
+     */
+    recordingTimeToCacheTime (time: number): number {
+        if (time === NUMERIC_ERROR_VALUE) {
+            return time
         }
-        if (!this._dataUnitSize) {
-            this._logMessage('ERROR', `Could not load file part, data unit size has not been set.`)
-            return null
+        if (time < 0 || time > this._totalLength) {
+            Log.error(
+                `Cannot convert recording time to cache time, given time ${time} is out of recording bounds ` +
+                `(0 - ${this._totalLength}).`,
+            SCOPE)
+            return NUMERIC_ERROR_VALUE
         }
-        // Save starting time for debugging.
-        this._startTime = Date.now()
-        const unitStart = Math.max(
-            0,
-            Math.floor(this._timeToDataUnitIndex(startFrom))
-        )
-        const unitEnd = Math.min(
-            Math.ceil(this._timeToDataUnitIndex(startFrom + dataLength)),
-            this._dataUnitCount
-        )
-        const dataStart = this._dataOffset + unitStart*this._dataUnitSize
-        const dataEnd = this._dataOffset + unitEnd*this._dataUnitSize
-        const getBlob = this._file?.data ? async () => {
-            // Slice the data directly from the file.
-            return this._file?.data.slice(dataStart, dataEnd) as Blob
-        } : async () => {
-            // Fetch the data from the file URL.
-            const headers = new Headers()
-            headers.set('range', `bytes=${dataStart}-${dataEnd - 1}`)
-            return await fetch(this._url, {
-                headers: headers,
-            }).then(response => response.blob()).then(blob => { return blob })
+        if (!time || !this._discontinuous) {
+            // Zero is always zero, continuous recording has the same cache and recording time.
+            return time
         }
-        const startTime = this._dataUnitIndexToTime(unitStart)
-        const partLength = this._dataUnitIndexToTime(unitEnd - unitStart)
-        const signalFilePart = this._blobToFile(
-            await getBlob(),
-            `SignalFilePart[${startTime},${startTime + partLength}]`
-        )
-        // Cache only the visible part.
-        return {
-            data: signalFilePart,
-            length: partLength,
-            start: startTime,
+        return time - this.getGapTimeBetween(0, time)
+    }
+
+    /**
+     * Release buffers removing all references to them and returning to initial state.
+     */
+    async releaseCache () {
+        for (const proc of this._cacheProcesses) {
+            proc.continue = false
         }
+        this._cacheProcesses.splice(0)
+        this._cache?.releaseBuffers()
+        if (this._mutex) {
+            this._isMutexReady = false
+            this._mutex = null
+        } else if (this._fallbackCache) {
+            this._fallbackCache = null
+        }
+    }
+
+    /**
+     * Convert a recording timestamp to data unit index.
+     * @param time - Timestamp in seconds to convert.
+     * @returns Data unit index.
+     */
+    timeToDataUnitIndex (time: number): number {
+        if (time > this._totalLength) {
+            Log.error(
+                `Cannot convert time to data unit index, given itime ${time} is out of recording bounds ` +
+                `(0 - ${this._totalLength}).`,
+            SCOPE)
+            return NUMERIC_ERROR_VALUE
+        }
+        const priorGapsTotal = time > 0 ? this.getGapTimeBetween(0, time) : 0
+        return Math.floor((time - priorGapsTotal)/this._dataUnitDuration)
     }
 }

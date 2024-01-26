@@ -73,10 +73,10 @@ export interface AssetService extends BaseAsset {
      */
     setBufferRange: (range: number[]) => Promise<void>
     /**
-     * Set up the buffer in the web worker cache, returning the created buffer's export properties or null if
+     * Set up the mutex in the web worker cache, returning the created mutex export properties or null if
      * an error occurred.
      */
-    setupCache (): Promise<MutexExportProperties|null>
+    setupMutex (): Promise<MutexExportProperties|null>
     /**
      * Set the given `worker` to this worker and run any required initialization to make this service ready for use.
      * Alternatively, a message port to a shared worker can be given instead of a worker.
@@ -260,10 +260,6 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      * Get the entire data arrays holding input signal properties and data.
      */
     readonly inputSignalViews: Promise<Float32Array[]| null>
-    /**
-     * The raw buffers holding the output signals.
-     */
-    readonly outputSignalArrays: SharedArrayBuffer
     /**
      * Properties of the output signals.
      */

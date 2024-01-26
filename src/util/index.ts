@@ -57,7 +57,6 @@ import {
     shouldFilterSignal,
 } from './signal'
 import {
-    log,
     syncSettings,
     type RelayLogMessage,
 } from './worker'
@@ -92,7 +91,6 @@ export {
     isContinuousSignal,
     isEmptyObject,
     lastFractOnlyIfSignificant,
-    log,
     mapMontageChannels,
     mapSignalsToSamplingRates,
     nullPromise,

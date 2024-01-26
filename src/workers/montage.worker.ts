@@ -14,8 +14,8 @@ import {
     type SetupChannel,
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
+    type SignalDataCache,
     type SignalPart,
-    type WorkerSignalCache,
 } from '#types/biosignal'
 import {
     type CommonBiosignalSettings,
@@ -39,13 +39,13 @@ import {
     shouldFilterSignal,
 } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
-import { log } from '#util/worker'
 
 import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = "MontageWorker"
 
-let CACHE: BiosignalMutex | WorkerSignalCache | null = null
+let CACHE: BiosignalMutex | SignalDataCache | null = null
 let CHANNELS = [] as MontageChannel[]
 //let MONTAGE: BiosignalMontage | null = null
 let SETUP: BiosignalSetup | null = null
@@ -96,7 +96,7 @@ onmessage = async (message: WorkerMessage) => {
     //}
     if (action === 'get-signals') {
         if (!CACHE) {
-            log(postMessage, 'ERROR', `Requested signals when signal cache is not yet initialized.`, SCOPE)
+            Log.error(`Requested signals when signal cache is not yet initialized.`, SCOPE)
             postMessage({
                 action: 'get-signals',
                 success: false,
@@ -237,14 +237,14 @@ onmessage = async (message: WorkerMessage) => {
  */
 const cacheTimeToRecordingTime = (time: number): number => {
     if (!CACHE) {
-        log(postMessage, 'ERROR', `Cannot convert cache time to recording time before cache has been set up.`, SCOPE)
+        Log.error(`Cannot convert cache time to recording time before cache has been set up.`, SCOPE)
         return NUMERIC_ERROR_VALUE
     }
     if (time === NUMERIC_ERROR_VALUE) {
         return time
     }
     if (time < 0) {
-        log(postMessage, 'ERROR', `Cannot convert negative cache time to recording time.`, SCOPE)
+        Log.error(`Cannot convert negative cache time to recording time.`, SCOPE)
         return NUMERIC_ERROR_VALUE
     }
     if (time === 0) {
@@ -277,7 +277,7 @@ const calculateSignalsForPart = async (
 ) => {
     // Check that cache is ready.
     if (!CACHE) {
-        log(postMessage, 'ERROR', "Cannot return signal part, signal cache has not been set up yet.", SCOPE)
+        Log.error("Cannot return signal part, signal cache has not been set up yet.", SCOPE)
         return false
     }
     const cacheStart = recordingTimeToCacheTime(start)
@@ -290,7 +290,7 @@ const calculateSignalsForPart = async (
         inputRangeEnd === null || (cacheEnd > inputRangeEnd && inputRangeEnd < TOTAL_CACHE_LENGTH)
     ) {
         // TODO: Signal that the required part must be loaded by the file loader first.
-        log(postMessage, 'ERROR', "Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
+        Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
         return false
     }
     const relStart = cacheStart - inputRangeStart
@@ -477,11 +477,11 @@ const getDataGaps = (range?: number[], useCacheTime = false): { duration: number
     let end = range ? range[1] : (useCacheTime ? TOTAL_CACHE_LENGTH : TOTAL_RECORDING_LENGTH)
     const dataGaps = [] as { duration: number, start: number }[]
     if (start < 0) {
-        log(postMessage, 'ERROR', `Requested data gap range start ${start} is smaller than zero.`, SCOPE)
+        Log.error(`Requested data gap range start ${start} is smaller than zero.`, SCOPE)
         return dataGaps
     }
     if (start >= end) {
-        log(postMessage, 'ERROR', `Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
+        Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
         return dataGaps
     }
     if (useCacheTime && end > TOTAL_CACHE_LENGTH) {
@@ -536,18 +536,18 @@ const getGapTimeBetween = (start: number, end: number): number => {
  */
 const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
     if (!CHANNELS) {
-        log(postMessage, 'ERROR', "Cannot load signals, channels have not been set up yet.", SCOPE)
+        Log.error("Cannot load signals, channels have not been set up yet.", SCOPE)
         return null
     }
     if (!CACHE) {
-        log(postMessage, 'ERROR', "Cannot load signals, signal cache has not been set up yet.", SCOPE)
+        Log.error("Cannot load signals, signal cache has not been set up yet.", SCOPE)
         return null
     }
     let requestedSigs: SignalCachePart | null = null
     const cacheStart = await CACHE.outputRangeStart
     const cacheEnd = await CACHE.outputRangeEnd
     if (cacheStart === null || cacheEnd === null) {
-        log(postMessage, 'ERROR', `Loading signals for range [${range[0]}, ${range[1]}] failed.`, SCOPE)
+        Log.error(`Loading signals for range [${range[0]}, ${range[1]}] failed.`, SCOPE)
         return null
     }
     // If pre-caching is enabled, check the cache for existing signals for this range.
@@ -562,7 +562,7 @@ const getSignals = async (range: number[], config?: ConfigChannelFilter) => {
                 signals: signals as SignalCachePart['signals']
             }
         } else {
-            log(postMessage, 'ERROR', `Cound not cache requested signal range ${range[0]} - ${range[1]}.`, SCOPE)
+            Log.error(`Cound not cache requested signal range ${range[0]} - ${range[1]}.`, SCOPE)
             return null
         }
     } else {
@@ -642,7 +642,7 @@ const getSignalCacheRange = async () => {
     const rangeStart = await CACHE.outputRangeStart
     const rangeEnd = await CACHE.outputRangeEnd
     if (rangeStart === null || rangeEnd === null) {
-        log(postMessage, 'ERROR', `Montage signal mutex did not report a valid range: start (${rangeStart}) or end (${rangeEnd}).`, SCOPE)
+        Log.error(`Montage signal mutex did not report a valid range: start (${rangeStart}) or end (${rangeEnd}).`, SCOPE)
         return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
     }
     return { start: rangeStart, end: rangeEnd }
@@ -669,7 +669,7 @@ const getSignalCacheRange = async () => {
         }
         const range = await ranges[i]
         if (!range) {
-            log(postMessage, 'ERROR', `Montage signal mutex did not report a valid updated range for signal at index ${i}.`, SCOPE)
+            Log.error(`Montage signal mutex did not report a valid updated range for signal at index ${i}.`, SCOPE)
             return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
         }
         const tStart = range.start/sr
@@ -677,16 +677,16 @@ const getSignalCacheRange = async () => {
         if (range.start !== IOMutex.EMPTY_FIELD) {
             highestStart = (highestStart === NUMERIC_ERROR_VALUE || tStart > highestStart) ? tStart : highestStart
         } else {
-            log(postMessage, 'WARN', `Signal #${i} has not updated start position set.`, SCOPE)
+            Log.warn(`Signal #${i} has not updated start position set.`, SCOPE)
         }
         if (range.end !== IOMutex.EMPTY_FIELD) {
             lowestEnd = (lowestEnd === NUMERIC_ERROR_VALUE || tEnd < lowestEnd) ? tEnd : lowestEnd
         } else {
-            log(postMessage, 'WARN', `Signal #${i} has not updated end position set.`, SCOPE)
+            Log.warn(`Signal #${i} has not updated end position set.`, SCOPE)
         }
     }
     if (highestStart === NUMERIC_ERROR_VALUE && lowestEnd === NUMERIC_ERROR_VALUE) {
-        log(postMessage, 'ERROR', `Cannot get ranges of updated signals, cache has no initialized signals.`, SCOPE)
+        Log.error(`Cannot get ranges of updated signals, cache has no initialized signals.`, SCOPE)
         return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
     }
     return { start: cacheTimeToRecordingTime(highestStart), end: cacheTimeToRecordingTime(lowestEnd) }
@@ -706,7 +706,7 @@ const getVisibleChannels = () => {
 const mapChannels = (config: ConfigMapChannels) => {
     // Check that we have a valid setup.
     if (!SETUP) {
-        log(postMessage, 'ERROR', `Cannot map channels for montage; missing an electrode setup!`, SCOPE)
+        Log.error(`Cannot map channels for montage; missing an electrode setup!`, SCOPE)
         return
     }
     // Reset channels for the new mapping.
@@ -725,14 +725,14 @@ const mapChannels = (config: ConfigMapChannels) => {
  */
 const recordingTimeToCacheTime = (time: number): number => {
     if (!CACHE) {
-        log(postMessage, 'ERROR', `Cannot convert recording time to cache time before cache has been set up.`, SCOPE)
+        Log.error(`Cannot convert recording time to cache time before cache has been set up.`, SCOPE)
         return NUMERIC_ERROR_VALUE
     }
     if (time === NUMERIC_ERROR_VALUE) {
         return time
     }
     if (time < 0) {
-        log(postMessage, 'ERROR', `Cannot convert negative recording time to cache time.`, SCOPE)
+        Log.error(`Cannot convert negative recording time to cache time.`, SCOPE)
         return NUMERIC_ERROR_VALUE
     }
     if (time === 0) {
@@ -823,6 +823,9 @@ const setupInputMutex = async (
     setupChannels: SetupChannel[],
     dataGaps = [] as { duration: number, start: number }[]
 ) => {
+    if (!input.buffer) {
+        return false
+    }
     SETUP = new GenericBiosignalSetup(montage) as BiosignalSetup
     SETUP.channels = setupChannels
     mapChannels(config)

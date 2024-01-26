@@ -6,11 +6,14 @@
  */
 
 import GenericService from '#assets/service/GenericService'
-import { combineSignalParts, log } from '#root/src/util'
-import { type SignalRange, type WorkerSignalCache } from '#types/biosignal'
+import { combineSignalParts } from '#root/src/util'
+import { type SignalRange, type SignalDataCache } from '#types/biosignal'
 import { type SignalCachePart, type WorkerCommission } from '#types/service'
+import { Log } from 'scoped-ts-log'
 
-export default class SharedWorkerCache extends GenericService implements WorkerSignalCache {
+const SCOPE = 'SharedWorkerCache'
+
+export default class SharedWorkerCache extends GenericService implements SignalDataCache {
     protected _postMessage: typeof postMessage
     protected _rangeEnd = 0
     protected _rangeStart = 0
@@ -105,7 +108,7 @@ export default class SharedWorkerCache extends GenericService implements WorkerS
             }
             this._signalCache = signalPart
         } else if (!combineSignalParts(this._signalCache, signalPart)) {
-            log(this._postMessage, "ERROR", `Failed to add new singal part to cache.`, 'SharedWorkerCache')
+            Log.error(`Failed to add new singal part to cache.`, SCOPE)
         }
     }
 

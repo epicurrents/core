@@ -7,7 +7,7 @@
 
 import { type SignalCacheMutex, type SignalCachePart } from '#types/service'
 import { Log } from 'scoped-ts-log'
-import { IOMutex, type MutexExportProperties } from 'asymmetric-io-mutex'
+import { IOMutex, MutexMetaField, type MutexExportProperties } from 'asymmetric-io-mutex'
 import { concatFloat32Arrays } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 
@@ -64,19 +64,24 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     static readonly SIGNAL_UPDATED_START_POS = 1
 
     static convertPropertiesForCoupling (props: MutexExportProperties) {
-        // Convert typed array constructors into strings
-        for (const array of props.data.arrays) {
-            if (typeof array.constructor !== 'string') {
-                array.constructor = array.constructor.name
+        // Convert typed array constructors into strings.
+        if (props.data) {
+            for (const array of props.data.arrays) {
+                if (typeof array.constructor !== 'string') {
+                    // @ts-ignore We need to resort to this hack to transfer the properties between threads.
+                    array.constructor = array.constructor.name
+                }
             }
-        }
-        for (const field of props.data.fields) {
-            if (typeof field.constructor !== 'string') {
-                field.constructor = field.constructor.name
+            for (const field of props.data.fields) {
+                if (typeof field.constructor !== 'string') {
+                    // @ts-ignore
+                    field.constructor = field.constructor.name
+                }
             }
         }
         for (const field of props.meta.fields) {
             if (typeof field.constructor !== 'string') {
+                // @ts-ignore
                 field.constructor = field.constructor.name
             }
         }
@@ -151,14 +156,19 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     }
                 }
             }
-            // Reverse the constructor to string conversion in peopertiesForCoupling.
-            for (const array of coupledProps.data.arrays) {
-                array.constructor = nameToConstr(array.constructor)
-            }
-            for (const field of coupledProps.data.fields) {
-                field.constructor = nameToConstr(field.constructor)
+            // Reverse the constructor to string conversion in propertiesForCoupling.
+            if (coupledProps.data) {
+                for (const array of coupledProps.data.arrays) {
+                    // @ts-ignore
+                    array.constructor = nameToConstr(array.constructor)
+                }
+                for (const field of coupledProps.data.fields) {
+                    // @ts-ignore
+                    field.constructor = nameToConstr(field.constructor)
+                }
             }
             for (const field of coupledProps.meta.fields) {
+                // @ts-ignore
                 field.constructor = nameToConstr(field.constructor)
             }
         }
@@ -320,8 +330,11 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             }
             const props = [] as { [field: string]: number }[]
             for (const prop of result) {
+                if (!prop.data) {
+                    continue
+                }
                 props.push({
-                    [prop.name]: prop.data as number
+                    [prop.name]: prop.data[0]
                 })
             }
             return props
@@ -337,7 +350,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     get outputSignalArrays () {
-        return this._outputData.arrays
+        return this._outputData?.arrays || []
     }
 
     get outputSignalProperties (): Promise<{ [field: string]: number }[] | null> {
@@ -347,8 +360,11 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             }
             const props = [] as { [field: string]: number }[]
             for (const prop of result) {
+                if (!prop.data) {
+                    continue
+                }
                 props.push({
-                    [prop.name]: prop.data as number
+                    [prop.name]: prop.data[0] as number
                 })
             }
             return props
@@ -398,12 +414,12 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the amount of memory (in seconds of signal range) allocated to the signal data.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected _getRangeAllocated = async (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
-                                   Promise<typeof this.outputMetaFields[0] | null> => {
+    protected async _getRangeAllocated (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    Promise<MutexMetaField | null> {
         const range = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const range = this._getMetaFieldProperties(scope, BiosignalMutex.RANGE_ALLOCATED_NAME)
             if (range) {
-                range.data = await this._getMetaFieldValue(scope, BiosignalMutex.RANGE_ALLOCATED_NAME)
+                range.data = await this._getMetaFieldValue(scope, BiosignalMutex.RANGE_ALLOCATED_NAME) || undefined
             }
             return range
         })
@@ -414,12 +430,12 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get a meta field object holding the buffered range end (in seconds) of the signals.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected _getRangeEnd = async (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
-                             Promise<typeof this.outputMetaFields[0] | null> => {
+    protected async _getRangeEnd (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    Promise<MutexMetaField | null> {
         const range = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const range = this._getMetaFieldProperties(scope, BiosignalMutex.RANGE_END_NAME)
             if (range) {
-                range.data = await this._getMetaFieldValue(scope, BiosignalMutex.RANGE_END_NAME)
+                range.data = await this._getMetaFieldValue(scope, BiosignalMutex.RANGE_END_NAME) || undefined
             }
             return range
         })
@@ -430,12 +446,12 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the buffered range start (in seconds) of the signals.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected _getRangeStart = async (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
-                               Promise<typeof this.outputMetaFields[0] | null> => {
+    protected async _getRangeStart (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    Promise<MutexMetaField | null> {
         const range = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const range = this._getMetaFieldProperties(scope, BiosignalMutex.RANGE_START_NAME)
             if (range) {
-                range.data = await this._getMetaFieldValue(scope, BiosignalMutex.RANGE_START_NAME)
+                range.data = await this._getMetaFieldValue(scope, BiosignalMutex.RANGE_START_NAME) || undefined
             }
             return range
         })
@@ -446,13 +462,13 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the properties of the signal data arrays.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected _getSignalProperties = async (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
-                                     Promise<typeof this._inputDataFields[0] | null> => {
+    protected async _getSignalProperties (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    Promise<MutexMetaField[] | null> {
         let dataFields: typeof this._inputDataFields | null = null
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
             dataFields = scope === IOMutex.MUTEX_SCOPE.INPUT
                                    ? this._inputDataFields
-                                   : this._outputData.fields
+                                   : this._outputData?.fields || []
         })
         return dataFields
     }
@@ -466,7 +482,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const dataViews = scope === IOMutex.MUTEX_SCOPE.INPUT
                               ? this._inputDataViews
-                              : this._outputData.arrays.map((a: { view: Float32Array|null }) => a.view)
+                              : (this._outputData?.arrays || []).map(a => a.view)
             for (let i=0; i<dataViews.length; i++) {
                 // Get the updated signal data start
                 const updatedStartPos = (await this._getDataFieldValue(
@@ -482,7 +498,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 if (updatedEndPos === NUMERIC_ERROR_VALUE) {
                     Log.warn(`Could not verify input signals; updated range end was not found.`, SCOPE)
                 }
-                sigs.push(dataViews[i].subarray(
+                sigs.push((dataViews[i] as Float32Array).subarray(
                     updatedStartPos + this._outputDataFieldsLen,
                     updatedEndPos + this._outputDataFieldsLen,
                 ))
@@ -495,14 +511,14 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the entire data arrays holding both signal properties and data.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected _getSingalViews = async (scope = IOMutex.MUTEX_SCOPE.OUTPUT) => {
+    protected async _getSingalViews (scope = IOMutex.MUTEX_SCOPE.OUTPUT) {
         let dataViews: Float32Array[] | null = null
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
             dataViews = scope === IOMutex.MUTEX_SCOPE.INPUT
-                                  ? this._inputDataViews
-                                  : this._outputData.arrays.map((a: { view: Float32Array|null }) => a.view)
+                                  ? this._inputDataViews as Float32Array[]
+                                  : (this._outputData?.arrays || []).map(a => a.view as Float32Array)
         })
-        return dataViews as Float32Array[] | null
+        return dataViews
     }
 
     /**
@@ -527,7 +543,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         const samplingRate = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
             const signalViews = scope === IOMutex.MUTEX_SCOPE.INPUT
                                           ? this._inputDataViews
-                                          : this._outputData.arrays.map((a: { view: Float32Array|null }) => a.view)
+                                          : (this._outputData?.arrays || []).map(a => a.view as Float32Array)
             if (index < 0 || index >= signalViews.length) {
                 Log.error(`Cannot read signal sampling rate with an out of bound index ${index} ` +
                           `(${signalViews.length} signals buffered).`, SCOPE)
@@ -548,8 +564,8 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         const range = [] as Float32Array[]
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
             const signalViews = scope === IOMutex.MUTEX_SCOPE.INPUT
-                                        ? this._inputDataViews
-                                        : this._outputData.arrays.map((a: { view: Float32Array|null }) => a.view)
+                                        ? this._inputDataViews as Float32Array[]
+                                        : (this._outputData?.arrays || []).map(a => a.view as Float32Array)
             if (index < 0 || index >= signalViews.length) {
                 Log.error(`Cannot read updated signal range with an out of bound index ${index} ` +
                           `(${signalViews.length} signals buffered).`, SCOPE)
@@ -594,8 +610,10 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
 
     async clearSignals () {
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, () => {
-            for (const sig of IOMutex.OPERATION_MODE.WRITE === IOMutex.OPERATION_MODE.READ
-                ? this._inputDataViews : this._outputData.arrays.map((a: { view: Float32Array|null }) => a.view)
+            for (
+                const sig of IOMutex.OPERATION_MODE.WRITE === IOMutex.OPERATION_MODE.READ
+                    ? this._inputDataViews as Float32Array[]
+                    : (this._outputData?.arrays || []).map(a => a.view as Float32Array)
             ) {
                 sig?.fill(0.0)
             }
@@ -609,7 +627,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         bufferStart = 0
     ) {
         // Check that signals haven't already been initialized.
-        if (this._outputData.buffer) {
+        if (this._outputData?.buffer) {
             Log.error(`Attempted to initialize signal buffers that had already been initialized!`, SCOPE)
             return
         }
@@ -663,10 +681,10 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     async insertSignals (signalPart: SignalCachePart) {
-        if (signalPart.signals.length !== this._outputData.arrays.length) {
+        if (signalPart.signals.length !== this._outputData?.arrays.length) {
             // Number of signals don't match.
             Log.error(`Number of inserted signals doesn't match number of buffered signals ` +
-                      `(${signalPart.signals.length} vs ${this._outputData.arrays.length})`, SCOPE)
+                      `(${signalPart.signals.length} vs ${this._outputData?.arrays.length})`, SCOPE)
             return
         }
         const rangeStartView = await this._getMetaFieldValue(
@@ -691,9 +709,9 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             return
         }
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, async () => {
-            for (let i=0; i<this._outputData.arrays.length; i++) {
+            for (let i=0; i<(this._outputData?.arrays || []).length; i++) {
                 // Check that we have the required view.
-                const dataView = this._outputData.arrays[i]?.view
+                const dataView = this._outputData?.arrays[i]?.view
                 if (!dataView) {
                     Log.error(`Output data view for index ${i} is falsy (${dataView}).`, SCOPE)
                     continue
@@ -736,7 +754,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
 
     async invalidateOutputSignals (channels?: number[]) {
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, BiosignalMutex.OPERATION_MODE.WRITE, () => {
-            for (let i=0; i<this._outputData.fields.length; i++) {
+            for (let i=0; i<(this._outputData?.fields || []).length; i++) {
                 if (channels && channels.indexOf(i) === -1) {
                     continue
                 }
@@ -749,8 +767,12 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     async readSignals () {
         const sigs = [] as Float32Array[]
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, BiosignalMutex.OPERATION_MODE.READ, () => {
-            for (const dataArr of this._outputData.array) {
-                sigs.push(dataArr.view.subarray(this._outputDataFieldsLen))
+            if (this._outputData) {
+                for (const dataArr of this._outputData.arrays) {
+                    if (dataArr.view) {
+                        sigs.push((dataArr.view as Float32Array).subarray(this._outputDataFieldsLen))
+                    }
+                }
             }
         })
         return sigs
@@ -772,16 +794,20 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         const oldEnd = this._outputMeta.view[BiosignalMutex.RANGE_END_POS]
         if (oldStart !== rangeStart || oldEnd !== rangeEnd) {
             await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, BiosignalMutex.OPERATION_MODE.WRITE, async () => {
-                if (!this._outputData.arrays) {
+                if (!this._outputData?.arrays) {
                     Log.error(`Cannot set signal data in an uninitialized mutex.`, SCOPE)
                     return
                 }
                 for (let i=0; i<this._outputData.arrays.length; i++) {
+                    const dataView = this._outputData.arrays[i].view
+                    if (!dataView) {
+                        continue
+                    }
                     //const updatedStart = this._outputData.arrays[i].view[BiosignalMutex.SIGNAL_UPDATED_START_POS]
-                    const updatedEnd = this._outputData.arrays[i].view[BiosignalMutex.SIGNAL_UPDATED_END_POS]
-                    const samplingRate = this._outputData.arrays[i].view[BiosignalMutex.SIGNAL_SAMPLING_RATE_POS]
+                    const updatedEnd = dataView[BiosignalMutex.SIGNAL_UPDATED_END_POS]
+                    const samplingRate = dataView[BiosignalMutex.SIGNAL_SAMPLING_RATE_POS]
                     // Retrieve a reference to signal data so we can adjust the buffered data to the new range.
-                    const signalData = this._outputData.arrays[i].view.subarray(
+                    const signalData = dataView.subarray(
                         this._outputDataFieldsLen,
                         this._outputDataFieldsLen + Math.round(await this._outputSignalRangeAllocated || 0 )
                     )
@@ -846,31 +872,35 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      */
     async writeSignals (signals: Float32Array[]) {
         // Check that signal counts and lengths match.
-        if (signals.length !== this._outputData.arrays.length) {
+        if (signals.length !== this._outputData?.arrays.length) {
             Log.error(`Cannot output mismatched number of signals (output ${signals.length} signals to ` +
-                      `${this._outputData.arrays.length} buffers).`, SCOPE)
+                      `${this._outputData?.arrays.length} buffers).`, SCOPE)
             return false
         }
         for (let i=0; i<signals.length; i++) {
-            if (signals[i].length !== this._outputData.arrays[i].view.length) {
-                if (signals[i].length > this._outputData.arrays[i].view.length) {
+            const dataView = this._outputData.arrays[i].view
+            if (!dataView) {
+                continue
+            }
+            if (signals[i].length !== dataView.length) {
+                if (signals[i].length > dataView.length) {
                     // Truncate signals.
-                    signals[i] = signals[i].subarray(0, this._outputData.arrays[i].view.length)
+                    signals[i] = signals[i].subarray(0, dataView.length)
                 } else {
                     signals[i] = concatFloat32Arrays(
                         signals[i],
                         // Fill the missing part with zeroes.
-                        new Float32Array(this._outputData.arrays[i].view.length - signals[i].length).fill(0)
+                        new Float32Array(dataView.length - signals[i].length).fill(0)
                     )
                 }
                 Log.warn(`Provided a signal of wrong length for index ${i} (${signals[i].length} values to ` +
-                         `a buffer of ${this._outputData.arrays.view.length}).`, SCOPE)
+                         `a buffer of ${dataView.length}).`, SCOPE)
             }
         }
         // Assign signals.
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, BiosignalMutex.OPERATION_MODE.WRITE, () => {
             for (let i=0; i<signals.length; i++) {
-                this._outputData.arrays[i].view.set(signals[i], this._outputDataFieldsLen)
+                this._outputData?.arrays[i].view?.set(signals[i], this._outputDataFieldsLen)
             }
         })
         return true

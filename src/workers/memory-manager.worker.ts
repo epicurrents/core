@@ -7,7 +7,7 @@
 
 import { type WorkerMessage } from '#types/service'
 import IOMutex from 'asymmetric-io-mutex'
-import { log } from '#util/worker'
+import { Log } from 'scoped-ts-log'
 
 let BUFFER = null as SharedArrayBuffer | null
 let VIEW = null as Int32Array | null
@@ -34,7 +34,7 @@ onmessage = async (message: WorkerMessage) => {
             VIEW = new Int32Array(buffer)
             success = true
         } else {
-            log(postMessage, 'ERROR', 'set-buffer did not contain a value for the buffer.', SCOPE)
+            Log.error('set-buffer did not contain a value for the buffer.', SCOPE)
             props.reason = 'set-buffer did not contain a value for the buffer.'
         }
     }
@@ -56,16 +56,16 @@ onmessage = async (message: WorkerMessage) => {
  */
 const removeAndRearrange = (remove: number[][], rearrange: { id: string, range: number[] }[]): boolean => {
     if (!BUFFER || !VIEW) {
-        log(postMessage, 'ERROR', 'Cannot remove and rearrange buffer when the buffer is not set.', SCOPE)
+        Log.error('Cannot remove and rearrange buffer when the buffer is not set.', SCOPE)
         return false
     }
     // The master array lock must be zero (off).
     if (Atomics.compareExchange(VIEW, 0, 0, 1) !== 0) {
-        log(postMessage, 'ERROR', 'Encountered a locked master buffer when trying to remove and rearrange.', SCOPE)
+        Log.error('Encountered a locked master buffer when trying to remove and rearrange.', SCOPE)
         return false
     }
     if (!rearrange.length) {
-        log(postMessage, 'ERROR', 'release-and-rearrange did not contain any elements to rearrange.', SCOPE)
+        Log.error('release-and-rearrange did not contain any elements to rearrange.', SCOPE)
         return false
     }
     // Wait that each of the arrays to rearrange to be unlocked.
@@ -80,9 +80,9 @@ const removeAndRearrange = (remove: number[][], rearrange: { id: string, range: 
             }
             // Else, keep waiting for the lock to release.
             if (Atomics.wait(VIEW, toRetain.range[0], prevValue, WAIT_TIMEOUT) === 'timed-out') {
-                log(postMessage, 'ERROR',
+                Log.error(
                     'Timed out when waiting for a memory buffer to unlock for release-and-rearrange.',
-                    SCOPE)
+                SCOPE)
                 Atomics.exchange(VIEW, 0, 0) // Release lock.
                 return false
             }
@@ -91,9 +91,9 @@ const removeAndRearrange = (remove: number[][], rearrange: { id: string, range: 
     // Check for and remove possible empty or invalid ranges.
     for (let i=0; i<remove.length; i++) {
         if (remove[i][0] === remove[i][1] || remove[i][0] > remove[i][1]) {
-            log(postMessage, 'WARN',
+            Log.warn(
                 `Range '${remove[i][0]}-${remove[i][1]}' given to release-and-rearrange was invalid and was ignored.`,
-                SCOPE)
+            SCOPE)
             remove.splice(i, 1)
             i--
         }
@@ -138,7 +138,7 @@ const removeAndRearrange = (remove: number[][], rearrange: { id: string, range: 
     }
     if (Atomics.compareExchange(VIEW, 0, 1, 0) !== 1) {
         // This is really just here to catch possible bugs in buffer management.
-        log(postMessage, 'WARN', 'Master buffer was not in locked state at the end of release-and-rearrange.', SCOPE)
+        Log.warn('Master buffer was not in locked state at the end of release-and-rearrange.', SCOPE)
     }
     return true
 }

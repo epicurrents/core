@@ -50,6 +50,7 @@ export default class MontageService extends GenericService implements BiosignalM
             ),
             { type: 'module'}
         )
+        Log.registerWorker(worker)
         super(SCOPE, worker, manager)
         this._worker?.postMessage({
             action: 'settings-namespace',

@@ -29,7 +29,7 @@ const SCOPE = 'GenericService'
  * Services work as interfaces to web workers. They give commissions for any tasks that need to be performed
  * outside the main thread and return promises that are fulfilled once the task completes.
  */
-export default class GenericService extends GenericAsset implements AssetService {
+export default abstract class GenericService extends GenericAsset implements AssetService {
     private _requestNumber: number = 1
     protected _actionWatchers = [] as ActionWatcher[]
     protected _awaitBufferSetup: ((success: boolean) => void)[] = []
@@ -375,7 +375,7 @@ export default class GenericService extends GenericAsset implements AssetService
         this._shiftBuffer = false
     }
 
-    async setupCache (): Promise<MutexExportProperties|null> {
+    async setupMutex (): Promise<MutexExportProperties|null> {
         if (!this._manager) {
             Log.error(`Cannot initialize buffer, memory manager has not been set up.`, SCOPE)
             return null
@@ -393,8 +393,8 @@ export default class GenericService extends GenericAsset implements AssetService
                 ['range', this._memoryRange],
             ])
         )
-        const initResult = await commission.promise as boolean
-        this._notifyWaiters(this._awaitBufferSetup, initResult)
+        const initResult = await commission.promise as MutexExportProperties | null
+        this._notifyWaiters(this._awaitBufferSetup, initResult !== null)
         this._setupCache = false
         if (!initResult) {
             Log.error(`Initializing memory buffer in the worker failed.`, SCOPE)

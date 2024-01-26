@@ -26,14 +26,16 @@ export default class PyodideService extends GenericService implements AssetServi
     protected _scripts = {} as { [name: string]: ScriptState }
 
     constructor () {
-        super(SCOPE, new Worker(
+        const worker = new Worker(
             new URL(
                 /* webpackChunkName: 'pyodide.worker' */
                 `../workers/pyodide.worker`,
                 import.meta.url
             ),
             { type: 'module'}
-        ))
+        )
+        Log.registerWorker(worker)
+        super(SCOPE, worker)
     }
 
     /**

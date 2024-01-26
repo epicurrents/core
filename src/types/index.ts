@@ -80,11 +80,11 @@ import {
     type SetupChannel,
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
+    type SignalDataCache,
     type SignalPolarity,
     type SignalRange,
     type VideoAttachment,
     type WorkerMontage,
-    type WorkerSignalCache,
 } from './biosignal'
 export {
     BiosignalAnnotation,
@@ -123,11 +123,11 @@ export {
     SetupChannel,
     SetupMutexResponse,
     SetupSharedWorkerResponse,
+    SignalDataCache,
     SignalPolarity,
     SignalRange,
     VideoAttachment,
     WorkerMontage,
-    WorkerSignalCache,
 }
 
 /////////////////////////////////////////////////

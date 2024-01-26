@@ -924,6 +924,22 @@ export type SetupMutexResponse = {
 export type SetupSharedWorkerResponse = {
     success: boolean
 }
+/**
+ * An object holding cached biosignal data.
+ */
+export interface SignalDataCache {
+    inputRangeEnd: Promise<number>
+    inputRangeStart: Promise<number>
+    inputSignals: Promise<Float32Array[]>
+    outputRangeEnd: number
+    outputRangeStart: number
+    outputSignalSamplingRates: number[]
+    outputSignalUpdatedRanges: { start: number, end: number }[]
+    asCachePart (): SignalCachePart
+    insertSignals (signalPart: SignalCachePart): Promise<void>
+    invalidateOutputSignals (): void
+    releaseBuffers (): void
+}
 export type SignalPart = {
     data: Float32Array
     samplingRate: number
@@ -977,18 +993,4 @@ export interface WorkerMontage {
         }
     ): Float32Array[]
     setChannels(channels: MontageChannel[]): void
-}
-
-export interface WorkerSignalCache {
-    inputRangeEnd: Promise<number>
-    inputRangeStart: Promise<number>
-    inputSignals: Promise<Float32Array[]>
-    outputRangeEnd: number
-    outputRangeStart: number
-    outputSignalSamplingRates: number[]
-    outputSignalUpdatedRanges: { start: number, end: number }[]
-    asCachePart (): SignalCachePart
-    insertSignals (signalPart: SignalCachePart): Promise<void>
-    invalidateOutputSignals (): void
-    releaseBuffers (): void
 }

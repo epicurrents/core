@@ -25,34 +25,6 @@ export const inlineWorker = (name: string, code: string): Worker => {
     }
     return new Worker(URL.createObjectURL(blob))
 }
-
-/**
- * Transmit log messages back to the main application thread Log instance using the web worker's postMessage method.
- * @remarks
- * If we import class Log inside a Worker, it is not the same instance of the main application's Log. Instead,
- * in order to keep all log messages/events in the same instance, we need to relay the messages back to the main
- * application thread via `postMessage`.
- * @param post - `postMessage` method of the Worker scope.
- * @param level - Message level (i.e. `DEBUG`, `INFO`, `WARN`, or `ERROR`,).
- * @param event - The actual event as message string or string array.
- * @param scope - Scope of the event.
- * @param extra - Any extra properties (**NOTE!** These must be serializable for postMessage).
- */
-export const log = (
-    post: typeof postMessage,
-    level: keyof typeof Log.LEVELS,
-    event: string | string[],
-    scope: string,
-    extra?: unknown
-) => {
-    post({
-        action: 'log',
-        event: event,
-        extra: extra,
-        level: level,
-        scope: scope || SCOPE
-    })
-}
 /**
  * Method type for relaying log messages inside the worker scope.
  * The method implementing this should post the log messages to the main thread via `log` (importable from this scope).

@@ -77,6 +77,7 @@ export default class ServiceMemoryManager implements MemoryManager {
             ),
             { type: 'module'}
         )
+        Log.registerWorker(this._worker)
         this._worker.addEventListener('message', this._handleMessage.bind(this))
         this._worker.postMessage({
             action: 'set-buffer',
