@@ -1,1 +1,1 @@
-# EpiCurrents neurophysiological study viewer
+# EpiCurrents electrophysiological study viewer
