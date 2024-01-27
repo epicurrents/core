@@ -31,24 +31,28 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         resolve: () => void,
         timeout: unknown,
     }
-    /** The first visible part loaded and cached. */
-    protected _cachedParts = {
-        active: null as SignalFilePart,
-        preceding: null as SignalFilePart,
-        trailing: null as SignalFilePart,
-    }
     /** Ongoing cache process. */
     protected _cacheProcesses = [] as SignalCacheProcess[]
     /** Number of data units to load as a chunk. */
     protected _chunkLoadSize = 0
     /** Number of data units to load as a single chunk. */
     protected _chunkUnitCount = 0
-    /** Recording data block structure. */
+    /** Recording data block structure in data chunks. */
     protected _dataBlocks = [] as {
+        /** Record index this block starts at. */
         startRecord: number
+        /** Record index this block ends at (excluded). */
         endRecord: number
+        /** Recording time (in seconds) at start of this block. */
         startTime: number
+        /** Recording time (in seconds) at end of this block. */
         endTime: number
+        /** File byte position this block starts at. */
+        startBytePos: number
+        /** File byte position this block ends at. */
+        endBytePos: number
+        /** Data contained in this block if loaded, null if not. */
+        data: SignalFilePart | null
     }[]
     /** Map of data gaps as <gap position, gap length> in seconds. */
     protected _dataGaps = new Map<number, number>()
@@ -91,6 +95,10 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
             return this._fallbackCache
         }
         return null
+    }
+
+    get cacheReady () {
+        return this._cache !== null
     }
 
     get dataUnitSize () {

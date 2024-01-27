@@ -172,6 +172,10 @@ export type LoaderMode = 'file' | 'folder' | 'study'
  */
 export interface SignalDataLoader {
     /**
+     * Has the cache been initialized.
+     */
+    cacheReady: boolean
+    /**
      * Start loading signal data from the given file.
      * @param file - File object.
      * @param startFrom - Optional starting point of the loading process in seconds of file duration.
