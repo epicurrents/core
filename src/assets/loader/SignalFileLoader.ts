@@ -292,7 +292,8 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
      * @returns Data unit index.
      */
     protected _timeToDataUnitIndex (time: number): number {
-        if (time > this._totalLength) {
+        // We cannot check total length if it hasn't been determined yet for a (discontinuous file).
+        if (this._totalLength && time > this._totalLength) {
             Log.error(
                 `Cannot convert time to data unit index, given itime ${time} is out of recording bounds ` +
                 `(0 - ${this._totalLength}).`,
