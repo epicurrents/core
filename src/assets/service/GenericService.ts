@@ -209,7 +209,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
         }
         const commission = this._getCommissionForMessage(message)
         if (commission) {
-            if (data.action === 'setup-cache') {
+            if (data.action === 'setup-mutex') {
                 if (data.success) {
                     Log.debug(`Cache initiation complete in biosignal loader worker.`, SCOPE)
                     commission.resolve(data.cacheProperties)
@@ -387,7 +387,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
         Log.debug(`Initiating buffers in worker.`, SCOPE)
         this._setupCache = true
         const commission = this._commissionWorker(
-            'setup-cache',
+            'setup-mutex',
             new Map<string, unknown>([
                 ['buffer', this._manager.buffer],
                 ['range', this._memoryRange],
