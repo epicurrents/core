@@ -101,8 +101,20 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         return this._cache !== null
     }
 
+    get dataLength () {
+        return this._dataLength
+    }
+
     get dataUnitSize () {
         return this._dataUnitSize
+    }
+
+    get discontinuous () {
+        return this._discontinuous
+    }
+
+    get totalLength () {
+        return this._totalLength
     }
 
     get url () {
@@ -128,7 +140,27 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         })
         return <File>blob
     }
-
+    /**
+     * Convert cache time (i.e. time without data gaps) to recording time.
+     * @param time - Cache time without gaps.
+     * @returns Matching recording time (with gaps).
+     */
+    _cacheTimeToRecordingTime (time: number) {
+        if (time === NUMERIC_ERROR_VALUE) {
+            return time
+        }
+        if (time < 0 || time > this._dataLength) {
+            Log.error(
+                `Cannot convert cache time to recording time, given time ${time} is out of recording bounds ` +
+                `(0 - ${this._dataLength}).`,
+            SCOPE)
+            return NUMERIC_ERROR_VALUE
+        }
+        if (!time || !this._discontinuous) {
+            return time
+        }
+        return this._dataUnitIndexToTime(time/this._dataUnitDuration)
+    }
     /**
      * Cancel an ongoing file loading process.
      */
@@ -139,22 +171,27 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         this._file = null
         this._filePos = 0
     }
-
     /**
      * Convert a data unit index into timestamp.
-     *
-     * **NOTE!** This method does not check that the given values are within recording bounds!
-     *
-     * @param index - Data unit index to conver.
+     * @param index - Data unit index to convert.
      * @returns Recording timestamp in seconds.
      */
-    protected _dataUnitIndexToTime (index: number) {
-        if (!this._dataUnitDuration) {
+    _dataUnitIndexToTime (index: number) {
+        if (index < 0 || index > this._dataUnitCount) {
+            Log.error(
+                `Cannot convert data unit index to time, given index ${index} is out of recording bounds ` +
+                `(0 - ${this._dataUnitCount}).`,
+            SCOPE)
             return NUMERIC_ERROR_VALUE
         }
-        return index*this._dataUnitDuration
+        let priorGapsTotal = 0
+        for (const gap of this._dataGaps) {
+            if (gap[0] < index*this._dataUnitDuration) {
+                priorGapsTotal += gap[1]
+            }
+        }
+        return index*this._dataUnitDuration + priorGapsTotal
     }
-
     /**
      * Wrap up after file loading has finished.
      */
@@ -166,7 +203,40 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         this._file = null
         this._filePos = 0
     }
-
+    /**
+     * Get the total gap time between two points in recording time.
+     * @param start - Starting time in recording seconds.
+     * @param end - Ending time in recording seconds.
+     * @returns Total gap time in seconds.
+     */
+    protected _getGapTimeBetween (start: number, end: number): number {
+        if (!this._discontinuous) {
+            return 0
+        }
+        let gapTotal = 0
+        for (const gap of this.getDataGaps([start, end])) {
+            gapTotal += gap.duration
+        }
+        return gapTotal
+    }
+    /**
+     * Get current signal cache range.
+     * @returns Range as { start: number, end: number } measured in seconds or NUMERIC_ERROR_VALUE if an error occurred.
+     */
+    protected async _getSignalCacheRange () {
+        if (!this._cache) {
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        const rangeStart = await this._cache.outputRangeStart
+        const rangeEnd = await this._cache.outputRangeEnd
+        if (rangeStart === null || rangeEnd === null) {
+            Log.error(
+                `Signal cache did not report a valid range: start (${rangeStart}) or end (${rangeEnd}).`,
+            SCOPE)
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        return { start: rangeStart, end: rangeEnd }
+    }
     /**
      * Load the next part from the cached file.
      */
@@ -185,7 +255,28 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         }
         this._filePos = partEnd
     }
-
+    /**
+     * Convert recording time to cache time (i.e. time without data gaps).
+     * @param time - Recording time.
+     * @returns Matching cache time (without gaps).
+     */
+    protected _recordingTimeToCacheTime (time: number): number {
+        if (time === NUMERIC_ERROR_VALUE) {
+            return time
+        }
+        if (time < 0 || time > this._totalLength) {
+            Log.error(
+                `Cannot convert recording time to cache time, given time ${time} is out of recording bounds ` +
+                `(0 - ${this._totalLength}).`,
+            SCOPE)
+            return NUMERIC_ERROR_VALUE
+        }
+        if (!time || !this._discontinuous) {
+            // Zero is always zero, continuous recording has the same cache and recording time.
+            return time
+        }
+        return time - this._getGapTimeBetween(0, time)
+    }
     /**
      * Stop current loading process, but don't reset cached file data.
      * @remarks
@@ -195,30 +286,27 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
         Log.info(`File loading stopped after loading ${this._filePos} bytes in ${loadTime} seconds.`, SCOPE)
     }
-
     /**
      * Convert a recording timestamp to data unit index.
-     *
-     * **NOTE!** This method does not check that the given values are within recording bounds!
-     *
      * @param time - Timestamp in seconds to convert.
-     * @returns data unit index
+     * @returns Data unit index.
      */
-    protected _timeToDataUnitIndex (time: number) {
-        if (!this._dataUnitDuration) {
+    protected _timeToDataUnitIndex (time: number): number {
+        if (time > this._totalLength) {
+            Log.error(
+                `Cannot convert time to data unit index, given itime ${time} is out of recording bounds ` +
+                `(0 - ${this._totalLength}).`,
+            SCOPE)
             return NUMERIC_ERROR_VALUE
         }
-        return time/this._dataUnitDuration
+        const priorGapsTotal = time > 0 ? this._getGapTimeBetween(0, time) : 0
+        return Math.floor((time - priorGapsTotal)/this._dataUnitDuration)
     }
 
     async cacheFile(_file: File, _startFrom?: number | undefined): Promise<void> {
         Log.error(`cacheFile has not been overridden by child class.`, SCOPE)
     }
 
-    /**
-     * Add new, unique annotations to the annotation cache.
-     * @param annotations - New annotations to check and cache.
-     */
     cacheNewAnnotations (...annotations: BiosignalAnnotation[]) {
         // Arrange the annotations by record.
         const recordAnnos = [] as BiosignalAnnotation[][]
@@ -243,10 +331,6 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         }
     }
 
-    /**
-     * Add new, unique data gaps to the data gap cache.
-     * @param newGaps - New data gaps to check and cache.
-     */
     cacheNewDataGaps (newGaps: Map<number, number>) {
         new_loop:
         for (const newGap of newGaps) {
@@ -264,56 +348,7 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         this._dataGaps = new Map([...this._dataGaps.entries()].sort((a, b) => a[0] - b[0]))
     }
 
-    /**
-     * Convert cache time (i.e. time without data gaps) to recording time.
-     * @param time - Cache time without gaps.
-     * @returns Matching recording time (with gaps).
-     */
-    cacheTimeToRecordingTime (time: number): number {
-        if (time === NUMERIC_ERROR_VALUE) {
-            return time
-        }
-        if (time < 0 || time > this._dataLength) {
-            Log.error(
-                `Cannot convert cache time to recording time, given time ${time} is out of recording bounds ` +
-                `(0 - ${this._dataLength}).`,
-            SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        if (!time || !this._discontinuous) {
-            return time
-        }
-        return this.dataUnitIndexToTime(time/this._dataUnitDuration)
-    }
-
-    /**
-     * Convert a data unit index into timestamp.
-     * @param index - Data unit index to convert.
-     * @returns Recording timestamp in seconds.
-     */
-    dataUnitIndexToTime (index: number) {
-        if (index < 0 || index > this._dataUnitCount) {
-            Log.error(
-                `Cannot convert data unit index to time, given index ${index} is out of recording bounds ` +
-                `(0 - ${this._dataUnitCount}).`,
-            SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            if (gap[0] < index*this._dataUnitDuration) {
-                priorGapsTotal += gap[1]
-            }
-        }
-        return index*this._dataUnitDuration + priorGapsTotal
-    }
-
-    /**
-     * Get any cached annotations from data units in the provided `range`.
-     * @param range - Recording range in seconds [inluded, excluded].
-     * @returns List of annotations as BiosignalAnnotation[].
-     */
-    getAnnotations (range?: number[]): BiosignalAnnotation[] {
+    getAnnotations (range?: number[]) {
         const [start, end] = range && range.length === 2
                              ? [range[0], Math.min(range[1], this._totalLength)]
                              : [0, this._totalLength]
@@ -340,14 +375,7 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         return annotations
     }
 
-    /**
-     * Retrieve data gaps in the given `range`.
-     * @param range - Time range to check in seconds (both exclusive).
-     * @remarks
-     * For file structures based on data units, both the starting and ending data unit are excluded,
-     * because there cannot be a data gap inside just one unit.
-     */
-    getDataGaps (range?: number[]): { duration: number, start: number }[] {
+    getDataGaps (range?: number[]) {
         const [start, end] = range && range.length === 2
                              ? [range[0], Math.min(range[1], this._totalLength)]
                              : [0, this._totalLength]
@@ -393,36 +421,6 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         return dataGaps
     }
 
-    getGapTimeBetween (start: number, end: number): number {
-        if (!this._discontinuous) {
-            return 0
-        }
-        let gapTotal = 0
-        for (const gap of this.getDataGaps([start, end])) {
-            gapTotal += gap.duration
-        }
-        return gapTotal
-    }
-
-    /**
-     * Get current signal cache range.
-     * @returns Range as { start: number, end: number } measured in seconds or NUMERIC_ERROR_VALUE if an error occurred.
-     */
-    async getSignalCacheRange () {
-        if (!this._cache) {
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        const rangeStart = await this._cache.outputRangeStart
-        const rangeEnd = await this._cache.outputRangeEnd
-        if (rangeStart === null || rangeEnd === null) {
-            Log.error(
-                `Signal cache did not report a valid range: start (${rangeStart}) or end (${rangeEnd}).`,
-            SCOPE)
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        return { start: rangeStart, end: rangeEnd }
-    }
-
     async loadPartFromFile(_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
         Log.error(`loadPartFromFile has not been overridden by child class.`, SCOPE)
         return nullPromise
@@ -444,32 +442,6 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
             })
     }
 
-    /**
-     * Convert recording time to cache time (i.e. time without data gaps).
-     * @param time - Recording time.
-     * @returns Matching cache time (without gaps).
-     */
-    recordingTimeToCacheTime (time: number): number {
-        if (time === NUMERIC_ERROR_VALUE) {
-            return time
-        }
-        if (time < 0 || time > this._totalLength) {
-            Log.error(
-                `Cannot convert recording time to cache time, given time ${time} is out of recording bounds ` +
-                `(0 - ${this._totalLength}).`,
-            SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        if (!time || !this._discontinuous) {
-            // Zero is always zero, continuous recording has the same cache and recording time.
-            return time
-        }
-        return time - this.getGapTimeBetween(0, time)
-    }
-
-    /**
-     * Release buffers removing all references to them and returning to initial state.
-     */
     async releaseCache () {
         for (const proc of this._cacheProcesses) {
             proc.continue = false
@@ -482,22 +454,5 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         } else if (this._fallbackCache) {
             this._fallbackCache = null
         }
-    }
-
-    /**
-     * Convert a recording timestamp to data unit index.
-     * @param time - Timestamp in seconds to convert.
-     * @returns Data unit index.
-     */
-    timeToDataUnitIndex (time: number): number {
-        if (time > this._totalLength) {
-            Log.error(
-                `Cannot convert time to data unit index, given itime ${time} is out of recording bounds ` +
-                `(0 - ${this._totalLength}).`,
-            SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        const priorGapsTotal = time > 0 ? this.getGapTimeBetween(0, time) : 0
-        return Math.floor((time - priorGapsTotal)/this._dataUnitDuration)
     }
 }

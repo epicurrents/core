@@ -6,6 +6,7 @@
  */
 
 import { BaseAsset } from './application'
+import { BiosignalAnnotation } from './biosignal'
 import { MemoryManager } from './service'
 import {
     StudyContext,
@@ -176,11 +177,51 @@ export interface SignalDataLoader {
      */
     cacheReady: boolean
     /**
+     * Length of the actual data in seconds (excluding gaps).
+     */
+    dataLength: number
+    /**
+     * Is the source file discontinuous.
+     */
+    discontinuous: boolean
+    /**
+     * Total length of the recording in seconds (including gaps).
+     */
+    totalLength: number
+    /**
+     * Source file URL.
+     */
+    url: string
+    /**
      * Start loading signal data from the given file.
      * @param file - File object.
      * @param startFrom - Optional starting point of the loading process in seconds of file duration.
      */
     cacheFile (file: File, startFrom?: number): Promise<void>
+    /**
+     * Add new, unique annotations to the annotation cache.
+     * @param annotations - New annotations to check and cache.
+     */
+    cacheNewAnnotations (...annotations: BiosignalAnnotation[]): void
+    /**
+     * Add new, unique data gaps to the data gap cache.
+     * @param newGaps - New data gaps to check and cache.
+     */
+    cacheNewDataGaps (newGaps: Map<number, number>): void
+    /**
+     * Get any cached annotations from data units in the provided `range`.
+     * @param range - Recording range in seconds [inluded, excluded].
+     * @returns List of annotations as BiosignalAnnotation[].
+     */
+    getAnnotations (range?: number[]): BiosignalAnnotation[]
+    /**
+     * Retrieve data gaps in the given `range`.
+     * @param range - Time range to check in seconds (both exclusive).
+     * @remarks
+     * For file structures based on data units, both the starting and ending data unit are excluded,
+     * because there cannot be a data gap inside just one unit.
+     */
+    getDataGaps (range?: number[]): { duration: number, start: number }[]
     /**
      * Load and cache the entire file from the given URL.
      * @param url - Optional URL of the file (defaults to cached URL).
@@ -193,6 +234,10 @@ export interface SignalDataLoader {
      * @param dataLength - Length of the requested data in seconds.
      */
     loadPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
+    /**
+     * Release buffers removing all references to them and returning to initial state.
+     */
+    releaseCache (): Promise<void>
 }
 /**
  * SignalFileLoader has additional methods for loading the signal header and actuals signal data.
