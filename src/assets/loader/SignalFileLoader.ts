@@ -10,7 +10,7 @@ import {
     nullPromise,
 } from '#util'
 import {
-    BiosignalAnnotation,
+    type BiosignalAnnotation,
     type SignalCacheMutex,
     type SignalCacheProcess,
     type SignalDataCache,
@@ -454,5 +454,15 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         } else if (this._fallbackCache) {
             this._fallbackCache = null
         }
+    }
+
+    setupCache () {
+        Log.error(`setupCache has not been overridden in child class.`, SCOPE)
+        return false
+    }
+
+    async setupMutex (_buffer: SharedArrayBuffer, _bufferStart: number) {
+        Log.error(`setupMutex has not been overridden in child class.`, SCOPE)
+        return nullPromise
     }
 }

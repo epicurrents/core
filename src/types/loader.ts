@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import { BiosignalAnnotation } from './biosignal'
 import { MemoryManager } from './service'
@@ -238,6 +239,16 @@ export interface SignalDataLoader {
      * Release buffers removing all references to them and returning to initial state.
      */
     releaseCache (): Promise<void>
+    /**
+     * Initialize plain reader cache.
+     * @returns True on success, false on failure.
+     */
+    setupCache (): boolean
+    /**
+     * Initialize mutex buffers.
+     * @returns Export properties of the new mutex or null on failure.
+     */
+    setupMutex (buffer: SharedArrayBuffer, bufferStart: number): Promise<MutexExportProperties|null>
 }
 /**
  * SignalFileLoader has additional methods for loading the signal header and actuals signal data.
