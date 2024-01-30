@@ -50,7 +50,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return this._worker
     }
 
-    constructor (recording: BiosignalResource, worker: Worker, manager?: MemoryManager) {
+    constructor (recording: BiosignalResource, worker?: Worker, manager?: MemoryManager) {
         super(SCOPE, worker)
         this._recording = recording
         if (manager) {
