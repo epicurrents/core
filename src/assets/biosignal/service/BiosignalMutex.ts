@@ -6,10 +6,15 @@
  */
 
 import { type SignalCacheMutex, type SignalCachePart } from '#types/service'
-import { Log } from 'scoped-ts-log'
-import { IOMutex, MutexMetaField, type MutexExportProperties } from 'asymmetric-io-mutex'
+import {
+    IOMutex,
+    type ArrayBufferArray,
+    type MutexExportProperties,
+    type MutexMetaField,
+} from 'asymmetric-io-mutex'
 import { concatFloat32Arrays } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'BiosignalMutex'
 
@@ -349,7 +354,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         return this._getSingalViews(IOMutex.MUTEX_SCOPE.INPUT)
     }
 
-    get outputSignalArrays () {
+    get outputSignalArrays (): ArrayBufferArray[] {
         return this._outputData?.arrays || []
     }
 

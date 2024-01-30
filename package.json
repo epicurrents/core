@@ -63,7 +63,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@stdlib/constants-float32": "^0.0.6",
-    "asymmetric-io-mutex": "^0.8.0",
+    "asymmetric-io-mutex": "^0.9.0",
     "codecutils": "^0.1.3",
     "d3-interpolate": "^3.0.1",
     "downsample": "^1.4.0",
