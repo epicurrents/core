@@ -1,9 +1,9 @@
 import GenericService from './GenericService'
 import ServiceMemoryManager from './ServiceMemoryManager'
-import ServiceWorkerReplacement from './ServiceWorkerReplacement'
+import ServiceWorkerSubstitute from './ServiceWorkerSubstitute'
 
 export {
     GenericService,
     ServiceMemoryManager,
-    ServiceWorkerReplacement,
+    ServiceWorkerSubstitute,
 }

@@ -7,9 +7,9 @@
 
 import { Log } from 'scoped-ts-log'
 
-const SCOPE = 'ServiceWorkerReplacement'
+const SCOPE = 'ServiceWorkerSubstitute'
 
-export default class ServiceWorkerReplacement extends Worker {
+export default class ServiceWorkerSubstitute extends Worker {
     protected _eventListeners = [] as {
         event: string,
         callback: (message: any) => unknown

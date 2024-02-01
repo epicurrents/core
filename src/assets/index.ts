@@ -31,7 +31,7 @@ import {
 import {
     GenericService,
     ServiceMemoryManager,
-    ServiceWorkerReplacement,
+    ServiceWorkerSubstitute,
 } from './service'
 import {
     GenericStudyLoader,
@@ -61,7 +61,7 @@ export {
     MixedMediaDataset,
     MontageService,
     ServiceMemoryManager,
-    ServiceWorkerReplacement,
+    ServiceWorkerSubstitute,
     SharedWorkerCache,
     SignalFileLoader,
     StudyCollection,
