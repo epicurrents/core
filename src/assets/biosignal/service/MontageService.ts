@@ -26,6 +26,7 @@ import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { mapSignalsToSamplingRates } from '#util/signal'
 // TODO: Provide access to the root application instance so this hasn't to be accessed directly.
 import { state as runtimeState } from '#runtime'
+import { SETTINGS } from '#root/src/config'
 
 const SCOPE = "MontageService"
 
@@ -53,8 +54,9 @@ export default class MontageService extends GenericService implements BiosignalM
         Log.registerWorker(worker)
         super(SCOPE, worker, manager)
         this._worker?.postMessage({
-            action: 'settings-namespace',
-            value: namespace,
+            action: 'setup-worker',
+            namespace: namespace,
+            settings: SETTINGS._CLONABLE,
         })
         this._montage = montage
         this._worker?.addEventListener('message', this.handleMessage.bind(this))
