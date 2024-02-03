@@ -7,6 +7,7 @@
 
 import { type SafeObject } from '#root/src/types/application'
 import { Log } from 'scoped-ts-log'
+import { WorkerMessage } from '../types'
 
 const SCOPE = "util:worker"
 
@@ -85,4 +86,93 @@ export const syncSettings = (
         }
     }
     return true
+}
+
+/**
+ * Validate that a commission message has all the require properties.
+ * @param data - The data property of the worker message.
+ * @param requiredProps - Required data properties as peoperty constructors or arrays of property constructors.
+ * @param requiredSetup - Optional statement that checks if the setup required by this commission is complete.
+ * @returns False if data is invalid, or an object containing the validated properties.
+ */
+export const validateCommissionProps = (
+    data: WorkerMessage['data'],
+    requiredProps: { [name: string]: BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor |
+                                    (BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor)[]
+                    },
+    requiredSetup = true,
+): false | { [name: keyof typeof requiredProps]: any } => {
+    if (!requiredSetup) {
+        Log.error(`Received commission '${data.action}' before required setup was complete.`, SCOPE)
+        postMessage({
+            action: data.action,
+            success: false,
+            rn: data.rn,
+        })
+        return false
+    }
+    for (const prop of Object.entries(requiredProps)) {
+        if (!Object.hasOwn(data, prop[0])) {
+            Log.error(`Received commission '${data.action}' without the required '${prop[0]}' property.`, SCOPE)
+            postMessage({
+                action: data.action,
+                success: false,
+                rn: data.rn,
+            })
+        }
+        const dataProp = data[prop[0]] as any
+        if (Array.isArray(prop[1])) {
+            if (!Array.isArray(dataProp)) {
+                Log.error(`Property '${prop[0]}' for commission '${data.action}' is not an array.`, SCOPE)
+                postMessage({
+                    action: data.action,
+                    success: false,
+                    rn: data.rn,
+                })
+                return false
+            }
+            for (let i=0; i<prop[1].length; i++) {
+                const propItem = prop[1][i]
+                const dataItem = dataProp[i]
+                if (!dataItem) {
+                    Log.error(
+                        `Property '${prop[0]}' for commission '${data.action}' does not have the required ` +
+                        `${prop[1].length} items.`,
+                    SCOPE)
+                    postMessage({
+                        action: data.action,
+                        success: false,
+                        rn: data.rn,
+                    })
+                    return false
+                }
+                if (dataItem.constructor !== propItem) {
+                    Log.error(
+                        `Property '${prop[0]}' for commission '${data.action}' item type at index is wrong ${i}: ` +
+                        `expected ${propItem.name}, received ${dataItem.constructor.name}.`,
+                    SCOPE)
+                    postMessage({
+                        action: data.action,
+                        success: false,
+                        rn: data.rn,
+                    })
+                    return false
+                }
+            }
+        } else {
+            if (dataProp.constructor !== prop[1]) {
+                Log.error(
+                    `Property '${prop[0]}' for commission '${data.action}' has a wrong type: ` +
+                    `expected ${prop[1].name}, received ${dataProp.constructor.name}.`,
+                SCOPE)
+                postMessage({
+                    action: data.action,
+                    success: false,
+                    rn: data.rn,
+                })
+                return false
+            }
+        }
+    }
+    return data
 }

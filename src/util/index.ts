@@ -58,6 +58,7 @@ import {
 } from './signal'
 import {
     syncSettings,
+    validateCommissionProps,
     type RelayLogMessage,
 } from './worker'
 export {
@@ -110,4 +111,5 @@ export {
     sleep,
     syncSettings,
     timePartsToShortString,
+    validateCommissionProps,
 }

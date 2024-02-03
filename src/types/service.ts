@@ -402,6 +402,12 @@ export type WorkerCommission = {
      */
     resolve (value: unknown): void
 }
+/** A simple response indicating whether a commission was successful or not. */
+export type WorkerCommissionResponse = {
+    action: string
+    rn: number
+    success: boolean
+}
 export type WorkerMessage = {
     data: {
         /** Name of the action to perform. */
