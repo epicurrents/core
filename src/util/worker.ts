@@ -1,6 +1,6 @@
 /**
  * Worker utilities.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */
@@ -93,6 +93,7 @@ export const syncSettings = (
  * @param data - The data property of the worker message.
  * @param requiredProps - Required data properties as peoperty constructors or arrays of property constructors.
  * @param requiredSetup - Optional statement that checks if the setup required by this commission is complete.
+ * @param returnMessage - Optional override for the postMessage method (if not in worker scope).
  * @returns False if data is invalid, or an object containing the validated properties.
  */
 export const validateCommissionProps = (
@@ -101,10 +102,11 @@ export const validateCommissionProps = (
                                     (ArrayConstructor | BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor)[]
                     },
     requiredSetup = true,
+    returnMessage = postMessage,
 ): false | { [name: keyof typeof requiredProps]: any } => {
     if (!requiredSetup) {
         Log.error(`Received commission '${data.action}' before required setup was complete.`, SCOPE)
-        postMessage({
+        returnMessage({
             action: data.action,
             success: false,
             rn: data.rn,
@@ -114,7 +116,7 @@ export const validateCommissionProps = (
     for (const prop of Object.entries(requiredProps)) {
         if (!Object.hasOwn(data, prop[0])) {
             Log.error(`Received commission '${data.action}' without the required '${prop[0]}' property.`, SCOPE)
-            postMessage({
+            returnMessage({
                 action: data.action,
                 success: false,
                 rn: data.rn,
@@ -124,7 +126,7 @@ export const validateCommissionProps = (
         if (Array.isArray(prop[1])) {
             if (!Array.isArray(dataProp)) {
                 Log.error(`Property '${prop[0]}' for commission '${data.action}' is not an array.`, SCOPE)
-                postMessage({
+                returnMessage({
                     action: data.action,
                     success: false,
                     rn: data.rn,
@@ -140,7 +142,7 @@ export const validateCommissionProps = (
                         `does not have the correct number of items: ` +
                         `expected ${prop[1].length}, received ${dataItem.length}.`,
                     SCOPE)
-                    postMessage({
+                    returnMessage({
                         action: data.action,
                         success: false,
                         rn: data.rn,
@@ -152,7 +154,7 @@ export const validateCommissionProps = (
                         `Property '${prop[0]}' for commission '${data.action}' item type at index is wrong ${i}: ` +
                         `expected ${propItem.name}, received ${dataItem.constructor.name}.`,
                     SCOPE)
-                    postMessage({
+                    returnMessage({
                         action: data.action,
                         success: false,
                         rn: data.rn,
@@ -166,7 +168,7 @@ export const validateCommissionProps = (
                     `Property '${prop[0]}' for commission '${data.action}' has a wrong type: ` +
                     `expected ${prop[1].name}, received ${dataProp.constructor.name}.`,
                 SCOPE)
-                postMessage({
+                returnMessage({
                     action: data.action,
                     success: false,
                     rn: data.rn,

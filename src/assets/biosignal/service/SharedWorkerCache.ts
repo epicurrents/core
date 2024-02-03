@@ -1,6 +1,6 @@
 /**
  * Simplified cache abstraction for a shared signal data worker.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */

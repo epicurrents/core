@@ -1,6 +1,6 @@
 /**
  * Default biosignal montage worker.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
  */
@@ -154,7 +154,7 @@ onmessage = async (message: WorkerMessage) => {
         for (const gap of data.dataGaps) {
             newGaps.set(gap.start, gap.duration)
         }
-        MONTAGE.dataGaps = newGaps
+        MONTAGE?.setDataGaps(newGaps)
         Log.debug(`New data gaps set.`, SCOPE)
         postMessage({
             action: action,

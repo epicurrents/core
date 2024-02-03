@@ -1,28 +1,23 @@
 /**
  * Simplified cache abstraction for a biosignal data.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0
  */
 
 import { GenericAsset } from '#/'
 import { combineSignalParts } from '#util'
-import { type SignalDataCache, type SignalRange } from '#types/biosignal'
-import { type SignalCachePart } from '#types/service'
+import { type SignalCachePart, type SignalDataCache } from '#types'
 import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'BiosignalCache'
 
 export default class BiosignalCache extends GenericAsset implements SignalDataCache {
-    protected _rangeEnd = 0
-    protected _rangeStart = 0
     protected _signalCache: SignalCachePart = {
         start: 0,
         end: 0,
         signals: [],
     }
-    protected _signalSamplingRates: number[] = []
-    protected _signalUpdatedRanges: SignalRange[] = []
 
     constructor () {
         super('Biosignal cache', 'sig', 'cache')
@@ -40,16 +35,21 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
     }
 
     get outputRangeEnd () {
-        return this._rangeEnd
+        return this._signalCache.end
     }
     get outputRangeStart () {
-        return this._rangeStart
+        return this._signalCache.start
     }
     get outputSignalSamplingRates () {
-        return this._signalSamplingRates
+        return this._signalCache.signals.map(s => s.samplingRate)
     }
     get outputSignalUpdatedRanges () {
-        return this._signalUpdatedRanges
+        return this._signalCache.signals.map(_s => {
+            return {
+                start: this._signalCache.start,
+                end: this._signalCache.end,
+            }
+        })
     }
 
     asCachePart(): SignalCachePart {
@@ -58,6 +58,7 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
 
     async insertSignals(signalPart: SignalCachePart) {
         if (this._signalCache.start === this._signalCache.end) {
+            // Replace the empty signal cache with the input part.
             if (this._signalCache.signals.length) {
                 this.releaseBuffers()
             }

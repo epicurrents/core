@@ -1,6 +1,6 @@
 /**
  * Default biosignal montage computer.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0
  */
@@ -67,9 +67,6 @@ export default class MontageProcesser {
 
     get dataGaps () {
         return this._dataGaps
-    }
-    set dataGaps (value: Map<number, number>) {
-        this._dataGaps = value
     }
 
     get filters () {
@@ -602,6 +599,22 @@ export default class MontageProcesser {
     async releaseCache () {
         this._cache?.releaseBuffers()
         this._cache = null
+    }
+
+    /**
+     * Set up a simple signal cache as the data source for this montage.
+     * @param cache - The data cache to use.
+     */
+    setupCache (cache: SignalDataCache) {
+        this._cache = cache
+    }
+
+    /**
+     * Set new data gaps for the source data of this montage.
+     * @param dataGaps - The new gaps.
+     */
+    setDataGaps (dataGaps: Map<number, number>) {
+        this._dataGaps = dataGaps
     }
 
     /**

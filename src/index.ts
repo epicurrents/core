@@ -1,6 +1,6 @@
 /**
  * EpiCurrents core application main script.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
  */

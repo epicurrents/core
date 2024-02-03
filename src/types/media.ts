@@ -1,6 +1,6 @@
 /**
  * Media types.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */

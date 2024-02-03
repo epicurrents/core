@@ -2,7 +2,7 @@
  * WebGL plot for high-density and quicly refreshing signals.
  * This concept is (heavily) inspired by:
  * - WebGL-Plot (MIT) by Danial Chitnis (https://github.com/danchitnis/webgl-plot)
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
  */

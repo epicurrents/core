@@ -1,7 +1,7 @@
 /**
  * Biosignal channel.
  * This is the root class that other biosignal channel classes should extend.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
  */

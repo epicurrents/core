@@ -1,6 +1,6 @@
 /**
  * Mixed media dataset for all media/data types.
- * @package    epicurrents-core
+ * @package    @epicurrents/core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */
