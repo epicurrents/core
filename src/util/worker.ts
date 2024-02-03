@@ -134,10 +134,11 @@ export const validateCommissionProps = (
             for (let i=0; i<prop[1].length; i++) {
                 const propItem = prop[1][i]
                 const dataItem = dataProp[i]
-                if (!dataItem) {
+                if (dataItem === undefined) {
                     Log.error(
-                        `Property '${prop[0]}' for commission '${data.action}' does not have the required ` +
-                        `${prop[1].length} items.`,
+                        `Property '${prop[0]}' for commission '${data.action}' ` +
+                        `does not have the correct number of items: ` +
+                        `expected ${prop[1].length}, received ${dataItem.length}.`,
                     SCOPE)
                     postMessage({
                         action: data.action,
