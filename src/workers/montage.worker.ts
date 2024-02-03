@@ -221,7 +221,7 @@ onmessage = async (message: WorkerMessage) => {
                 input: Object,
                 montage: String,
                 recordingDuration: Number,
-                setupChannels: Object,
+                setupChannels: Array,
             },
             MONTAGE !== null
         )
@@ -262,7 +262,7 @@ onmessage = async (message: WorkerMessage) => {
                 montage: String,
                 port: Object,
                 recordingDuration: Number,
-                setupChannels: Object,
+                setupChannels: Array,
             },
             MONTAGE !== null
         )

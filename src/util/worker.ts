@@ -97,8 +97,8 @@ export const syncSettings = (
  */
 export const validateCommissionProps = (
     data: WorkerMessage['data'],
-    requiredProps: { [name: string]: BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor |
-                                    (BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor)[]
+    requiredProps: { [name: string]: ArrayConstructor | BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor |
+                                    (ArrayConstructor | BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor)[]
                     },
     requiredSetup = true,
 ): false | { [name: keyof typeof requiredProps]: any } => {
