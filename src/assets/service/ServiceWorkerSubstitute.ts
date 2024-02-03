@@ -17,6 +17,11 @@ export default class ServiceWorkerSubstitute extends Worker {
     onerror = null
     onmessage = null as ((message: any) => unknown) | null
     onmessageerror = null
+
+    constructor () {
+        super('')
+    }
+
     postMessage (message: any) {
         if (!message?.action) {
             return
