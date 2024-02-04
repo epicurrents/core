@@ -27,15 +27,16 @@ const SCOPE = 'MontageWorkerSubstitute'
 export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
     protected _montage = null as MontageProcesser | null
     async postMessage (message: any) {
-        if (!message?.data?.action) {
+        if (!message?.action) {
             return
         }
-        const action = message.data.action
+        const action = message.action
         Log.debug(`Received message with action ${action}.`, SCOPE)
         if (action === 'setup-worker') {
             const data = validateCommissionProps(
-                message.data,
+                message,
                 {
+                    cache: Object,
                     namespace: String,
                     settings: Object,
                 },
@@ -46,22 +47,23 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 return
             }
             this._montage = new MontageProcesser(SETTINGS.modules[data.namespace] as CommonBiosignalSettings)
+            this._montage.setupCache(data.cache)
             Log.debug(`Worker setup complete.`, SCOPE)
             this.returnMessage({
                 action: action,
                 success: true,
-                rn: message.data.rn,
+                rn: message.rn,
             } as WorkerCommissionResponse)
         } else if (action === 'update-settings') {
             // No need to update settings.
             this.returnMessage({
                 action: action,
                 success: true,
-                rn: message.data.rn,
+                rn: message.rn,
             } as WorkerCommissionResponse)
         } else if (action === 'get-signals') {
             const data = validateCommissionProps(
-                message.data,
+                message,
                 {
                     range: [Number, Number]
                 },
@@ -72,20 +74,20 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 return
             }
             try {
-                const config = message.data.config as ConfigChannelFilter | undefined
+                const config = message.config as ConfigChannelFilter | undefined
                 const sigs = await this._montage?.getSignals(data.range, config) as SignalCacheResponse
                 if (sigs) {
                     this.returnMessage({
                         action: action,
                         success: true,
-                        rn: message.data.rn,
+                        rn: message.rn,
                         ...sigs
                     } as GetSignalsResponse)
                 } else {
                     this.returnMessage({
                         action: action,
                         success: false,
-                        rn: message.data.rn,
+                        rn: message.rn,
                     } as GetSignalsResponse)
                 }
             } catch (e) {
@@ -98,7 +100,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             }
         } else if (action === 'map-channels') {
             const data = validateCommissionProps(
-                message.data,
+                message,
                 {
                     config: Object
                 },
@@ -122,11 +124,11 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             this.returnMessage({
                 action: action,
                 success: true,
-                rn: message.data.rn,
+                rn: message.rn,
             } as ReleaseCacheResponse)
         } else if (action === 'set-data-gaps') {
             const data = validateCommissionProps(
-                message.data,
+                message,
                 {
                     dataGaps: Object
                 },
@@ -149,7 +151,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             } as WorkerCommissionResponse)
         } else if (action === 'set-filters') {
             const data = validateCommissionProps(
-                message.data,
+                message,
                 {
                     filters: String
                 },
@@ -173,8 +175,8 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 this._montage?.setNotchFilter(newFilters.notch)
                 someUpdated = true
             }
-            if (message.data.channels) {
-                const channels = message.data.channels as { highpass: number, lowpass: number, notch: number }[]
+            if (message.channels) {
+                const channels = message.channels as { highpass: number, lowpass: number, notch: number }[]
                 for (let i=0; i<channels.length; i++) {
                     const chan = channels[i]
                     if (chan.highpass !== this._montage?.channels[i].highpassFilter) {
@@ -200,7 +202,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             } as SetFiltersResponse)
         } else if (action === 'setup-cache') {
             const data = validateCommissionProps(
-                message.data,
+                message,
                 {
                     cache: Object
                 },

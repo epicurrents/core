@@ -13,6 +13,8 @@ import {
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
     type SetFiltersResponse,
+    type SetupCacheResponse,
+    type SignalDataCache,
 } from '#types/biosignal'
 import { type ConfigChannelFilter } from '#types/config'
 import {
@@ -214,6 +216,20 @@ export default class MontageService extends GenericService implements BiosignalM
         return filters.promise as Promise<SetFiltersResponse>
     }
 
+    async setupMontageWithCache (cache: SignalDataCache) {
+        if (!this._montage) {
+            Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
+            return { success: false }
+        }
+        const montage = this._commissionWorker(
+            'setup-cache',
+            new Map<string, unknown>([
+                ['cache', cache]
+            ])
+        )
+        return montage.promise as Promise<SetupCacheResponse>
+    }
+
     async setupMontageWithInputMutex (inputProps: MutexExportProperties) {
         if (!this._montage) {
             Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
@@ -234,7 +250,7 @@ export default class MontageService extends GenericService implements BiosignalM
         }
         const bufferPart =  await this.requestMemory(totalMem)
         if (!bufferPart || !this._memoryRange) {
-            Log.error(`Aloocating memory for montage failed.`, SCOPE)
+            Log.error(`Allocating memory for montage failed.`, SCOPE)
             return { success: false }
         }
         // Save the buffers in local scope and send them to worker.

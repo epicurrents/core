@@ -625,6 +625,12 @@ export interface BiosignalMontageService extends AssetService {
      */
     setFilters (): Promise<SetFiltersResponse>
     /**
+     * Set up the worker to load montage signals using a signal data cache as raw signal source.
+     * @param inputProps - The signal data cache to use.
+     * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
+     */
+    setupMontageWithCache (cache: SignalDataCache): Promise<SetupCacheResponse>
+    /**
      * Set up the worker to load montage signals using an input mutex as raw signal source.
      * @param inputProps - Properties from the raw signal data mutex.
      * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
@@ -910,6 +916,12 @@ export interface SetupChannel extends BiosignalChannel {
     index: number
     /** Non-default polarity of this channel's signal. */
     polarity?: SignalPolarity
+}
+/**
+ * Response sent after setting up a signal cache.
+ */
+export type SetupCacheResponse = {
+    success: boolean
 }
 /**
  * Reponse that contains the created mutex export properties in `cacheProperties`, if `success` is true.
