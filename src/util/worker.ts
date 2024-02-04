@@ -170,7 +170,7 @@ export const validateCommissionProps = (
                 }
             }
         } else {
-            if (dataProp.constructor.nam !== prop[1]) {
+            if (dataProp.constructor.name !== prop[1]) {
                 Log.error(
                     `Property '${prop[0]}' for commission '${data.action}' has a wrong type: ` +
                     `expected ${prop[1]}, received ${dataProp.constructor.name}.`,
