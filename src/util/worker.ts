@@ -156,7 +156,7 @@ export const validateCommissionProps = (
                     })
                     return false
                 }
-                if (dataItem.constructor !== propItem) {
+                if (dataItem.constructor.name !== propItem) {
                     Log.error(
                         `Property '${prop[0]}' for commission '${data.action}' item type at index is wrong ${i}: ` +
                         `expected ${propItem}, received ${dataItem.constructor.name}.`,
@@ -170,7 +170,7 @@ export const validateCommissionProps = (
                 }
             }
         } else {
-            if (dataProp.constructor !== prop[1]) {
+            if (dataProp.constructor.nam !== prop[1]) {
                 Log.error(
                     `Property '${prop[0]}' for commission '${data.action}' has a wrong type: ` +
                     `expected ${prop[1]}, received ${dataProp.constructor.name}.`,
