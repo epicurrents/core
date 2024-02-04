@@ -36,14 +36,16 @@ export interface AppSettings {
         /** Load files of this size directly. */
         maxDirectLoadSize: number
         /**
-         * Maximum amount of raw EEG signal data to cache in bytes.
+         * Maximum amount of raw signal data to cache in bytes.
          * Signal data type conversion must be taken into account, so if
-         * data is loaded as 16 bit EDF and cached as 32 bit float array,
-         * only half this amount of EDF signal data can be loaded.
+         * data is, for excample, loaded as 16 bit EDF and cached as 32 bit
+         * float array, only half this amount of EDF signal data can be loaded.
          */
         maxLoadCacheSize: number
         screenPPI: number
         theme: string
+        /** Should a centralized manager be used to control memory available to services. */
+        useMemoryManager: boolean
     }
     interface: unknown
     /**

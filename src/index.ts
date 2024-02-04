@@ -214,10 +214,13 @@ export class EpiCurrents implements EpiCurrentsApplication {
             Log.error(`Cannot launch app before an interface has been registered.`, 'index')
             return false
         }
-        if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
-            Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
-        } else {
-            this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
+        if (SETTINGS.app.useMemoryManager) {
+            if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
+                Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
+                // TODO: Shared worker cache.
+            } else {
+                this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
+            }
         }
         // Make sure that the container element exists.
         // Prepend a hyphed to the container id, otherwise just use 'epicv'.

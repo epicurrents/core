@@ -138,6 +138,7 @@ const _settings = {
         maxLoadCacheSize: 1000*MB_BYTES,
         screenPPI: 96,
         theme: 'default',
+        useMemoryManager: true,
     },
     interface: null,
     modules: {},
