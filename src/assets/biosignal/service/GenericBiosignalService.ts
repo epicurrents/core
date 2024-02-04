@@ -187,8 +187,8 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return commission.promise as Promise<SetupStudyResponse>
     }
 
-    async setupCache (): Promise<SetupCacheResponse> {
+    async setupCache (): Promise<SignalDataCache|null> {
         const commission = this._commissionWorker('setup-cache')
-        return commission.promise as Promise<SetupCacheResponse>
+        return commission.promise as Promise<SignalDataCache|null>
     }
 }

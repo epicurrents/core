@@ -275,6 +275,10 @@ export interface BiosignalDataService extends AssetService {
      * @returns Promise that fulfills with the real duration of the recording, or 0 if loading failed.
      */
     prepareWorker (header: BiosignalHeaderRecord, study: StudyContext): Promise<SetupStudyResponse>
+    /**
+     * Setup a simple signal data cache.
+     */
+    setupCache (): Promise<SignalDataCache|null>
 }
 /**
  * Filter types for biosignal resources.
