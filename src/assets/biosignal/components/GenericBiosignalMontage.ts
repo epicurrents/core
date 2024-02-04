@@ -14,6 +14,7 @@ import {
     type BiosignalSetup,
     type MontageChannel,
     type SetFiltersResponse,
+    type SignalDataCache,
 } from '#types/biosignal'
 import {
     type ConfigBiosignalMontage,
@@ -403,6 +404,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             this._recording.onPropertyUpdate('active-montage-filters')
         }
         return updated
+    }
+
+    async setupLoaderWithCache (cache: SignalDataCache) {
+        return this._service.setupMontageWithCache(cache)
     }
 
     async setupLoaderWithInputMutex (inputProps: MutexExportProperties) {

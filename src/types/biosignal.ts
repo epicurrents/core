@@ -540,19 +540,23 @@ export interface BiosignalMontage extends BaseAsset {
      */
     setNotchFilter (value: number, target?: string | number): Promise<SetFiltersResponse>
     /**
+     * Set up a data loader using a signal data cache as input for the loader.
+     * @param cache - The source data cache to use as input.
+     * @returns Promise holding the created cache if successful.
+     */
+    setupLoaderWithCache (cache: SignalDataCache) : Promise<SetupCacheResponse>
+    /**
      * Set up a data loader using a data source mutex output properties as input for the loader.
      * @param inputProps - The source mutex export properties to use as input.
      * @returns Promise holding the export properties of the created montage mutex (if setup was successful).
      */
-    setupLoaderWithInputMutex (inputProps: MutexExportProperties)
-                              : Promise<SetupMutexResponse>
+    setupLoaderWithInputMutex (inputProps: MutexExportProperties) : Promise<SetupMutexResponse>
     /**
      * Set up a data loader using a shared worker holding the cached signals.
      * @param port - The cache worker's message port.
      * @returns Promise that resolves with the property `success` of the setup process.
      */
-    setupLoaderWithSharedWorker (port: MessagePort)
-                                : Promise<SetupSharedWorkerResponse>
+    setupLoaderWithSharedWorker (port: MessagePort) : Promise<SetupSharedWorkerResponse>
     /**
      * Start the process of caching signals from the source.
      * @remarks
