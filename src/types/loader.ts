@@ -241,7 +241,7 @@ export interface SignalDataLoader {
     releaseCache (): Promise<void>
     /**
      * Initialize plain reader cache.
-     * @returns True on success, false on failure.
+     * @returns Create cache on success, null on failure.
      */
     setupCache (): SignalDataCache | null
     /**
