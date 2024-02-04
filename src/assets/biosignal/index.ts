@@ -9,6 +9,7 @@ import {
     BiosignalStudyLoader,
 } from './loaders'
 import {
+    BiosignalCache,
     BiosignalMutex,
     GenericBiosignalService,
     MontageService,
@@ -17,6 +18,7 @@ import {
 } from './service'
 
 export {
+    BiosignalCache,
     BiosignalMutex,
     GenericBiosignalService,
     BiosignalStudyLoader,

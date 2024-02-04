@@ -36,18 +36,16 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    cache: Object,
                     namespace: String,
                     settings: Object,
                 },
                 true,
-                this.returnMessage
+                this.returnMessage.bind(this)
             )
             if (!data) {
                 return
             }
             this._montage = new MontageProcesser(SETTINGS.modules[data.namespace] as CommonBiosignalSettings)
-            this._montage.setupCache(data.cache)
             Log.debug(`Worker setup complete.`, SCOPE)
             this.returnMessage({
                 action: action,
@@ -68,7 +66,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     range: [Number, Number]
                 },
                 this._montage !== null,
-                this.returnMessage
+                this.returnMessage.bind(this)
             )
             if (!data) {
                 return
@@ -105,7 +103,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     config: Object
                 },
                 this._montage !== null,
-                this.returnMessage
+                this.returnMessage.bind(this)
             )
             if (!data) {
                 return
@@ -133,7 +131,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     dataGaps: Object
                 },
                 this._montage !== null,
-                this.returnMessage
+                this.returnMessage.bind(this)
             )
             if (!data) {
                 return
@@ -156,7 +154,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     filters: String
                 },
                 this._montage !== null,
-                this.returnMessage
+                this.returnMessage.bind(this)
             )
             if (!data) {
                 return
@@ -207,7 +205,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     cache: Object
                 },
                 this._montage !== null,
-                this.returnMessage
+                this.returnMessage.bind(this)
             )
             if (!data) {
                 return

@@ -1,4 +1,5 @@
 import {
+    BiosignalCache,
     BiosignalMutex,
     GenericBiosignalService,
     BiosignalStudyLoader,
@@ -42,6 +43,7 @@ import {
 
 export {
     BiosignalAudio,
+    BiosignalCache,
     BiosignalMutex,
     GenericBiosignalService,
     BiosignalStudyLoader,

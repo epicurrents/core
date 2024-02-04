@@ -11,6 +11,7 @@
 
 import {
     BiosignalAudio,
+    BiosignalCache,
     BiosignalMutex,
     GenericBiosignalService,
     BiosignalStudyLoader,
@@ -42,6 +43,7 @@ import {
 } from './assets'
 export {
     BiosignalAudio,
+    BiosignalCache,
     BiosignalMutex,
     GenericBiosignalService,
     BiosignalStudyLoader,

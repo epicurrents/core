@@ -5,10 +5,10 @@
  * @license    Apache-2.0
  */
 
-import { GenericAsset } from '#/'
 import { combineSignalParts } from '#util'
 import { type SignalCachePart, type SignalDataCache } from '#types'
 import { Log } from 'scoped-ts-log'
+import GenericAsset from '../../GenericAsset'
 
 const SCOPE = 'BiosignalCache'
 

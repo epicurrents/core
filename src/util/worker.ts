@@ -123,6 +123,15 @@ export const validateCommissionProps = (
             })
         }
         const dataProp = data[prop[0]] as any
+        if (dataProp === undefined) {
+            Log.error(`Property '${prop[0]}' for commission '${data.action}' is missing.`, SCOPE)
+            returnMessage({
+                action: data.action,
+                success: false,
+                rn: data.rn,
+            })
+            return false
+        }
         if (Array.isArray(prop[1])) {
             if (!Array.isArray(dataProp)) {
                 Log.error(`Property '${prop[0]}' for commission '${data.action}' is not an array.`, SCOPE)
