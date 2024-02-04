@@ -459,7 +459,7 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
 
     setupCache () {
         Log.error(`setupCache has not been overridden in child class.`, SCOPE)
-        return false
+        return null
     }
 
     async setupMutex (_buffer: SharedArrayBuffer, _bufferStart: number) {

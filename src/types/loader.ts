@@ -7,7 +7,7 @@
 
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
-import { BiosignalAnnotation } from './biosignal'
+import { BiosignalAnnotation, SignalDataCache } from './biosignal'
 import { MemoryManager } from './service'
 import {
     StudyContext,
@@ -243,7 +243,7 @@ export interface SignalDataLoader {
      * Initialize plain reader cache.
      * @returns True on success, false on failure.
      */
-    setupCache (): boolean
+    setupCache (): SignalDataCache | null
     /**
      * Initialize mutex buffers.
      * @returns Export properties of the new mutex or null on failure.

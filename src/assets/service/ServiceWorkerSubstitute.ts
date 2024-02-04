@@ -9,7 +9,7 @@ import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'ServiceWorkerSubstitute'
 
-export default class ServiceWorkerSubstitute extends Worker {
+export default class ServiceWorkerSubstitute {
     protected _eventListeners = [] as {
         event: string,
         callback: (message: any) => unknown
@@ -19,7 +19,6 @@ export default class ServiceWorkerSubstitute extends Worker {
     onmessageerror = null
 
     constructor () {
-        super('')
     }
 
     postMessage (message: any) {

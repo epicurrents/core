@@ -6,11 +6,13 @@
  */
 
 import {
+    SignalDataCache,
     type BiosignalAnnotation,
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
     type BiosignalSetupResponse,
+    SetupCacheResponse,
 } from '#types/biosignal'
 import {
     type MemoryManager,
@@ -151,6 +153,13 @@ export default abstract class GenericBiosignalService extends GenericService imp
                 } as SignalCacheResponse)
             }
             return true
+        } else if (data.action === 'setup-cache') {
+            if (data.success) {
+                commission.resolve(data.cacheProperties)
+            } else {
+                commission.resolve(null)
+            }
+            return true
         } else if (data.action === 'setup-study') {
             if (data.success) {
                 commission.resolve(data.recordingLength)
@@ -176,5 +185,10 @@ export default abstract class GenericBiosignalService extends GenericService imp
             ])
         )
         return commission.promise as Promise<SetupStudyResponse>
+    }
+
+    async setupCache (): Promise<SetupCacheResponse> {
+        const commission = this._commissionWorker('setup-cache')
+        return commission.promise as Promise<SetupCacheResponse>
     }
 }
