@@ -6,13 +6,12 @@
  */
 
 import {
-    SignalDataCache,
     type BiosignalAnnotation,
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
     type BiosignalSetupResponse,
-    SetupCacheResponse,
+    type SignalDataCache,
 } from '#types/biosignal'
 import {
     type MemoryManager,

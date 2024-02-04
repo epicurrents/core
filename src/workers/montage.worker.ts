@@ -44,8 +44,8 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                namespace: String,
-                settings: Object,
+                namespace: 'String',
+                settings: 'Object',
             }
         )
         if (!data) {
@@ -61,7 +61,7 @@ onmessage = async (message: WorkerMessage) => {
             rn: message.data.rn,
         } as WorkerCommissionResponse)
     } else if (action === 'update-settings') {
-        const data = validateCommissionProps(message.data, { settings: Object })
+        const data = validateCommissionProps(message.data, { settings: 'Object' })
         if (!data) {
             return
         }
@@ -80,7 +80,7 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                range: [Number, Number]
+                range: ['Number', 'Number']
             },
             MONTAGE !== null
         )
@@ -116,7 +116,7 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                config: Object
+                config: 'Object'
             },
             MONTAGE !== null
         )
@@ -143,7 +143,7 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                dataGaps: Object
+                dataGaps: 'Object'
             },
             MONTAGE !== null
         )
@@ -165,7 +165,7 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                filters: String
+                filters: 'String'
             },
             MONTAGE !== null
         )
@@ -215,13 +215,13 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                bufferStart: Number,
-                config: Object,
-                dataDuration: Number,
-                input: Object,
-                montage: String,
-                recordingDuration: Number,
-                setupChannels: Array,
+                bufferStart: 'Number',
+                config: 'Object',
+                dataDuration: 'Number',
+                input: 'Object',
+                montage: 'String',
+                recordingDuration: 'Number',
+                setupChannels: 'Array',
             },
             MONTAGE !== null
         )
@@ -257,12 +257,12 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                config: Object,
-                dataDuration: Number,
-                montage: String,
-                port: Object,
-                recordingDuration: Number,
-                setupChannels: Array,
+                config: 'Object',
+                dataDuration: 'Number',
+                montage: 'String',
+                port: 'MessagePort',
+                recordingDuration: 'Number',
+                setupChannels: 'Array',
             },
             MONTAGE !== null
         )

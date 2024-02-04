@@ -8,6 +8,7 @@
 import { type WorkerMessage } from '#types/service'
 import IOMutex from 'asymmetric-io-mutex'
 import { Log } from 'scoped-ts-log'
+import { validateCommissionProps } from '../util'
 
 let BUFFER = null as SharedArrayBuffer | null
 let VIEW = null as Int32Array | null
@@ -23,13 +24,32 @@ onmessage = async (message: WorkerMessage) => {
     let success = false
     const props = {} as { [key: string]: unknown }
     if (action === 'release-and-rearrange') {
-        const remove = message.data.release as number[][] || []
-        const rearrange = message.data.rearrange as { id: string, range: number[] }[] || []
+        const data = validateCommissionProps(
+            message.data,
+            {
+                rearrange: 'Array',
+                release: 'Array',
+            }
+        )
+        if (!data) {
+            return
+        }
+        const remove = data.release as number[][] || []
+        const rearrange = data.rearrange as { id: string, range: number[] }[] || []
         success = removeAndRearrange(remove, rearrange)
         props.result = { rearrange: rearrange }
     } else if (action === 'set-buffer') {
-        const buffer = message.data.buffer as SharedArrayBuffer
-        if (message.data.buffer) {
+        const data = validateCommissionProps(
+            message.data,
+            {
+                buffer: 'SharedArrayBuffer',
+            }
+        )
+        if (!data) {
+            return
+        }
+        const buffer = data.buffer as SharedArrayBuffer
+        if (data.buffer) {
             BUFFER = buffer
             VIEW = new Int32Array(buffer)
             success = true

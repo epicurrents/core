@@ -91,16 +91,14 @@ export const syncSettings = (
 /**
  * Validate that a commission message has all the require properties.
  * @param data - The data property of the worker message.
- * @param requiredProps - Required data properties as peoperty constructors or arrays of property constructors.
+ * @param requiredProps - Required data properties as property constructor names or arrays of names.
  * @param requiredSetup - Optional statement that checks if the setup required by this commission is complete.
  * @param returnMessage - Optional override for the postMessage method (if not in worker scope).
  * @returns False if data is invalid, or an object containing the validated properties.
  */
 export const validateCommissionProps = (
     data: WorkerMessage['data'],
-    requiredProps: { [name: string]: ArrayConstructor | BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor |
-                                    (ArrayConstructor | BooleanConstructor | NumberConstructor | StringConstructor | ObjectConstructor)[]
-                    },
+    requiredProps: { [name: string]: string | string[] },
     requiredSetup = true,
     returnMessage = postMessage,
 ): false | { [name: keyof typeof requiredProps]: any } => {
@@ -161,7 +159,7 @@ export const validateCommissionProps = (
                 if (dataItem.constructor !== propItem) {
                     Log.error(
                         `Property '${prop[0]}' for commission '${data.action}' item type at index is wrong ${i}: ` +
-                        `expected ${propItem.name}, received ${dataItem.constructor.name}.`,
+                        `expected ${propItem}, received ${dataItem.constructor.name}.`,
                     SCOPE)
                     returnMessage({
                         action: data.action,
@@ -175,7 +173,7 @@ export const validateCommissionProps = (
             if (dataProp.constructor !== prop[1]) {
                 Log.error(
                     `Property '${prop[0]}' for commission '${data.action}' has a wrong type: ` +
-                    `expected ${prop[1].name}, received ${dataProp.constructor.name}.`,
+                    `expected ${prop[1]}, received ${dataProp.constructor.name}.`,
                 SCOPE)
                 returnMessage({
                     action: data.action,

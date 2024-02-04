@@ -36,8 +36,8 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    namespace: String,
-                    settings: Object,
+                    namespace: 'String',
+                    settings: 'Object',
                 },
                 true,
                 this.returnMessage.bind(this)
@@ -63,7 +63,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    range: [Number, Number]
+                    range: ['Number', 'Number']
                 },
                 this._montage !== null,
                 this.returnMessage.bind(this)
@@ -100,7 +100,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    config: Object
+                    config: 'Object'
                 },
                 this._montage !== null,
                 this.returnMessage.bind(this)
@@ -128,7 +128,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    dataGaps: Object
+                    dataGaps: 'Object'
                 },
                 this._montage !== null,
                 this.returnMessage.bind(this)
@@ -151,7 +151,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    filters: String
+                    filters: 'String'
                 },
                 this._montage !== null,
                 this.returnMessage.bind(this)
@@ -202,7 +202,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    cache: Object
+                    cache: 'BiosignalCache'
                 },
                 this._montage !== null,
                 this.returnMessage.bind(this)
