@@ -922,6 +922,7 @@ export interface SetupChannel extends BiosignalChannel {
  */
 export type SetupCacheResponse = {
     success: boolean
+    cacheProperties?: SignalDataCache
 }
 /**
  * Reponse that contains the created mutex export properties in `cacheProperties`, if `success` is true.
