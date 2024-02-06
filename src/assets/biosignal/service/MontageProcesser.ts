@@ -7,7 +7,6 @@
 
 import {
     type BiosignalFilters,
-    type BiosignalMontage,
     type BiosignalSetup,
     type MontageChannel,
     type SetupChannel,
@@ -22,6 +21,7 @@ import {
 import {
     type SignalCachePart,
 } from '#types/service'
+import BiosignalCache from './BiosignalCache'
 import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
 import GenericBiosignalSetup from '#assets/biosignal/components/GenericBiosignalSetup'
 import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
@@ -602,14 +602,6 @@ export default class MontageProcesser {
     }
 
     /**
-     * Set up a simple signal cache as the data source for this montage.
-     * @param cache - The data cache to use.
-     */
-    setupCache (cache: SignalDataCache) {
-        this._cache = cache
-    }
-
-    /**
      * Set new data gaps for the source data of this montage.
      * @param dataGaps - The new gaps.
      */
@@ -670,33 +662,44 @@ export default class MontageProcesser {
     }
 
     /**
-     * Set study params for file loading. This will format the shared array buffer for storing
-     * the signal data and can only be done once.
+     * Set up a simple signal cache as the data source for this montage.
+     * @param cache - The data cache to use.
+     */
+    setupCache (cache: SignalDataCache) {
+        this._cache = new BiosignalCache(cache)
+    }
+
+    /**
+     * Set up montage channels.
      * @param montage - Montage name.
      * @param config - Montage configuration.
+     * @param setupChannels - Channel configuration of the montage setup.
+     */
+    setupChannels (montage: string, config: ConfigMapChannels, setupChannels: SetupChannel[]) {
+        this._setup = new GenericBiosignalSetup(montage) as BiosignalSetup
+        this._setup.channels = setupChannels
+        this.mapChannels(config)
+    }
+
+    /**
+     * Set up input mutex for data loading. This will format the shared array buffer for storing
+     * the signal data and can only be done once.
      * @param input - Properties of the input data mutex.
      * @param bufferStart - Starting index of the montage mutex array in the buffer.
-     * @param dataDuration - duration of actual signal data in seconds
-     * @param recordingDuration - total duration of the recording (including gaps) in seconds
-     * @param setupChannels - channel configuration of the montage setup
-     * @param dataGaps - possible data gaps in the recording
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param dataGaps - Possible data gaps in the recording.
      */
     async setupInputMutex (
-        montage: string,
-        config: ConfigMapChannels,
         input: MutexExportProperties,
         bufferStart: number,
         dataDuration: number,
         recordingDuration: number,
-        setupChannels: SetupChannel[],
         dataGaps = [] as { duration: number, start: number }[]
     ) {
         if (!input.buffer) {
             return false
         }
-        this._setup = new GenericBiosignalSetup(montage) as BiosignalSetup
-        this._setup.channels = setupChannels
-        this.mapChannels(config)
         // Construct a SignalCachePart to initialize the mutex.
         const cacheProps = {
             start: 0,
@@ -725,27 +728,18 @@ export default class MontageProcesser {
     }
 
     /**
-     * Set study params for file loading. This will use a shared worker to query for raw signal data.
-     * @param montage - Montage name.
-     * @param config - Montage configuration.
+     * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
      * @param input - Message port from the input worker.
-     * @param dataDuration - duration of actual signal data in seconds
-     * @param recordingDuration - total duration of the recording (including gaps) in seconds
-     * @param setupChannels - channel configuration of the montage setup
-     * @param dataGaps - possible data gaps in the recording
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param dataGaps - Possible data gaps in the recording.
      */
     async setupSharedWorker (
-        montage: string,
-        config: ConfigMapChannels,
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
-        setupChannels: SetupChannel[],
         dataGaps = [] as { duration: number, start: number }[]
     ) {
-        this._setup = new GenericBiosignalSetup(montage) as BiosignalSetup
-        this._setup.channels = setupChannels
-        this.mapChannels(config)
         // Construct a SignalCachePart to initialize the mutex.
         const cacheProps = {
             start: 0,

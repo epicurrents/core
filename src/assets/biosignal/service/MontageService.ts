@@ -57,8 +57,11 @@ export default class MontageService extends GenericService implements BiosignalM
         super(SCOPE, worker, manager)
         this._worker?.postMessage({
             action: 'setup-worker',
+            config: montage.config,
+            montage: montage.name,
             namespace: namespace,
             settings: SETTINGS._CLONABLE,
+            setupChannels: montage.setup.channels,
         })
         this._montage = montage
         this._worker?.addEventListener('message', this.handleMessage.bind(this))

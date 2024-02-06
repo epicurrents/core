@@ -13,21 +13,33 @@ import GenericAsset from '../../GenericAsset'
 const SCOPE = 'BiosignalCache'
 
 export default class BiosignalCache extends GenericAsset implements SignalDataCache {
+    protected _input: SignalDataCache | null = null
     protected _signalCache: SignalCachePart = {
         start: 0,
         end: 0,
         signals: [],
     }
-
-    constructor () {
+    /**
+     * Create a new instance of BiosignalCache with optional input cache.
+     * @param input - Possible signal cache to use for input data.
+     */
+    constructor (input?: SignalDataCache) {
         super('Biosignal cache', 'sig', 'cache')
+        if (input) {
+            this._input = input
+        }
     }
 
-    /* Simple cache does not have input data. */
     get inputRangeEnd () {
+        if (this._input) {
+            return Promise.resolve(this._input.outputRangeEnd)
+        }
         return Promise.resolve(0)
     }
     get inputRangeStart () {
+        if (this._input) {
+            return Promise.resolve(this._input.outputRangeStart)
+        }
         return Promise.resolve(0)
     }
     get inputSignals () {
@@ -44,10 +56,10 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
         return this._signalCache.signals.map(s => s.samplingRate)
     }
     get outputSignalUpdatedRanges () {
-        return this._signalCache.signals.map(_s => {
+        return this._signalCache.signals.map(s => {
             return {
-                start: this._signalCache.start,
-                end: this._signalCache.end,
+                start: this._signalCache.start*s.samplingRate,
+                end: this._signalCache.end*s.samplingRate,
             }
         })
     }

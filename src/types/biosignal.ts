@@ -955,6 +955,9 @@ export interface SignalDataCache {
     outputRangeEnd: number
     outputRangeStart: number
     outputSignalSamplingRates: number[]
+    /**
+     * Range of updated values in the output signals as array indices.
+     */
     outputSignalUpdatedRanges: { start: number, end: number }[]
     asCachePart (): SignalCachePart
     insertSignals (signalPart: SignalCachePart): Promise<void>

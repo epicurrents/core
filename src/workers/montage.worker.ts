@@ -44,8 +44,11 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
+                config: 'Object',
+                montage: 'String',
                 namespace: 'String',
                 settings: 'Object',
+                setupChannels: 'Array',
             }
         )
         if (!data) {
@@ -54,6 +57,7 @@ onmessage = async (message: WorkerMessage) => {
         NAMESPACE = data.namespace as string
         const settings = (data.settings as AppSettings).modules[NAMESPACE] as CommonBiosignalSettings
         MONTAGE = new MontageProcesser(settings)
+        MONTAGE.setupChannels(data.montage, data.config, data.setupChannels)
         Log.debug(`Worker setup complete.`, SCOPE)
         postMessage({
             action: action,
@@ -216,12 +220,9 @@ onmessage = async (message: WorkerMessage) => {
             message.data,
             {
                 bufferStart: 'Number',
-                config: 'Object',
                 dataDuration: 'Number',
                 input: 'Object',
-                montage: 'String',
                 recordingDuration: 'Number',
-                setupChannels: 'Array',
             },
             MONTAGE !== null
         )
@@ -229,13 +230,10 @@ onmessage = async (message: WorkerMessage) => {
             return
         }
         const cacheSetup = await MONTAGE.setupInputMutex(
-            data.montage as string,
-            data.config as ConfigMapChannels,
             data.input as MutexExportProperties,
             data.bufferStart as number,
             data.dataDuration as number,
-            data.recordingDuration as number,
-            data.setupChannels as SetupChannel[]
+            data.recordingDuration as number
         )
         if (cacheSetup) {
             Log.debug(`Mutex setup complete.`, SCOPE)
@@ -257,12 +255,9 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                config: 'Object',
                 dataDuration: 'Number',
-                montage: 'String',
                 port: 'MessagePort',
                 recordingDuration: 'Number',
-                setupChannels: 'Array',
             },
             MONTAGE !== null
         )
@@ -270,12 +265,9 @@ onmessage = async (message: WorkerMessage) => {
             return
         }
         const setupSuccess = await MONTAGE?.setupSharedWorker(
-            data.montage as string,
-            data.config as ConfigMapChannels,
             data.port as MessagePort,
             data.dataDuration as number,
-            data.recordingDuration as number,
-            data.setupChannels as SetupChannel[]
+            data.recordingDuration as number
         )
         if (setupSuccess) {
             Log.debug(`Shared worker setup complete.`, SCOPE)

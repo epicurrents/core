@@ -36,8 +36,11 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
+                    config: 'Object',
+                    montage: 'String',
                     namespace: 'String',
                     settings: 'Object',
+                    setupChannels: 'Array',
                 },
                 true,
                 this.returnMessage.bind(this)
@@ -46,6 +49,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 return
             }
             this._montage = new MontageProcesser(SETTINGS.modules[data.namespace] as CommonBiosignalSettings)
+            this._montage.setupChannels(data.montage, data.config, data.setupChannels)
             Log.debug(`Worker setup complete.`, SCOPE)
             this.returnMessage({
                 action: action,
