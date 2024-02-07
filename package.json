@@ -1,6 +1,6 @@
 {
   "name": "@epicurrents/core",
-  "version": "0.1.2-20",
+  "version": "0.1.2-21",
   "description": "EpiCurrents core library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
