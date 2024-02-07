@@ -245,7 +245,9 @@ export default class MontageService extends GenericService implements BiosignalM
         const montage = this._commissionWorker(
             'setup-cache',
             new Map<string, unknown>([
-                ['cache', cache]
+                ['cache', cache],
+                ['dataDuration', this._montage.recording.dataDuration],
+                ['recordingDuration', this._montage.recording.totalDuration],
             ])
         )
         return montage.promise as Promise<SetupCacheResponse>

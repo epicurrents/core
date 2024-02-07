@@ -43,7 +43,7 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
         return Promise.resolve(0)
     }
     get inputSignals () {
-        return Promise.resolve([])
+        return Promise.resolve(this._input?.asCachePart().signals.map(s => s.data) || [])
     }
 
     get outputRangeEnd () {

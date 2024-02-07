@@ -664,8 +664,21 @@ export default class MontageProcesser {
     /**
      * Set up a simple signal cache as the data source for this montage.
      * @param cache - The data cache to use.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param dataGaps - Possible data gaps in the recording.
      */
-    setupCache (cache: SignalDataCache) {
+    setupCache (
+        cache: SignalDataCache,
+        dataDuration: number,
+        recordingDuration: number,
+        dataGaps = [] as { duration: number, start: number }[]
+    ) {
+        this._totalCacheLength = dataDuration
+        this._totalRecordingLength = recordingDuration
+        for (const gap of dataGaps) {
+            this._dataGaps.set(gap.start, gap.duration)
+        }
         this._cache = new BiosignalCache(cache)
     }
 

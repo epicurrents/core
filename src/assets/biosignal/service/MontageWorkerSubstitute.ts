@@ -206,7 +206,9 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    cache: 'BiosignalCache'
+                    cache: 'BiosignalCache',
+                    dataDuration: 'Number',
+                    recordingDuration: 'Number',
                 },
                 this._montage !== null,
                 this.returnMessage.bind(this)
@@ -214,7 +216,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             if (!data) {
                 return
             }
-            const setupSuccess = await this._montage?.setupCache(data.cache)
+            const setupSuccess = await this._montage?.setupCache(data.cache, data.dataDuration, data.recordingDuration)
             if (setupSuccess) {
                 Log.debug(`Cache setup complete.`, SCOPE)
                 this.returnMessage({
