@@ -26,9 +26,8 @@ export default class SharedWorkerCache extends GenericService implements SignalD
     protected _signalUpdatedRanges: SignalRange[] = []
 
     constructor (port: MessagePort, post: typeof postMessage) {
-        super('sig')
+        super('sig', port, true)
         this._postMessage = post
-        this.setupWorker(port)
         port.addEventListener('message', this.handleWorkerMessage.bind(this))
     }
 

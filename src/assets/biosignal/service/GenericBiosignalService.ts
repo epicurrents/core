@@ -29,18 +29,12 @@ import SETTINGS from '#config/Settings'
 const SCOPE = "GenericBiosignalService"
 
 export default abstract class GenericBiosignalService extends GenericService implements BiosignalDataService {
-    protected _awaitStudySetup: ((success: boolean) => void)[] = []
-    /** Is the study still loading. */
-    protected _loadingStudy = false
     /** Parent recording of this loader. */
     protected _recording: BiosignalResource
     /** Resolved or rejected based on the success of worker setup. */
     protected _setupWorker: Promise<BiosignalSetupResponse> | null = null
     protected _signalBufferStart = INDEX_NOT_ASSIGNED
 
-    get isReady () {
-        return super.isReady && this._workerReady
-    }
     get signalBufferStart () {
         return this._signalBufferStart
     }
@@ -57,16 +51,13 @@ export default abstract class GenericBiosignalService extends GenericService imp
         if (manager) {
             this._manager = manager
         }
-        this._worker?.postMessage({
-            action: 'update-settings',
-            settings: SETTINGS._CLONABLE,
-        })
     }
 
     protected async _isStudyReady (): Promise<boolean> {
-        if (this._loadingStudy) {
+        const studySetup = this._waiters.get('setup-study')
+        if (studySetup !== undefined) {
             const studyLoad = new Promise<boolean>(success => {
-                this._awaitStudySetup.push(success)
+                studySetup.push(success)
             })
             if (!(await studyLoad)) {
                 return false
@@ -153,11 +144,13 @@ export default abstract class GenericBiosignalService extends GenericService imp
             }
             return true
         } else if (data.action === 'setup-cache') {
+            this._isCacheSetup = data.success
             if (data.success) {
                 commission.resolve(data.cacheProperties)
             } else {
                 commission.resolve(null)
             }
+            this._notifyWaiters('setup-cache', data.success)
             return true
         } else if (data.action === 'setup-study') {
             if (data.success) {
@@ -165,17 +158,17 @@ export default abstract class GenericBiosignalService extends GenericService imp
             } else {
                 commission.resolve(0)
             }
-            this._notifyWaiters(this._awaitStudySetup, data.success)
+            this._notifyWaiters('setup-study', data.success)
             return true
         }
         return super._handleWorkerCommission(message)
     }
 
     async prepareWorker (header: BiosignalHeaderRecord, study: StudyContext) {
-        this._loadingStudy = true
         // Find biosignal files.
         const fileUrls = study.files.filter(file => file.role === 'data').map(file => file.url)
         Log.info(`Loading study ${study.name} in worker.`, SCOPE)
+        this._initWaiters('setup-study')
         const commission = this._commissionWorker(
             'setup-study',
             new Map<string, unknown>([
@@ -187,6 +180,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
     }
 
     async setupCache (): Promise<SignalDataCache|null> {
+        this._initWaiters('setup-cache')
         const commission = this._commissionWorker('setup-cache')
         return commission.promise as Promise<SignalDataCache|null>
     }

@@ -70,11 +70,11 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         manager?: MemoryManager,
         config?: ConfigBiosignalMontage,
     ) {
-        super(name, GenericAsset.SCOPES.BIOSIGNAL, 'mtg')
+        super(name, GenericAsset.SCOPES.BIOSIGNAL, recording.type)
         this._label = config?.label || name
         this._recording = recording
         this._setup = setup
-        this._service = new MontageService(recording.type, this, manager)
+        this._service = new MontageService(this, manager)
     }
     get cacheStatus ()  {
         return this._cachedSignals
@@ -404,6 +404,19 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             this._recording.onPropertyUpdate('active-montage-filters')
         }
         return updated
+    }
+
+    setupChannels (config: BiosignalMontageTemplate) {
+        this._config = config
+        // Save reference information.
+        this._reference = this._config.reference?.common ? {
+            common: true,
+            description: this._config.reference?.description || 'unknown',
+            label: this._config.reference?.label || '',
+            type: this._config.reference?.type || 'unknown',
+        } : null
+        // We can prepare the worker now that montage setup is complete.
+        this._service.prepareWorker()
     }
 
     async setupLoaderWithCache (cache: SignalDataCache) {

@@ -22,6 +22,7 @@ import {
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
+    SetupWorkerResponse,
 } from './service'
 import { BiosignalMutex } from '../assets'
 
@@ -544,6 +545,11 @@ export interface BiosignalMontage extends BaseAsset {
      */
     setNotchFilter (value: number, target?: string | number): Promise<SetFiltersResponse>
     /**
+     * Set up channels in this montage according to the provided template configuration.
+     * @param config - Configuration for the channels in this montage.
+     */
+    setupChannels (config: BiosignalMontageTemplate): void
+    /**
      * Set up a data loader using a signal data cache as input for the loader.
      * @param cache - The source data cache to use as input.
      * @returns Promise holding the created cache if successful.
@@ -622,6 +628,11 @@ export interface BiosignalMontageService extends AssetService {
      * Map montage channels in the web worker using the montage config.
      */
     mapChannels (): Promise<void>
+    /**
+     * Perform initial preparations in this service's worker.
+     * @returns True if successful, false otherwise.
+     */
+    prepareWorker (): Promise<SetupWorkerResponse>
     /**
      * Set the given gaps to the recording in the web worker.
      * @param gaps - The gaps to set as a map of <startTime, duration> in seconds.

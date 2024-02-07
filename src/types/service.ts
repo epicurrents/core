@@ -78,13 +78,6 @@ export interface AssetService extends BaseAsset {
      */
     setupMutex (): Promise<MutexExportProperties|null>
     /**
-     * Set the given `worker` to this worker and run any required initialization to make this service ready for use.
-     * Alternatively, a message port to a shared worker can be given instead of a worker.
-     * @param worker - Worker or message port to a shared worker to use in this service.
-     * @param shared - Set to true, if worker points to the message port of a shared worker.
-     */
-    setupWorker (worker: Worker | MessagePort, shared?: boolean): void
-    /**
      * Shut down this service, releasing any allocated memory and destroying the web worker.
      * @returns Promise that fulfills when shutdown is complete.
      */
@@ -220,6 +213,11 @@ export type RequestMemoryResponse = boolean
  * Returned value is the total length of the study recording in seconds, or 0 on failure.
  */
 export type SetupStudyResponse = number
+/**
+ * Response from the worker when initial worker setup is complete.
+ * Returs true on success, false on failure.
+ */
+export type SetupWorkerResponse = number
 /**
  * A mutex responsible for caching signal data.
  */

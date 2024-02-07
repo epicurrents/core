@@ -20,6 +20,7 @@ import { type ConfigChannelFilter } from '#types/config'
 import {
     type MemoryManager,
     type WorkerResponse,
+    type SetupWorkerResponse,
 } from '#types/service'
 import { Log } from 'scoped-ts-log'
 import BiosignalMutex from './BiosignalMutex'
@@ -43,7 +44,7 @@ export default class MontageService extends GenericService implements BiosignalM
         return this._montage.name
     }
 
-    constructor (namespace: string, montage: BiosignalMontage, manager?: MemoryManager) {
+    constructor (montage: BiosignalMontage, manager?: MemoryManager) {
         const overrideWorker = runtimeState.WORKERS.get('montage')
         const worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
@@ -54,15 +55,7 @@ export default class MontageService extends GenericService implements BiosignalM
             { type: 'module'}
         )
         Log.registerWorker(worker)
-        super(SCOPE, worker, manager)
-        this._worker?.postMessage({
-            action: 'setup-worker',
-            config: montage.config,
-            montage: montage.name,
-            namespace: namespace,
-            settings: SETTINGS._CLONABLE,
-            setupChannels: montage.setup.channels,
-        })
+        super(SCOPE, worker, false, manager)
         this._montage = montage
         this._worker?.addEventListener('message', this.handleMessage.bind(this))
     }
@@ -154,20 +147,29 @@ export default class MontageService extends GenericService implements BiosignalM
             }
             return true
         } else if (data.action === 'setup-input-mutex') {
+            this._isCacheSetup = data.success
             if (data.success) {
                 commission.resolve()
             } else {
                 Log.error(`Setting up montage in the worker failed.`, SCOPE)
                 commission.reject()
             }
+            this._notifyWaiters('setup-cache', data.success)
             return true
         } else if (data.action === 'setup-shared-worker') {
+            this._isCacheSetup = data.success
             if (data.success) {
                 commission.resolve(true)
             } else {
                 Log.error(`Setting up montage in the worker failed.`, SCOPE)
                 commission.reject()
             }
+            this._notifyWaiters('setup-cache', data.success)
+            return true
+        } else if (data.action === 'setup-worker') {
+            this._isWorkerSetup = data.success
+            commission.resolve(data.success)
+            this._notifyWaiters('setup-worker', data.success)
             return true
         }
         if (await super._handleWorkerCommission(message)) {
@@ -185,6 +187,21 @@ export default class MontageService extends GenericService implements BiosignalM
             ])
         )
         return channels.promise as Promise<void>
+    }
+
+    async prepareWorker () {
+        this._initWaiters('setup-worker')
+        const commission = this._commissionWorker(
+            'setup-worker',
+            new Map<string, unknown>([
+                ['config', this._montage.config],
+                ['montage', this._montage.name],
+                ['namespace', this._montage.type],
+                ['settings', SETTINGS._CLONABLE],
+                ['setupChannels', this._montage.setup.channels],
+            ])
+        )
+        return commission.promise as Promise<SetupWorkerResponse>
     }
 
     setDataGaps (gaps: Map<number, number>) {
@@ -224,6 +241,7 @@ export default class MontageService extends GenericService implements BiosignalM
             Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
             return { success: false }
         }
+        this._initWaiters('setup-cache')
         const montage = this._commissionWorker(
             'setup-cache',
             new Map<string, unknown>([
@@ -242,6 +260,8 @@ export default class MontageService extends GenericService implements BiosignalM
             Log.error(`Cannot set up montage before manager has been initialized.`, SCOPE)
             return { success: false }
         }
+        // We will use the generic setup-cache action to wait for this setup to complete.
+        this._initWaiters('setup-cache')
         // Calculate needed mermory to load the entire recording.
         let totalMem = 4 // From lock and meta fields.
         const dataFieldsLen = BiosignalMutex.SIGNAL_DATA_POS
@@ -282,6 +302,8 @@ export default class MontageService extends GenericService implements BiosignalM
             Log.error('Cannot set up montage without valid montage configuration.', SCOPE)
             return { success: false }
         }
+        // We will use the generic setup-cache action to wait for this setup to complete.
+        this._initWaiters('setup-cache')
         const montage = this._commissionWorker(
             'setup-shared-worker',
             new Map<string, unknown>([

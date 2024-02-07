@@ -31,51 +31,41 @@ const SCOPE = 'GenericService'
  */
 export default abstract class GenericService extends GenericAsset implements AssetService {
     private _requestNumber: number = 1
+    /** Watchers for worker actions (not yet fully implemented). */
     protected _actionWatchers = [] as ActionWatcher[]
-    protected _awaitBufferSetup: ((success: boolean) => void)[] = []
-    protected _awaitBufferShift: ((success: boolean) => void)[] = []
     /** On-going worker commissions waiting to be resolved. */
     protected _commissions = new Map<string, CommissionMap>()
+    /** Has cache setup been completed. */
+    protected _isCacheSetup = false
+    /** Has worker setup been complete. */
+    protected _isWorkerSetup = false
     /** Message port of a shared worker (as an alternative to a dedicated worker). */
     protected _port: MessagePort | null = null
-    /** Is buffer initiation underway. */
-    protected _setupCache = false
-    /** Is buffer shifting. */
-    protected _shiftBuffer = false
     protected _manager: MemoryManager | null
     protected _memoryRange: { start: number, end: number } | null = null
     protected _scope: string
+    /**
+     * A map with actions as keys and an array of callbacks to call when that action completes.
+     * Some generic actions are used to check if the service is ready:
+     * - `setup-worker` - General worker setup.
+     * - `setup-cache` - Data cache setup.
+     */
+    protected _waiters = new Map<string, ((result: boolean) => void)[]>()
     protected _worker: Worker | null = null
-    /** Set to true when the worker is done setting up. */
-    protected _workerReady = false
 
-    constructor (scope: string, worker?: Worker | MessagePort, manager?: MemoryManager) {
+    constructor (scope: string, worker?: Worker | MessagePort, shared?: boolean, manager?: MemoryManager) {
         super(scope, GenericAsset.SCOPES.LOADER, '')
         this._scope = scope
         this._manager = manager || null
         if (worker) {
-            this.setupWorker(worker)
-        }
-    }
-
-    protected async _isBufferReady (): Promise<boolean> {
-        if (this._setupCache) {
-            const bufferSetup = new Promise<boolean>(success => {
-                this._awaitBufferSetup.push(success)
-            })
-            if (!(await bufferSetup)) {
-                return false
+            if (shared) {
+                // It is a message port to a shared worker.
+                this._port = worker as MessagePort
+            } else {
+                // Only Worker has the onerror property.
+                this._worker = worker as Worker
             }
         }
-        if (this._shiftBuffer) {
-            const bufferShift = new Promise<boolean>(success => {
-                this._awaitBufferShift.push(success)
-            })
-            if (!(await bufferShift)) {
-                return false
-            }
-        }
-        return true
     }
 
     get bufferRangeStart () {
@@ -91,16 +81,13 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return this._memoryRange.end - this._memoryRange.start
     }
     get isReady () {
-        if (!this._manager) {
-            return (this._worker !== null)
-        } else {
-            if (!this._memoryRange) {
-                return false
-            } else if (this._setupCache) {
-                return false
-            }
-            return true
+        if (!this._isWorkerSetup || !this._isCacheSetup) {
+            return false
         }
+        if (this._manager && !this._memoryRange) {
+            return false
+        }
+        return true
     }
     get nextRequestNumber () {
         return this._requestNumber++
@@ -131,11 +118,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 rn: NUMERIC_ERROR_VALUE,
             }
         }
+        // Use custom callbacks if they have been given.
         const commission = callbacks ? callbacks : {
             reject: () => {},
             resolve: () => {},
         }
-        // Use custom callbacks if they have been given.
         const returnPromise = new Promise<unknown>((resolve, reject) => {
             commission.resolve = resolve
             commission.reject = reject
@@ -209,15 +196,21 @@ export default abstract class GenericService extends GenericAsset implements Ass
         }
         const commission = this._getCommissionForMessage(message)
         if (commission) {
-            if (data.action === 'setup-cache') {
+            if (data.action === 'setup-worker') {
+                this._isWorkerSetup = data.success
                 if (data.success) {
-                    Log.debug(`Cache initiation complete in biosignal loader worker.`, SCOPE)
-                    commission.resolve(data.cacheProperties)
-                    this._workerReady = true
+                    Log.debug(`Worker intiation complete.`, SCOPE)
+                    commission.resolve(data.success)
                     this.onPropertyUpdate('is-ready')
                 } else if (commission.reject) {
                     commission.reject(data.error as string)
                 }
+                this._notifyWaiters('setup-worker', data.success)
+                return true
+            } else if (data.action === 'setup-cache') {
+                this._isCacheSetup = data.success
+                commission.resolve(data.success)
+                this._notifyWaiters('setup-cache', data.success)
                 return true
             } else if (
                 message.data.action === 'release-cache' ||
@@ -283,14 +276,58 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return false
     }
 
-    protected _notifyWaiters (waiters: ((success: boolean) => void)[], result: boolean) {
+    /**
+     * Initialize an array of waiters for the given action to complete.
+     * @param action - Name of the action.
+     */
+    protected _initWaiters (action: string) {
+        this._waiters.set(action, [])
+    }
+
+    /**
+     * Check if the buffer is ready for use. Will wait for buffer modifying operations to complete before resolving.
+     * @returns Promise that resolves with boolean once buffer is available.
+     */
+    protected async _isBufferReady (): Promise<boolean> {
+        const setupCache = this._waiters.get('setup-cache')
+        if (setupCache) {
+            const bufferSetup = new Promise<boolean>(success => {
+                setupCache.push(success)
+            })
+            if (!(await bufferSetup)) {
+                return false
+            }
+        }
+        const shiftBuffer = this._waiters.get('set-buffer-range')
+        if (shiftBuffer) {
+            const bufferShift = new Promise<boolean>(success => {
+                shiftBuffer.push(success)
+            })
+            if (!(await bufferShift)) {
+                return false
+            }
+        }
+        return true
+    }
+
+    /**
+     * Notify any waiters for the given action with the result.
+     * Removes the action entry from the waiters map afterwards.
+     * @param action - Name of the action.
+     * @param result - Result of the action (success as boolean).
+     */
+    protected _notifyWaiters (action: string, result: boolean) {
+        const waiters = this._waiters.get(action) || []
         while (waiters.length) {
             const waiter = waiters.shift()
             if (!waiter) {
+                Log.error(`Waiters array for ${action} contained an empty element.`, SCOPE)
                 break
             }
             waiter(result)
         }
+        // Remove the entry to signify that this action has been completed.
+        this._waiters.delete(action)
     }
 
     addActionWatcher (action: string, handler: ActionWatcher['handler'], caller?: string) {
@@ -357,7 +394,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             return
         }
         Log.debug(`Initiating buffer range shift.`, SCOPE)
-        this._shiftBuffer = true
+        this._initWaiters('set-buffer-range')
         const commission = this._commissionWorker(
             'set-buffer-range',
             new Map<string, unknown>([
@@ -372,7 +409,6 @@ export default abstract class GenericService extends GenericAsset implements Ass
         } else {
             Log.debug(`Buffer range shift failed: ${response.reason}`, SCOPE)
         }
-        this._shiftBuffer = false
     }
 
     async setupMutex (): Promise<MutexExportProperties|null> {
@@ -385,7 +421,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             return null
         }
         Log.debug(`Initiating buffers in worker.`, SCOPE)
-        this._setupCache = true
+        this._initWaiters('setup-cache')
         const commission = this._commissionWorker(
             'setup-cache',
             new Map<string, unknown>([
@@ -394,30 +430,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
             ])
         )
         const initResult = await commission.promise as MutexExportProperties | null
-        this._notifyWaiters(this._awaitBufferSetup, initResult !== null)
-        this._setupCache = false
         if (!initResult) {
             Log.error(`Initializing memory buffer in the worker failed.`, SCOPE)
             return null
         }
         return initResult
-    }
-
-    setupWorker (worker: Worker | MessagePort, shared = false) {
-        if (!shared) {
-            // Only Worker has the onerror property.
-            this._worker = worker as Worker
-        } else {
-            // It is a message port to a shared worker.
-            this._port = worker as MessagePort
-        }
-        worker.postMessage({
-            action: 'update-settings',
-            settings: SETTINGS._CLONABLE,
-        })
-        if (!this._manager) {
-            this.onPropertyUpdate('is-ready')
-        }
     }
 
     shutdown () {
