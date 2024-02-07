@@ -7,7 +7,7 @@
 
 import { BaseAsset } from './application'
 import { BiosignalResource } from './biosignal'
-import { AssetService, MessageHandled } from './service'
+import { AssetService, MessageHandled, SetupWorkerResponse } from './service'
 
 /**
  * An ONNX model that is available in this scope.
@@ -61,9 +61,9 @@ export interface OnnxService extends AssetService {
     pauseRun (): void
     /**
      * Prepare the web worker for loading a model.
-     * @return Promise that fulfills when peparation is complete.
+     * @return Promise that fulfills with success of the operation when peparation is complete.
      */
-    prepare (): Promise<void>
+    prepareWorker (): Promise<SetupWorkerResponse>
     /**
      * Reset all progress-related parameters, including the target.
      * Any active runs will be stopped.

@@ -217,7 +217,7 @@ export type SetupStudyResponse = number
  * Response from the worker when initial worker setup is complete.
  * Returs true on success, false on failure.
  */
-export type SetupWorkerResponse = number
+export type SetupWorkerResponse = boolean
 /**
  * A mutex responsible for caching signal data.
  */

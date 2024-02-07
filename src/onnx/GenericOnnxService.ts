@@ -8,7 +8,7 @@
 import { type BaseAsset } from '#root/src/types/application'
 import { type BiosignalResource } from '#types/biosignal'
 import { type OnnxService, type AvailableOnnxModel } from '#types/onnx'
-import { type WorkerResponse } from '#types/service'
+import { SetupWorkerResponse, type WorkerResponse } from '#types/service'
 import { Log } from 'scoped-ts-log'
 import GenericService from '#assets/service/GenericService'
 
@@ -91,7 +91,8 @@ export class GenericOnnxService extends GenericService implements OnnxService {
             return true
         }
         if (data.action === 'progress') {
-            // Progress is a special update that is sent to 'run' action watchers
+            // Progress is a special update that is sent to 'run' action watchers,
+            // it has no commission associated to it.
             this._progress.complete = this._progress.startIndex + (data.complete as number)
             this.onPropertyUpdate('progress')
             return true
@@ -101,9 +102,14 @@ export class GenericOnnxService extends GenericService implements OnnxService {
                 upd.handler({ ...data, action: data.action })
             }
         }
+        const commission = this._getCommissionForMessage(message)
+        if (!commission) {
+            return false
+        }
         if (data.action === 'prepare') {
             this._name = data.name as string
             this.onPropertyUpdate('name')
+            commission.resolve(data.success)
             return true
         }
         if (await super._handleWorkerCommission(message)) {
@@ -149,9 +155,9 @@ export class GenericOnnxService extends GenericService implements OnnxService {
                 if (this._worker) {
                     this._worker.removeEventListener('message', this.handleMessage)
                 }
-                this.setupWorker(modelProps.worker)
-                this._worker?.addEventListener('message', this.handleMessage.bind(this))
-                await this.prepare()
+                this._worker = modelProps.worker
+                this._worker.addEventListener('message', this.handleMessage.bind(this))
+                await this.prepareWorker()
                 Log.debug(`Loaded ONNX model ${model}.`, SCOPE)
                 this.activeModel = model
                 return true
@@ -172,7 +178,7 @@ export class GenericOnnxService extends GenericService implements OnnxService {
         this.runInProgress = false
     }
 
-    async prepare () {
+    async prepareWorker () {
         const path = window.location.pathname
         const dir = path.substring(0, path.lastIndexOf('/')) + '/onnx'
         const commission = this._commissionWorker(
@@ -181,7 +187,7 @@ export class GenericOnnxService extends GenericService implements OnnxService {
                 ['path', dir],// WebWorker doesn't know HTML file path.
             ])
         )
-        return commission.promise as Promise<void>
+        return commission.promise as Promise<SetupWorkerResponse>
     }
 
     resetProgress () {
