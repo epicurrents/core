@@ -912,7 +912,7 @@ export const mapMontageChannels = (
             groupSpacing: config.groupSpacing || 1,
             isRaw: false,
             layout: config.layout || [],
-            yPadding: config.yPadding || 0,
+            yPadding: config.yPadding || 1,
         }
     )
     return channels
