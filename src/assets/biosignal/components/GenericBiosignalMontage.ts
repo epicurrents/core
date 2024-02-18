@@ -370,6 +370,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
 
     setChannelLayout (config?: ConfigChannelLayout) {
+        if (config && !config.layout?.length) {
+            // Respect saved layout if new one is not given.
+            config.layout = this._config?.layout
+        }
         calculateSignalOffsets(this._channels, config)
     }
 
