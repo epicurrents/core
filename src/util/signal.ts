@@ -198,7 +198,7 @@ export const calculateSignalOffsets = (
             groupSpacing: 1,
             isRaw: false, // We checked for this above.
             layout: [],
-            yPadding: 0,
+            yPadding: 1,
         } as Required<typeof config>,
         config
     )
