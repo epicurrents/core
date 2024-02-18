@@ -211,25 +211,8 @@ export type CommonBiosignalSettings = {
         typeColors: { [type: string]: SettingsColor }
         width: number
     }
-    /** Should antialiasing be used when drawing tha trace. */
-    antialiasing: boolean
-    border: {
-        bottom?: PlotLineStyles
-        left?: PlotLineStyles
-        right?: PlotLineStyles
-        top?: PlotLineStyles
-    }
-    channelSpacing: number
     defaultMontages: { [setup: string]: [string, string][] }
     defaultSetups: string[]
-    displayPolarity: 1 | -1
-    /**
-     * The sampling rate limit when applying downsampling to signals.
-     * The sampling rate will never fall below this value, meaning that
-     * the minimum sampling rate that downsampling can be applied to is
-     * 2*downsampleLimit. Zero will disable downsampling.
-     */
-    downsampleLimit: number
     /**
      * The amount of padding is always a compromise between overhead from the
      * extra signal data that needs to be processed and possible artefacts
@@ -252,40 +235,16 @@ export type CommonBiosignalSettings = {
             default: number
         }
     }
-    groupSpacing: number
-    majorGrid: PlotLineStyles
-    minorGrid: PlotLineStyles
     montages: {
         /** Maximum number of montages to keep cached. */
         cacheMax: number
         /** Should montage signals be pre-cached into a biosignal mutex. */
         preCache: boolean
     }
-    /** The default length of one page when browsing forward or backward. */
-    pageLength: number
-    sensitivity: {
-        [unit: string]: {
-            availableValues: number[]
-            default: number
-        }
-    }
-    sensitivityUnit: string
     /** Show channels that tha have been marked hidden on the EEG trace. */
     showHiddenChannels: boolean
     /** Show channels that are missing from the source file on the EEG trace. */
     showMissingChannels: boolean
-    /** Default timebase in the  */
-    timebase: {
-        [unit: string]: {
-            availableValues: number[]
-            default: number
-        }
-    }
-    timebaseUnit: string
-    timeline: {
-        labelSpacing: number
-    }
-    yPadding: number
 }
 export type ConfigBiosignalMontage = {
     /** Descriptive name for this montage (overrides possible default name). */
