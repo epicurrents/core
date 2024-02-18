@@ -147,7 +147,7 @@ onmessage = async (message: WorkerMessage) => {
         const data = validateCommissionProps(
             message.data,
             {
-                dataGaps: 'Object'
+                dataGaps: 'Array'
             },
             MONTAGE !== null
         )

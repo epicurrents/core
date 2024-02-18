@@ -132,7 +132,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             const data = validateCommissionProps(
                 message,
                 {
-                    dataGaps: 'Object'
+                    dataGaps: 'Array'
                 },
                 this._montage !== null,
                 this.returnMessage.bind(this)
