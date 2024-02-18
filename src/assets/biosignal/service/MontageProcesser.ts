@@ -172,6 +172,7 @@ export default class MontageProcesser {
         const filtEnd = cacheEnd + padding < this._totalCacheLength
                     ? cacheEnd + padding : this._totalCacheLength
         const dataGaps = this.getDataGaps([filtStart, filtEnd], true)
+        channel_loop:
         for (let i=0; i<channels.length; i++) {
             const chan = channels[i]
             const sigProps = {
@@ -188,7 +189,7 @@ export default class MontageProcesser {
                 const gapStartRecTime = this.cacheTimeToRecordingTime(gap.start)
                 if (gapStartRecTime <= start && gapStartRecTime + gap.duration >= end) {
                     derivedSignals.push(sigProps)
-                    continue
+                    continue channel_loop
                 }
             }
             const highpass = chan.highpassFilter !== null ? chan.highpassFilter : this._filters.highpass
