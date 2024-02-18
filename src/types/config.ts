@@ -257,6 +257,21 @@ export type ConfigChannelFilter  = {
     exclude?: number[]
     include?: number[]
 }
+/**
+ * Properties to define a biosignal recording's channel layout.
+ */
+export type ConfigChannelLayout = {
+    /** Relative space between two channels within a group. */
+    channelSpacing?: number
+    /** Relative space between two channel groups. */
+    groupSpacing?: number
+    /** Use raw montage layout (all channels evenly spaced). */
+    isRaw?: boolean
+    /** Array defining the number of channels within each channel group. */
+    layout?: number[]
+    /** Relative padding between the first/last channel and the top/bottom of the trace display. */
+    yPadding?: number
+}
 export type ConfigDatasetLoader = {
     name?: string
 }

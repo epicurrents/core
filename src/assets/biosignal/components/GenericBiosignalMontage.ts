@@ -19,6 +19,7 @@ import {
 import {
     type ConfigBiosignalMontage,
     type ConfigChannelFilter,
+    type ConfigChannelLayout,
     type ConfigMapChannels,
 } from '#types/config'
 import { type HighlightContext, type SignalHighlight } from '#types/plot'
@@ -29,6 +30,7 @@ import {
 } from '#types/service'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 import {
+    calculateSignalOffsets,
     combineAllSignalParts,
     combineSignalParts,
     isContinuousSignal,
@@ -365,6 +367,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
                 this._recording.onPropertyUpdate('active-montage-signal-cache')
             }
         }
+    }
+
+    setChannelLayout (config?: ConfigChannelLayout) {
+        calculateSignalOffsets(this._channels, config)
     }
 
     async setHighpassFilter (value: number, target?: string | number) {

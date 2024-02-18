@@ -6,14 +6,15 @@
  */
 
 import {
-    BiosignalChannelProperties,
     type BiosignalChannel,
+    type BiosignalChannelProperties,
     type BiosignalFilters,
     type BiosignalSetup,
     type FftAnalysisResult,
     type MontageChannel,
     type SetupChannel,
 } from '#types/biosignal'
+import { type ConfigChannelLayout } from '../types/config'
 import { type SignalCachePart } from '#types/service'
 import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
@@ -133,13 +134,11 @@ const calculateReferencedSignals = async (
 /**
  * Calculate and update signal offsets (from trace baseline) for given channels using the given layout configuration.
  * Will place each channel an equal distance from each other if configuration is omitted.
- * @param config - optional layout configuration in the form of
+ * @param config - Optional layout configuration in the form of
  *
  *               ```
  *               {
  *                  channelSpacing: number,
- *                  displayHidden: boolean, // optional
- *                  displayMissing: boolean, // optional
  *                  groupSpacing: number,
  *                  layout: number[],
  *                  yPadding: number,
@@ -166,13 +165,7 @@ const calculateReferencedSignals = async (
  */
 export const calculateSignalOffsets = (
     channels: BiosignalChannelProperties[],
-    config?: {
-        channelSpacing?: number,
-        groupSpacing?: number,
-        isRaw?: boolean,
-        layout?: number[],
-        yPadding?: number,
-    }
+    config?: ConfigChannelLayout
 ) => {
     // Check if this is an 'as recorded' montage.
     if (!config || config?.isRaw) {

@@ -10,9 +10,12 @@ import {
     DataResource,
     SafeObject
 } from './application'
-import { MutexExportProperties, MutexMetaField } from 'asymmetric-io-mutex'
-import { ConfigBiosignalSetup, SettingsColor } from './config'
-import { StudyContext } from './study'
+import { BiosignalMutex } from '../assets'
+import {
+    ConfigBiosignalSetup,
+    ConfigChannelLayout,
+    SettingsColor,
+} from './config'
 import { HighlightContext, SignalHighlight } from './plot'
 import {
     AssetService,
@@ -24,7 +27,8 @@ import {
     WorkerResponse,
     SetupWorkerResponse,
 } from './service'
-import { BiosignalMutex } from '../assets'
+import { StudyContext } from './study'
+import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-mutex'
 
 /**
  * Annotation for a single moment or period of time in a biosignal resource.
@@ -520,6 +524,11 @@ export interface BiosignalMontage extends BaseAsset {
      * @param newPart - The new part.
      */
     saveSignalsToCache (newPart: SignalCachePart): void
+    /**
+     * Set the display layout for the channels in this montage.
+     * @param config - Optional configuration (will use default if omitted).
+     */
+    setChannelLayout (config: ConfigChannelLayout): void
     /**
      * Set high-pass filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
