@@ -203,14 +203,6 @@ export type ClonableModuleSettings = { [key: string]: unknown }
  * Settings common to all biosignal type resources.
  */
 export type CommonBiosignalSettings = {
-    annotations: {
-        color: SettingsColor
-        convertPatterns: [string, BiosignalAnnotation][]
-        idColors: { [id: string]: SettingsColor }
-        ignorePatterns: string[]
-        typeColors: { [type: string]: SettingsColor }
-        width: number
-    }
     defaultMontages: { [setup: string]: [string, string][] }
     defaultSetups: string[]
     /**
