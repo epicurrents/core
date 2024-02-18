@@ -52,7 +52,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _recordMontage: BiosignalMontage | null = null
     protected _sampleCount: number | null = null
     protected _samplingRate: number | null = null
-    protected _sensitivity: number
+    protected _sensitivity: number = 0
     protected _service: BiosignalDataService | null = null
     protected _setup: BiosignalSetup | null = null
     protected _signalCacheStatus: number[] = [0, 0]
@@ -62,10 +62,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _videos: VideoAttachment[] = []
     protected _viewStart: number = 0
 
-    constructor (name: string, sensitivity: number, type: string, source?: StudyContext) {
+    constructor (name: string, type: string, source?: StudyContext) {
         const TYPE_SETTINGS = SETTINGS.modules[type] as CommonBiosignalSettings
         super(name, GenericResource.SCOPES.BIOSIGNAL, type, source)
-        this._sensitivity = sensitivity
         // Set default filters.
         this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0
         this._filters.lowpass = TYPE_SETTINGS?.filters.lowpass.default || 0
