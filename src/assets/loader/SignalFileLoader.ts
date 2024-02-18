@@ -381,10 +381,6 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
                              ? [range[0], Math.min(range[1], this._totalLength)]
                              : [0, this._totalLength]
         const dataGaps = [] as { duration: number, start: number }[]
-        if (!this._cache) {
-            Log.error(`Cannot return data gaps before signal cache has been initiated.`, SCOPE)
-            return dataGaps
-        }
         if (start < 0) {
             Log.error(`Requested data gap range start ${start} was smaller than zero.`, SCOPE)
             return dataGaps
