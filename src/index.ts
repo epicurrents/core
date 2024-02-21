@@ -96,14 +96,6 @@ export {
     WebGlPlot,
     WebGlPlotTrace,
 }
-import {
-    PyodideRunner,
-    PyodideService,
-} from './pyodide'
-export {
-    PyodideRunner,
-    PyodideService
-}
 import RuntimeStateManager from './runtime'
 export {
     RuntimeStateManager,

@@ -24,7 +24,6 @@ import { type StudyContext, type StudyLoader } from '#types/study'
 import { Log } from 'scoped-ts-log'
 import SETTINGS from '#config/Settings'
 import { MixedMediaDataset } from '#assets/dataset'
-import { PyodideService } from '#root/src/pyodide'
 
 import { APP as APP_MODULE } from './modules'
 export { APP_MODULE }
@@ -240,10 +239,6 @@ export default class RuntimeStateManager implements StateManager {
                     Log.warn(`Setting ${mod}.${value} cannot be set by the user or the value type is incorrect.`, SCOPE)
                 }
             }
-        }
-        // Load optional modules.
-        if (SETTINGS.services.pyodide) {
-            state.SERVICES.set('PYODIDE', new PyodideService())
         }
         this.isInitialized = true
     }

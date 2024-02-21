@@ -27,14 +27,3 @@ declare module 'fili' {
     const Fili: any
     export default Fili
 }
-
-declare type Pyodide = {
-    runPythonAsync (code: string): Promise<string>
-    loadPackage (packages: string | string[]): Promise<void>
-}
-
-declare module 'pyodide/pyodide.js' {
-    export function loadPyodide (config: { indexURL: string }): Promise<Pyodide>
-}
-
-declare const loadPyodide: (params: any) => Promise<any>
