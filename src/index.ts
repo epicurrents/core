@@ -25,7 +25,7 @@ import {
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
-    GenericFileLoader,
+    GenericFileReader,
     GenericResource,
     GenericService,
     GenericStudyLoader,
@@ -37,7 +37,7 @@ import {
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
-    SignalFileLoader,
+    SignalFileReader,
     StudyCollection,
     studyContextTemplate,
 } from './assets'
@@ -57,7 +57,7 @@ export {
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
-    GenericFileLoader,
+    GenericFileReader,
     GenericResource,
     GenericService,
     GenericStudyLoader,
@@ -69,7 +69,7 @@ export {
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
-    SignalFileLoader,
+    SignalFileReader,
     StudyCollection,
     studyContextTemplate,
 }
@@ -115,7 +115,7 @@ import {
     type FileSystemItem,
     type InterfaceModule,
     type InterfaceModuleConstructor,
-    type LoaderMode,
+    type ReaderMode,
     type MediaDataset,
     type OnnxService,
     type ResourceModule,
@@ -297,7 +297,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
         this.#state.setService(name, service)
     }
 
-    registerStudyLoader (name: string, label: string, mode: LoaderMode, loader: StudyLoader) {
+    registerStudyLoader (name: string, label: string, mode: ReaderMode, loader: StudyLoader) {
         if (this.#memoryManager) {
             loader.registerMemoryManager(this.#memoryManager)
         }

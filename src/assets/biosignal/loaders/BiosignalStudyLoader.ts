@@ -7,7 +7,7 @@
 
 import { type VideoAttachment } from '#types/biosignal'
 import { type ConfigStudyContext, type ConfigStudyLoader } from '#types/config'
-import { type FileFormatLoader } from '#types/loader'
+import { type FileFormatReader } from '#root/src/types/reader'
 import { type StudyContext } from '#types/study'
 import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
 
@@ -15,7 +15,7 @@ import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
 
 export default class BiosignalStudyLoader extends GenericStudyLoader {
 
-    constructor (name: string, contexts: string[], types: string[], loader: FileFormatLoader) {
+    constructor (name: string, contexts: string[], types: string[], loader: FileFormatReader) {
         super(name, contexts, types, loader)
     }
 

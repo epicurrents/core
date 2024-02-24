@@ -11,7 +11,7 @@ import {
     SettingsValue,
 } from './config'
 import { DatasetLoader, MediaDataset } from './dataset'
-import { FileSystemItem, LoaderMode } from './loader'
+import { FileSystemItem, ReaderMode } from './reader'
 import { OnnxService } from './onnx'
 import { BiosignalPlot } from './plot'
 import { AssetService } from './service'
@@ -188,7 +188,7 @@ export interface EpiCurrentsApplication {
      * @param mode - Opening mode for this loader (`file`, `folder`, or `study`).
      * @param loader - The study loader itself.
      */
-    registerStudyLoader (name: string, label: string, mode: LoaderMode, loader: StudyLoader): void
+    registerStudyLoader (name: string, label: string, mode: ReaderMode, loader: StudyLoader): void
     /**
      * Select the resource with the given `id` in current dataset as active.
      * @param id - Unique ID of the resource.

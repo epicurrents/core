@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type FileSystemItem } from '#types/loader'
+import { type FileSystemItem } from '#root/src/types/reader'
 import { type StudyContext, type OrderedLoadingProtocol } from '#types/study'
 import GenericStudyLoader from './GenericStudyLoader'
 import { Log } from 'scoped-ts-log'

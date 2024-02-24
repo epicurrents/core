@@ -1,5 +1,5 @@
 /**
- * Loader types.
+ * Reader types.
  * @package    @epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
@@ -16,17 +16,17 @@ import {
 } from './study'
 
 /**
- * Header loader optional configuration.
+ * Header reader optional configuration.
  * @param byteSize - Byte size of the header part of the file.
  */
-export type ConfigLoadHeader = {
+export type ConfigReadHeader = {
     byteSize?: number
 }
 /**
- * Signal loader optional configuration.
+ * Signal reader optional configuration.
  * @param signals - Array of objects describing the loaded signals.
  */
-export type ConfigLoadSignals = {
+export type ConfigReadSignals = {
     signals: {
         label?: string
         name?: string
@@ -36,18 +36,18 @@ export type ConfigLoadSignals = {
 }
 
 /**
- * URL loader optional configuration.
- * @param headerLoader - Header loader configuration.
+ * URL reader optional configuration.
+ * @param headerReader - Header reader configuration.
  * @param mime - Mime type of the file.
  * @param name - Name of the file.
- * @param signalLoader - Signal loader configuration.
+ * @param signalReader - Signal reader configuration.
  * @param url - Study file URL, if different from the source URL.
  */
-export type ConfigLoadUrl = {
-    headerLoader?: ConfigLoadHeader
+export type ConfigReadUrl = {
+    headerReader?: ConfigReadHeader
     mime?: string
     name?: string
-    signalLoader?: ConfigLoadSignals
+    signalReader?: ConfigReadSignals
     url?: string
 }
 
@@ -75,11 +75,11 @@ export interface FileDecoder {
      */
     setInput (buffer: ArrayBuffer): void
 }
-export interface FileFormatLoader extends BaseAsset {
+export interface FileFormatReader extends BaseAsset {
     fileType: string
-    /** `StudyContext` registered to this loader. */
+    /** `StudyContext` registered to this reader. */
     study: StudyContext | null
-    /** The study loader instance that this file loader serves. */
+    /** The study loader instance that this file reader serves. */
     studyLoader: StudyLoader | null
     /**
      * Get the appropriate worker for this file type.
@@ -98,13 +98,13 @@ export interface FileFormatLoader extends BaseAsset {
      */
     loadUrl (url: StudyContextFile | string, config?: unknown): Promise<StudyContextFile | null>
     /**
-     * See if the given scope is supported by this loader.
+     * See if the given scope is supported by this reader.
      * @param scope - Scope to check.
      * @return True if supported, false if not.
      */
     isSupportedScope (scope: string): boolean
     /**
-     * Match the given file name against files supported by this loader.
+     * Match the given file name against files supported by this reader.
      * @param fileName - Name of the file to match.
      * @return True if match, false if no match.
      */
@@ -115,18 +115,18 @@ export interface FileFormatLoader extends BaseAsset {
      */
     registerMemoryManager (manager: MemoryManager): void
     /**
-     * Register a study with the file loader.
+     * Register a study with the file reader.
      * @param study - `StudyContext` to modify and add the loaded files to.
      */
     registerStudy (study: StudyContext): void
     /**
-     *  Override a default worker with a method that returns a worker instance.
+     * Override a default worker with a method that returns a worker instance.
      * @param name - Name of the worker to override.
      * @param getWorker - The worker method to use instead, or null to use default.
      */
     setWorkerOverride (name: string, getWorker: (() => Worker)|null): void
 }
-export type FileFormatLoaderSpecs = {
+export type FileFormatReaderSpecs = {
     /** Patterns to match the filename against. */
     matchPatters: RegExp[]
 }
@@ -157,13 +157,12 @@ export interface FileSystemItem {
 }
 export type FileSystemItemType = 'directory' | 'file'
 /**
- * Identifiers for indicating the direction in which to continue when
- * loading continuous data.
+ * Identifiers for indicating the direction in which to continue when reading continuous data.
  */
-export type LoadDirection = 'backward' | 'alternate' | 'forward'
-export type LoaderMode = 'file' | 'folder' | 'study'
+export type ReadDirection = 'backward' | 'alternate' | 'forward'
+export type ReaderMode = 'file' | 'folder' | 'study'
 /**
- * SignalDataLoader serves as an interface for file reading. After setting the required metadata, parts of the signal
+ * SignalDataReader serves as an interface for file reading. After setting the required metadata, parts of the signal
  * file can be loaded using time indices and the class handles all coversions between file time and byte positions,
  * taking into account possible data unit (record) lengths and maximum allowed single load (chunk) sizes.
  *
@@ -172,7 +171,7 @@ export type LoaderMode = 'file' | 'folder' | 'study'
  * Data loading methods return a promise which resolves when the requested data has been loaded or rejects if there
  * is an error.
  */
-export interface SignalDataLoader {
+export interface SignalDataReader {
     /**
      * Has the cache been initialized.
      */
@@ -224,17 +223,17 @@ export interface SignalDataLoader {
      */
     getDataGaps (range?: number[]): { duration: number, start: number }[]
     /**
-     * Load and cache the entire file from the given URL.
+     * Read and cache the entire file from the given URL.
      * @param url - Optional URL of the file (defaults to cached URL).
      * @returns Loading success (true/false).
      */
-    loadFileFromUrl (url?: string): Promise<boolean>
+    readFileFromUrl (url?: string): Promise<boolean>
     /**
-     * Load a single part from the cached file.
+     * Read a single part from the cached file.
      * @param startFrom - Starting point of the loading process in seconds of file duration.
      * @param dataLength - Length of the requested data in seconds.
      */
-    loadPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
+    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
     /**
      * Release buffers removing all references to them and returning to initial state.
      */
@@ -251,25 +250,25 @@ export interface SignalDataLoader {
     setupMutex (buffer: SharedArrayBuffer, bufferStart: number): Promise<MutexExportProperties|null>
 }
 /**
- * SignalFileLoader has additional methods for loading the signal header and actuals signal data.
+ * SignalFileReader has additional methods for reading the signal header and actuals signal data.
  */
-export interface SignalFileLoader extends FileFormatLoader {
+export interface SignalFileReader extends FileFormatReader {
     /**
-     * Load information about the recording contained in this file from the file header. Information is also saved
+     * Read information about the recording contained in this file from the file header. Information is also saved
      * into the cached study's `meta.header` property for later use.
      * @param source - Data source as an ArrayBuffer.
      * @param config - Optional configuration for the operation.
      * @returns Loaded header entity.
      */
-    loadHeader: (source: ArrayBuffer, config?: ConfigLoadHeader) => unknown
+    readHeader: (source: ArrayBuffer, config?: ConfigReadHeader) => unknown
     /**
-     * Load signal information into the cached study's `meta.channels` property. Signal data is loaded directly into
+     * Read signal information into the cached study's `meta.channels` property. Signal data is loaded directly into
      * the channel's `signal` property if direct loading is possible; otherwise the data is meant to be loaded
      * asynchronously later.
      * @param source - Signal data source as an ArrayBuffer.
      * @param config - Optional configuration for the operation.
      */
-    loadSignals: (source: ArrayBuffer, config?: ConfigLoadSignals) => Promise<void>
+    readSignals: (source: ArrayBuffer, config?: ConfigReadSignals) => Promise<void>
 }
 /**
  * Partially loaded file containing:

@@ -6,7 +6,7 @@
  */
 
 import { BaseAsset, DataResource } from './application'
-import { FileSystemItem } from './loader'
+import { FileSystemItem } from './reader'
 import { StudyContext } from './study'
 
 /**

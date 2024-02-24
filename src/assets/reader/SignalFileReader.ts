@@ -14,14 +14,14 @@ import {
     type SignalCacheMutex,
     type SignalCacheProcess,
     type SignalDataCache,
-    type SignalDataLoader,
+    type SignalDataReader,
     type SignalFilePart,
 } from '#types'
 import { Log } from 'scoped-ts-log'
 
-const SCOPE = 'SignalFileLoader'
+const SCOPE = 'SignalFileReader'
 
-export default abstract class SignalFileLoader implements SignalDataLoader {
+export default abstract class SignalFileReader implements SignalDataReader {
 
     /** Map of annotations as <position in seconds, list of annotations>. */
     protected _annotations = new Map<number, BiosignalAnnotation[]>()
@@ -418,12 +418,12 @@ export default abstract class SignalFileLoader implements SignalDataLoader {
         return dataGaps
     }
 
-    async loadPartFromFile(_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
-        Log.error(`loadPartFromFile has not been overridden by child class.`, SCOPE)
+    async readPartFromFile(_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
+        Log.error(`readPartFromFile has not been overridden by child class.`, SCOPE)
         return nullPromise
     }
 
-    async loadFileFromUrl (url?: string) {
+    async readFileFromUrl (url?: string) {
         return await fetch(url || this._url)
             .then(response => response.blob())
             .then(blobFile => {

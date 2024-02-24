@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { FileSystemItem, FileSystemItemType } from '#types/loader'
+import { FileSystemItem, FileSystemItemType } from '#root/src/types/reader'
 
 //const SCOPE = 'FileSystemFile'
 

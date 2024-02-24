@@ -9,7 +9,7 @@
  */
 
 import { DataResource } from './application'
-import { FileSystemItem, FileFormatLoader, LoaderMode } from './loader'
+import { FileSystemItem, FileFormatReader, ReaderMode } from './reader'
 import { MemoryManager } from './service'
 
 
@@ -183,7 +183,7 @@ export interface StudyLoader {
      * Register a new file loader for this study loader.
      * @param loader - The new file loader.
      */
-    registerFileLoader (loader: FileFormatLoader): void
+    registerFileReader (loader: FileFormatReader): void
     /**
      * Register the memory manager to use with this study loader.
      * @param manager - Memory manager to use.
@@ -204,7 +204,7 @@ export type StudyLoaderContext = {
     /** Label for the loader (to be displayed in the UI). */
     label: string
     /** Mode to use (file, folder). */
-    mode: LoaderMode
+    mode: ReaderMode
     /** The loader itself. */
     loader: StudyLoader
     /** Study scopes supported by this loader. */
@@ -219,7 +219,7 @@ export type StudyLoaderProtocolContext = {
     /** Label for the protocol (to be displayed in the UI). */
     label: string
     /** Mode to use (file, folder). */
-    mode: LoaderMode
+    mode: ReaderMode
     /** The protocol itself. */
     protocol: OrderedLoadingProtocol
     /** Study scopes supported by this loader. */

@@ -7,7 +7,7 @@
 
 import { type DataResource } from '#root/src/types/application'
 import { type ConfigStudyLoader } from '#types/config'
-import { type FileFormatLoader, type FileSystemItem } from '#types/loader'
+import { type FileFormatReader, type FileSystemItem } from '#root/src/types/reader'
 import { type MemoryManager } from '#types/service'
 import {
     type StudyContext,
@@ -40,7 +40,7 @@ const CONFIG_FILE_NAME = 'epicurrents_study_config.json'
 const SCOPE = 'GenericStudyLoader'
 
 export default class GenericStudyLoader implements StudyLoader {
-    protected _fileLoader: FileFormatLoader | null = null
+    protected _fileLoader: FileFormatReader | null = null
     protected _memoryManager: MemoryManager | null = null
     protected _name: string
     protected _resources: DataResource[] = []
@@ -52,21 +52,21 @@ export default class GenericStudyLoader implements StudyLoader {
      * @param name - Name of the loader.
      * @param scopes - Array of supported study scopes.
      * @param types - Array of supported study types.
-     * @param loader - Optional file loader to use when loading studies. Can also be set with `registerFileLoader`.
+     * @param loader - Optional file loader to use when loading studies. Can also be set with `registerFileReader`.
      * @param memoryManager - Optional memory manager to use with this loader.
      */
     constructor (
         name: string,
         scopes: string[],
         types: string[],
-        loader?: FileFormatLoader,
+        loader?: FileFormatReader,
         memoryManager?: ServiceMemoryManager
     ) {
         this._name = name
         this._supportedScopes = scopes
         this._supportedTypes = types
         if (loader) {
-            this.registerFileLoader(loader)
+            this.registerFileReader(loader)
             loader.studyLoader = this
         }
         if (memoryManager) {
@@ -415,7 +415,7 @@ export default class GenericStudyLoader implements StudyLoader {
         return this._resources.length
     }
 
-    registerFileLoader (loader: FileFormatLoader) {
+    registerFileReader (loader: FileFormatReader) {
         this._fileLoader = loader
         if (this._memoryManager) {
             loader.registerMemoryManager(this._memoryManager)

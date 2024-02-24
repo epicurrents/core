@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type BaseAsset } from '#root/src/types/application'
+import { type BaseAsset } from '#types/application'
 import { type BiosignalResource } from '#types/biosignal'
 import { type OnnxService, type AvailableOnnxModel } from '#types/onnx'
 import { SetupWorkerResponse, type WorkerResponse } from '#types/service'

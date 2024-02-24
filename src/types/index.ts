@@ -210,49 +210,6 @@ export {
 }
 
 /////////////////////////////////////////////////
-//                   LOADER                    //
-/////////////////////////////////////////////////
-
-import {
-    type ConfigLoadHeader,
-    type ConfigLoadSignals,
-    type ConfigLoadUrl,
-    type FileDecoder,
-    type FileFormatLoader,
-    type FileFormatLoaderSpecs,
-    type FileReader,
-    type FileSystemItem,
-    type FileSystemItemType,
-    type LoadDirection,
-    type LoaderMode,
-    type SignalDataLoader,
-    type SignalFileLoader,
-    type SignalFilePart,
-    type SuccessReject,
-    type SuccessResolve,
-    type SuccessResponse,
-} from './loader'
-export {
-    ConfigLoadHeader,
-    ConfigLoadSignals,
-    ConfigLoadUrl,
-    FileDecoder,
-    FileFormatLoader,
-    FileFormatLoaderSpecs,
-    FileReader,
-    FileSystemItem,
-    FileSystemItemType,
-    LoadDirection,
-    LoaderMode,
-    SignalDataLoader,
-    SignalFileLoader,
-    SignalFilePart,
-    SuccessReject,
-    SuccessResolve,
-    SuccessResponse,
-}
-
-/////////////////////////////////////////////////
 //                   MEDIA                     //
 /////////////////////////////////////////////////
 
@@ -317,6 +274,49 @@ export {
     WebGlCompatibleColor,
     WebGlPlotConfig,
     WebGlTrace,
+}
+
+/////////////////////////////////////////////////
+//                   READER                    //
+/////////////////////////////////////////////////
+
+import {
+    type ConfigReadHeader,
+    type ConfigReadSignals,
+    type ConfigReadUrl,
+    type FileDecoder,
+    type FileFormatReader,
+    type FileFormatReaderSpecs,
+    type FileReader,
+    type FileSystemItem,
+    type FileSystemItemType,
+    type ReadDirection,
+    type ReaderMode,
+    type SignalDataReader,
+    type SignalFileReader,
+    type SignalFilePart,
+    type SuccessReject,
+    type SuccessResolve,
+    type SuccessResponse,
+} from './reader'
+export {
+    ConfigReadHeader,
+    ConfigReadSignals,
+    ConfigReadUrl,
+    FileDecoder,
+    FileFormatReader,
+    FileFormatReaderSpecs,
+    FileReader,
+    FileSystemItem,
+    FileSystemItemType,
+    ReadDirection,
+    ReaderMode,
+    SignalDataReader,
+    SignalFileReader,
+    SignalFilePart,
+    SuccessReject,
+    SuccessResolve,
+    SuccessResponse,
 }
 
 /////////////////////////////////////////////////

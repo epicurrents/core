@@ -20,14 +20,6 @@ import {
     GenericDocumentResource,
 } from './document'
 import {
-    FileSystemDirectory,
-    FileSystemFile,
-    GenericFileLoader,
-    LocalFileReader,
-    MixedFileSystemItem,
-    SignalFileLoader,
-} from './loader'
-import {
     BiosignalAudio,
 } from './media'
 import {
@@ -35,6 +27,14 @@ import {
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
 } from './service'
+import {
+    FileSystemDirectory,
+    FileSystemFile,
+    GenericFileReader,
+    LocalFileReader,
+    MixedFileSystemItem,
+    SignalFileReader,
+} from './reader'
 import {
     GenericStudyLoader,
     StudyCollection,
@@ -56,7 +56,7 @@ export {
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
-    GenericFileLoader,
+    GenericFileReader,
     GenericService,
     GenericStudyLoader,
     LocalFileReader,
@@ -67,7 +67,7 @@ export {
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
-    SignalFileLoader,
+    SignalFileReader,
     StudyCollection,
     studyContextTemplate,
 }

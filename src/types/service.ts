@@ -7,7 +7,7 @@
 
 import { type AsymmetricMutex, type MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
-import { LoadDirection } from './loader'
+import { ReadDirection } from './reader'
 import { SignalPart } from './biosignal'
 
 export type ActionWatcher = {
@@ -369,7 +369,7 @@ export type SignalCacheProcess = {
     /** Should we continue this loading process. */
     continue: boolean
     /** Load direction (1 forward, -1 backward, 0 alternate between following and preceding part). */
-    direction: LoadDirection
+    direction: ReadDirection
     /** Start time of LOADED DATA in recording. */
     start: number
     /** End time of LOADED data in recording. */

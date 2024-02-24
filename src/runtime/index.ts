@@ -18,7 +18,7 @@ import {
     type StateManager
 } from '#root/src/types/application'
 import { type DatasetLoader, type MediaDataset } from '#types/dataset'
-import { type FileSystemItem } from '#types/loader'
+import { type FileSystemItem } from '#root/src/types/reader'
 import { type AssetService } from '#types/service'
 import { type StudyContext, type StudyLoader } from '#types/study'
 import { Log } from 'scoped-ts-log'

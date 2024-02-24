@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type FileSystemItem, type FileSystemItemType } from '#types/loader'
+import { type FileSystemItem, type FileSystemItemType } from '#root/src/types/reader'
 import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'MixedFileSystemItem'

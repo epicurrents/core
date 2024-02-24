@@ -6,7 +6,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { type FileFormatLoader } from '#types/loader'
+import { type FileFormatReader } from '#types/reader'
 import { type MemoryManager } from '#types/service'
 import {
     type StudyContext,
@@ -15,7 +15,7 @@ import {
 } from '#types/study'
 import { studyContextTemplate } from '#assets/study/loaders/GenericStudyLoader'
 
-export default abstract class GenericFileLoader extends GenericAsset implements FileFormatLoader {
+export default abstract class GenericFileReader extends GenericAsset implements FileFormatReader {
     /**
      * File headers to mime type associations.
      * @remarks
