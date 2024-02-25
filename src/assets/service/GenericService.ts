@@ -1,6 +1,6 @@
 /**
  * Generic service.
- * @package    @epicurrents/core
+ * @package    epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
  */

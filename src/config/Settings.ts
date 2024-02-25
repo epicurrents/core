@@ -1,6 +1,6 @@
 /**
  * EpiCurrents core settings. These settings can be extended by modules.
- * @package    @epicurrents/core
+ * @package    epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
  */
