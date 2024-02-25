@@ -1,6 +1,6 @@
 /**
  * Reader types.
- * @package    @epicurrents/core
+ * @package    epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
  */
@@ -88,15 +88,15 @@ export interface FileFormatReader extends BaseAsset {
      */
     getFileTypeWorker (sab?: boolean): Worker | null
     /**
-     * Load a file from the filesystem.
+     * Read a local file from the filesystem.
      * @param file - The `File` to load.
      */
-    loadFile (file: StudyContextFile | File, config?: unknown): Promise<StudyContextFile | null>
+    readFile (file: StudyContextFile | File, config?: unknown): Promise<StudyContextFile | null>
     /**
-     * Load a file from the give `url`.
+     * Load a remote file from the give `url`.
      * @param url - The URL to load the file from.
      */
-    loadUrl (url: StudyContextFile | string, config?: unknown): Promise<StudyContextFile | null>
+    readUrl (url: StudyContextFile | string, config?: unknown): Promise<StudyContextFile | null>
     /**
      * See if the given scope is supported by this reader.
      * @param scope - Scope to check.

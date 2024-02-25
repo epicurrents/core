@@ -1,6 +1,6 @@
 /**
  * Utility types. These are meant to help with typing (not to describe the utility functions).
- * @package    @epicurrents/core
+ * @package    epicurrents/core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0
  */

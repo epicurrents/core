@@ -1,7 +1,7 @@
 /**
  * Generic asset.
  * This is the root class that all other classes extend.
- * @package    @epicurrents/core
+ * @package    epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
  */

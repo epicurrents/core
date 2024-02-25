@@ -1,6 +1,6 @@
 /**
  * EpiCurrents signal file loader utility. This class can be used inside a worker or the main thread.
- * @package    @epicurrents/core
+ * @package    epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0
  */
