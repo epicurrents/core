@@ -40,7 +40,7 @@ const CONFIG_FILE_NAME = 'epicurrents_study_config.json'
 const SCOPE = 'GenericStudyLoader'
 
 export default class GenericStudyLoader implements StudyLoader {
-    protected _fileLoader: FileFormatReader | null = null
+    protected _fileReader: FileFormatReader | null = null
     protected _memoryManager: MemoryManager | null = null
     protected _name: string
     protected _resources: DataResource[] = []
@@ -192,14 +192,14 @@ export default class GenericStudyLoader implements StudyLoader {
     async loadFromFile (file: File, config: ConfigStudyLoader = {}, study?: StudyContext):
                        Promise<StudyContext|null>
     {
-        if (!this._fileLoader) {
+        if (!this._fileReader) {
             Log.error(`Cannot load study from a file, file loader has not been set.`, SCOPE)
             return null
         }
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.scope && !this._fileLoader.isSupportedScope(config.scope)) {
+        if (config.scope && !this._fileReader.isSupportedScope(config.scope)) {
             Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
             return null
         }
@@ -216,9 +216,9 @@ export default class GenericStudyLoader implements StudyLoader {
         Log.debug(`Started loading a study from file ${file.name} (${config.name}).`, SCOPE)
         // Try to load the file, according to extension.
         const fName = config.name || file.name || ''
-        if (this._fileLoader.matchName(fName)) {
-            this._fileLoader.registerStudy(study)
-            if (!(await this._fileLoader.loadFile(file, { name: fName }))) {
+        if (this._fileReader.matchName(fName)) {
+            this._fileReader.registerStudy(study)
+            if (!(await this._fileReader.readFile(file, { name: fName }))) {
                 Log.error(`Failed to load study ${study.name}.`, SCOPE)
                 return null
             }
@@ -230,7 +230,7 @@ export default class GenericStudyLoader implements StudyLoader {
     async loadFromFsItem (fileTree: FileSystemItem, config: ConfigStudyLoader = {}):
                          Promise<StudyContextCollection[]>
     {
-        if (!this._fileLoader) {
+        if (!this._fileReader) {
             Log.error(`Cannot load study from a filesystem item, file loader has not been set.`, SCOPE)
             return []
         }
@@ -360,14 +360,14 @@ export default class GenericStudyLoader implements StudyLoader {
     async loadFromUrl (fileUrl: string, config: ConfigStudyLoader = {}, study?: StudyContext):
                       Promise<StudyContext|null>
     {
-        if (!this._fileLoader) {
+        if (!this._fileReader) {
             Log.error(`Cannot load study from a URL, file loader has not been set.`, SCOPE)
             return null
         }
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.scope && !this._fileLoader.isSupportedScope(config.scope)) {
+        if (config.scope && !this._fileReader.isSupportedScope(config.scope)) {
             Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
             return null
         }
@@ -385,9 +385,9 @@ export default class GenericStudyLoader implements StudyLoader {
         // Try to load the file, according to extension.
         const urlEnd = fileUrl.split('/').pop()
         const fName = config.name || urlEnd || ''
-        if (this._fileLoader.matchName(fName)) {
-            this._fileLoader.registerStudy(study)
-            if (!(await this._fileLoader.loadUrl(fileUrl, { name: fName }))) {
+        if (this._fileReader.matchName(fName)) {
+            this._fileReader.registerStudy(study)
+            if (!(await this._fileReader.readUrl(fileUrl, { name: fName }))) {
                 Log.error(`Failed to load study ${study.name}.`, SCOPE)
                 return null
             }
@@ -395,6 +395,7 @@ export default class GenericStudyLoader implements StudyLoader {
             Log.error(`No file loaders matched the given file name.`, SCOPE)
             return null
         }
+        console.warn(study)
         this._study = study
         return study
     }
@@ -411,12 +412,12 @@ export default class GenericStudyLoader implements StudyLoader {
             }
         }
         this._study = study
-        this._fileLoader?.registerStudy(this._study)
+        this._fileReader?.registerStudy(this._study)
         return this._resources.length
     }
 
     registerFileReader (loader: FileFormatReader) {
-        this._fileLoader = loader
+        this._fileReader = loader
         if (this._memoryManager) {
             loader.registerMemoryManager(this._memoryManager)
         }
@@ -424,8 +425,8 @@ export default class GenericStudyLoader implements StudyLoader {
 
     registerMemoryManager (manager: MemoryManager) {
         this._memoryManager = manager
-        if (this._fileLoader) {
-            this._fileLoader.registerMemoryManager(manager)
+        if (this._fileReader) {
+            this._fileReader.registerMemoryManager(manager)
         }
     }
 }

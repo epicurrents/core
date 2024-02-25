@@ -116,7 +116,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         return false
     }
 
-    async loadFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
+    async readFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
         if (typeof source === 'object' && Object.hasOwn(source, 'url')) {
             return source as StudyContextFile
         }
@@ -129,7 +129,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         } as StudyContextFile
     }
 
-    async loadUrl (source: string | StudyContextFile): Promise<StudyContextFile|null> {
+    async readUrl (source: string | StudyContextFile): Promise<StudyContextFile|null> {
         if (typeof source === 'object' && Object.hasOwn(source, 'url')) {
             return source as StudyContextFile
         }
