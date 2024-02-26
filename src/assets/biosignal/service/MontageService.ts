@@ -27,9 +27,9 @@ import BiosignalMutex from './BiosignalMutex'
 import GenericService from '#assets/service/GenericService'
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { mapSignalsToSamplingRates } from '#util/signal'
-// TODO: Provide access to the root application instance so this hasn't to be accessed directly.
-import { state as runtimeState } from '#runtime'
 import { SETTINGS } from '#root/src/config'
+
+const APP = __EPICURRENTS_APPS__[0]
 
 const SCOPE = "MontageService"
 
@@ -45,7 +45,10 @@ export default class MontageService extends GenericService implements BiosignalM
     }
 
     constructor (montage: BiosignalMontage, manager?: MemoryManager) {
-        const overrideWorker = runtimeState.WORKERS.get('montage')
+        if (!APP) {
+            Log.error(`Reference to main application was not found!`, SCOPE)
+        }
+        const overrideWorker = APP?.state.WORKERS.get('montage')
         const worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'montage.worker' */

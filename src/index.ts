@@ -111,7 +111,7 @@ import { Log } from 'scoped-ts-log'
 import {
     type AssetService,
     type DataResource,
-    type EpiCurrentsApplication,
+    type EpiCurrentsApp,
     type FileSystemItem,
     type InterfaceModule,
     type InterfaceModuleConstructor,
@@ -124,17 +124,22 @@ import {
 } from './types'
 
 const SCOPE = 'index'
+const __EPICURRENTS_APPS__ = []
 
-export class EpiCurrents implements EpiCurrentsApplication {
+export class EpiCurrents implements EpiCurrentsApp {
     // Private poperties.
     /**
-     * The actual user-facing app.
+     * Index of this application instance in the global applications object.
      */
-    #app = null as null | InterfaceModule
+    #id: number
+    /**
+     * Initiated user interface.
+     */
+    #interface = null as null | InterfaceModule
     /**
      * Constructor for an interface module to use for the app.
      */
-    #interface = null as null | InterfaceModuleConstructor
+    #interfaceConstructor = null as null | InterfaceModuleConstructor
     /**
      * Memory manager used to control the shared array buffer (or null if not used).
      */
@@ -144,7 +149,10 @@ export class EpiCurrents implements EpiCurrentsApplication {
      */
     #state = new RuntimeStateManager()
 
-    constructor () {}
+    constructor () {
+        this.#id = __EPICURRENTS_APPS__.length
+        __EPICURRENTS_APPS__.push(this)
+    }
 
     // Public properties.
     get publicPath () {
@@ -152,6 +160,10 @@ export class EpiCurrents implements EpiCurrentsApplication {
     }
     set publicPath (value: string) {
         __webpack_public_path__ = value
+    }
+
+    get state () {
+        return this.#state
     }
 
     get useMemoryManager () {
@@ -176,7 +188,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
     }
 
     configure (config: { [field: string]: SettingsValue }) {
-        if (this.#app) {
+        if (this.#interface) {
             Log.warn(`Cannot alter default configuration after app launch. Use the setSettingsValue method instead.`, SCOPE)
             return
         }
@@ -206,7 +218,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
         appId: string = `epicurrents`,
         locale: string = 'en'
     ): Promise<boolean> {
-        if (!this.#interface) {
+        if (!this.#interfaceConstructor) {
             Log.error(`Cannot launch app before an interface has been registered.`, 'index')
             return false
         }
@@ -223,8 +235,8 @@ export class EpiCurrents implements EpiCurrentsApplication {
         // Using the literal 'epicv' in the selector is to avoid invalid selector errors.
         containerId = containerId.length ? `-${containerId}` : ''
         const modules = Array.from(this.#state.MODULES.keys())
-        this.#app = new this.#interface(this, this.#state, containerId, appId, locale, modules)
-        const interfaceSuccess = await this.#app.awaitReady()
+        this.#interface = new this.#interfaceConstructor(this, this.#state, containerId, appId, locale, modules)
+        const interfaceSuccess = await this.#interface.awaitReady()
         if (!interfaceSuccess) {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
             return false
@@ -285,7 +297,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
     }
 
     registerInterface (intf: InterfaceModuleConstructor) {
-        this.#interface = intf
+        this.#interfaceConstructor = intf
     }
 
     registerModule (name: string, module: ResourceModule) {

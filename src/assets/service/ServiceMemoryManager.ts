@@ -20,8 +20,8 @@ import { Log } from 'scoped-ts-log'
 import SETTINGS from '#config/Settings'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { nullPromise, safeObjectFrom } from '#util/general'
-// TODO: Provide access to the root application instance so this hasn't to be accessed directly.
-import { state as runtimeState } from '#runtime'
+
+const APP = __EPICURRENTS_APPS__[0]
 
 const SCOPE = 'ServiceMemoryManager'
 
@@ -68,7 +68,10 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        const overrideWorker = runtimeState.WORKERS.get('memory-manager')
+        if (!APP) {
+            Log.error(`Reference to main application was not found!`, SCOPE)
+        }
+        const overrideWorker = APP?.state.WORKERS.get('memory-manager')
         this._worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'memory-manager.worker' */

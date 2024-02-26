@@ -104,11 +104,15 @@ export interface BaseAsset {
 /**
  * The main EpiCurrents application.
  */
-export interface EpiCurrentsApplication {
+export interface EpiCurrentsApp {
     /**
      * Path where public assets (mostly javascript) are served from.
      */
     publicPath: string
+    /**
+     * Runtime state of this application instance.
+     */
+    state: RuntimeState
     /**
      * Does the application instance use a memory manager. A memory manager requires
      * SharedArrayBuffer to be available.
@@ -239,7 +243,7 @@ export interface InterfaceModule {
  */
 export interface InterfaceModuleConstructor {
     new (
-        epicvApp: EpiCurrentsApplication,
+        epicvApp: EpiCurrentsApp,
         state?: StateManager,
         containerId?: string,
         appId?: string,
@@ -359,19 +363,7 @@ export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
  * In addition to the actual modules, it also includes shorthands for
  * core APP properties and methods for altering MODULES and SERVICES.
  */
-export interface StateManager {
-    /** Core app state. */
-    APP: RuntimeAppModule
-    /** Interface-specific configuration. */
-    INTERFACE: unknown
-    /** States of dynamically loaded modules. */
-    MODULES: Map<string, RuntimeResourceModule>
-    /** States of dynamically loaded services. */
-    SERVICES: Map<string, AssetService>
-    /** Application settings. */
-    SETTINGS: AppSettings
-    /** Id of the container housing the application. */
-    containerId: string
+export interface StateManager extends RuntimeState {
     /** Is the applciation in full-screen mode. */
     isFullscreen: boolean
     /**

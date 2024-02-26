@@ -84,7 +84,13 @@ export default class RuntimeStateManager implements StateManager {
         property: string
     }[] = []
     isInitialized = false
+
     constructor () {}
+
+    // Returning null for __proto__ is required to make this class compatible with the RuntimeState type.
+    get __proto__ () {
+        return null
+    }
     get APP () {
         return state.APP
     }
@@ -102,6 +108,9 @@ export default class RuntimeStateManager implements StateManager {
     }
     get SETTINGS () {
         return state.SETTINGS
+    }
+    get WORKERS () {
+        return state.WORKERS
     }
     get containerId () {
         return state.APP.containerId || ''
