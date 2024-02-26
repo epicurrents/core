@@ -372,7 +372,6 @@ export default class RuntimeStateManager implements StateManager {
     setModule (name: string, module: ResourceModule) {
         this.MODULES.set(name, module.runtime)
         this.SETTINGS.registerModule(name, module.settings)
-        module.runtime.setSettings(SETTINGS)
         this.onPropertyUpdate('modules', name)
     }
     setModulePropertyValue (module: string, property: string, value: unknown, resource?: DataResource): void {
