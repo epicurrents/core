@@ -12,6 +12,7 @@ import {
     type SettingsValue,
 } from '#types/config'
 import {
+    ResourceModule,
     type DataResource,
     type RuntimeResourceModule,
     type RuntimeState,
@@ -368,8 +369,10 @@ export default class RuntimeStateManager implements StateManager {
         state.APP.activeType = value
         this.onPropertyUpdate('active-type', value)
     }
-    setModule (name: string, module: RuntimeResourceModule) {
-        this.MODULES.set(name, module)
+    setModule (name: string, module: ResourceModule) {
+        this.MODULES.set(name, module.runtime)
+        this.SETTINGS.registerModule(name, module.settings)
+        module.runtime.setSettings(SETTINGS)
         this.onPropertyUpdate('modules', name)
     }
     setModulePropertyValue (module: string, property: string, value: unknown, resource?: DataResource): void {

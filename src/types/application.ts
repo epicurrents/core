@@ -320,10 +320,19 @@ export type RuntimeAppModule = NullProtoObject & {
 
 export type RuntimeResourceModule = NullProtoObject & {
     moduleName: {
+        /** Identifying code for this module. (TODO: Rename as id?) */
         code: string
+        /** Full name of this module. */
         full: string
+        /** Short name for this module (usually abbreviation). */
         short: string
     }
+    /**
+     * This property holds a reference to the core application settings object. It must be updated when the module
+     * is registered to the application, otherwise it will point to an individual (compile time) settings object
+     * and won't reflect the changes to the core application settings.
+     */
+    SETTINGS: AppSettings
     /**
      * Set the given property to its new value, notifying watchers.
      * @param property - Name of the property on kebab-case.
@@ -333,6 +342,11 @@ export type RuntimeResourceModule = NullProtoObject & {
      * @returns unknown
      */
     setPropertyValue (property: string, value: unknown, resource?: DataResource, state?: StateManager): unknown
+    /**
+     * Replace the settings object referenced by this runtime module.
+     * @param settings - The new settings object to use.
+     */
+    setSettings (settings: AppSettings): void
 }
 
 /**

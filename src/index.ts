@@ -289,8 +289,7 @@ export class EpiCurrents implements EpiCurrentsApplication {
     }
 
     registerModule (name: string, module: ResourceModule) {
-        this.#state.setModule(name, module.runtime)
-        this.#state.SETTINGS.registerModule(name, module.settings)
+        this.#state.setModule(name, module)
     }
 
     registerService (name: string, service: AssetService) {
