@@ -1,5 +1,5 @@
 /**
- * Global property types and non-typed module declarations.
+ * Non-typed module declarations.
  * @package    @epicurrents/core
  * @copyright  2020 Sampsa Lohi
  * @license    Apache-2.0
@@ -7,8 +7,6 @@
 
 /* eslint-disable */
 
-/** Path where WebPack serves its public assets (js) from. */
-declare let __webpack_public_path__: string
 declare module 'codecutils' {
     const CodecUtils: {
         extractTypedArray: Float32Array | Float64Array |

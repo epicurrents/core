@@ -124,8 +124,9 @@ import {
 } from './types'
 
 const SCOPE = 'index'
-const __EPICURRENTS_APPS__ = []
-
+if (window.__EPICURRENTS_APPS__ === undefined) {
+    window.__EPICURRENTS_APPS__ = []
+}
 export class EpiCurrents implements EpiCurrentsApp {
     // Private poperties.
     /**
@@ -150,8 +151,9 @@ export class EpiCurrents implements EpiCurrentsApp {
     #state = new RuntimeStateManager()
 
     constructor () {
-        this.#id = __EPICURRENTS_APPS__.length
-        __EPICURRENTS_APPS__.push(this)
+        this.#id = window.__EPICURRENTS_APPS__.length
+        window.__EPICURRENTS_APPS__.push(this)
+        console.log(window)
     }
 
     // Public properties.

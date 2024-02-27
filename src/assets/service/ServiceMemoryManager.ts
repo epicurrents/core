@@ -21,8 +21,6 @@ import SETTINGS from '#config/Settings'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { nullPromise, safeObjectFrom } from '#util/general'
 
-const APP = __EPICURRENTS_APPS__[0]
-
 const SCOPE = 'ServiceMemoryManager'
 
 export default class ServiceMemoryManager implements MemoryManager {
@@ -68,10 +66,10 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        if (!APP) {
+        if (!window.__EPICURRENTS_APPS__[0]) {
             Log.error(`Reference to main application was not found!`, SCOPE)
         }
-        const overrideWorker = APP?.state.WORKERS.get('memory-manager')
+        const overrideWorker = window.__EPICURRENTS_APPS__[0]?.state.WORKERS.get('memory-manager')
         this._worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'memory-manager.worker' */
