@@ -287,7 +287,6 @@ export class EpiCurrents implements EpiCurrentsApp {
 
     openResource (resource: DataResource) {
         this.#runtime.setActiveResource(resource)
-        //this.store?.dispatch('set-active-resource', resource)
     }
 
     registerInterface (intf: InterfaceModuleConstructor) {
@@ -332,7 +331,6 @@ export class EpiCurrents implements EpiCurrentsApp {
 
     setActiveDataset (dataset: MediaDataset | null) {
         this.#runtime.setActiveDataset(dataset)
-        //this.store.dispatch('set-active-dataset', dataset)
     }
 
     setOnnxService (service: OnnxService) {

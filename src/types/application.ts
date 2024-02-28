@@ -38,12 +38,12 @@ export interface BaseAsset {
     /** Specific type (or modality) of the resource. */
     type: string
     /**
-     * Add and update handler for the given `property`.
-     * @param property - Name of the property (in kebab-case).
+     * Add and update handler for the given `property` or properties.
+     * @param property - Name of the property or array of property names (in kebab-case).
      * @param handler - Handler to fire when the property changes.
      * @param caller - Optional ID for the caller.
      */
-    addPropertyUpdateHandler (property: string, handler: PropertyUpdateHandler, caller?: string): void
+    addPropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler, caller?: string): void
     /**
      * Fire all property update handlers attached to the given property.
      * @param property - Property that was updated.
@@ -61,11 +61,11 @@ export interface BaseAsset {
      */
     removeAllPropertyUpdateHandlersFor (caller: string): void
     /**
-     * Remove an update handler from the given `property`.
-     * @param property - Name of the property (in kebab-case).
+     * Remove an update handler from the given `property` or properties.
+     * @param property - Name of the property or array of peroperty names (in kebab-case).
      * @param handler - Handler to remove.
      */
-    removePropertyUpdateHandler (property: string, handler: PropertyUpdateHandler): void
+    removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
 }
 /**
  * DataResource is the most basic scope of resource containing biomedical or media data.
@@ -384,6 +384,11 @@ export interface StateManager extends RuntimeState {
      * @param setAsActive - Should the new resource be set as active (default false).
      */
     addResource (scope: string, resource: DataResource, setAsActive?: boolean): void
+    /**
+     * Set the given `resource` as not active.
+     * @param resource - Resource to deactivate.
+     */
+    deactivateResource (resource: DataResource): void
     /**
      * Get the service with the given name.
      * @param name - Name of the service.

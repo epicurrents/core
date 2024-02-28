@@ -24,6 +24,7 @@ export default abstract class GenericAsset implements BaseAsset {
         PRESENTATION: 'prs',
         SERVICE: 'srv',
         UNKNOWN: 'unk',
+        UTILITY: 'utl',
     }
     /**
      * This will be automatically populated with a reference to the application instance.
@@ -89,20 +90,33 @@ export default abstract class GenericAsset implements BaseAsset {
     //                   METHODS                     //
     ///////////////////////////////////////////////////
 
-    addPropertyUpdateHandler (property: string, handler: (value?: unknown) => unknown, caller?: string) {
+    addPropertyUpdateHandler (
+        property: string | string[],
+        handler: (newValue?: unknown, oldValue?: unknown) => unknown,
+        caller?: string
+    ) {
+        property = Array.isArray(property) ? property : [property] // Simplify method.
         for (const update of this._propertyUpdateHandlers) {
-            if (property === update.property && handler === update.handler) {
-                // Don't add the same handler twice
-                return
+            // Don't add the same handler twice.
+            for (let i=0; i<property.length; i++) {
+                if (property[i] === update.property && handler === update.handler) {
+                    property.splice(i, 1)
+                    i--
+                }
             }
         }
-        this._propertyUpdateHandlers.push({
-            caller: caller || null,
-            handler: handler,
-            pattern: new RegExp(`^${property}$`, 'i'),
-            property: property,
-        })
-        Log.debug(`Added a handler for ${property}.`, SCOPE)
+        if (!property.length) {
+            return
+        }
+        for (const prop of property) {
+            this._propertyUpdateHandlers.push({
+                caller: caller || null,
+                handler: handler,
+                pattern: new RegExp(`^${property}$`, 'i'),
+                property: prop,
+            })
+        }
+        Log.debug(`Added a handler(s) for ${property}.`, SCOPE)
     }
 
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
@@ -116,7 +130,6 @@ export default abstract class GenericAsset implements BaseAsset {
 
     removeAllPropertyUpdateHandlers () {
         Log.debug(`Removing all ${this._propertyUpdateHandlers.splice(0).length} property update handlers.`, SCOPE)
-
     }
 
     removeAllPropertyUpdateHandlersFor (caller: string) {
@@ -130,15 +143,19 @@ export default abstract class GenericAsset implements BaseAsset {
         }
     }
 
-    removePropertyUpdateHandler (property: string, handler: () => unknown) {
-        for (let i=0; i<this._propertyUpdateHandlers.length; i++) {
-            const update = this._propertyUpdateHandlers[i]
-            if (property === update.property && handler === update.handler) {
-                this._propertyUpdateHandlers.splice(i, 1)
-                Log.debug(`Removed ${property} handler${update.caller ? ' for '+ update.caller : ''}.`, SCOPE)
-                return
+    removePropertyUpdateHandler (property: string | string[], handler: () => unknown) {
+        property = Array.isArray(property) ? property : [property] // Simplify method.
+        prop_loop:
+        for (let i=0; i<property.length; i++) {
+            const prop = property[i]
+            for (let j=0; j<this._propertyUpdateHandlers.length; j++) {
+                const update = this._propertyUpdateHandlers[j]
+                if (prop === update.property && handler === update.handler) {
+                    this._propertyUpdateHandlers.splice(j, 1)
+                    Log.debug(`Removed ${prop} handler${update.caller ? ' for '+ update.caller : ''}.`, SCOPE)
+                    continue prop_loop
+                }
             }
         }
-        Log.debug(`Cound not locate the requsted ${property} handler.`, SCOPE)
     }
 }

@@ -12,8 +12,8 @@ import {
     type SettingsValue,
 } from '#types/config'
 import {
-    ResourceModule,
     type DataResource,
+    type ResourceModule,
     type RuntimeResourceModule,
     type RuntimeState,
     type StateManager
@@ -24,6 +24,7 @@ import { type AssetService } from '#types/service'
 import { type StudyContext, type StudyLoader } from '#types/study'
 import { Log } from 'scoped-ts-log'
 import SETTINGS from '#config/Settings'
+import GenericAsset from '#assets/GenericAsset'
 import { MixedMediaDataset } from '#assets/dataset'
 
 import { APP as APP_MODULE } from './modules'
@@ -64,8 +65,8 @@ export const state: RuntimeState = {
  * The runtime state manager is responsible for handling mutations to any resources that are loaded in the application.
  * These include, but may not me limited to, data resource, datasets, services and core app properties.
  *
- * Properties of the manager should not be mutated directly, but instead by using the dedicated methods:
- * - `addDataset`: Add a new dataset to the runtime.
+ * Properties of the state should not be mutated directly, but instead by using the dedicated methods:
+ * - `addDataset`: Add a new dataset to the state.
  * - `addResource`: Add a new resource to the currently active dataset.
  * - `setActiveDataset`: Set the currently active dataset.
  * - `setActiveResource`: Set the currently active resource within the active dataset.
@@ -76,66 +77,75 @@ export const state: RuntimeState = {
  * - `setService`: Set a service with the given name (key).
  * - `setSettingsValue`: Set a new value to the given settings property.
  */
-export default class RuntimeStateManager implements StateManager {
-    protected _propertyUpdateHandlers: {
-        caller: string | null
-        handler: (newValue?: unknown, oldValue?: unknown) => unknown
-        pattern: RegExp
-        property: string
-    }[] = []
+export default class RuntimeStateManager extends GenericAsset implements StateManager {
+    /** Has the manager been initialized. */
     isInitialized = false
 
-    constructor () {}
+    constructor () {
+        super('RuntimeStateManager', GenericAsset.SCOPES.UTILITY, GenericAsset.SCOPES.UTILITY)
+    }
 
     // Returning null for __proto__ is required to make this class compatible with the RuntimeState type.
     get __proto__ () {
         return null
     }
+
     get APP () {
         return state.APP
     }
+
     get INTERFACE () {
         return state.INTERFACE
     }
     set INTERFACE (value: unknown) {
         state.INTERFACE = value
     }
+
     get MODULES () {
         return state.MODULES
     }
+
     get SERVICES () {
         return state.SERVICES
     }
+
     get SETTINGS () {
         return state.SETTINGS
     }
+
     get WORKERS () {
         return state.WORKERS
     }
+
     get containerId () {
         return state.APP.containerId || ''
     }
+
     set containerId (value: string) {
         state.APP.containerId = value
     }
+
     get isFullscreen () {
         return state.APP.isFullscreen
     }
     set isFullscreen (value: boolean) {
         state.APP.isFullscreen = value
     }
+
     get settingsOpen () {
         return state.APP.settingsOpen
     }
     set settingsOpen (value: boolean) {
         state.APP.settingsOpen = value
     }
+
     get showOverlay () {
         return state.APP.showOverlay || false
     }
     set showOverlay (value: boolean) {
         state.APP.showOverlay = value
     }
+
     addDataset (dataset: MediaDataset, setAsActive = false) {
         state.APP.datasets.push(dataset)
         this.onPropertyUpdate('datasets', dataset)
@@ -143,36 +153,7 @@ export default class RuntimeStateManager implements StateManager {
             this.setActiveDataset(dataset)
         }
     }
-    addPropertyUpdateHandler (
-        property: string | string[],
-        handler: (newValue?: unknown, oldValue?: unknown) => unknown,
-        caller?: string
-    ) {
-        for (const update of this._propertyUpdateHandlers) {
-            if (property === update.property && handler === update.handler) {
-                // Don't add the same handler twice.
-                return
-            }
-        }
-        if (Array.isArray(property)) {
-            for (const prop of property) {
-                this._propertyUpdateHandlers.push({
-                    caller: caller || null,
-                    handler: handler,
-                    pattern: new RegExp(`^${property}$`, 'i'),
-                    property: prop,
-                })
-            }
-        } else {
-            this._propertyUpdateHandlers.push({
-                caller: caller || null,
-                handler: handler,
-                pattern: new RegExp(`^${property}$`, 'i'),
-                property: property,
-            })
-        }
-        Log.debug(`Added a handler for ${property}.`, SCOPE)
-    }
+
     addResource (scope: string, resource: DataResource, setAsActive = false) {
         const resourceModule = state.MODULES.get(scope)
         if (!resourceModule) {
@@ -209,13 +190,25 @@ export default class RuntimeStateManager implements StateManager {
         }
         this.onPropertyUpdate('resources', resource)
     }
+
+    deactivateResource (resource: DataResource) {
+        if (!resource.isActive) {
+            Log.debug(`Reasource to deactivate was not active to begin with.`, SCOPE)
+            return
+        }
+        resource.isActive = false
+        this.onPropertyUpdate('active-resource')
+    }
+
     getService (name: string) {
         return state.SERVICES.get(name)
     }
+
     getWorkerOverride (name: string) {
         const getWorker = state.WORKERS.get(name)
         return getWorker ? getWorker() : null
     }
+
     init (initValues: { [module: string]: unknown } = {}) {
         // FIRST set logging threshold, so all possible messages are seen
         Log.setPrintThreshold(SETTINGS.app.logThreshold)
@@ -252,6 +245,7 @@ export default class RuntimeStateManager implements StateManager {
         }
         this.isInitialized = true
     }
+
     async loadDatasetFolder (
         folder: FileSystemItem,
         loader: DatasetLoader,
@@ -279,6 +273,7 @@ export default class RuntimeStateManager implements StateManager {
         this.addDataset(newSet)
         return newSet
     }
+
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
         for (const update of this._propertyUpdateHandlers) {
             if (update.property === property || property.match(update.pattern)) {
@@ -289,10 +284,12 @@ export default class RuntimeStateManager implements StateManager {
             }
         }
     }
+
     removeAllPropertyUpdateHandlers () {
         Log.debug(`Removing all ${this._propertyUpdateHandlers.splice(0).length} property update handlers.`, SCOPE)
 
     }
+
     removeAllPropertyUpdateHandlersFor (caller: string) {
         for (let i=0; i<this._propertyUpdateHandlers.length; i++) {
             const update = this._propertyUpdateHandlers[i]
@@ -303,6 +300,7 @@ export default class RuntimeStateManager implements StateManager {
             }
         }
     }
+
     removePropertyUpdateHandler (property: string | string[], handler: () => unknown) {
         if (!Array.isArray(property)) {
             property = [property]
@@ -321,6 +319,7 @@ export default class RuntimeStateManager implements StateManager {
         }
         Log.debug(`Cound not locate the requsted handlers for ${property.join(', ')}.`, SCOPE)
     }
+
     setActiveDataset (dataset: MediaDataset | null) {
         const prevActive = state.APP.activeDataset
         if (prevActive) {
@@ -332,57 +331,50 @@ export default class RuntimeStateManager implements StateManager {
         }
         this.onPropertyUpdate('active-dataset', dataset, prevActive)
     }
+
     setActiveResource(resource: DataResource | null, deactivateOthers = true) {
+        const activeSet = state.APP.activeDataset
+        if (!activeSet) {
+            Log.warn(`Could not set active resource, no dataset is active.`, SCOPE)
+            return
+        }
         if (resource) {
             if (deactivateOthers) {
-                const activeSet = state.APP.activeDataset
-                if (!activeSet) {
-                    Log.warn(`Could not deactive other resources, no dataset is active.`, SCOPE)
-                    return
-                } else {
-                    for (const res of activeSet.resources.values()) {
-                        if (res.isActive && res.id !== resource.id)  {
-                            res.isActive = false
-                        }
+                for (const res of activeSet.resources.values()) {
+                    if (res.isActive && res.id !== resource.id)  {
+                        res.isActive = false
                     }
-                }
-            } else {
-                if (state.APP.activeScope && state.APP.activeScope !== resource.scope) {
-                    Log.error(`Current active scope '${state.APP.activeScope}' and resource scope '${resource.scope}' are not compatible.`, SCOPE)
-                    return
-                }
-                if (state.APP.activeType && state.APP.activeType !== resource.type) {
-                    Log.error(`Current active type '${state.APP.activeType}' and resource type '${resource.type}' are not compatible.`, SCOPE)
-                    return
                 }
             }
             if (!resource.isActive) {
                 resource.isActive = true
             }
         } else {
-            if (state.APP.activeDataset?.activeResources.length) {
-                for (const res of state.APP.activeDataset.activeResources.splice(0)) {
-                    res.isActive = false
-                }
+            for (const res of activeSet.activeResources) {
+                res.isActive = false
             }
         }
         this.onPropertyUpdate('active-resource', resource)
         this.setActiveScope(resource?.scope || '')
         this.setActiveType(resource?.type || '')
     }
+
     setActiveScope (scope: string) {
         state.APP.activeScope = scope
         this.onPropertyUpdate('active-scope', scope)
     }
+
     setActiveType (value: string) {
         state.APP.activeType = value
         this.onPropertyUpdate('active-type', value)
     }
+
     setModule (name: string, module: ResourceModule) {
         this.MODULES.set(name, module.runtime)
         this.SETTINGS.registerModule(name, module.settings)
         this.onPropertyUpdate('modules', name)
     }
+
     setModulePropertyValue (module: string, property: string, value: unknown, resource?: DataResource): void {
         const mod = this.MODULES.get(module)
         if (mod) {
@@ -391,10 +383,12 @@ export default class RuntimeStateManager implements StateManager {
             Log.error(`Could not set property '${property}' value in resource module ${module}; the module is not loaded.`, SCOPE)
         }
     }
+
     setService (name: string, service: AssetService) {
         state.SERVICES.set(name, service)
         this.onPropertyUpdate('services', name)
     }
+
     setSettingsValue (field: string, value: SettingsValue) {
         if (typeof field !== 'string') {
             Log.error('Invalid setting field type, expected string.', SCOPE)
@@ -402,6 +396,7 @@ export default class RuntimeStateManager implements StateManager {
         }
         return state.SETTINGS.setFieldValue(field, value)
     }
+
     setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
         state.WORKERS.set(name, getWorker)
     }
