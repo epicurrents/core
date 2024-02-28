@@ -12,7 +12,7 @@ declare global {
         /**
          * List of initiated EpiCurrents applications.
          */
-        __EPICURRENTS_APPS__: import('#types/application').EpiCurrentsApp[]
+        __EPICURRENTS_RUNTIME__: import('#types/application').StateManager
     }
     /** Path where WebPack serves its public assets (js) from. */
 }

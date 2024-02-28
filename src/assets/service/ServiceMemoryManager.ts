@@ -66,10 +66,10 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        if (!window.__EPICURRENTS_APPS__[0]) {
-            Log.error(`Reference to main application was not found!`, SCOPE)
+        if (!window.__EPICURRENTS_RUNTIME__) {
+            Log.error(`Reference to main runtime was not found!`, SCOPE)
         }
-        const overrideWorker = window.__EPICURRENTS_APPS__[0]?.runtime.WORKERS.get('memory-manager')
+        const overrideWorker = window.__EPICURRENTS_RUNTIME__?.WORKERS.get('memory-manager')
         this._worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'memory-manager.worker' */

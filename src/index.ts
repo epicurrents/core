@@ -124,15 +124,9 @@ import {
 } from './types'
 
 const SCOPE = 'index'
-if (window.__EPICURRENTS_APPS__ === undefined) {
-    window.__EPICURRENTS_APPS__ = []
-}
+
 export class EpiCurrents implements EpiCurrentsApp {
     // Private poperties.
-    /**
-     * Index of this application instance in the global applications object.
-     */
-    #id: number
     /**
      * Initiated user interface.
      */
@@ -151,8 +145,10 @@ export class EpiCurrents implements EpiCurrentsApp {
     #runtime = new RuntimeStateManager()
 
     constructor () {
-        this.#id = window.__EPICURRENTS_APPS__.length
-        window.__EPICURRENTS_APPS__.push(this)
+        if (window.__EPICURRENTS_RUNTIME__) {
+            Log.error(`A previous runtime state manager was set to window object.`, SCOPE)
+        }
+        window.__EPICURRENTS_RUNTIME__ = this.runtime
         console.log(window)
     }
 
