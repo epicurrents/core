@@ -110,9 +110,9 @@ export interface EpiCurrentsApp {
      */
     publicPath: string
     /**
-     * Runtime state of this application instance.
+     * Runtime state manager used by this application instance.
      */
-    state: RuntimeState
+    runtime: RuntimeState
     /**
      * Does the application instance use a memory manager. A memory manager requires
      * SharedArrayBuffer to be available.
@@ -134,7 +134,6 @@ export interface EpiCurrentsApp {
      * )
      */
     configure (config: { [field: string]: SettingsValue }): void
-    getFileWorkerSource (name: string): (() => Worker) | undefined
     /**
      * Get a worker instance to override a default worker or null if no override exists.
      * @param name - Name of the worker to override.
@@ -162,12 +161,6 @@ export interface EpiCurrentsApp {
      * @param resource - The resource to open.
      */
     openResource (resource: DataResource): void
-    /**
-     * Register a file worker in the runtime state.
-     * @param name - Unique name (key) for this worker.
-     * @param getter - Method that creates a new Worker.
-     */
-    registerFileWorker (name: string, getter: () => Worker): void
     /**
      * Register an interface module to be used with the application.
      * @param intf - Constructor for the app interface.
@@ -244,7 +237,7 @@ export interface InterfaceModule {
 export interface InterfaceModuleConstructor {
     new (
         epicvApp: EpiCurrentsApp,
-        state?: StateManager,
+        runtime?: StateManager,
         containerId?: string,
         appId?: string,
         locale?: string,
@@ -301,8 +294,6 @@ export type RuntimeAppModule = NullProtoObject & {
     activeType: string
     containerId: string
     datasets: MediaDataset[]
-    /** List of file worker as <name, source-url>. */
-    fileWorkerSources: Map<string, () => Worker>,
     id: string
     isFullscreen: boolean
     moduleName: {

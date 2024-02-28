@@ -18,7 +18,6 @@ const APP: SafeObject & RuntimeAppModule = {
     activeType: '',
     containerId: '',
     datasets: [],
-    fileWorkerSources: new Map<string, () => Worker>(),
     id: '',
     isFullscreen: false,
     moduleName: {

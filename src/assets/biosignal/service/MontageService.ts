@@ -46,7 +46,7 @@ export default class MontageService extends GenericService implements BiosignalM
         if (!window.__EPICURRENTS_APPS__[0]) {
             Log.error(`Reference to main application was not found!`, SCOPE)
         }
-        const overrideWorker = window.__EPICURRENTS_APPS__[0]?.state.WORKERS.get('montage')
+        const overrideWorker = window.__EPICURRENTS_APPS__[0]?.runtime.WORKERS.get('montage')
         const worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'montage.worker' */

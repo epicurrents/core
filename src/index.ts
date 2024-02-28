@@ -148,7 +148,7 @@ export class EpiCurrents implements EpiCurrentsApp {
     /**
      * Application state.
      */
-    #state = new RuntimeStateManager()
+    #runtime = new RuntimeStateManager()
 
     constructor () {
         this.#id = window.__EPICURRENTS_APPS__.length
@@ -164,8 +164,8 @@ export class EpiCurrents implements EpiCurrentsApp {
         __webpack_public_path__ = value
     }
 
-    get state () {
-        return this.#state
+    get runtime () {
+        return this.#runtime
     }
 
     get useMemoryManager () {
@@ -178,15 +178,15 @@ export class EpiCurrents implements EpiCurrentsApp {
             return
         }
         const finalScope = scope || resource.type
-        if (!this.#state.MODULES.get(finalScope)) {
+        if (!this.#runtime.MODULES.get(finalScope)) {
             Log.error(`Cannot add resource to scope '${finalScope}'; the corresponding module has not been loaded.`, SCOPE)
             return
         }
-        if (!this.#state.APP.activeDataset) {
+        if (!this.#runtime.APP.activeDataset) {
             Log.error(`Cannot add resource without an active dataset`, SCOPE)
             return
         }
-        this.#state.addResource(finalScope, resource)
+        this.#runtime.addResource(finalScope, resource)
     }
 
     configure (config: { [field: string]: SettingsValue }) {
@@ -201,18 +201,14 @@ export class EpiCurrents implements EpiCurrentsApp {
     }
 
     createDataset (name?: string) {
-        const setName = name || `Dataset ${this.#state.APP.datasets.length + 1 }`
+        const setName = name || `Dataset ${this.#runtime.APP.datasets.length + 1 }`
         const newSet = new MixedMediaDataset(setName)
-        this.#state.addDataset(newSet)
+        this.#runtime.addDataset(newSet)
         return newSet
     }
 
-    getFileWorkerSource (name: string) {
-        return this.#state.APP.fileWorkerSources.get(name)
-    }
-
     getWorkerOverride (name: string) {
-        return this.#state.getWorkerOverride(name)
+        return this.#runtime.getWorkerOverride(name)
     }
 
     async launch (
@@ -236,8 +232,8 @@ export class EpiCurrents implements EpiCurrentsApp {
         // Prepend a hyphed to the container id, otherwise just use 'epicv'.
         // Using the literal 'epicv' in the selector is to avoid invalid selector errors.
         containerId = containerId.length ? `-${containerId}` : ''
-        const modules = Array.from(this.#state.MODULES.keys())
-        this.#interface = new this.#interfaceConstructor(this, this.#state, containerId, appId, locale, modules)
+        const modules = Array.from(this.#runtime.MODULES.keys())
+        this.#interface = new this.#interfaceConstructor(this, this.#runtime, containerId, appId, locale, modules)
         const interfaceSuccess = await this.#interface.awaitReady()
         if (!interfaceSuccess) {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
@@ -255,7 +251,7 @@ export class EpiCurrents implements EpiCurrentsApp {
      */
 
     async loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string) {
-        const context = this.#state.APP.studyLoaders.get(loader)
+        const context = this.#runtime.APP.studyLoaders.get(loader)
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
             return null
@@ -277,7 +273,7 @@ export class EpiCurrents implements EpiCurrentsApp {
         const nextIdx = await context.loader.useStudy(study)
         const resource = await context.loader.getResource(nextIdx)
         if (resource) {
-            this.#state.addResource(context.loader.resourceScope, resource)
+            this.#runtime.addResource(context.loader.resourceScope, resource)
             // Start preparing the resource, but return it immediately.
             resource.prepare().then(success => {
                 if (!success) {
@@ -290,12 +286,8 @@ export class EpiCurrents implements EpiCurrentsApp {
     }
 
     openResource (resource: DataResource) {
-        this.#state.setActiveResource(resource)
+        this.#runtime.setActiveResource(resource)
         //this.store?.dispatch('set-active-resource', resource)
-    }
-
-    registerFileWorker (name: string, getter: () => Worker) {
-        this.#state.APP.fileWorkerSources.set(name, getter)
     }
 
     registerInterface (intf: InterfaceModuleConstructor) {
@@ -303,18 +295,18 @@ export class EpiCurrents implements EpiCurrentsApp {
     }
 
     registerModule (name: string, module: ResourceModule) {
-        this.#state.setModule(name, module)
+        this.#runtime.setModule(name, module)
     }
 
     registerService (name: string, service: AssetService) {
-        this.#state.setService(name, service)
+        this.#runtime.setService(name, service)
     }
 
     registerStudyLoader (name: string, label: string, mode: ReaderMode, loader: StudyLoader) {
         if (this.#memoryManager) {
             loader.registerMemoryManager(this.#memoryManager)
         }
-        this.#state.APP.studyLoaders.set(
+        this.#runtime.APP.studyLoaders.set(
             name,
             {
                 label: label,
@@ -327,32 +319,32 @@ export class EpiCurrents implements EpiCurrentsApp {
     }
 
     selectResource (id: string) {
-        if (!this.#state.APP.activeDataset) {
+        if (!this.#runtime.APP.activeDataset) {
             return
         }
-        const setResources = this.#state.APP.activeDataset.resources
+        const setResources = this.#runtime.APP.activeDataset.resources
         for (const resource of setResources) {
             if (resource.id === id && resource.isPrepared) {
-                this.#state.setActiveResource(resource)
+                this.#runtime.setActiveResource(resource)
             }
         }
     }
 
     setActiveDataset (dataset: MediaDataset | null) {
-        this.#state.setActiveDataset(dataset)
+        this.#runtime.setActiveDataset(dataset)
         //this.store.dispatch('set-active-dataset', dataset)
     }
 
     setOnnxService (service: OnnxService) {
-        this.#state.setService('ONNX', service)
-        this.#state.setSettingsValue('services.ONNX', true) //service ? true : false
+        this.#runtime.setService('ONNX', service)
+        this.#runtime.setSettingsValue('services.ONNX', true) //service ? true : false
     }
 
     setSettingsValue (field: string, value: SettingsValue) {
-        this.#state.setSettingsValue(field, value)
+        this.#runtime.setSettingsValue(field, value)
     }
 
     setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
-        this.#state.setWorkerOverride(name, getWorker)
+        this.#runtime.setWorkerOverride(name, getWorker)
     }
 }
