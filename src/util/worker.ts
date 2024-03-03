@@ -112,17 +112,11 @@ export const validateCommissionProps = (
         return false
     }
     for (const prop of Object.entries(requiredProps)) {
-        if (!Object.hasOwn(data, prop[0])) {
+        if (!Object.hasOwn(data, prop[0]) || data[prop[0]] === undefined) {
+            if (prop[1].includes('undefined')) {
+                continue
+            }
             Log.error(`Received commission '${data.action}' without the required '${prop[0]}' property.`, SCOPE)
-            returnMessage({
-                action: data.action,
-                success: false,
-                rn: data.rn,
-            })
-        }
-        const dataProp = data[prop[0]] as any
-        if (dataProp === undefined) {
-            Log.error(`Property '${prop[0]}' for commission '${data.action}' is missing.`, SCOPE)
             returnMessage({
                 action: data.action,
                 success: false,
@@ -130,6 +124,7 @@ export const validateCommissionProps = (
             })
             return false
         }
+        const dataProp = data[prop[0]] as any
         if (Array.isArray(prop[1])) {
             if (!Array.isArray(dataProp)) {
                 Log.error(`Property '${prop[0]}' for commission '${data.action}' is not an array.`, SCOPE)
