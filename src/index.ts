@@ -149,7 +149,6 @@ export class EpiCurrents implements EpiCurrentsApp {
             Log.error(`A previous runtime state manager was set to window object.`, SCOPE)
         }
         window.__EPICURRENTS_RUNTIME__ = this.runtime
-        console.log(window)
     }
 
     // Public properties.
@@ -291,7 +290,6 @@ export class EpiCurrents implements EpiCurrentsApp {
 
     registerModule (name: string, module: ResourceModule) {
         this.#runtime.setModule(name, module)
-        console.log(this.#runtime)
     }
 
     registerService (name: string, service: AssetService) {

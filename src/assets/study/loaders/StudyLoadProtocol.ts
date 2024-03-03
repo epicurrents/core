@@ -40,11 +40,9 @@ export default class StudyLoadProtocol implements OrderedLoadingProtocol {
     }
 
     async loadStudies (item: FileSystemItem, singleStudy = false) {
-        console.log(1, item, singleStudy)
         const collection = new StudyCollection(item.name)
         if (singleStudy) {
             if (item.type === 'directory') {
-                console.log('directory')
                 let study = null as StudyContext | null
                 for (const subItem of item.files) {
                     if (!subItem.url) {
@@ -67,12 +65,8 @@ export default class StudyLoadProtocol implements OrderedLoadingProtocol {
                     collection.studies.push(study)
                 }
             } else if (item.url) {
-                console.log('file')
-                console.log(2, this._loaders)
                 for (const loader of this._loaders) {
-                    console.log(3, loader)
                     const study = await loader.loadFromUrl(item.url)
-                    console.log(4, study)
                     if (study) {
                         collection.studies.push(study)
                         break
@@ -88,7 +82,6 @@ export default class StudyLoadProtocol implements OrderedLoadingProtocol {
                         collection.studies.push(study)
                     }
                 } else if (item.url) {
-                    console.log(3, loader)
                     const study = await loader.loadFromUrl(item.url)
                     if (study) {
                         collection.studies.push(study)
@@ -97,7 +90,6 @@ export default class StudyLoadProtocol implements OrderedLoadingProtocol {
                 }
             }
         }
-        console.log(9, collection)
         return collection
     }
 

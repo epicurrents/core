@@ -56,7 +56,6 @@ onmessage = async (message: WorkerMessage) => {
         }
         NAMESPACE = data.namespace as string
         const settings = (data.settings as AppSettings).modules[NAMESPACE] as CommonBiosignalSettings
-        console.log('SETTINGS', data.settings)
         MONTAGE = new MontageProcesser(settings)
         MONTAGE.setupChannels(data.montage, data.config, data.setupChannels)
         Log.debug(`Worker setup complete.`, SCOPE)
@@ -89,7 +88,6 @@ onmessage = async (message: WorkerMessage) => {
             },
             MONTAGE !== null
         )
-        console.log('MONT', data)
         if (!data) {
             return
         }
