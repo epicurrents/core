@@ -24,7 +24,6 @@ import { INDEX_NOT_ASSIGNED } from '#util/constants'
 import { ConfigChannelFilter } from '#types/config'
 import GenericService from '#assets/service/GenericService'
 import Log from 'scoped-ts-log'
-import SETTINGS from '#config/Settings'
 
 const SCOPE = "GenericBiosignalService"
 

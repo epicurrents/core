@@ -28,7 +28,6 @@ import { nullPromise } from '#util/general'
 import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
 import GenericResource from '#assets/GenericResource'
 import Log from 'scoped-ts-log'
-import SETTINGS from '#config/Settings'
 
 const SCOPE = 'GenericBiosignalResource'
 
@@ -63,7 +62,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _viewStart: number = 0
 
     constructor (name: string, type: string, source?: StudyContext) {
-        const TYPE_SETTINGS = SETTINGS.modules[type] as CommonBiosignalSettings
+        const TYPE_SETTINGS = window.__EPICURRENTS_RUNTIME__?.SETTINGS.modules[type] as CommonBiosignalSettings
         super(name, GenericResource.SCOPES.BIOSIGNAL, type, source)
         // Set default filters.
         this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0

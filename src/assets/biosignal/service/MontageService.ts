@@ -27,7 +27,6 @@ import BiosignalMutex from './BiosignalMutex'
 import GenericService from '#assets/service/GenericService'
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { mapSignalsToSamplingRates } from '#util/signal'
-import { SETTINGS } from '#root/src/config'
 
 const SCOPE = "MontageService"
 
@@ -44,7 +43,7 @@ export default class MontageService extends GenericService implements BiosignalM
 
     constructor (montage: BiosignalMontage, manager?: MemoryManager) {
         if (!window.__EPICURRENTS_RUNTIME__) {
-            Log.error(`Reference to main application was not found!`, SCOPE)
+            Log.error(`Reference to application runtime was not found.`, SCOPE)
         }
         const overrideWorker = window.__EPICURRENTS_RUNTIME__?.WORKERS.get('montage')
         const worker = overrideWorker ? overrideWorker() : new Worker(
@@ -198,7 +197,7 @@ export default class MontageService extends GenericService implements BiosignalM
                 ['config', this._montage.config],
                 ['montage', this._montage.name],
                 ['namespace', this._montage.type],
-                ['settings', SETTINGS._CLONABLE],
+                ['settings', window.__EPICURRENTS_RUNTIME__?.SETTINGS._CLONABLE],
                 ['setupChannels', this._montage.setup.channels],
             ])
         )

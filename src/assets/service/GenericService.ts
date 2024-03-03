@@ -17,7 +17,6 @@ import {
     type WorkerResponse,
 } from '#types/service'
 import { Log } from 'scoped-ts-log'
-import SETTINGS from '#config/Settings'
 import GenericAsset from '#assets/GenericAsset'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { getOrSetValue, nullPromise, safeObjectFrom } from '#util/general'
@@ -249,6 +248,10 @@ export default abstract class GenericService extends GenericAsset implements Ass
      * @returns true if handled, false otherwise.
      */
     protected _handleWorkerUpdate (message: WorkerResponse): boolean {
+        if (!window.__EPICURRENTS_RUNTIME__) {
+            Log.error(`Reference to application runtime was not found.`, SCOPE)
+            return false
+        }
         const data = message.data
         if (!data || !data.action) {
             return false
@@ -263,11 +266,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
             const fields =  data.fields as string[] | undefined
             for (const field of (fields || [])) {
                 // Watch changes in SETTINGS and relay changes to worker.
-                SETTINGS.addPropertyUpdateHandler(field, () => {
+                window.__EPICURRENTS_RUNTIME__?.SETTINGS.addPropertyUpdateHandler(field, () => {
                     this._worker?.postMessage({
                         action: 'update-settings',
                         field: field,
-                        value: SETTINGS.getFieldValue(field)
+                        value: window.__EPICURRENTS_RUNTIME__.SETTINGS.getFieldValue(field)
                     })
                 }, this._scope)
             }
@@ -438,7 +441,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
     }
 
     shutdown () {
-        SETTINGS.removeAllPropertyUpdateHandlersFor(this._scope)
+        if (!window.__EPICURRENTS_RUNTIME__) {
+            Log.error(`Reference to application runtime was not found.`, SCOPE)
+            return Promise.reject()
+        }
+        window.__EPICURRENTS_RUNTIME__?.SETTINGS.removeAllPropertyUpdateHandlersFor(this._scope)
         const response = this._commissionWorker('shutdown')
         // Shutdown doesn't need a request number
         const shutdown = getOrSetValue(

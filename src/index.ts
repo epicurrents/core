@@ -291,6 +291,7 @@ export class EpiCurrents implements EpiCurrentsApp {
 
     registerModule (name: string, module: ResourceModule) {
         this.#runtime.setModule(name, module)
+        console.log(this.#runtime)
     }
 
     registerService (name: string, service: AssetService) {

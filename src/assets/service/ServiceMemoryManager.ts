@@ -17,7 +17,6 @@ import {
     type WorkerResponse,
 } from '#types/service'
 import { Log } from 'scoped-ts-log'
-import SETTINGS from '#config/Settings'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { nullPromise, safeObjectFrom } from '#util/general'
 
@@ -67,7 +66,7 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.BUFFER_START_POS
         )
         if (!window.__EPICURRENTS_RUNTIME__) {
-            Log.error(`Reference to main runtime was not found!`, SCOPE)
+            Log.error(`Reference to main runtime was not found.`, SCOPE)
         }
         const overrideWorker = window.__EPICURRENTS_RUNTIME__?.WORKERS.get('memory-manager')
         this._worker = overrideWorker ? overrideWorker() : new Worker(
@@ -193,10 +192,14 @@ export default class ServiceMemoryManager implements MemoryManager {
     }
 
     async allocate (amount: number, service: AssetService): Promise<AllocateMemoryResponse> {
+        if (!window.__EPICURRENTS_RUNTIME__) {
+            Log.error(`Reference to main runtime was not found.`, SCOPE)
+            return null
+        }
         // Correct amount to a 32-bit array size.
         amount = amount + (4 - amount%4)
         // Don't exceed maximum allowed buffer size.
-        if (amount > SETTINGS.app.maxLoadCacheSize) {
+        if (amount > window.__EPICURRENTS_RUNTIME__?.SETTINGS.app.maxLoadCacheSize) {
             Log.error(`Tried to allocate an array that exceeds maximum allowed buffer size.`, SCOPE)
             return null
         }
@@ -206,7 +209,8 @@ export default class ServiceMemoryManager implements MemoryManager {
         }
         // Zero means use the entire buffer.
         if (amount === 0) {
-            amount = SETTINGS.app.maxLoadCacheSize - SETTINGS.app.maxLoadCacheSize%4
+            amount = window.__EPICURRENTS_RUNTIME__?.SETTINGS.app.maxLoadCacheSize
+                     - window.__EPICURRENTS_RUNTIME__?.SETTINGS.app.maxLoadCacheSize%4
         }
         // Do not assign memory twice for the same service.
         for (const existing of this._managed) {

@@ -8,7 +8,6 @@
 import { Log } from 'scoped-ts-log'
 import ServiceWorkerSubstitute from '#assets/service/ServiceWorkerSubstitute'
 import { validateCommissionProps } from '#util'
-import { SETTINGS } from '#config'
 import MontageProcesser from './MontageProcesser'
 import {
     type BiosignalFilters,
@@ -33,6 +32,10 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
         const action = message.action
         Log.debug(`Received message with action ${action}.`, SCOPE)
         if (action === 'setup-worker') {
+            if (!window.__EPICURRENTS_RUNTIME__) {
+                Log.error(`Reference to application runtime was not found.`, SCOPE)
+                return
+            }
             const data = validateCommissionProps(
                 message,
                 {
@@ -48,7 +51,10 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             if (!data) {
                 return
             }
-            this._montage = new MontageProcesser(SETTINGS.modules[data.namespace] as CommonBiosignalSettings)
+            const MOD_SETTINGS = window
+                                 .__EPICURRENTS_RUNTIME__?.SETTINGS
+                                 .modules[data.namespace] as CommonBiosignalSettings
+            this._montage = new MontageProcesser(MOD_SETTINGS)
             this._montage.setupChannels(data.montage, data.config, data.setupChannels)
             Log.debug(`Worker setup complete.`, SCOPE)
             this.returnMessage({
