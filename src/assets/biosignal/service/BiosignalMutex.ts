@@ -24,6 +24,13 @@ const SCOPE = 'BiosignalMutex'
 
 export default class BiosignalMutex extends IOMutex implements SignalCacheMutex {
 
+    /** 32-bit position of the buffer master lock. */
+    static readonly MASTER_LOCK_POS = 0
+    /** Timeot (in ms) for waiting the buffer master lock to be lifted. */
+    static readonly MASTER_LOCK_TIMEOUT = 5000
+    /** Buffer master lock value when the buffer is locked. */
+    static readonly MASTER_LOCK_VALUE = 1
+
     // Mutex meta fields
     /** Length of the signal range allocation value. */
     static readonly RANGE_ALLOCATED_LENGTH = 1
@@ -93,7 +100,8 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         return props
     }
 
-    protected _masterBufferLock = null as Int32Array | null
+    /** Master lock of the buffer holding this mutex. */
+    protected _bufferLock = null as Int32Array | null
 
     /**
      * Instantiate a shared memory mutex for biosignal data. All parameters are immutable after initialiation.
@@ -416,6 +424,39 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     /////////////////////////////////////////////////////////////////////////
 
     /**
+     * Wait for the master data buffer to be unlocked.
+     * @returns true once the buffer is available, false if timed out.
+     */
+    protected _awaitBufferLock = () => {
+        if (!this._bufferLock) {
+            return true
+        }
+        const totalRetries = 5
+        let retriesLeft = totalRetries
+        while (retriesLeft) {
+            const lockState = Atomics.wait(
+                this._bufferLock,
+                BiosignalMutex.MASTER_LOCK_POS,
+                BiosignalMutex.MASTER_LOCK_VALUE,
+                BiosignalMutex.MASTER_LOCK_TIMEOUT
+            )
+            if (lockState === 'not-equal') {
+                return true
+            } else if (lockState === 'timed-out') {
+                Log.warn(`Master buffer lock timed out.`, SCOPE)
+                return false
+            } else {
+                Log.debug(
+                    `Waiting for master buffer lock to open, retry ${totalRetries - retriesLeft + 1}/${totalRetries}.`,
+                    SCOPE
+                )
+            }
+            retriesLeft--
+        }
+        return false
+    }
+
+    /**
      * Get the amount of memory (in seconds of signal range) allocated to the signal data.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
@@ -527,18 +568,6 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     /**
-     * Check if tha master data buffer is locked.
-     * @returns true/false.
-     */
-    protected _isMasterBufferLocked = () => {
-        if (!this._masterBufferLock) {
-            return true
-        }
-        const bufferState = this._masterBufferLock[0]
-        return (bufferState === 1)
-    }
-
-    /**
      * Get the sampling rate for a buffered signal.
      * @param index - Index of the signal in signalViews.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
@@ -638,9 +667,9 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         }
         // Save master buffer lock position.
         Log.debug(`Setting master buffer lock position for BiosignalMutex.`, SCOPE)
-        this._masterBufferLock = new Int32Array(buffer).subarray(0, 1)
-        if (this._isMasterBufferLocked()) {
-            Log.error(`Cannot initialize mutex buffers when the master buffer is locked.`, SCOPE)
+        this._bufferLock = new Int32Array(buffer).subarray(BiosignalMutex.MASTER_LOCK_POS, 1)
+        if (!this._awaitBufferLock()) {
+            Log.error(`Cannot initialize mutex buffers, master buffer did not become available.`, SCOPE)
             return
         }
         // Initialize the buffer.
