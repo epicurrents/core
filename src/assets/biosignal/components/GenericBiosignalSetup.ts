@@ -5,8 +5,14 @@
  * @license    Apache-2.0
  */
 
-import { type SetupChannel, type BiosignalSetup, BiosignalChannelTemplate, BiosignalChannel } from '#types/biosignal'
+import {
+    type BiosignalChannel,
+    type BiosignalChannelTemplate,
+    type BiosignalSetup,
+    type SetupChannel,
+} from '#types/biosignal'
 import { type ConfigBiosignalSetup } from '#types/config'
+import { INDEX_NOT_ASSIGNED } from '#util'
 
 export default class GenericBiosignalSetup implements BiosignalSetup {
     protected _id: string
@@ -56,31 +62,32 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
     ///////////////////////////////////////////////////
 
     loadConfig (recordSignals: BiosignalChannel[], config: ConfigBiosignalSetup) {
-        // Helper method for producing a prototype channel
+        // Helper method for producing a prototype channel.
         const getChannel = (index: number, config?: Partial<BiosignalChannelTemplate>) => {
             return {
                 amplification: config?.amplification || 1,
                 averaged: config?.averaged || false,
                 displayPolarity: config?.polarity || 0,
                 index: index,
-                label: config?.label || '--',
+                label: config?.label || '??',
                 laterality: config?.laterality || '',
                 name: config?.name || '',
                 samplingRate: config?.samplingRate || 0,
                 type: config?.type || undefined,
-                unit: config?.unit || '--',
+                unit: config?.unit || '?',
             } as SetupChannel
         }
-        // Use config name if present
+        const unmatchedSignals = [...recordSignals]
+        // Use config name if present.
         this._name = config.label || this._name
-        // Try to match config channels to record signals
+        // Try to match config channels to record signals.
         if (config.channels) {
             config_loop:
             for (const chan of config.channels) {
-                // First try matching exact names
+                // First try matching exact names.
                 if (chan.name) {
-                    for (let i=0; i<recordSignals.length; i++) {
-                        if (chan.name === recordSignals[i].name) {
+                    for (let i=0; i<unmatchedSignals.length; i++) {
+                        if (chan.name === unmatchedSignals[i].name) {
                             this._channels.push(
                                 getChannel(i, {
                                     amplification: chan.amplification,
@@ -89,62 +96,57 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                                     label: chan.label,
                                     laterality: chan.laterality,
                                     name: chan.name,
-                                    samplingRate: recordSignals[i].samplingRate,
+                                    samplingRate: unmatchedSignals[i].samplingRate,
                                     type: chan.type,
                                     unit: chan.unit,
                                 })
                             )
+                            unmatchedSignals.splice(i, 1)
                             continue config_loop
                         }
                     }
                 }
-                // No match, try pattern
+                // No match, try pattern.
                 if (chan.pattern) {
-                    for (let i=0; i<recordSignals.length; i++) {
-                        if (recordSignals[i].name.match(new RegExp(chan.pattern, 'i')) !== null) {
+                    for (let i=0; i<unmatchedSignals.length; i++) {
+                        if (unmatchedSignals[i].name.match(new RegExp(chan.pattern, 'i')) !== null) {
                             this._channels.push(
                                 getChannel(i, {
                                     amplification: chan.amplification,
                                     averaged: chan.averaged,
                                     polarity: chan.polarity,
                                     label: chan.label,
-                                    laterality: chan.laterality || '',
+                                    laterality: chan.laterality,
                                     name: chan.name,
-                                    samplingRate: recordSignals[i].samplingRate,
+                                    samplingRate: unmatchedSignals[i].samplingRate,
                                     type: chan.type,
                                     unit: chan.unit,
                                 })
                             )
+                            unmatchedSignals.splice(i, 1)
                             continue config_loop
                         }
                     }
                 }
-                // Channel is missing from recording
+                // Channel is missing from recording.
                 this._missing.push(
-                    getChannel(-1, {
-                        amplification: 1,
+                    getChannel(INDEX_NOT_ASSIGNED, {
+                        amplification: chan.amplification,
                         averaged: chan.averaged,
                         label: chan.label,
-                        laterality: chan.laterality || '',
+                        laterality: chan.laterality,
                         name: chan.name,
                         type: chan.type,
                         unit: chan.unit,
                     })
                 )
             }
-            // Lastly, check if there are any extra channels not present in the config
-            record_loop:
-            for (let i=0; i<recordSignals.length; i++) {
-                for (const chan of this._channels) {
-                    if (chan.index === i) {
-                        continue record_loop
-                    }
-                }
-                // Channel is missing from config
+            // Source channels missing from config.
+            for (const sig of unmatchedSignals) {
                 this._unmatched.push(
-                    getChannel(-1, {
-                        label: recordSignals[i].label,
-                        name: recordSignals[i].name,
+                    getChannel(INDEX_NOT_ASSIGNED, {
+                        label: sig.label,
+                        name: sig.name,
                     })
                 )
             }
