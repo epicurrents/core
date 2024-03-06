@@ -77,17 +77,21 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 unit: config?.unit || '?',
             } as SetupChannel
         }
-        const unmatchedSignals = [...recordSignals]
         // Use config name if present.
         this._name = config.label || this._name
+        // Don't rematch already matched signals.
+        const matchedSigs = [] as number[]
         // Try to match config channels to record signals.
         if (config.channels) {
             config_loop:
             for (const chan of config.channels) {
                 // First try matching exact names.
                 if (chan.name) {
-                    for (let i=0; i<unmatchedSignals.length; i++) {
-                        if (chan.name === unmatchedSignals[i].name) {
+                    for (let i=0; i<recordSignals.length; i++) {
+                        if (matchedSigs.includes(i)) {
+                            continue
+                        }
+                        if (chan.name === recordSignals[i].name) {
                             this._channels.push(
                                 getChannel(i, {
                                     amplification: chan.amplification,
@@ -96,20 +100,23 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                                     label: chan.label,
                                     laterality: chan.laterality,
                                     name: chan.name,
-                                    samplingRate: unmatchedSignals[i].samplingRate,
+                                    samplingRate: recordSignals[i].samplingRate,
                                     type: chan.type,
                                     unit: chan.unit,
                                 })
                             )
-                            unmatchedSignals.splice(i, 1)
+                            matchedSigs.push(i)
                             continue config_loop
                         }
                     }
                 }
                 // No match, try pattern.
                 if (chan.pattern) {
-                    for (let i=0; i<unmatchedSignals.length; i++) {
-                        if (unmatchedSignals[i].name.match(new RegExp(chan.pattern, 'i')) !== null) {
+                    for (let i=0; i<recordSignals.length; i++) {
+                        if (matchedSigs.includes(i)) {
+                            continue
+                        }
+                        if (recordSignals[i].name.match(new RegExp(chan.pattern, 'i')) !== null) {
                             this._channels.push(
                                 getChannel(i, {
                                     amplification: chan.amplification,
@@ -118,12 +125,12 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                                     label: chan.label,
                                     laterality: chan.laterality,
                                     name: chan.name,
-                                    samplingRate: unmatchedSignals[i].samplingRate,
+                                    samplingRate: recordSignals[i].samplingRate,
                                     type: chan.type,
                                     unit: chan.unit,
                                 })
                             )
-                            unmatchedSignals.splice(i, 1)
+                            matchedSigs.push(i)
                             continue config_loop
                         }
                     }
@@ -142,11 +149,14 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 )
             }
             // Source channels missing from config.
-            for (const sig of unmatchedSignals) {
+            for (let i=0; i<recordSignals.length; i++) {
+                if (matchedSigs.includes(i)) {
+                    continue
+                }
                 this._unmatched.push(
                     getChannel(INDEX_NOT_ASSIGNED, {
-                        label: sig.label,
-                        name: sig.name,
+                        label: recordSignals[i].label,
+                        name: recordSignals[i].name,
                     })
                 )
             }
