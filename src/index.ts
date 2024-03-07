@@ -254,14 +254,17 @@ export class EpiCurrents implements EpiCurrentsApp {
         if (this.#memoryManager) {
             context.loader.registerMemoryManager(this.#memoryManager)
         }
+        const config = { name: name }
         const study = typeof source === 'string'
-            ? await context.loader.loadFromUrl(source, { name: name })
+            ? await context.loader.loadFromUrl(source, config)
             : Array.isArray(source) ? await context.loader.loadFromDirectory(
                                                 MixedFileSystemItem.UrlsToFsItem(...source),
-                                                { name: name }
+                                                config
                                             )
-            : source.file ? await context.loader.loadFromFile(source.file, { name: name })
+            : source.files.length ? await context.loader.loadFromDirectory(source, config)
+            : source.file ? await context.loader.loadFromFile(source.file, config)
                           : null
+        console.warn('study', source, study)
         if (!study) {
             return null
         }

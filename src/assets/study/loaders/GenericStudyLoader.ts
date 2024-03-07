@@ -159,6 +159,10 @@ export default class GenericStudyLoader implements StudyLoader {
     }
 
     async loadFromDirectory (dir: FileSystemItem, config?: ConfigStudyLoader): Promise<StudyContext|null> {
+        if (!this._fileReader) {
+            Log.error(`Cannot load study from directory, file loader has not been set.`, SCOPE)
+            return null
+        }
         if (!this._canLoadResource(config || {})) {
             return null
         }
@@ -166,23 +170,38 @@ export default class GenericStudyLoader implements StudyLoader {
         const study = studyContextTemplate()
         Object.assign(study, { name: dir.name }, config)
         if (study) {
+            Log.debug(`Started loading a study from directory (${dir.name}).`, SCOPE)
             for (let i=1; i<dir.files.length; i++) {
-                if (dir.files[i].file && !dir.files[i].url) {
-                    dir.files[i].url = URL.createObjectURL(dir.files[i].file as File)
+                const dirFile = dir.files[i]
+                // Try to load the file, according to extension.
+                const fileConfig = { name: dirFile.name }
+                if (this._fileReader.matchName(dirFile.name)) {
+                    this._fileReader.registerStudy(study)
+                    const readResult = dirFile.file
+                                        ? await this._fileReader.readFile(dirFile.file, fileConfig)
+                                        : dirFile.url
+                                          ? await this._fileReader.readUrl(dirFile.url, fileConfig)
+                                          : null
+                    if (!(readResult)) {
+                        Log.error(`Failed to load study ${study.name}.`, SCOPE)
+                        return null
+                    }
+                } else {
+                    Log.debug(`No file loaders matched the given file name.`, SCOPE)
+                    study.files.push({
+                        file: dirFile.file || null,
+                        format: '',
+                        mime: null,
+                        name: dirFile.name,
+                        // Assume that the files contained are full data files.
+                        // This can be changed later on, when the files have been properly identified.
+                        partial: false,
+                        range: [],
+                        role: 'data',
+                        type: '',
+                        url: dirFile.url as string,
+                    })
                 }
-                study.files.push({
-                    file: dir.files[i].file || null,
-                    format: '',
-                    mime: null,
-                    name: dir.files[i].name,
-                    // Assume that the files contained are full data files.
-                    // This can be changed later on, when the files have been properly identified.
-                    partial: false,
-                    range: [],
-                    role: 'data',
-                    type: '',
-                    url: dir.files[i].url as string,
-                })
             }
         }
         this._study = study
@@ -215,7 +234,7 @@ export default class GenericStudyLoader implements StudyLoader {
         }
         Log.debug(`Started loading a study from file ${file.name} (${config.name}).`, SCOPE)
         // Try to load the file, according to extension.
-        const fName = config.name || file.name || ''
+        const fName = config.name || file.name
         if (this._fileReader.matchName(fName)) {
             this._fileReader.registerStudy(study)
             if (!(await this._fileReader.readFile(file, { name: fName }))) {
