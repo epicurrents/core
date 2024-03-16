@@ -675,6 +675,10 @@ export default class MontageProcesser {
         recordingDuration: number,
         dataGaps = [] as { duration: number, start: number }[]
     ) {
+        if (this._cache) {
+            Log.error(`Montage cache is already set up.`, SCOPE)
+            return
+        }
         this._totalCacheLength = dataDuration
         this._totalRecordingLength = recordingDuration
         for (const gap of dataGaps) {

@@ -349,6 +349,17 @@ export default abstract class GenericService extends GenericAsset implements Ass
         })
     }
 
+    async awaitAction (action: string): Promise<unknown> {
+        const actionWaiters = this._waiters.get(action)
+        if (!actionWaiters) {
+            return Promise.resolve(undefined)
+        }
+        const waiter = new Promise(resolve => {
+            actionWaiters.push(resolve)
+        })
+        return waiter
+    }
+
     removeActionWatcher (handler: ActionWatcher['handler']) {
         for (let i=0; i<this._actionWatchers.length; i++) {
             if (this._actionWatchers[i].handler === handler) {

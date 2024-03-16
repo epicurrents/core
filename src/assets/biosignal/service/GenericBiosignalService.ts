@@ -40,6 +40,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
     set signalBufferStart (value: number) {
         this._signalBufferStart = value
     }
+
     get worker () {
         return this._worker
     }
@@ -146,6 +147,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
             this._isCacheSetup = data.success
             if (data.success) {
                 commission.resolve(data.cacheProperties)
+                this._isCacheSetup = true
             } else {
                 commission.resolve(null)
             }
@@ -154,6 +156,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
         } else if (data.action === 'setup-study') {
             if (data.success) {
                 commission.resolve(data.recordingLength)
+                this._isWorkerSetup = true
             } else {
                 commission.resolve(0)
             }

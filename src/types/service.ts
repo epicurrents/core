@@ -47,6 +47,12 @@ export interface AssetService extends BaseAsset {
      */
     addActionWatcher (action: string, handler: ActionWatcher['handler'], caller?: string): void
     /**
+     * Await for the given action to complete and get the result.
+     * @param action - Name of the action.
+     * @returns Promise that resolves with the action result or undefined, if action is not underway.
+     */
+    awaitAction (action: string): Promise<unknown>
+    /**
      * Remove the given action watcher (handler) from this service.
      * @param handler - The handler to remove.
      */
