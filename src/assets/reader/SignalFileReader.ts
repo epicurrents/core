@@ -10,6 +10,7 @@ import {
     nullPromise,
 } from '#util'
 import {
+    SignalCachePart,
     type BiosignalAnnotation,
     type SignalCacheMutex,
     type SignalCacheProcess,
@@ -17,6 +18,7 @@ import {
     type SignalDataReader,
     type SignalFilePart,
 } from '#types'
+import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
 import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'SignalFileReader'
@@ -80,8 +82,8 @@ export default abstract class SignalFileReader implements SignalDataReader {
     protected _mutex = null as SignalCacheMutex | null
     /** Loading process start time (for debugging). */
     protected _startTime = 0
-    /** Total recording length including possible gaps. */
-    protected _totalLength = 0
+    protected _totalCacheLength = 0
+    protected _totalRecordingLength = 0
     /** File data url. */
     protected _url = ''
 
@@ -114,7 +116,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
     }
 
     get totalLength () {
-        return this._totalLength
+        return this._totalRecordingLength
     }
 
     get url () {
@@ -204,6 +206,56 @@ export default abstract class SignalFileReader implements SignalDataReader {
         this._filePos = 0
     }
     /**
+     * Retrieve data gaps in the given `range`.
+     * @param range - time range to check in seconds
+     * @param useCacheTime - consider range in cache time (without data gaps, default false)
+     * @returns
+     */
+    protected _getDataGaps (range?: number[], useCacheTime = false): { duration: number, start: number }[] {
+        const start = range ? range[0] : 0
+        let end = range ? range[1] : (useCacheTime ? this._totalCacheLength : this._totalRecordingLength)
+        const dataGaps = [] as { duration: number, start: number }[]
+        if (start < 0) {
+            Log.error(`Requested data gap range start ${start} is smaller than zero.`, SCOPE)
+            return dataGaps
+        }
+        if (start >= end) {
+            Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
+            return dataGaps
+        }
+        if (useCacheTime && end > this._totalCacheLength) {
+            end = this._totalCacheLength
+        } else if (end > this._totalRecordingLength) {
+            end = this._totalRecordingLength
+        }
+        let priorGapsTotal = 0
+        for (const gap of this._dataGaps) {
+            const gapTime = useCacheTime ? gap[0] - priorGapsTotal : gap[0]
+            priorGapsTotal += gap[1]
+            if ((useCacheTime ? gapTime : gapTime + gap[1]) <= start) {
+                continue
+            } else if (!useCacheTime && gapTime < start && gapTime + gap[1] > start) {
+                // Prior gap partially extends to the checked range
+                if (gapTime + gap[1] < end) {
+                    dataGaps.push({ start: start, duration: gapTime + gap[1] - start })
+                } else {
+                    dataGaps.push({ start: start, duration: end - start })
+                    break
+                }
+            } else if (gapTime >= start && gapTime < end) {
+                if (useCacheTime || gapTime + gap[1] < end) {
+                    dataGaps.push({ start: gapTime, duration: gap[1] })
+                } else {
+                    dataGaps.push({ start: gapTime, duration: end - gapTime })
+                    break
+                }
+            } else {
+                break
+            }
+        }
+        return dataGaps
+    }
+    /**
      * Get the total gap time between two points in recording time.
      * @param start - Starting time in recording seconds.
      * @param end - Ending time in recording seconds.
@@ -238,6 +290,51 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return { start: rangeStart, end: rangeEnd }
     }
     /**
+     * Get the largest start and lowest end updated data range (in seconds) for the signals.
+     * @returns Range as { start: number, end: number } measured in seconds or NUMERIC_ERROR_VALUE if an error occurred.
+     */
+    async getSignalUpdatedRange () {
+        if (!this._cache) {
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        const ranges = this._cache.outputSignalUpdatedRanges
+        const srs = this._cache.outputSignalSamplingRates
+        let highestStart = NUMERIC_ERROR_VALUE
+        let lowestEnd = NUMERIC_ERROR_VALUE
+        for (let i=0; i<ranges.length; i++) {
+            const sr = await srs[i]
+            if (!sr) {
+                // Empty or missing channel, skip
+                continue
+            }
+            const range = await ranges[i]
+            if (!range) {
+                Log.error(`Montage signal mutex did not report a valid updated range for signal at index ${i}.`, SCOPE)
+                return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+            }
+            const tStart = range.start/sr
+            const tEnd = range.end/sr
+            if (range.start !== IOMutex.EMPTY_FIELD) {
+                highestStart = (highestStart === NUMERIC_ERROR_VALUE || tStart > highestStart) ? tStart : highestStart
+            } else {
+                Log.warn(`Signal #${i} has not updated start position set.`, SCOPE)
+            }
+            if (range.end !== IOMutex.EMPTY_FIELD) {
+                lowestEnd = (lowestEnd === NUMERIC_ERROR_VALUE || tEnd < lowestEnd) ? tEnd : lowestEnd
+            } else {
+                Log.warn(`Signal #${i} has not updated end position set.`, SCOPE)
+            }
+        }
+        if (highestStart === NUMERIC_ERROR_VALUE && lowestEnd === NUMERIC_ERROR_VALUE) {
+            Log.error(`Cannot get ranges of updated signals, cache has no initialized signals.`, SCOPE)
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        return {
+            start: this._cacheTimeToRecordingTime(highestStart),
+            end: this._cacheTimeToRecordingTime(lowestEnd),
+        }
+    }
+    /**
      * Load the next part from the cached file.
      */
     protected _loadNextPart () {
@@ -264,10 +361,10 @@ export default abstract class SignalFileReader implements SignalDataReader {
         if (time === NUMERIC_ERROR_VALUE) {
             return time
         }
-        if (time < 0 || time > this._totalLength) {
+        if (time < 0 || time > this._totalRecordingLength) {
             Log.error(
                 `Cannot convert recording time to cache time, given time ${time} is out of recording bounds ` +
-                `(0 - ${this._totalLength}).`,
+                `(0 - ${this._totalRecordingLength}).`,
             SCOPE)
             return NUMERIC_ERROR_VALUE
         }
@@ -293,10 +390,10 @@ export default abstract class SignalFileReader implements SignalDataReader {
      */
     protected _timeToDataUnitIndex (time: number): number {
         // We cannot check total length if it hasn't been determined yet for a (discontinuous file).
-        if (this._totalLength && time > this._totalLength) {
+        if (this._totalRecordingLength && time > this._totalRecordingLength) {
             Log.error(
                 `Cannot convert time to data unit index, given itime ${time} is out of recording bounds ` +
-                `(0 - ${this._totalLength}).`,
+                `(0 - ${this._totalRecordingLength}).`,
             SCOPE)
             return NUMERIC_ERROR_VALUE
         }
@@ -351,13 +448,13 @@ export default abstract class SignalFileReader implements SignalDataReader {
 
     getAnnotations (range?: number[]) {
         const [start, end] = range && range.length === 2
-                             ? [range[0], Math.min(range[1], this._totalLength)]
-                             : [0, this._totalLength]
+                             ? [range[0], Math.min(range[1], this._totalRecordingLength)]
+                             : [0, this._totalRecordingLength]
         if (!this._cache) {
             Log.error(`Cannot load annoations before signal cache has been initiated.`, SCOPE)
             return []
         }
-        if (start < 0 || start >= this._totalLength) {
+        if (start < 0 || start >= this._totalRecordingLength) {
             Log.error(`Requested annotation range ${start} - ${end} was out of recording bounds.`, SCOPE)
             return []
         }
@@ -378,8 +475,8 @@ export default abstract class SignalFileReader implements SignalDataReader {
 
     getDataGaps (range?: number[]) {
         const [start, end] = range && range.length === 2
-                             ? [range[0], Math.min(range[1], this._totalLength)]
-                             : [0, this._totalLength]
+                             ? [range[0], Math.min(range[1], this._totalRecordingLength)]
+                             : [0, this._totalRecordingLength]
         const dataGaps = [] as { duration: number, start: number }[]
         if (start < 0) {
             Log.error(`Requested data gap range start ${start} was smaller than zero.`, SCOPE)
@@ -418,6 +515,11 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return dataGaps
     }
 
+    async getSignals (_range: number[], _config?: unknown): Promise<SignalCachePart|null> {
+        Log.error(`getSignals must be overridden in the child class.`, SCOPE)
+        return null
+    }
+
     async readPartFromFile(_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
         Log.error(`readPartFromFile has not been overridden by child class.`, SCOPE)
         return nullPromise
@@ -453,13 +555,58 @@ export default abstract class SignalFileReader implements SignalDataReader {
         }
     }
 
+    /**
+     * Set new data gaps for the source data of this montage.
+     * @param dataGaps - The new gaps.
+     */
+    setDataGaps (dataGaps: Map<number, number>) {
+        this._dataGaps = dataGaps
+    }
+
     setupCache () {
-        Log.error(`setupCache has not been overridden in child class.`, SCOPE)
+        Log.error(`setupCache has not been overridden in the child class.`, SCOPE)
         return null as SignalDataCache | null
     }
 
     async setupMutex (_buffer: SharedArrayBuffer, _bufferStart: number) {
-        Log.error(`setupMutex has not been overridden in child class.`, SCOPE)
+        Log.error(`setupMutex has not been overridden in the child class.`, SCOPE)
         return nullPromise
+    }
+
+    useInputCache (
+        _cache: SignalDataCache,
+        _dataDuration: number,
+        _recordingDuration: number,
+        _dataGaps = [] as { duration: number, start: number }[]
+    ) {
+        Log.error(`useCache must be overridden in the child class.`, SCOPE)
+    }
+
+    async useInputMutex (
+        _input: MutexExportProperties,
+        _bufferStart: number,
+        _dataDuration: number,
+        _recordingDuration: number,
+        _dataGaps = [] as { duration: number, start: number }[]
+    ): Promise<MutexExportProperties|null> {
+        Log.error(`useInputWorker must be overridden in the child class.`, SCOPE)
+        return null
+    }
+
+    /**
+     * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
+     * @param input - Message port from the input worker.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param dataGaps - Possible data gaps in the recording.
+     */
+    async useInputWorker (
+        _input: MessagePort,
+        _dataDuration: number,
+        _recordingDuration: number,
+        _dataGaps = [] as { duration: number, start: number }[]
+    ) {
+        Log.error(`useInputWorker must be overridden in the child class.`, SCOPE)
+        return false
     }
 }

@@ -8,7 +8,8 @@
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import { BiosignalAnnotation, SignalDataCache } from './biosignal'
-import { MemoryManager } from './service'
+import { ConfigChannelFilter } from './config'
+import { MemoryManager, SignalCachePart } from './service'
 import {
     StudyContext,
     StudyContextFile,
@@ -223,6 +224,13 @@ export interface SignalDataReader {
      */
     getDataGaps (range?: number[]): { duration: number, start: number }[]
     /**
+     * Get signals for the given part.
+     * @param range - Range in seconds as [start, end].
+     * @param config - Optional configuration.
+     * @returns SignalCachePart or null, if an error occurred.
+     */
+    getSignals (range: number[], config?: unknown): Promise<SignalCachePart|null>
+    /**
      * Read and cache the entire file from the given URL.
      * @param url - Optional URL of the file (defaults to cached URL).
      * @returns Loading success (true/false).
@@ -239,15 +247,60 @@ export interface SignalDataReader {
      */
     releaseCache (): Promise<void>
     /**
-     * Initialize plain reader cache.
-     * @returns Create cache on success, null on failure.
+     * Initialize a new, plain reader cache.
+     * @returns Created cache on success, null on failure.
      */
     setupCache (): SignalDataCache | null
     /**
-     * Initialize mutex buffers.
+     * Initialize a new shared array mutex using the given `buffer`.
+     * @param buffer - Buffer to store the signal data in.
+     * @param start - Starting index within the buffer allocated to this mutex.
      * @returns Export properties of the new mutex or null on failure.
      */
     setupMutex (buffer: SharedArrayBuffer, bufferStart: number): Promise<MutexExportProperties|null>
+    /**
+     * Set up a simple signal cache as the data source for this montage.
+     * @param cache - The data cache to use.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param dataGaps - Possible data gaps in the recording.
+     */
+    useInputCache (
+        cache: SignalDataCache,
+        dataDuration: number,
+        recordingDuration: number,
+        dataGaps?: { duration: number, start: number }[],
+    ): void
+    /**
+     * Set up an input mutex as the source for signal data loading. This will create a new mutex for storing processed
+     * signal data and can only be done once.
+     * @param input - Properties of the input data mutex.
+     * @param bufferStart - Starting index of the new mutex array in the buffer.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param dataGaps - Possible data gaps in the recording.
+     * @returns Newly created mutex properties or null on failure.
+     */
+    useInputMutex (
+        input: MutexExportProperties,
+        bufferStart: number,
+        dataDuration: number,
+        recordingDuration: number,
+        dataGaps?: { duration: number, start: number }[]
+    ): Promise<MutexExportProperties|null>
+    /**
+     * Set up a shared worker as the source for signal data loading.
+     * @param input - Message port from the input worker.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param dataGaps - Possible data gaps in the recording.
+     */
+    useInputWorker (
+        input: MessagePort,
+        dataDuration: number,
+        recordingDuration: number,
+        dataGaps?: { duration: number, start: number }[]
+    ): Promise<boolean>
 }
 /**
  * SignalFileReader has additional methods for reading the signal header and actuals signal data.

@@ -5,6 +5,20 @@
  * @license    Apache-2.0
  */
 
+import BiosignalCache from './BiosignalCache'
+import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
+import GenericBiosignalSetup from '#assets/biosignal/components/GenericBiosignalSetup'
+import {
+    concatFloat32Arrays,
+    filterSignal,
+    getFilterPadding,
+    mapMontageChannels,
+    shouldDisplayChannel,
+    shouldFilterSignal,
+} from '#util/signal'
+import { NUMERIC_ERROR_VALUE } from '#util/constants'
+import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
+import { SignalFileReader } from '#assets/reader'
 import {
     type BiosignalFilters,
     type BiosignalSetup,
@@ -18,30 +32,17 @@ import {
     type ConfigChannelFilter,
     type ConfigMapChannels,
 } from '#types/config'
+import { type SignalDataReader } from '#types/reader'
 import {
     type SignalCachePart,
 } from '#types/service'
-import BiosignalCache from './BiosignalCache'
-import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
-import GenericBiosignalSetup from '#assets/biosignal/components/GenericBiosignalSetup'
-import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
-import {
-    concatFloat32Arrays,
-    filterSignal,
-    getFilterPadding,
-    mapMontageChannels,
-    shouldDisplayChannel,
-    shouldFilterSignal,
-} from '#util/signal'
-import { NUMERIC_ERROR_VALUE } from '#util/constants'
 
-import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
 import { Log } from 'scoped-ts-log'
+import { type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = "MontageProcesser"
 
-export default class MontageProcesser {
-    protected _cache = null as BiosignalMutex | SignalDataCache | null
+export default class MontageProcesser extends SignalFileReader implements SignalDataReader {
     protected _channels = [] as MontageChannel[]
     protected _dataGaps = new Map<number, number>()
     protected _filters = {
@@ -51,10 +52,9 @@ export default class MontageProcesser {
     } as BiosignalFilters
     protected _settings: CommonBiosignalSettings
     protected _setup = null as BiosignalSetup | null
-    protected _totalCacheLength = 0
-    protected _totalRecordingLength = 0
 
     constructor (settings: CommonBiosignalSettings) {
+        super()
         this._settings = settings
     }
 
@@ -80,36 +80,6 @@ export default class MontageProcesser {
         this._settings = value
     }
 
-
-    /**
-     * Convert cache time (i.e. time without data gaps) to recording time.
-     * @param time - Cache time without gaps.
-     * @return Matching recording time (with gaps).
-     */
-    cacheTimeToRecordingTime (time: number): number {
-        if (!this._cache) {
-            Log.error(`Cannot convert cache time to recording time before cache has been set up.`, SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        if (time === NUMERIC_ERROR_VALUE) {
-            return time
-        }
-        if (time < 0) {
-            Log.error(`Cannot convert negative cache time to recording time.`, SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        if (time === 0) {
-            return 0
-        }
-        let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            if (gap[0] < time) {
-                priorGapsTotal += gap[1]
-            }
-        }
-        return time + priorGapsTotal
-    }
-
     /**
      * Get montage signals for the given part.
      * @param start - Part start (in seconds, included).
@@ -131,8 +101,8 @@ export default class MontageProcesser {
             Log.error("Cannot return signal part, signal cache has not been set up yet.", SCOPE)
             return false
         }
-        const cacheStart = this.recordingTimeToCacheTime(start)
-        const cacheEnd = this.recordingTimeToCacheTime(end)
+        const cacheStart = this._recordingTimeToCacheTime(start)
+        const cacheEnd = this._recordingTimeToCacheTime(end)
         // Check that cache has the part that we need.
         const inputRangeStart = await this._cache.inputRangeStart
         const inputRangeEnd = await this._cache.inputRangeEnd
@@ -171,7 +141,7 @@ export default class MontageProcesser {
         const filtStart = cacheStart - padding > 0 ? cacheStart - padding : 0
         const filtEnd = cacheEnd + padding < this._totalCacheLength
                     ? cacheEnd + padding : this._totalCacheLength
-        const dataGaps = this.getDataGaps([filtStart, filtEnd], true)
+        const dataGaps = this._getDataGaps([filtStart, filtEnd], true)
         channel_loop:
         for (let i=0; i<channels.length; i++) {
             const chan = channels[i]
@@ -186,7 +156,7 @@ export default class MontageProcesser {
             }
             // Check if whole range is just data gap.
             for (const gap of dataGaps) {
-                const gapStartRecTime = this.cacheTimeToRecordingTime(gap.start)
+                const gapStartRecTime = this._cacheTimeToRecordingTime(gap.start)
                 if (gapStartRecTime <= start && gapStartRecTime + gap.duration >= end) {
                     derivedSignals.push(sigProps)
                     continue channel_loop
@@ -318,73 +288,12 @@ export default class MontageProcesser {
             return derivedSignals as SignalCachePart['signals']
         }
     }
-    /**
-     * Retrieve data gaps in the given `range`.
-     * @param range - time range to check in seconds
-     * @param useCacheTime - consider range in cache time (without data gaps, default false)
-     * @returns
-     */
-    getDataGaps (range?: number[], useCacheTime = false): { duration: number, start: number }[] {
-        const start = range ? range[0] : 0
-        let end = range ? range[1] : (useCacheTime ? this._totalCacheLength : this._totalRecordingLength)
-        const dataGaps = [] as { duration: number, start: number }[]
-        if (start < 0) {
-            Log.error(`Requested data gap range start ${start} is smaller than zero.`, SCOPE)
-            return dataGaps
-        }
-        if (start >= end) {
-            Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
-            return dataGaps
-        }
-        if (useCacheTime && end > this._totalCacheLength) {
-            end = this._totalCacheLength
-        } else if (end > this._totalRecordingLength) {
-            end = this._totalRecordingLength
-        }
-        let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            const gapTime = useCacheTime ? gap[0] - priorGapsTotal : gap[0]
-            priorGapsTotal += gap[1]
-            if ((useCacheTime ? gapTime : gapTime + gap[1]) <= start) {
-                continue
-            } else if (!useCacheTime && gapTime < start && gapTime + gap[1] > start) {
-                // Prior gap partially extends to the checked range
-                if (gapTime + gap[1] < end) {
-                    dataGaps.push({ start: start, duration: gapTime + gap[1] - start })
-                } else {
-                    dataGaps.push({ start: start, duration: end - start })
-                    break
-                }
-            } else if (gapTime >= start && gapTime < end) {
-                if (useCacheTime || gapTime + gap[1] < end) {
-                    dataGaps.push({ start: gapTime, duration: gap[1] })
-                } else {
-                    dataGaps.push({ start: gapTime, duration: end - gapTime })
-                    break
-                }
-            } else {
-                break
-            }
-        }
-        return dataGaps
-    }
-
-    getGapTimeBetween (start: number, end: number): number {
-        if (!this._cache) {
-            return 0
-        }
-        let gapTotal = 0
-        for (const gap of this.getDataGaps([start, end])) {
-            gapTotal += gap.duration
-        }
-        return gapTotal
-    }
 
     /**
      * Get signals for the given part.
      * @param range - Range in seconds as [start (included), end (excluded)].
      * @param config - Optional configuration.
-     * @returns
+     * @returns SignalCachePart or null, if an error occurred.
      */
     async getSignals (range: number[], config?: ConfigChannelFilter) {
         if (!this._channels) {
@@ -409,8 +318,8 @@ export default class MontageProcesser {
             const signals = await this.calculateSignalsForPart(range[0], range[1], false, config)
             if (signals) {
                 requestedSigs = {
-                    start: this.recordingTimeToCacheTime(range[0]),
-                    end: this.recordingTimeToCacheTime(range[1]),
+                    start: this._recordingTimeToCacheTime(range[0]),
+                    end: this._recordingTimeToCacheTime(range[1]),
                     signals: signals as SignalCachePart['signals']
                 }
             } else {
@@ -443,8 +352,8 @@ export default class MontageProcesser {
         if (!dataGaps.length) {
             return requestedSigs
         }
-        const priorGapsTotal = range[0] > 0 ? this.getGapTimeBetween(0, range[0]) : 0
-        const gapsTotal = this.getGapTimeBetween(0, range[1])
+        const priorGapsTotal = range[0] > 0 ? this._getGapTimeBetween(0, range[0]) : 0
+        const gapsTotal = this._getGapTimeBetween(0, range[1])
         const rangeStart = range[0] - priorGapsTotal
         const rangeEnd = range[1] - gapsTotal
         //const responseSigs = [] as SignalCachePart['signals']
@@ -484,78 +393,6 @@ export default class MontageProcesser {
         }
         return requestedSigs
     }
-
-    /**
-     * Get current signal cache range.
-     * @returns Range as { start: number, end: number } measured in seconds >= 0 or NUMERIC_ERROR_VALUE if an error occurred.
-     *
-    async getSignalCacheRange () {
-        if (!this._cache) {
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        const rangeStart = await this._cache.outputRangeStart
-        const rangeEnd = await this._cache.outputRangeEnd
-        if (rangeStart === null || rangeEnd === null) {
-            Log.error(`Montage signal mutex did not report a valid range: start (${rangeStart}) or end (${rangeEnd}).`, SCOPE)
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        return { start: rangeStart, end: rangeEnd }
-    }
-    */
-
-    /**
-     * Get the largest start and lowest end updated data range (in seconds) for the signals.
-     * @returns Range as { start: number, end: number } measured in seconds or NUMERIC_ERROR_VALUE if an error occurred.
-     */
-    async getSignalUpdatedRange () {
-        if (!this._cache) {
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        const ranges = this._cache.outputSignalUpdatedRanges
-        const srs = this._cache.outputSignalSamplingRates
-        let highestStart = NUMERIC_ERROR_VALUE
-        let lowestEnd = NUMERIC_ERROR_VALUE
-        for (let i=0; i<ranges.length; i++) {
-            const sr = await srs[i]
-            if (!sr) {
-                // Empty or missing channel, skip
-                continue
-            }
-            const range = await ranges[i]
-            if (!range) {
-                Log.error(`Montage signal mutex did not report a valid updated range for signal at index ${i}.`, SCOPE)
-                return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-            }
-            const tStart = range.start/sr
-            const tEnd = range.end/sr
-            if (range.start !== IOMutex.EMPTY_FIELD) {
-                highestStart = (highestStart === NUMERIC_ERROR_VALUE || tStart > highestStart) ? tStart : highestStart
-            } else {
-                Log.warn(`Signal #${i} has not updated start position set.`, SCOPE)
-            }
-            if (range.end !== IOMutex.EMPTY_FIELD) {
-                lowestEnd = (lowestEnd === NUMERIC_ERROR_VALUE || tEnd < lowestEnd) ? tEnd : lowestEnd
-            } else {
-                Log.warn(`Signal #${i} has not updated end position set.`, SCOPE)
-            }
-        }
-        if (highestStart === NUMERIC_ERROR_VALUE && lowestEnd === NUMERIC_ERROR_VALUE) {
-            Log.error(`Cannot get ranges of updated signals, cache has no initialized signals.`, SCOPE)
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        return {
-            start: this.cacheTimeToRecordingTime(highestStart),
-            end: this.cacheTimeToRecordingTime(lowestEnd),
-        }
-    }
-    /**
-     * Get a list of only the channels that are visible.
-     * @returns Channels that should be displayed.
-     *
-    const getVisibleChannels = () => {
-        return this._channels.filter(c => shouldDisplayChannel(c, false, this._settings))
-    }
-    */
     /**
      * Map the derived channels in this montage to the signal channels of the given setup.
      * @param config - Either string code of a default config or a config object.
@@ -569,45 +406,6 @@ export default class MontageProcesser {
         // Reset channels for the new mapping.
         const channelConfig = Object.assign({}, this._settings, config)
         this._channels = mapMontageChannels(this._setup, channelConfig)
-    }
-
-    /**
-     * Convert recording time to cache time (i.e. time without data gaps).
-     * @param time - Recording time.
-     * @return Matching cache time (without gaps).
-     */
-    recordingTimeToCacheTime (time: number): number {
-        if (!this._cache) {
-            Log.error(`Cannot convert recording time to cache time before cache has been set up.`, SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        if (time === NUMERIC_ERROR_VALUE) {
-            return time
-        }
-        if (time < 0) {
-            Log.error(`Cannot convert negative recording time to cache time.`, SCOPE)
-            return NUMERIC_ERROR_VALUE
-        }
-        if (time === 0) {
-            return 0
-        }
-        return time - this.getGapTimeBetween(0, time)
-    }
-
-    /**
-     * Release buffers removing all references to them and decomissioning this worker.
-     */
-    async releaseCache () {
-        this._cache?.releaseBuffers()
-        this._cache = null
-    }
-
-    /**
-     * Set new data gaps for the source data of this montage.
-     * @param dataGaps - The new gaps.
-     */
-    setDataGaps (dataGaps: Map<number, number>) {
-        this._dataGaps = dataGaps
     }
 
     /**
@@ -663,13 +461,25 @@ export default class MontageProcesser {
     }
 
     /**
+     * Set up montage channels.
+     * @param montage - Montage name.
+     * @param config - Montage configuration.
+     * @param setupChannels - Channel configuration of the montage setup.
+     */
+    setupChannels (montage: string, config: ConfigMapChannels, setupChannels: SetupChannel[]) {
+        this._setup = new GenericBiosignalSetup(montage) as BiosignalSetup
+        this._setup.channels = setupChannels
+        this.mapChannels(config)
+    }
+
+    /**
      * Set up a simple signal cache as the data source for this montage.
      * @param cache - The data cache to use.
      * @param dataDuration - Duration of actual signal data in seconds.
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param dataGaps - Possible data gaps in the recording.
      */
-    setupCache (
+    useInputCache (
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
@@ -684,23 +494,11 @@ export default class MontageProcesser {
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
         }
-        this._cache = new BiosignalCache(cache)
+        this._fallbackCache = new BiosignalCache(cache)
     }
 
     /**
-     * Set up montage channels.
-     * @param montage - Montage name.
-     * @param config - Montage configuration.
-     * @param setupChannels - Channel configuration of the montage setup.
-     */
-    setupChannels (montage: string, config: ConfigMapChannels, setupChannels: SetupChannel[]) {
-        this._setup = new GenericBiosignalSetup(montage) as BiosignalSetup
-        this._setup.channels = setupChannels
-        this.mapChannels(config)
-    }
-
-    /**
-     * Set up input mutex for data loading. This will format the shared array buffer for storing
+     * Set up input mutex as the source for signal data loading. This will format the shared array buffer for storing
      * the signal data and can only be done once.
      * @param input - Properties of the input data mutex.
      * @param bufferStart - Starting index of the montage mutex array in the buffer.
@@ -708,7 +506,7 @@ export default class MontageProcesser {
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param dataGaps - Possible data gaps in the recording.
      */
-    async setupInputMutex (
+    async useInputMutex (
         input: MutexExportProperties,
         bufferStart: number,
         dataDuration: number,
@@ -716,7 +514,7 @@ export default class MontageProcesser {
         dataGaps = [] as { duration: number, start: number }[]
     ) {
         if (!input.buffer) {
-            return false
+            return null
         }
         // Construct a SignalCachePart to initialize the mutex.
         const cacheProps = {
@@ -737,22 +535,15 @@ export default class MontageProcesser {
             this._dataGaps.set(gap.start, gap.duration)
         }
         // Use input mutex properties as read buffers.
-        this._cache = new BiosignalMutex(
+        this._mutex = new BiosignalMutex(
                 undefined,
                 input
             )
-        await this._cache.initSignalBuffers(cacheProps, dataDuration, input.buffer, bufferStart)
-        return this._cache.propertiesForCoupling
+        this._mutex.initSignalBuffers(cacheProps, dataDuration, input.buffer, bufferStart)
+        return this._mutex.propertiesForCoupling
     }
 
-    /**
-     * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
-     * @param input - Message port from the input worker.
-     * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param dataGaps - Possible data gaps in the recording.
-     */
-    async setupSharedWorker (
+    async useInputWorker (
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
@@ -776,7 +567,7 @@ export default class MontageProcesser {
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
         }
-        this._cache = new SharedWorkerCache(input, postMessage)
+        this._fallbackCache = new SharedWorkerCache(input, postMessage)
         return true
     }
 }

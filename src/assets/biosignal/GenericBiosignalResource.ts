@@ -362,9 +362,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (!this._activeMontage) {
             return this.getAllRawSignals(range, config)
         }
-        return this._activeMontage.getAllSignals(range, config).then((response) => {
-            return response
-        })
+        return this._activeMontage.getAllSignals(range, config)
     }
 
     async getAllRawSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
