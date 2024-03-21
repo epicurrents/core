@@ -222,7 +222,11 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             if (!data) {
                 return
             }
-            const setupSuccess = this._montage?.useInputCache(data.cache, data.dataDuration, data.recordingDuration)
+            const setupSuccess = this._montage?.setupCacheWithInput(
+                                    data.cache,
+                                    data.dataDuration,
+                                    data.recordingDuration
+                                 )
             if (setupSuccess) {
                 Log.debug(`Cache setup complete.`, SCOPE)
                 this.returnMessage({

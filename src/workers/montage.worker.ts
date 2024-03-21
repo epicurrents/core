@@ -230,7 +230,7 @@ onmessage = async (message: WorkerMessage) => {
         if (!data || !MONTAGE) {
             return
         }
-        const cacheSetup = await MONTAGE.useInputMutex(
+        const cacheSetup = await MONTAGE.setupMutexWithInput(
             data.input as MutexExportProperties,
             data.bufferStart as number,
             data.dataDuration as number,
@@ -265,7 +265,7 @@ onmessage = async (message: WorkerMessage) => {
         if (!data) {
             return
         }
-        const setupSuccess = await MONTAGE?.useInputWorker(
+        const setupSuccess = await MONTAGE?.setupSharedWorkerWithInput(
             data.port as MessagePort,
             data.dataDuration as number,
             data.recordingDuration as number
