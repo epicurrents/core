@@ -1,5 +1,5 @@
 /**
- * EpiCurrents signal file loader utility. This class can be used inside a worker or the main thread.
+ * EpiCurrents signal file reader. This class can be used inside a worker or the main thread.
  * @package    epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0
@@ -568,12 +568,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return null as SignalDataCache | null
     }
 
-    async setupMutex (_buffer: SharedArrayBuffer, _bufferStart: number) {
-        Log.error(`setupMutex has not been overridden in the child class.`, SCOPE)
-        return nullPromise
-    }
-
-    useInputCache (
+    setupCacheWithInput (
         _cache: SignalDataCache,
         _dataDuration: number,
         _recordingDuration: number,
@@ -582,7 +577,12 @@ export default abstract class SignalFileReader implements SignalDataReader {
         Log.error(`useCache must be overridden in the child class.`, SCOPE)
     }
 
-    async useInputMutex (
+    async setupMutex (_buffer: SharedArrayBuffer, _bufferStart: number) {
+        Log.error(`setupMutex has not been overridden in the child class.`, SCOPE)
+        return nullPromise
+    }
+
+    async setupMutexWithInput (
         _input: MutexExportProperties,
         _bufferStart: number,
         _dataDuration: number,
@@ -600,7 +600,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param dataGaps - Possible data gaps in the recording.
      */
-    async useInputWorker (
+    async setupSharedWorkerWithInput (
         _input: MessagePort,
         _dataDuration: number,
         _recordingDuration: number,

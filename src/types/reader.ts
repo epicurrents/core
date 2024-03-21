@@ -163,16 +163,9 @@ export type FileSystemItemType = 'directory' | 'file'
 export type ReadDirection = 'backward' | 'alternate' | 'forward'
 export type ReaderMode = 'file' | 'folder' | 'study'
 /**
- * SignalDataReader serves as an interface for file reading. After setting the required metadata, parts of the signal
- * file can be loaded using time indices and the class handles all coversions between file time and byte positions,
- * taking into account possible data unit (record) lengths and maximum allowed single load (chunk) sizes.
- *
- * For larger files it will keep loading the file progressively until the maximum cache size has been reached (NYI).
- *
- * Data loading methods return a promise which resolves when the requested data has been loaded or rejects if there
- * is an error.
+ * SignalDataProcessers provide methods for storing and processing signal data.
  */
-export interface SignalDataReader {
+export interface SignalDataProcesser {
     /**
      * Has the cache been initialized.
      */
@@ -189,16 +182,6 @@ export interface SignalDataReader {
      * Total length of the recording in seconds (including gaps).
      */
     totalLength: number
-    /**
-     * Source file URL.
-     */
-    url: string
-    /**
-     * Start loading signal data from the given file.
-     * @param file - File object.
-     * @param startFrom - Optional starting point of the loading process in seconds of file duration.
-     */
-    cacheFile (file: File, startFrom?: number): Promise<void>
     /**
      * Add new, unique annotations to the annotation cache.
      * @param annotations - New annotations to check and cache.
@@ -231,18 +214,6 @@ export interface SignalDataReader {
      */
     getSignals (range: number[], config?: unknown): Promise<SignalCachePart|null>
     /**
-     * Read and cache the entire file from the given URL.
-     * @param url - Optional URL of the file (defaults to cached URL).
-     * @returns Loading success (true/false).
-     */
-    readFileFromUrl (url?: string): Promise<boolean>
-    /**
-     * Read a single part from the cached file.
-     * @param startFrom - Starting point of the loading process in seconds of file duration.
-     * @param dataLength - Length of the requested data in seconds.
-     */
-    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
-    /**
      * Release buffers removing all references to them and returning to initial state.
      */
     releaseCache (): Promise<void>
@@ -252,25 +223,25 @@ export interface SignalDataReader {
      */
     setupCache (): SignalDataCache | null
     /**
-     * Initialize a new shared array mutex using the given `buffer`.
-     * @param buffer - Buffer to store the signal data in.
-     * @param start - Starting index within the buffer allocated to this mutex.
-     * @returns Export properties of the new mutex or null on failure.
-     */
-    setupMutex (buffer: SharedArrayBuffer, bufferStart: number): Promise<MutexExportProperties|null>
-    /**
      * Set up a simple signal cache as the data source for this montage.
      * @param cache - The data cache to use.
      * @param dataDuration - Duration of actual signal data in seconds.
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param dataGaps - Possible data gaps in the recording.
      */
-    useInputCache (
+    setupCacheWithInput (
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
         dataGaps?: { duration: number, start: number }[],
     ): void
+    /**
+     * Initialize a new shared array mutex using the given `buffer`.
+     * @param buffer - Buffer to store the signal data in.
+     * @param start - Starting index within the buffer allocated to this mutex.
+     * @returns Export properties of the new mutex or null on failure.
+     */
+    setupMutex (buffer: SharedArrayBuffer, bufferStart: number): Promise<MutexExportProperties|null>
     /**
      * Set up an input mutex as the source for signal data loading. This will create a new mutex for storing processed
      * signal data and can only be done once.
@@ -281,7 +252,7 @@ export interface SignalDataReader {
      * @param dataGaps - Possible data gaps in the recording.
      * @returns Newly created mutex properties or null on failure.
      */
-    useInputMutex (
+    setupMutexWithInput (
         input: MutexExportProperties,
         bufferStart: number,
         dataDuration: number,
@@ -295,12 +266,46 @@ export interface SignalDataReader {
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param dataGaps - Possible data gaps in the recording.
      */
-    useInputWorker (
+    setupSharedWorkerWithInput (
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
         dataGaps?: { duration: number, start: number }[]
     ): Promise<boolean>
+}
+/**
+ * SignalDataReader serves as an interface for file reading. After setting the required metadata, parts of the signal
+ * file can be loaded using time indices and the class handles all coversions between file time and byte positions,
+ * taking into account possible data unit (record) lengths and maximum allowed single load (chunk) sizes.
+ *
+ * For larger files it will keep loading the file progressively until the maximum cache size has been reached (NYI).
+ *
+ * Data loading methods return a promise which resolves when the requested data has been loaded or rejects if there
+ * is an error.
+ */
+export interface SignalDataReader extends SignalDataProcesser {
+    /**
+     * Source file URL.
+     */
+    url: string
+    /**
+     * Start loading signal data from the given file.
+     * @param file - File object.
+     * @param startFrom - Optional starting point of the loading process in seconds of file duration.
+     */
+    cacheFile (file: File, startFrom?: number): Promise<void>
+    /**
+     * Read and cache the entire file from the given URL.
+     * @param url - Optional URL of the file (defaults to cached URL).
+     * @returns Loading success (true/false).
+     */
+    readFileFromUrl (url?: string): Promise<boolean>
+    /**
+     * Read a single part from the cached file.
+     * @param startFrom - Starting point of the loading process in seconds of file duration.
+     * @param dataLength - Length of the requested data in seconds.
+     */
+    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
 }
 /**
  * SignalFileReader has additional methods for reading the signal header and actuals signal data.

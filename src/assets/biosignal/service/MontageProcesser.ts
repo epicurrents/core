@@ -479,7 +479,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param dataGaps - Possible data gaps in the recording.
      */
-    useInputCache (
+    setupCacheWithInput (
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
@@ -506,7 +506,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param dataGaps - Possible data gaps in the recording.
      */
-    async useInputMutex (
+    async setupMutexWithInput (
         input: MutexExportProperties,
         bufferStart: number,
         dataDuration: number,
@@ -543,7 +543,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         return this._mutex.propertiesForCoupling
     }
 
-    async useInputWorker (
+    async setupSharedWorkerWithInput (
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
