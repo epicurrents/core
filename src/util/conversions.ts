@@ -149,10 +149,10 @@ export const secondsToTimeString = (secs: number, components: boolean = false) =
 }
 
 /**
- * Turn settings color fraction array into a CSS-compliant rgba string.
+ * Turn settings color fraction array into a CSS-compliant hex string.
  * @param color - Rractions of r, g, b and a as an array of numbers.
  * @param opacity - Optional multiplier for the alpha value.
- * @return Color string in the form of `rgba(r, g, b, a)` or on error `rgba(0,0,0,0)`.
+ * @return Color string in the form of `#rrggbbaa` or on error `#00000000`.
  */
 export const settingsColorToHex8 = (color: [number, number, number, number], opacity?: number) => {
     if (color.length !== 4) {
