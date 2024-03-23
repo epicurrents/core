@@ -100,7 +100,7 @@ export const rgbaToSettingsColor = (rgba: string): SettingsColor | null => {
             parseInt(color[1])/255,
             parseInt(color[2])/255,
             parseInt(color[3])/255,
-            parseInt(color[4])/255
+            parseFloat(color[4])
         ]
     }
     return null
@@ -154,7 +154,7 @@ export const secondsToTimeString = (secs: number, components: boolean = false) =
  * @param opacity - Optional multiplier for the alpha value.
  * @return Color string in the form of `#rrggbbaa` or on error `#00000000`.
  */
-export const settingsColorToHex8 = (color: [number, number, number, number], opacity?: number) => {
+export const settingsColorToHexa = (color: [number, number, number, number], opacity?: number) => {
     if (color.length !== 4) {
         return '#00000000'
     }
