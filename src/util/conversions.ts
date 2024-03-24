@@ -94,7 +94,7 @@ export const padTime = (time: number, len = 2) => {
  * @returns SettingsColor presentation of the color or null.
  */
 export const rgbaToSettingsColor = (rgba: string): SettingsColor | null => {
-    const color = rgba.match(/rgba\((\d+),(\d+),(\d+),(\d+)\)/)
+    const color = rgba.replaceAll(/\s+/g, '').match(/rgba\((\d+),(\d+),(\d+),([\d\.]+)\)/i)
     if (color) {
         return [
             parseInt(color[1])/255,
