@@ -58,8 +58,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
     }[]
     /** Map of data gaps as <gap position, gap length> in seconds. */
     protected _dataGaps = new Map<number, number>()
-    /** Actual signal data length without gaps. */
-    protected _dataLength = 0
     /** Byte position of the first data unit (= header size in bytes). */
     protected _dataOffset = 0
     /** Number of data units in in the source file. */
@@ -104,7 +102,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
     }
 
     get dataLength () {
-        return this._dataLength
+        return this._totalCacheLength
     }
 
     get dataUnitSize () {
@@ -151,10 +149,10 @@ export default abstract class SignalFileReader implements SignalDataReader {
         if (time === NUMERIC_ERROR_VALUE) {
             return time
         }
-        if (time < 0 || time > this._dataLength) {
+        if (time < 0 || time > this._totalCacheLength) {
             Log.error(
                 `Cannot convert cache time to recording time, given time ${time} is out of recording bounds ` +
-                `(0 - ${this._dataLength}).`,
+                `(0 - ${this._totalCacheLength}).`,
             SCOPE)
             return NUMERIC_ERROR_VALUE
         }
@@ -520,7 +518,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return null
     }
 
-    async readPartFromFile(_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
+    async readPartFromFile (_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
         Log.error(`readPartFromFile has not been overridden by child class.`, SCOPE)
         return nullPromise
     }
@@ -532,7 +530,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
                 this._file = {
                     data: new File([blobFile], "recording"),
                     start: 0,
-                    length: this._dataLength
+                    length: this._totalCacheLength
                 }
                 return true
             }).catch((reason: Error) => {
@@ -555,10 +553,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
         }
     }
 
-    /**
-     * Set new data gaps for the source data of this montage.
-     * @param dataGaps - The new gaps.
-     */
     setDataGaps (dataGaps: Map<number, number>) {
         this._dataGaps = dataGaps
     }

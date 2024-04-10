@@ -218,6 +218,11 @@ export interface SignalDataProcesser {
      */
     releaseCache (): Promise<void>
     /**
+     * Set new data gaps for the source data.
+     * @param dataGaps - The new gaps.
+     */
+    setDataGaps (dataGaps: Map<number, number>): void
+    /**
      * Initialize a new, plain reader cache.
      * @returns Created cache on success, null on failure.
      */

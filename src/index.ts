@@ -264,7 +264,6 @@ export class EpiCurrents implements EpiCurrentsApp {
             : source.files.length ? await context.loader.loadFromDirectory(source, config)
             : source.file ? await context.loader.loadFromFile(source.file, config)
                           : null
-        console.warn('study', source, study)
         if (!study) {
             return null
         }
