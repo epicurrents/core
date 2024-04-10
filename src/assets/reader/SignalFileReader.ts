@@ -80,7 +80,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
     protected _mutex = null as SignalCacheMutex | null
     /** Loading process start time (for debugging). */
     protected _startTime = 0
-    protected _totalCacheLength = 0
+    protected _totalDataLength = 0
     protected _totalRecordingLength = 0
     /** File data url. */
     protected _url = ''
@@ -102,7 +102,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
     }
 
     get dataLength () {
-        return this._totalCacheLength
+        return this._totalDataLength
     }
 
     get dataUnitSize () {
@@ -149,10 +149,10 @@ export default abstract class SignalFileReader implements SignalDataReader {
         if (time === NUMERIC_ERROR_VALUE) {
             return time
         }
-        if (time < 0 || time > this._totalCacheLength) {
+        if (time < 0 || time > this._totalDataLength) {
             Log.error(
                 `Cannot convert cache time to recording time, given time ${time} is out of recording bounds ` +
-                `(0 - ${this._totalCacheLength}).`,
+                `(0 - ${this._totalDataLength}).`,
             SCOPE)
             return NUMERIC_ERROR_VALUE
         }
@@ -211,7 +211,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
      */
     protected _getDataGaps (range?: number[], useCacheTime = false): { duration: number, start: number }[] {
         const start = range ? range[0] : 0
-        let end = range ? range[1] : (useCacheTime ? this._totalCacheLength : this._totalRecordingLength)
+        let end = range ? range[1] : (useCacheTime ? this._totalDataLength : this._totalRecordingLength)
         const dataGaps = [] as { duration: number, start: number }[]
         if (start < 0) {
             Log.error(`Requested data gap range start ${start} is smaller than zero.`, SCOPE)
@@ -221,8 +221,8 @@ export default abstract class SignalFileReader implements SignalDataReader {
             Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
             return dataGaps
         }
-        if (useCacheTime && end > this._totalCacheLength) {
-            end = this._totalCacheLength
+        if (useCacheTime && end > this._totalDataLength) {
+            end = this._totalDataLength
         } else if (end > this._totalRecordingLength) {
             end = this._totalRecordingLength
         }
@@ -530,7 +530,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
                 this._file = {
                     data: new File([blobFile], "recording"),
                     start: 0,
-                    length: this._totalCacheLength
+                    length: this._totalDataLength
                 }
                 return true
             }).catch((reason: Error) => {

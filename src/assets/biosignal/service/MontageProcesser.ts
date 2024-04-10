@@ -108,7 +108,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         const inputRangeEnd = await this._cache.inputRangeEnd
         if (
             inputRangeStart === null || cacheStart < inputRangeStart ||
-            inputRangeEnd === null || (cacheEnd > inputRangeEnd && inputRangeEnd < this._totalCacheLength)
+            inputRangeEnd === null || (cacheEnd > inputRangeEnd && inputRangeEnd < this._totalDataLength)
         ) {
             // TODO: Signal that the required part must be loaded by the file loader first.
             Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
@@ -139,8 +139,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         const padding = this._settings.filterPaddingSeconds || 0
         // Check for possible gaps in this range.
         const filtStart = cacheStart - padding > 0 ? cacheStart - padding : 0
-        const filtEnd = cacheEnd + padding < this._totalCacheLength
-                    ? cacheEnd + padding : this._totalCacheLength
+        const filtEnd = cacheEnd + padding < this._totalDataLength
+                    ? cacheEnd + padding : this._totalDataLength
         const dataGaps = this._getDataGaps([filtStart, filtEnd], true)
         channel_loop:
         for (let i=0; i<channels.length; i++) {
@@ -489,7 +489,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             Log.error(`Montage cache is already set up.`, SCOPE)
             return
         }
-        this._totalCacheLength = dataDuration
+        this._totalDataLength = dataDuration
         this._totalRecordingLength = recordingDuration
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
@@ -529,7 +529,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 samplingRate: samplingRate
             })
         }
-        this._totalCacheLength = dataDuration
+        this._totalDataLength = dataDuration
         this._totalRecordingLength = recordingDuration
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
@@ -562,7 +562,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 samplingRate: samplingRate
             })
         }
-        this._totalCacheLength = dataDuration
+        this._totalDataLength = dataDuration
         this._totalRecordingLength = recordingDuration
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
