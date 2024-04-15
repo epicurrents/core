@@ -12,6 +12,7 @@ import {
     type BiosignalResource,
     type BiosignalSetupResponse,
     type SignalDataCache,
+    type  SignalDataGaps,
 } from '#types/biosignal'
 import {
     type MemoryManager,
@@ -106,7 +107,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
             }
             const dataGaps = data.dataGaps as { start: number, duration: number }[] | undefined
             if (dataGaps?.length) {
-                const newGaps = new Map<number, number>()
+                const newGaps = new Map<number, number>() as SignalDataGaps
                 for (const gap of dataGaps) {
                     newGaps.set(gap.start, gap.duration)
                 }

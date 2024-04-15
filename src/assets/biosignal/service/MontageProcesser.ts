@@ -25,6 +25,7 @@ import {
     type MontageChannel,
     type SetupChannel,
     type SignalDataCache,
+    type SignalDataGaps,
     type SignalPart,
 } from '#types/biosignal'
 import {
@@ -44,7 +45,7 @@ const SCOPE = "MontageProcesser"
 
 export default class MontageProcesser extends SignalFileReader implements SignalDataReader {
     protected _channels = [] as MontageChannel[]
-    protected _dataGaps = new Map<number, number>()
+    protected _dataGaps: SignalDataGaps = new Map<number, number>()
     protected _filters = {
         highpass: 0,
         lowpass: 0,

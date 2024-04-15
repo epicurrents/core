@@ -15,6 +15,7 @@ import {
     type SignalCacheMutex,
     type SignalCacheProcess,
     type SignalDataCache,
+    type SignalDataGaps,
     type SignalDataReader,
     type SignalFilePart,
 } from '#types'
@@ -56,8 +57,8 @@ export default abstract class SignalFileReader implements SignalDataReader {
         /** Data contained in this block if loaded, null if not. */
         data: SignalFilePart | null
     }[]
-    /** Map of data gaps as <gap position, gap length> in seconds. */
-    protected _dataGaps = new Map<number, number>()
+    /** Map of data gaps as <gap data position, gap length> in seconds. */
+    protected _dataGaps = new Map<number, number>() as SignalDataGaps
     /** Byte position of the first data unit (= header size in bytes). */
     protected _dataOffset = 0
     /** Number of data units in in the source file. */
@@ -205,8 +206,8 @@ export default abstract class SignalFileReader implements SignalDataReader {
     }
     /**
      * Retrieve data gaps in the given `range`.
-     * @param range - time range to check in seconds
-     * @param useCacheTime - consider range in cache time (without data gaps, default false)
+     * @param range - Time range to check in seconds.
+     * @param useCacheTime - Consider range in cache time (without data gaps, default false).
      * @returns
      */
     protected _getDataGaps (range?: number[], useCacheTime = false): { duration: number, start: number }[] {
@@ -228,12 +229,12 @@ export default abstract class SignalFileReader implements SignalDataReader {
         }
         let priorGapsTotal = 0
         for (const gap of this._dataGaps) {
-            const gapTime = useCacheTime ? gap[0] - priorGapsTotal : gap[0]
+            const gapTime = useCacheTime ? gap[0] : gap[0] + priorGapsTotal
             priorGapsTotal += gap[1]
             if ((useCacheTime ? gapTime : gapTime + gap[1]) <= start) {
                 continue
             } else if (!useCacheTime && gapTime < start && gapTime + gap[1] > start) {
-                // Prior gap partially extends to the checked range
+                // Prior gap partially extends to the checked range.
                 if (gapTime + gap[1] < end) {
                     dataGaps.push({ start: start, duration: gapTime + gap[1] - start })
                 } else {
@@ -473,7 +474,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
 
     getDataGaps (range?: number[]) {
         const [start, end] = range && range.length === 2
-                             ? [range[0], Math.min(range[1], this._totalRecordingLength)]
+                             ? [Math.max(0, range[0]), Math.min(range[1], this._totalRecordingLength)]
                              : [0, this._totalRecordingLength]
         const dataGaps = [] as { duration: number, start: number }[]
         if (start < 0) {
@@ -553,7 +554,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         }
     }
 
-    setDataGaps (dataGaps: Map<number, number>) {
+    setDataGaps (dataGaps: SignalDataGaps) {
         this._dataGaps = dataGaps
     }
 

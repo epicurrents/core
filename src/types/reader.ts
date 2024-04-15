@@ -7,8 +7,11 @@
 
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
-import { BiosignalAnnotation, SignalDataCache } from './biosignal'
-import { ConfigChannelFilter } from './config'
+import {
+    BiosignalAnnotation,
+    SignalDataCache,
+    SignalDataGaps,
+} from './biosignal'
 import { MemoryManager, SignalCachePart } from './service'
 import {
     StudyContext,
@@ -191,7 +194,7 @@ export interface SignalDataProcesser {
      * Add new, unique data gaps to the data gap cache.
      * @param newGaps - New data gaps to check and cache.
      */
-    cacheNewDataGaps (newGaps: Map<number, number>): void
+    cacheNewDataGaps (newGaps: SignalDataGaps): void
     /**
      * Get any cached annotations from data units in the provided `range`.
      * @param range - Recording range in seconds [inluded, excluded].
@@ -221,7 +224,7 @@ export interface SignalDataProcesser {
      * Set new data gaps for the source data.
      * @param dataGaps - The new gaps.
      */
-    setDataGaps (dataGaps: Map<number, number>): void
+    setDataGaps (dataGaps: SignalDataGaps): void
     /**
      * Initialize a new, plain reader cache.
      * @returns Created cache on success, null on failure.

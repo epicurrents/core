@@ -11,13 +11,14 @@ import {
     type BiosignalFilters,
     type BiosignalHeaderRecord,
     type BiosignalHeaderSignal,
+    type SignalDataGaps,
 } from '#types/biosignal'
 
 const SCOPE = 'GenericBiosignalHeaders'
 
 export default class GenericBiosignalHeaders implements BiosignalHeaderRecord {
     private _annotations: BiosignalAnnotation[]
-    private _dataGaps: Map<number, number>
+    private _dataGaps: SignalDataGaps
     private _dataDuration: number
     private _dataRecordCount: number
     private _dataRecordDuration: number
@@ -44,7 +45,7 @@ export default class GenericBiosignalHeaders implements BiosignalHeaderRecord {
         recordingStartTime = null as Date | null,
         discontinuous = false,
         annotations = [] as BiosignalAnnotation[],
-        dataGaps = new Map() as Map<number, number>,
+        dataGaps = new Map() as SignalDataGaps,
     ) {
         this._annotations = annotations
         this._dataGaps = dataGaps
@@ -152,7 +153,7 @@ export default class GenericBiosignalHeaders implements BiosignalHeaderRecord {
         this._annotations.push(...items)
     }
 
-    addDataGaps (items: Map<number, number>) {
+    addDataGaps (items: SignalDataGaps) {
         for (const gap of items) {
             this._dataGaps.set(gap[0], gap[1])
         }
