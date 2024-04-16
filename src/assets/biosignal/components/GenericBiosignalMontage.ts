@@ -15,7 +15,7 @@ import {
     type MontageChannel,
     type SetFiltersResponse,
     type SignalDataCache,
-    type SignalDataGaps,
+    type SignalDataGapMap,
 } from '#types/biosignal'
 import {
     type ConfigBiosignalMontage,
@@ -53,7 +53,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     } as SignalCachePart
     protected _cacheParts = [] as SignalCachePart[]
     protected _config: BiosignalMontageTemplate | null =  null
-    protected _dataGaps: SignalDataGaps = new Map<number, number>()
+    protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _filters = {
         highpass: 0,
         lowpass: 0,
@@ -110,7 +110,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     get dataGaps () {
         return this._dataGaps
     }
-    set dataGaps (gaps: SignalDataGaps) {
+    set dataGaps (gaps: SignalDataGapMap) {
         this._dataGaps = gaps
         this._service.setDataGaps(gaps)
         this.onPropertyUpdate('data-gaps')

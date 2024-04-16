@@ -10,9 +10,9 @@ import {
     type GetSignalsResponse,
     type ReleaseCacheResponse,
     type SetFiltersResponse,
-    type SetupChannel,
     type SetupMutexResponse,
     type SetupSharedWorkerResponse,
+    type SignalDataGapMap,
 } from '#types/biosignal'
 import {
     type AppSettings,
@@ -155,7 +155,7 @@ onmessage = async (message: WorkerMessage) => {
         if (!data || !MONTAGE) {
             return
         }
-        const newGaps = new Map<number, number>()
+        const newGaps = new Map<number, number>() as SignalDataGapMap
         for (const gap of data.dataGaps) {
             newGaps.set(gap.start, gap.duration)
         }

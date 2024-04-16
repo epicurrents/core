@@ -10,12 +10,13 @@ import {
     nullPromise,
 } from '#util'
 import {
-    SignalCachePart,
     type BiosignalAnnotation,
     type SignalCacheMutex,
+    type SignalCachePart,
     type SignalCacheProcess,
     type SignalDataCache,
-    type SignalDataGaps,
+    type SignalDataGap,
+    type SignalDataGapMap,
     type SignalDataReader,
     type SignalFilePart,
 } from '#types'
@@ -58,7 +59,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         data: SignalFilePart | null
     }[]
     /** Map of data gaps as <gap data position, gap length> in seconds. */
-    protected _dataGaps = new Map<number, number>() as SignalDataGaps
+    protected _dataGaps = new Map<number, number>() as SignalDataGapMap
     /** Byte position of the first data unit (= header size in bytes). */
     protected _dataOffset = 0
     /** Number of data units in in the source file. */
@@ -203,56 +204,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
         this._chunkLoadSize = 0
         this._file = null
         this._filePos = 0
-    }
-    /**
-     * Retrieve data gaps in the given `range`.
-     * @param range - Time range to check in seconds.
-     * @param useCacheTime - Consider range in cache time (without data gaps, default false).
-     * @returns
-     */
-    protected _getDataGaps (range?: number[], useCacheTime = false): { duration: number, start: number }[] {
-        const start = range ? range[0] : 0
-        let end = range ? range[1] : (useCacheTime ? this._totalDataLength : this._totalRecordingLength)
-        const dataGaps = [] as { duration: number, start: number }[]
-        if (start < 0) {
-            Log.error(`Requested data gap range start ${start} is smaller than zero.`, SCOPE)
-            return dataGaps
-        }
-        if (start >= end) {
-            Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
-            return dataGaps
-        }
-        if (useCacheTime && end > this._totalDataLength) {
-            end = this._totalDataLength
-        } else if (end > this._totalRecordingLength) {
-            end = this._totalRecordingLength
-        }
-        let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            const gapTime = useCacheTime ? gap[0] : gap[0] + priorGapsTotal
-            priorGapsTotal += gap[1]
-            if ((useCacheTime ? gapTime : gapTime + gap[1]) <= start) {
-                continue
-            } else if (!useCacheTime && gapTime < start && gapTime + gap[1] > start) {
-                // Prior gap partially extends to the checked range.
-                if (gapTime + gap[1] < end) {
-                    dataGaps.push({ start: start, duration: gapTime + gap[1] - start })
-                } else {
-                    dataGaps.push({ start: start, duration: end - start })
-                    break
-                }
-            } else if (gapTime >= start && gapTime < end) {
-                if (useCacheTime || gapTime + gap[1] < end) {
-                    dataGaps.push({ start: gapTime, duration: gap[1] })
-                } else {
-                    dataGaps.push({ start: gapTime, duration: end - gapTime })
-                    break
-                }
-            } else {
-                break
-            }
-        }
-        return dataGaps
     }
     /**
      * Get the total gap time between two points in recording time.
@@ -472,27 +423,30 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return annotations
     }
 
-    getDataGaps (range?: number[]) {
-        const [start, end] = range && range.length === 2
-                             ? [Math.max(0, range[0]), Math.min(range[1], this._totalRecordingLength)]
-                             : [0, this._totalRecordingLength]
-        const dataGaps = [] as { duration: number, start: number }[]
+    getDataGaps (range?: number[], useCacheTime = false): SignalDataGap[] {
+        const start = range ? range[0] : 0
+        let end = range ? range[1] : (useCacheTime ? this._totalDataLength : this._totalRecordingLength)
+        const dataGaps = [] as SignalDataGap[]
         if (start < 0) {
-            Log.error(`Requested data gap range start ${start} was smaller than zero.`, SCOPE)
+            Log.error(`Requested data gap range start ${start} is smaller than zero.`, SCOPE)
             return dataGaps
         }
-        if (start >= end - this._dataUnitDuration) {
-            // This checks for ranges shorter than one data unit or in case of file with no data units
-            // (dataUnitDuration=0) range of zero or less.
+        if (start >= end) {
+            Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
             return dataGaps
+        }
+        if (useCacheTime && end > this._totalDataLength) {
+            end = this._totalDataLength
+        } else if (end > this._totalRecordingLength) {
+            end = this._totalRecordingLength
         }
         let priorGapsTotal = 0
         for (const gap of this._dataGaps) {
-            const gapTime = gap[0] + priorGapsTotal
+            const gapTime = useCacheTime ? gap[0] : gap[0] + priorGapsTotal
             priorGapsTotal += gap[1]
-            if (gapTime + gap[1] <= start) {
+            if ((useCacheTime ? gapTime : gapTime + gap[1]) <= start) {
                 continue
-            } else if (gapTime < start && gapTime + gap[1] > start) {
+            } else if (!useCacheTime && gapTime < start && gapTime + gap[1] > start) {
                 // Prior gap partially extends to the checked range.
                 if (gapTime + gap[1] < end) {
                     dataGaps.push({ start: start, duration: gapTime + gap[1] - start })
@@ -501,7 +455,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
                     break
                 }
             } else if (gapTime >= start && gapTime < end) {
-                if (gapTime + gap[1] < end) {
+                if (useCacheTime || gapTime + gap[1] < end) {
                     dataGaps.push({ start: gapTime, duration: gap[1] })
                 } else {
                     dataGaps.push({ start: gapTime, duration: end - gapTime })
@@ -554,7 +508,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         }
     }
 
-    setDataGaps (dataGaps: SignalDataGaps) {
+    setDataGaps (dataGaps: SignalDataGapMap) {
         this._dataGaps = dataGaps
     }
 
@@ -567,7 +521,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         _cache: SignalDataCache,
         _dataDuration: number,
         _recordingDuration: number,
-        _dataGaps = [] as { duration: number, start: number }[]
+        _dataGaps = [] as SignalDataGap[]
     ) {
         Log.error(`useCache must be overridden in the child class.`, SCOPE)
     }
@@ -582,7 +536,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         _bufferStart: number,
         _dataDuration: number,
         _recordingDuration: number,
-        _dataGaps = [] as { duration: number, start: number }[]
+        _dataGaps = [] as SignalDataGap[]
     ): Promise<MutexExportProperties|null> {
         Log.error(`useInputWorker must be overridden in the child class.`, SCOPE)
         return null
@@ -599,7 +553,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         _input: MessagePort,
         _dataDuration: number,
         _recordingDuration: number,
-        _dataGaps = [] as { duration: number, start: number }[]
+        _dataGaps = [] as SignalDataGap[]
     ) {
         Log.error(`useInputWorker must be overridden in the child class.`, SCOPE)
         return false

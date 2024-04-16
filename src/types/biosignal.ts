@@ -306,7 +306,7 @@ export interface BiosignalHeaderRecord {
     /** Duration of the actual data (excluding gaps) in seconds. */
     dataDuration: number
     /** List of data gaps in the recording as <startTime, length> in seconds. */
-    dataGaps: SignalDataGaps
+    dataGaps: SignalDataGapMap
     /** Number of data records in the recording. */
     dataRecordCount: number
     /** Duration of a single data record in seconds. */
@@ -359,7 +359,7 @@ export interface BiosignalHeaderRecord {
      * The gaps are transferred to the actual recording at the time of instantiation.
      * @param items - Data gaps to add.
      */
-    addDataGaps (items: SignalDataGaps): void
+    addDataGaps (items: SignalDataGapMap): void
     /**
     * Get the label for a given signal index.
     * @param index - Index of the signal.
@@ -423,7 +423,7 @@ export interface BiosignalMontage extends BaseAsset {
     /** Saved configuration for this montage. */
     config: unknown
     /** Gaps in signal data as Map<start data time, duration> in seconds. */
-    dataGaps: SignalDataGaps
+    dataGaps: SignalDataGapMap
     /** Default signal filters. */
     filters: BiosignalFilters
     /** Does this recording use common reference for signals. */
@@ -646,7 +646,7 @@ export interface BiosignalMontageService extends AssetService {
      * Set the given gaps to the recording in the web worker.
      * @param gaps - The gaps to set as a map of <start data time, duration> in seconds.
      */
-    setDataGaps (gaps: SignalDataGaps): void
+    setDataGaps (gaps: SignalDataGapMap): void
     /**
      * Set the filters in the web worker to match current montage filters.
      * @returns Promise that resolves as true if some filter was updated, false otherwise.
@@ -719,7 +719,7 @@ export interface BiosignalResource extends DataResource {
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
     /** Data gaps in the recording as Map<start data time, duration> (in seconds). */
-    dataGaps: SignalDataGaps
+    dataGaps: SignalDataGapMap
     /** The display view start can be optionally updated after signals are processed and actually displayed. */
     displayViewStart: number
     /** Get the currently active filters. */
@@ -762,7 +762,7 @@ export interface BiosignalResource extends DataResource {
      * Add new data gaps to the recording.
      * @param gaps - Map of new gaps to add `<start data time, duration>`.
      */
-    addDataGaps (gaps: SignalDataGaps): void
+    addDataGaps (gaps: SignalDataGapMap): void
     /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
@@ -984,11 +984,20 @@ export interface SignalDataCache {
     invalidateOutputSignals (): void
     releaseBuffers (): void
 }
+/** A single gap in continuous signal data. */
+export type SignalDataGap = {
+    /** Gap duration in seconds. */
+    duration: number
+    /** Gap start in seconds of data time (excluding prior gaps). */
+    start: number
+}
 /**
- * Gaps in continuous signal data as Map<gap position in seconds, gap length in seconds>.
+ * Map of gaps in continuous signal data as Map<gap position in seconds, gap length in seconds>.
  * Position is expressed in seconds of actual signal data, i.e. ignoring any previous data gaps.
+ * @remarks
+ * This type should probably be removed in the future in favor of the more verbose SignalDataGap.
  */
-export type SignalDataGaps = Map<number, number>
+export type SignalDataGapMap = Map<number, number>
 export type SignalPart = {
     data: Float32Array
     samplingRate: number

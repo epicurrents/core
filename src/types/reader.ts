@@ -10,7 +10,8 @@ import { BaseAsset } from './application'
 import {
     BiosignalAnnotation,
     SignalDataCache,
-    SignalDataGaps,
+    SignalDataGap,
+    SignalDataGapMap,
 } from './biosignal'
 import { MemoryManager, SignalCachePart } from './service'
 import {
@@ -194,7 +195,7 @@ export interface SignalDataProcesser {
      * Add new, unique data gaps to the data gap cache.
      * @param newGaps - New data gaps to check and cache.
      */
-    cacheNewDataGaps (newGaps: SignalDataGaps): void
+    cacheNewDataGaps (newGaps: SignalDataGapMap): void
     /**
      * Get any cached annotations from data units in the provided `range`.
      * @param range - Recording range in seconds [inluded, excluded].
@@ -203,12 +204,13 @@ export interface SignalDataProcesser {
     getAnnotations (range?: number[]): BiosignalAnnotation[]
     /**
      * Retrieve data gaps in the given `range`.
-     * @param range - Time range to check in seconds (both exclusive).
+     * @param range - Time range to check in seconds.
+     * @param useCacheTime - Consider range in cache time without prior data gaps (for internal use, default false).
      * @remarks
      * For file structures based on data units, both the starting and ending data unit are excluded,
      * because there cannot be a data gap inside just one unit.
      */
-    getDataGaps (range?: number[]): { duration: number, start: number }[]
+    getDataGaps (range?: number[], useCacheTime?: boolean): SignalDataGap[]
     /**
      * Get signals for the given part.
      * @param range - Range in seconds as [start, end].
@@ -224,7 +226,7 @@ export interface SignalDataProcesser {
      * Set new data gaps for the source data.
      * @param dataGaps - The new gaps.
      */
-    setDataGaps (dataGaps: SignalDataGaps): void
+    setDataGaps (dataGaps: SignalDataGapMap): void
     /**
      * Initialize a new, plain reader cache.
      * @returns Created cache on success, null on failure.
@@ -241,7 +243,7 @@ export interface SignalDataProcesser {
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps?: { duration: number, start: number }[],
+        dataGaps?: SignalDataGap[],
     ): void
     /**
      * Initialize a new shared array mutex using the given `buffer`.
@@ -265,7 +267,7 @@ export interface SignalDataProcesser {
         bufferStart: number,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps?: { duration: number, start: number }[]
+        dataGaps?: SignalDataGap[]
     ): Promise<MutexExportProperties|null>
     /**
      * Set up a shared worker as the source for signal data loading.
@@ -278,7 +280,7 @@ export interface SignalDataProcesser {
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps?: { duration: number, start: number }[]
+        dataGaps?: SignalDataGap[]
     ): Promise<boolean>
 }
 /**

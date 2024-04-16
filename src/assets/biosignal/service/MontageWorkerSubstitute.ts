@@ -18,7 +18,7 @@ import {
     type ReleaseCacheResponse,
     type SetFiltersResponse,
     type SignalCacheResponse,
-    type SignalDataGaps,
+    type SignalDataGapMap,
     type WorkerCommissionResponse,
 } from '#types'
 
@@ -147,7 +147,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             if (!data) {
                 return
             }
-            const newGaps = new Map<number, number>() as SignalDataGaps
+            const newGaps = new Map<number, number>() as SignalDataGapMap
             for (const gap of data.dataGaps) {
                 newGaps.set(gap.start, gap.duration)
             }

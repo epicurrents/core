@@ -14,7 +14,7 @@ import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
-    type SignalDataGaps,
+    type SignalDataGapMap,
     type SignalPart,
     type VideoAttachment
 } from '#types/biosignal'
@@ -39,7 +39,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _channels: BiosignalChannel[] = []
     protected _cursors: BiosignalCursor[] = []
     protected _dataDuration: number = 0
-    protected _dataGaps: SignalDataGaps = new Map<number, number>()
+    protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _displayViewStart: number = 0
     protected _filters = {
         highpass: 0,
@@ -106,7 +106,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     get dataGaps () {
         return this._dataGaps
     }
-    set dataGaps (value: SignalDataGaps) {
+    set dataGaps (value: SignalDataGapMap) {
         const oldVal = new Map(this._dataGaps)
         this._dataGaps = value
         this.onPropertyUpdate('data-gaps', value, oldVal)
@@ -328,7 +328,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
-    addDataGaps (gaps: SignalDataGaps) {
+    addDataGaps (gaps: SignalDataGapMap) {
         let anyChange = false
         for (const gap of gaps) {
             if (this._dataGaps.get(gap[0]) !== gap[1]) {

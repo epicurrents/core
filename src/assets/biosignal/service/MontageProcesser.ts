@@ -25,7 +25,8 @@ import {
     type MontageChannel,
     type SetupChannel,
     type SignalDataCache,
-    type SignalDataGaps,
+    type SignalDataGap,
+    type SignalDataGapMap,
     type SignalPart,
 } from '#types/biosignal'
 import {
@@ -45,7 +46,7 @@ const SCOPE = "MontageProcesser"
 
 export default class MontageProcesser extends SignalFileReader implements SignalDataReader {
     protected _channels = [] as MontageChannel[]
-    protected _dataGaps: SignalDataGaps = new Map<number, number>()
+    protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _filters = {
         highpass: 0,
         lowpass: 0,
@@ -57,6 +58,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
     constructor (settings: CommonBiosignalSettings) {
         super()
         this._settings = settings
+        // Set some parent class properties to avoid errors.
+        this._dataUnitDuration = 1
     }
 
     get channels () {
@@ -102,8 +105,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             Log.error("Cannot return signal part, signal cache has not been set up yet.", SCOPE)
             return false
         }
-        const cacheStart = this._recordingTimeToCacheTime(start)
-        const cacheEnd = this._recordingTimeToCacheTime(end)
+        const cacheStart = this._recordingTimeToCacheTime(Math.max(0, start))
+        const cacheEnd = this._recordingTimeToCacheTime(Math.min(end, this._totalRecordingLength))
         // Check that cache has the part that we need.
         const inputRangeStart = await this._cache.inputRangeStart
         const inputRangeEnd = await this._cache.inputRangeEnd
@@ -142,7 +145,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         const filtStart = cacheStart - padding > 0 ? cacheStart - padding : 0
         const filtEnd = cacheEnd + padding < this._totalDataLength
                     ? cacheEnd + padding : this._totalDataLength
-        const dataGaps = this._getDataGaps([filtStart, filtEnd], true)
+        const dataGaps = this.getDataGaps([filtStart, filtEnd], true)
         channel_loop:
         for (let i=0; i<channels.length; i++) {
             const chan = channels[i]
@@ -173,12 +176,13 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 //rangeStart, rangeEnd,
                 //signalStart, signalEnd,
             } = getFilterPadding([relStart, relEnd] || [], SIGNALS[chan.active].length, chan, this._settings, this._filters)
-            // Calculate signal indices for data gaps.
+            // Calculate signal indices (relative to the retrieved data part) for data gaps.
             const gapIndices = [] as number[][]
             let totalGapLen = 0
             for (const gap of dataGaps) {
                 const gapStart = totalGapLen + Math.round((gap.start - filtStart)*chan.samplingRate)
-                if (gapStart > filterEnd - filterStart) {
+                if (gapStart + gap.duration < 0 || gapStart > filterLen) {
+                    totalGapLen += gap.duration
                     continue
                 }
                 // Apply a maximum of filter padding length of gap.
@@ -319,8 +323,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             const signals = await this.calculateSignalsForPart(range[0], range[1], false, config)
             if (signals) {
                 requestedSigs = {
-                    start: this._recordingTimeToCacheTime(range[0]),
-                    end: this._recordingTimeToCacheTime(range[1]),
+                    start: this._recordingTimeToCacheTime(Math.max(0, range[0])),
+                    end: this._recordingTimeToCacheTime(Math.min(range[1], this._totalRecordingLength)),
                     signals: signals as SignalCachePart['signals']
                 }
             } else {
@@ -355,6 +359,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         }
         const priorGapsTotal = range[0] > 0 ? this._getGapTimeBetween(0, range[0]) : 0
         const gapsTotal = this._getGapTimeBetween(0, range[1])
+        console.log(dataGaps, priorGapsTotal, gapsTotal)
         const rangeStart = range[0] - priorGapsTotal
         const rangeEnd = range[1] - gapsTotal
         //const responseSigs = [] as SignalCachePart['signals']
@@ -484,14 +489,23 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps = [] as { duration: number, start: number }[]
+        dataGaps = [] as SignalDataGap[]
     ) {
         if (this._cache) {
             Log.error(`Montage cache is already set up.`, SCOPE)
             return
         }
+        console.log(dataDuration, recordingDuration)
+        console.log(dataGaps)
         this._totalDataLength = dataDuration
+        // Some calculations require data unit count, consider each second as a data unit in montages.
+        this._dataUnitCount = dataDuration
         this._totalRecordingLength = recordingDuration
+        if (recordingDuration > dataDuration) {
+            this._discontinuous = true
+        } else {
+            this._discontinuous =  false
+        }
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
         }
@@ -512,7 +526,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         bufferStart: number,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps = [] as { duration: number, start: number }[]
+        dataGaps = [] as SignalDataGap[]
     ) {
         if (!input.buffer) {
             return null
@@ -530,8 +544,16 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 samplingRate: samplingRate
             })
         }
+        console.log(dataDuration, recordingDuration)
+        console.log(dataGaps)
         this._totalDataLength = dataDuration
+        this._dataUnitCount = dataDuration
         this._totalRecordingLength = recordingDuration
+        if (recordingDuration > dataDuration) {
+            this._discontinuous = true
+        } else {
+            this._discontinuous =  false
+        }
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
         }
@@ -548,7 +570,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps = [] as { duration: number, start: number }[]
+        dataGaps = [] as SignalDataGap[]
     ) {
         // Construct a SignalCachePart to initialize the mutex.
         const cacheProps = {
@@ -563,8 +585,16 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 samplingRate: samplingRate
             })
         }
+        console.log(dataDuration, recordingDuration)
+        console.log(dataGaps)
         this._totalDataLength = dataDuration
+        this._dataUnitCount = dataDuration
         this._totalRecordingLength = recordingDuration
+        if (recordingDuration > dataDuration) {
+            this._discontinuous = true
+        } else {
+            this._discontinuous =  false
+        }
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
         }

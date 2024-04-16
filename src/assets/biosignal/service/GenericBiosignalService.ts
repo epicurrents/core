@@ -12,7 +12,8 @@ import {
     type BiosignalResource,
     type BiosignalSetupResponse,
     type SignalDataCache,
-    type  SignalDataGaps,
+    type SignalDataGap,
+    type SignalDataGapMap,
 } from '#types/biosignal'
 import {
     type MemoryManager,
@@ -105,10 +106,11 @@ export default abstract class GenericBiosignalService extends GenericService imp
             if (annotations?.length) {
                 this._recording.addAnnotations(...annotations)
             }
-            const dataGaps = data.dataGaps as { start: number, duration: number }[] | undefined
+            const dataGaps = data.dataGaps as SignalDataGap[] | undefined
             if (dataGaps?.length) {
-                const newGaps = new Map<number, number>() as SignalDataGaps
+                const newGaps = new Map<number, number>() as SignalDataGapMap
                 for (const gap of dataGaps) {
+                    // In this case the start position is in data time, not recording time.
                     newGaps.set(gap.start, gap.duration)
                 }
                 // Data gap information can change as the file is loaded,

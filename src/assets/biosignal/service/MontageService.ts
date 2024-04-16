@@ -15,7 +15,7 @@ import {
     type SetFiltersResponse,
     type SetupCacheResponse,
     type SignalDataCache,
-    type SignalDataGaps,
+    type SignalDataGapMap,
 } from '#types/biosignal'
 import { type ConfigChannelFilter } from '#types/config'
 import {
@@ -205,7 +205,7 @@ export default class MontageService extends GenericService implements BiosignalM
         return commission.promise as Promise<SetupWorkerResponse>
     }
 
-    setDataGaps (gaps: SignalDataGaps) {
+    setDataGaps (gaps: SignalDataGapMap) {
         // Convert gaps into a JSON friendly format.
         const gapList = []
         for (const gap of gaps.entries()) {
