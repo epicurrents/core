@@ -422,8 +422,6 @@ export interface BiosignalMontage extends BaseAsset {
     channels: MontageChannel[]
     /** Saved configuration for this montage. */
     config: unknown
-    /** Gaps in signal data as Map<start data time, duration> in seconds. */
-    dataGaps: SignalDataGapMap
     /** Default signal filters. */
     filters: BiosignalFilters
     /** Does this recording use common reference for signals. */
@@ -480,6 +478,11 @@ export interface BiosignalMontage extends BaseAsset {
      */
     getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
+     * Get a list of data gaps in the parent recording.
+     * @param useCacheTime - Use cache time (ignoring previous gaps) instead of recording time.
+     */
+    getDataGaps (useCacheTime?: boolean): SignalDataGap[]
+    /**
      * Map the channels that have been loaded into the setup of this montage.
      * Mapping will match the source signals and derivations into proper montage channels.
      * @param config - Optional configuration (TODO: config definitions).
@@ -529,6 +532,12 @@ export interface BiosignalMontage extends BaseAsset {
      * @param config - Optional configuration (will use default if omitted).
      */
     setChannelLayout (config: ConfigChannelLayout): void
+    /**
+     * Set the data gaps to use when calculating this montage. Gap information will be relayed to the service
+     * responsible for signal processing.
+     * @param gaps - New gaps to use.
+     */
+    setDataGaps (gaps: SignalDataGapMap): void
     /**
      * Set high-pass filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
@@ -718,8 +727,6 @@ export interface BiosignalResource extends DataResource {
     cursors: BiosignalCursor[]
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
-    /** Data gaps in the recording as Map<start data time, duration> (in seconds). */
-    dataGaps: SignalDataGapMap
     /** The display view start can be optionally updated after signals are processed and actually displayed. */
     displayViewStart: number
     /** Get the currently active filters. */
@@ -793,6 +800,11 @@ export interface BiosignalResource extends DataResource {
      */
     getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
+     * Get a list of data gaps in this recording.
+     * @param useCacheTime - Use cache time (ignoring previous gaps) instead of recording time.
+     */
+    getDataGaps (useCacheTime?: boolean): SignalDataGap[]
+    /**
      * Check if the recording has video for the given time point or range.
      * @param time - Time point as number or time range as [start, end].
      */
@@ -806,6 +818,11 @@ export interface BiosignalResource extends DataResource {
      * @param montage - Montage index or name.
      */
     setActiveMontage (montage: number | string | null): Promise<void>
+    /**
+     * Set the data gaps present in this recording.
+     * @param gaps - New gaps to use.
+     */
+    setDataGaps (gaps: SignalDataGapMap): void
     /**
      * Set the default sensitivity to use for primary channel type.
      * @param value - A positive number in the recording's default unit.

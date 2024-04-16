@@ -110,12 +110,11 @@ export default abstract class GenericBiosignalService extends GenericService imp
             if (dataGaps?.length) {
                 const newGaps = new Map<number, number>() as SignalDataGapMap
                 for (const gap of dataGaps) {
-                    // In this case the start position is in data time, not recording time.
                     newGaps.set(gap.start, gap.duration)
                 }
                 // Data gap information can change as the file is loaded,
                 // they must be reset when caching new data.
-                this._recording.dataGaps = newGaps
+                this._recording.setDataGaps(newGaps)
             }
             return true
         }

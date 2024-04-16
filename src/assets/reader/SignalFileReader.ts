@@ -423,22 +423,19 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return annotations
     }
 
-    getDataGaps (range?: number[], useCacheTime = false): SignalDataGap[] {
-        const start = range ? range[0] : 0
-        let end = range ? range[1] : (useCacheTime ? this._totalDataLength : this._totalRecordingLength)
+    getDataGaps (range = [] as number[], useCacheTime = false): SignalDataGap[] {
+        const start = Math.max(0, range[0] || 0)
+        const end = useCacheTime
+                    ? Math.min(range[1] || this._totalDataLength, this._totalDataLength)
+                    : Math.min(range[1] || this._totalRecordingLength, this._totalRecordingLength)
         const dataGaps = [] as SignalDataGap[]
-        if (start < 0) {
-            Log.error(`Requested data gap range start ${start} is smaller than zero.`, SCOPE)
-            return dataGaps
-        }
-        if (start >= end) {
+        if (start > end) {
             Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
             return dataGaps
-        }
-        if (useCacheTime && end > this._totalDataLength) {
-            end = this._totalDataLength
-        } else if (end > this._totalRecordingLength) {
-            end = this._totalRecordingLength
+        } else if (start === end) {
+            // This can happen when setting up a discontinous recording, but not outside of that.
+            Log.debug(`Requested data gap range ${start} - ${end} is empty.`, SCOPE)
+            return dataGaps
         }
         let priorGapsTotal = 0
         for (const gap of this._dataGaps) {

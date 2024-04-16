@@ -14,6 +14,7 @@ import {
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
+    type SignalDataGap,
     type SignalDataGapMap,
     type SignalPart,
     type VideoAttachment
@@ -101,19 +102,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         const oldVal = this._dataDuration
         this._dataDuration = value
         this.onPropertyUpdate('data-duration', value, oldVal)
-    }
-
-    get dataGaps () {
-        return this._dataGaps
-    }
-    set dataGaps (value: SignalDataGapMap) {
-        const oldVal = new Map(this._dataGaps)
-        this._dataGaps = value
-        this.onPropertyUpdate('data-gaps', value, oldVal)
-        // Set updated data gaps in montages.
-        for (const montage of this._montages) {
-            montage.dataGaps = value
-        }
     }
 
     get displayViewStart () {
@@ -432,6 +420,17 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._activeMontage.getChannelSignal(channel, range, config)
     }
 
+    getDataGaps (useCacheTime = false): SignalDataGap[] {
+        const dataGaps = [] as SignalDataGap[]
+        let priorGapsTotal = 0
+        for (const gap of this._dataGaps) {
+            const gapTime = useCacheTime ? gap[0] : gap[0] + priorGapsTotal
+            dataGaps.push({ start: gapTime, duration: gap[1] })
+            priorGapsTotal += gap[1]
+        }
+        return dataGaps
+    }
+
     async getRawChannelSignal (channel: number | string, range: number[], config?: ConfigChannelFilter):
                               Promise<SignalCacheResponse | null>
     {
@@ -551,6 +550,16 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 await this._activeMontage.updateFilters()
                 this.onPropertyUpdate('active-montage')
             }
+        }
+    }
+
+    setDataGaps (gaps: SignalDataGapMap) {
+        const oldVal = new Map(this._dataGaps)
+        this._dataGaps = gaps
+        this.onPropertyUpdate('data-gaps', gaps, oldVal)
+        // Set updated data gaps in montages.
+        for (const montage of this._montages) {
+            montage.setDataGaps(gaps)
         }
     }
 

@@ -15,6 +15,7 @@ import {
     type MontageChannel,
     type SetFiltersResponse,
     type SignalDataCache,
+    type SignalDataGap,
     type SignalDataGapMap,
 } from '#types/biosignal'
 import {
@@ -53,7 +54,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     } as SignalCachePart
     protected _cacheParts = [] as SignalCachePart[]
     protected _config: BiosignalMontageTemplate | null =  null
-    protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _filters = {
         highpass: 0,
         lowpass: 0,
@@ -106,14 +106,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
     get config () {
         return this._config
-    }
-    get dataGaps () {
-        return this._dataGaps
-    }
-    set dataGaps (gaps: SignalDataGapMap) {
-        this._dataGaps = gaps
-        this._service.setDataGaps(gaps)
-        this.onPropertyUpdate('data-gaps')
     }
     get filters () {
         // Primarily return local filter values, secondarily recording scope values.
@@ -269,6 +261,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this.getAllSignals(range, config)
     }
 
+    getDataGaps (useCacheTime = false): SignalDataGap[] {
+        return this._recording.getDataGaps(useCacheTime)
+    }
+
     mapChannels (config?: ConfigMapChannels) {
         this._channels = mapMontageChannels(this._setup, config)
     }
@@ -376,6 +372,11 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             config.layout = this._config?.layout
         }
         calculateSignalOffsets(this._channels, config)
+    }
+
+    setDataGaps (gaps: SignalDataGapMap) {
+        this._service.setDataGaps(gaps)
+        this.onPropertyUpdate('data-gaps', gaps)
     }
 
     async setHighpassFilter (value: number, target?: string | number) {

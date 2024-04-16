@@ -359,7 +359,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         }
         const priorGapsTotal = range[0] > 0 ? this._getGapTimeBetween(0, range[0]) : 0
         const gapsTotal = this._getGapTimeBetween(0, range[1])
-        console.log(dataGaps, priorGapsTotal, gapsTotal)
+        console.log(this._dataGaps, dataGaps, priorGapsTotal, gapsTotal)
         const rangeStart = range[0] - priorGapsTotal
         const rangeEnd = range[1] - gapsTotal
         //const responseSigs = [] as SignalCachePart['signals']
@@ -495,8 +495,6 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             Log.error(`Montage cache is already set up.`, SCOPE)
             return
         }
-        console.log(dataDuration, recordingDuration)
-        console.log(dataGaps)
         this._totalDataLength = dataDuration
         // Some calculations require data unit count, consider each second as a data unit in montages.
         this._dataUnitCount = dataDuration
@@ -544,8 +542,6 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 samplingRate: samplingRate
             })
         }
-        console.log(dataDuration, recordingDuration)
-        console.log(dataGaps)
         this._totalDataLength = dataDuration
         this._dataUnitCount = dataDuration
         this._totalRecordingLength = recordingDuration
@@ -585,8 +581,6 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 samplingRate: samplingRate
             })
         }
-        console.log(dataDuration, recordingDuration)
-        console.log(dataGaps)
         this._totalDataLength = dataDuration
         this._dataUnitCount = dataDuration
         this._totalRecordingLength = recordingDuration
