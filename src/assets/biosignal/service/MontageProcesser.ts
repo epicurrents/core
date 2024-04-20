@@ -359,7 +359,6 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         }
         const priorGapsTotal = range[0] > 0 ? this._getGapTimeBetween(0, range[0]) : 0
         const gapsTotal = this._getGapTimeBetween(0, range[1])
-        console.log(this._dataGaps, dataGaps, priorGapsTotal, gapsTotal)
         const rangeStart = range[0] - priorGapsTotal
         const rangeEnd = range[1] - gapsTotal
         //const responseSigs = [] as SignalCachePart['signals']
