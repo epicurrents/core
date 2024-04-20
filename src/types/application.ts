@@ -246,9 +246,12 @@ export interface InterfaceModuleConstructor {
 }
 /**
  * Resource module properties for an application interface.
+ * @privateRemarks
+ * These getters are very difficult to type properly, have to try again later.
  */
 export type InterfaceResourceModule = RuntimeResourceModule & {
-    getViewerComponent (): unknown
+    getControlsComponent (): any
+    getViewerComponent (): any
 }
 /**
  * Context for the interface resource module.
@@ -260,12 +263,12 @@ export type InterfaceResourceModuleContext = {
      * Actions for an action-mutation state manager.
      * Note: This is modeled after the VueX library and may need revision later.
      */
-    actions?: NullProtoObject // TODO: Better typing.
+    actions?: unknown // TODO: Better typing.
     /**
      * Mutations for an action-mutation state manager.
      * Note: This is modeled after the VueX library and may need revision later.
      */
-    mutations?: NullProtoObject // TODO: Better typing.
+    mutations?: unknown // TODO: Better typing.
 }
 /**
  * Supported mouse interactions in the UI.
@@ -313,7 +316,7 @@ export type RuntimeAppModule = NullProtoObject & {
     }
 }
 
-export type RuntimeResourceModule = NullProtoObject & {
+export type RuntimeResourceModule = {
     moduleName: {
         /** Identifying code for this module. (TODO: Rename as id?) */
         code: string
@@ -355,6 +358,8 @@ export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
  * core APP properties and methods for altering MODULES and SERVICES.
  */
 export interface StateManager extends RuntimeState {
+    /** Unique id of the application container (DOM). */
+    containerId: string
     /** Is the applciation in full-screen mode. */
     isFullscreen: boolean
     /**
