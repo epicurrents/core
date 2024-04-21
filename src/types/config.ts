@@ -11,7 +11,6 @@ import {
     BiosignalChannelTemplate,
     SetupChannel,
 } from './biosignal'
-import { PlotLineStyles } from './plot'
 import { StudyContextCollection } from './study'
 
 /**

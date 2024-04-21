@@ -81,6 +81,11 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
     set annotations (value: BiosignalAnnotation[]) {
         const oldVal = [...this._annotations]
+        for (const newAnno of value) {
+            if (!newAnno.id) {
+                newAnno.id = GenericBiosignalResource.CreateUniqueId()
+            }
+        }
         // Sort the annotations in ascending order according to start time.
         value.sort((a, b) => a.start - b.start)
         this._annotations = value
@@ -301,6 +306,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                     continue new_loop
                 }
             }
+            if (!newAnno.id) {
+                newAnno.id = GenericBiosignalResource.CreateUniqueId()
+            }
             this._annotations.push(newAnno)
             anyChange = true
         }
@@ -329,22 +337,24 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
-    deleteAnnotations (...ids: string[] | number[]) {
+    deleteAnnotations (...ids: string[] | number[]): BiosignalAnnotation[] {
         let idxOffset = 0
+        const deleted = [] as BiosignalAnnotation[]
         for (const id of ids) {
             if (typeof id === 'number' && id >= 0 && id - idxOffset < this._annotations.length) {
-                this._annotations.splice(id - idxOffset, 1)
+                deleted.push(...this._annotations.splice(id - idxOffset, 1))
                 idxOffset++
             } else if (typeof id === 'string') {
                 for (let i=0; i<this._annotations.length; i++) {
                     if (this._annotations[i].id === id) {
-                        this._annotations.splice(i, 1)
+                        deleted.push(...this._annotations.splice(i, 1))
                         break
                     }
                 }
             }
         }
         this.onPropertyUpdate('annotations')
+        return deleted
     }
 
     getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {

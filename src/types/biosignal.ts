@@ -38,10 +38,17 @@ export interface BiosignalAnnotation {
     annotator: string | null
     /** List of channel numbers, empty for a general type annotation. */
     channels: number[]
+    /** Annotation class.
+     * - `activation` is any activation procedure meant to modify the EEG.
+     * - `comment` is free from commentary, may be unrelated to the recording itself.
+     * - `event` describes something taking place during the recording at that exact moment.
+     * - `technical` describes any technical data/events regarding the recording, such as impedance readings, calibration, input montage switches etc.
+     */
+    class: "activation" | "comment" | "event" | "technical"
     /** Duration of the annotation, in seconds (zero for instant annotation). */
     duration: number
-    /** Identifier for a pre-set annotation type. */
-    id: string | null
+    /** Unique identifier for this annotation. */
+    id: string
     /** Text label for the annotation (visible on the interface and annotation list). */
     label: string
     /** Priority of this annotation (lower number has higher priority). */
@@ -50,13 +57,8 @@ export interface BiosignalAnnotation {
     start: number
     /** Additional commentary regarding the annotation. */
     text: string
-    /** Annotation type.
-     * - `activation` is any activation procedure meant to modify the EEG.
-     * - `comment` is free from commentary, may be unrelated to the recording itself.
-     * - `event` describes something taking place during the recording at that exact moment.
-     * - `technical` describes any technical data/events regarding the recording, such as impedance readings, calibration, input montage switches etc.
-     */
-    type: "activation" | "comment" | "event" | "technical"
+    /** Identifier for a pre-set annotation type. */
+    type: string | null
     /** Should this highlight be shown in the background. */
     background?: boolean
     /** Color override for the annotation. */
@@ -770,6 +772,12 @@ export interface BiosignalResource extends DataResource {
      * @param gaps - Map of new gaps to add `<start data time, duration>`.
      */
     addDataGaps (gaps: SignalDataGapMap): void
+    /**
+     * Delete the given annotations from this recording, returning them as an array.
+     * @param ids - Annotation IDs or indices within the annotations array.
+     * @returns An array containing the removed annotations.
+     */
+    deleteAnnotations (...ids: string[] | number[]): BiosignalAnnotation[]
     /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.

@@ -26,6 +26,9 @@ export default abstract class GenericAsset implements BaseAsset {
         UNKNOWN: 'unk',
         UTILITY: 'utl',
     }
+    static CreateUniqueId () {
+        return Math.random().toString(36).substring(2, 10)
+    }
     /**
      * This will be automatically populated with a reference to the application instance.
      * @remarks
@@ -46,7 +49,7 @@ export default abstract class GenericAsset implements BaseAsset {
     protected _type: string
 
     constructor (name: string, scope: string, type: string) {
-        this._id = Math.random().toString(36).substring(2, 10)
+        this._id = GenericAsset.CreateUniqueId()
         this._scope = GenericAsset.SCOPES.UNKNOWN
         for (const validScope of Object.values(GenericAsset.SCOPES)) {
             if (validScope === scope) {
