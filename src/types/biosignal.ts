@@ -65,6 +65,8 @@ export interface BiosignalAnnotation {
     color?: SettingsColor
     /** Additional opacity multiplier for the highlight. */
     opacity?: number
+    /** Optional visibility property (annotations are visible by default). */
+    visible?: boolean
 }
 /**
  * Common base for all biosignal channel types.
