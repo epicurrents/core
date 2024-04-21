@@ -27,8 +27,21 @@ export default abstract class GenericAsset implements BaseAsset {
         UTILITY: 'utl',
     }
     static CreateUniqueId () {
-        return Math.random().toString(36).substring(2, 10)
+        let retries = 100
+        while (retries > 0) {
+            const id = Math.random().toString(36).substring(2, 10)
+            if (!GenericAsset.USED_IDS.includes(id)) {
+                GenericAsset.USED_IDS.push(id)
+                return id
+            }
+            retries--
+        }
+        Log.error(`Reached retry limit while creating unique ID.`, SCOPE)
+        const errorId = `id-error-${GenericAsset.USED_IDS.length}`
+        GenericAsset.USED_IDS.push(errorId)
+        return errorId
     }
+    private static USED_IDS: string[] = []
     /**
      * This will be automatically populated with a reference to the application instance.
      * @remarks
