@@ -126,11 +126,13 @@ const _settings = {
     },
     app: {
         _userDefinable: {
+            hotkeyAltOrOpt: Boolean,
             screenPPI: Number,
             theme: String,
         },
         dataChunkSize: 5*MB_BYTES,
         fontawesomeLib: 'free',
+        hotkeyAltOrOpt: false,
         iconLib: 'fa',
         isMainComponent: true,
         logThreshold: 'WARN',

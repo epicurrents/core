@@ -24,10 +24,12 @@ export interface AppSettings {
          * (because one data record may be added for signal interpolation).
          * If the size of a single data record is larger than dataChunkSize,
          * the value will be rounded up to match one data record.
-        . */
+         */
         dataChunkSize: number
         /** FontAwesome library to use for icons (to be deprecated). */
         fontawesomeLib: string
+        /** Require either the alt or option (on Mac) key to trigger hotkey actions. */
+        hotkeyAltOrOpt: boolean
         iconLib: string
         isMainComponent: boolean
         /** Messages ≥ this level will be logged. */
