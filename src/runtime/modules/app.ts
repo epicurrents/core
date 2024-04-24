@@ -14,12 +14,8 @@ import { type StudyLoaderContext, type StudyLoaderProtocolContext } from '#types
 const APP: SafeObject & RuntimeAppModule = {
     __proto__: null,
     activeDataset: null,
-    activeScope: '',
-    activeType: '',
-    containerId: '',
     datasets: [],
     id: '',
-    isFullscreen: false,
     moduleName: {
         code: 'app',
         full: 'Application',
@@ -27,12 +23,7 @@ const APP: SafeObject & RuntimeAppModule = {
     },
     plots: new Map<string, BiosignalPlot>(),
     runningId: 0,
-    settingsOpen: false,
-    showOverlay: false,
     studyLoaders: new Map<string, StudyLoaderContext>(),
     studyLoadProtocols: new Map<string, StudyLoaderProtocolContext>(),
-    userSettings: {
-        'screenPPI': 'ScreenPpiCalibrator',
-    },
 }
 export default APP

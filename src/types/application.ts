@@ -293,12 +293,8 @@ export type ResourceModule = {
  */
 export type RuntimeAppModule = NullProtoObject & {
     activeDataset: MediaDataset | null
-    activeScope: string
-    activeType: string
-    containerId: string
     datasets: MediaDataset[]
     id: string
-    isFullscreen: boolean
     moduleName: {
         code: string
         full: string
@@ -307,13 +303,8 @@ export type RuntimeAppModule = NullProtoObject & {
     /** List of available plots as <name, plot-instance|null>. */
     plots: Map<string, BiosignalPlot | null>
     runningId: number
-    settingsOpen: boolean
-    showOverlay: boolean
     studyLoaders: Map<string, StudyLoaderContext>
     studyLoadProtocols: Map<string, StudyLoaderProtocolContext>
-    userSettings: {
-        [setting: string]: string
-    }
 }
 
 export type RuntimeResourceModule = {
@@ -358,17 +349,6 @@ export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
  * core APP properties and methods for altering MODULES and SERVICES.
  */
 export interface StateManager extends RuntimeState {
-    /** Unique id of the application container (DOM). */
-    containerId: string
-    /** Is the applciation in full-screen mode. */
-    isFullscreen: boolean
-    /**
-     * Are the settings open. Setecting a settings closed can be used to trigger reloading and applying
-     * any changes in settings.
-     */
-    settingsOpen: boolean
-    /** Should an overlay (for picking up mouse events) be displayed over the application. */
-    showOverlay: boolean
     /**
      * Add a new dataset to the list of datasets.
      * @param dataset - New dataset to add.
@@ -446,16 +426,6 @@ export interface StateManager extends RuntimeState {
      * @returns
      */
     setActiveResource (resource: DataResource | null, deactivateOthers?: boolean): void
-    /**
-     * Set the given scope as active.
-     * @param scope - The new active scope.
-     */
-    setActiveScope (scope: string): void
-    /**
-     * Set the given type as active.
-     * @param value - New active type.
-     */
-    setActiveType (value: string): void
     /**
      * Set the value of a property in one of the loaded modules.
      * @param module - Name of the module.

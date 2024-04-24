@@ -117,35 +117,6 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         return state.WORKERS
     }
 
-    get containerId () {
-        return state.APP.containerId || ''
-    }
-
-    set containerId (value: string) {
-        state.APP.containerId = value
-    }
-
-    get isFullscreen () {
-        return state.APP.isFullscreen
-    }
-    set isFullscreen (value: boolean) {
-        state.APP.isFullscreen = value
-    }
-
-    get settingsOpen () {
-        return state.APP.settingsOpen
-    }
-    set settingsOpen (value: boolean) {
-        state.APP.settingsOpen = value
-    }
-
-    get showOverlay () {
-        return state.APP.showOverlay || false
-    }
-    set showOverlay (value: boolean) {
-        state.APP.showOverlay = value
-    }
-
     addDataset (dataset: MediaDataset, setAsActive = false) {
         state.APP.datasets.push(dataset)
         this.onPropertyUpdate('datasets', dataset)
@@ -355,18 +326,6 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             }
         }
         this.onPropertyUpdate('active-resource', resource)
-        this.setActiveScope(resource?.scope || '')
-        this.setActiveType(resource?.type || '')
-    }
-
-    setActiveScope (scope: string) {
-        state.APP.activeScope = scope
-        this.onPropertyUpdate('active-scope', scope)
-    }
-
-    setActiveType (value: string) {
-        state.APP.activeType = value
-        this.onPropertyUpdate('active-type', value)
     }
 
     setModule (name: string, module: ResourceModule) {
