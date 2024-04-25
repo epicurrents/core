@@ -127,6 +127,7 @@ export type StudyFileContext = {
  */
 export interface StudyLoader {
     resourceScope: string
+    resourceType: string
     /** Resource scopes supported by this loader. */
     supportedScopes: string[]
     /** Resource types supported by this loader. */

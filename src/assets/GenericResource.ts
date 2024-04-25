@@ -6,7 +6,7 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource } from '#types/application'
+import { type DataResource, type ResourceState } from '#types/application'
 import { type StudyContext } from '#types/study'
 import GenericAsset from '#assets/GenericAsset'
 
@@ -17,6 +17,7 @@ export default abstract class GenericResource extends GenericAsset implements Da
     protected _active: boolean = false
     protected _loaded = false
     protected _source: StudyContext | null = null
+    protected _state: ResourceState = 'added'
 
     constructor (name: string, scope: string, type: string, source?: StudyContext) {
         super(name, scope, type)
@@ -24,6 +25,7 @@ export default abstract class GenericResource extends GenericAsset implements Da
             this._source = source
         }
     }
+    
     get isActive () {
         return this._active
     }
@@ -31,12 +33,8 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._active = value
         this.onPropertyUpdate('is-active')
     }
-    get isPrepared () {
-        return this._loaded
-    }
-    set isPrepared (value: boolean) {
-        this._loaded = value
-        this.onPropertyUpdate('is-prepared')
+    get isReady () {
+        return this._state === 'ready'
     }
     get scope () {
         return this._scope
@@ -51,14 +49,26 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._source = value
         this.onPropertyUpdate('source')
     }
+    get state () {
+        return this._state
+    }
+    set state (value: ResourceState) {
+        const prevState = this._state
+        this._state = value
+        this.onPropertyUpdate('state', value, prevState)
+    }
 
     getMainProperties () {
         // Override this in a child class.
-        return new Map<string, { [key: string]: string|number }|null>()
+        return new Map()
     }
     async prepare () {
         // Override this in a child class.
-        this.isPrepared = true
+        this.state = 'ready'
         return true
+    }
+    async unload () {
+        // Override this in a child class.
+        return Promise.resolve()
     }
 }

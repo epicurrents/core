@@ -72,8 +72,8 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
-    /** Is the metadata (necessary properties) for this resource loaded. */
-    isPrepared: boolean
+    /** Is the resource ready for use. */
+    isReady: boolean
     /**
      * General scope of this resource.
      * @remarks
@@ -83,6 +83,15 @@ export interface BaseAsset {
     scope: string
     /** Source study for this resource. */
     source: StudyContext | null
+    /**
+     * Resource state depicting the phase of loading and preparing the resource for use.
+     * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
+     * - `loading`: Resource data is being loaded from the source.
+     * - `loaded`: Data has been loaded, but resource is not yet initialized.
+     * - `ready`: Resource is initialized and ready for use.
+     * - `error`: There was a loading error.
+     */
+    state: ResourceState
     /**
      * Get the main properties of this resource as a map of
      * <labelString, stringParams>.
@@ -100,6 +109,10 @@ export interface BaseAsset {
      * @returns true on success, false otherwise
      */
     prepare (...args: unknown[]): Promise<boolean>
+    /**
+     * Unload the resource, releasing any reserved memory.
+     */
+    unload (): Promise<void>
 }
 /**
  * The main EpiCurrents application.
@@ -197,11 +210,6 @@ export interface EpiCurrentsApp {
      */
     setActiveDataset (dataset: MediaDataset | null): void
     /**
-     * Set the given ONNX service as actively used service.
-     * @param service - New active ONNX service.
-     */
-    setOnnxService (service: OnnxService): void
-    /**
      * Set the given settings field to a new value. The field must already exist in settings,
      * this method will not create new fields.
      * @param field - Settings field to change (levels separated with dot).
@@ -288,6 +296,15 @@ export type ResourceModule = {
     runtime: RuntimeResourceModule
     settings: BaseModuleSettings
 }
+/**
+ * Resource state depicting the phase of loading and preparing the resource for use.
+ * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
+ * - `loading`: Resource data is being loaded from the source.
+ * - `loaded`: Data has been loaded, but resource is not yet initialized.
+ * - `ready`: Resource is initialized and ready for use.
+     * - `error`: There was a loading error.
+ */
+export type ResourceState = 'added' | 'loading' | 'loaded' | 'ready' | 'error'
 /**
  * This is the main application runtime module, which has a unique structure.
  */
@@ -414,6 +431,12 @@ export interface StateManager extends RuntimeState {
      * @param handler - Handler to remove.
      */
     removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
+    /**
+     * Remove the given `resource` from available resources.
+     * @param resource - The resource to remove (either resources array index, resource id or resource object).
+     * @param dataset - Resource dataset if not the currently active set.
+     */
+    removeResource (resource: DataResource | string | number, dataset?: MediaDataset): void
     /**
      * Set the given dataset as active.
      * @param dataset - New active dataset.

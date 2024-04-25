@@ -130,15 +130,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._id
     }
 
-    get isPrepared () {
-        return this._loaded
-    }
-    set isPrepared (value: boolean) {
-        const oldVal = this._loaded
-        this._loaded = value
-        this.onPropertyUpdate('is-prepared', value, oldVal)
-    }
-
     get loader () {
         return this._service
     }
@@ -505,9 +496,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     async releaseBuffers () {
         Log.info(`Releasing data buffers in ${this.name}.`, SCOPE)
-        for (const mtg of this._montages) {
-            await mtg.releaseBuffers()
-        }
+        await Promise.all(this._montages.map(m => m.releaseBuffers()))
         Log.info(`Montage buffers released.`, SCOPE)
         this._montages.splice(0)
         this._montages = []
@@ -654,5 +643,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.debug("Starting to cache signals from file.", SCOPE)
             this._service?.cacheSignalsFromUrl()
         }
+    }
+
+    unload () {
+        return this.releaseBuffers()
     }
 }

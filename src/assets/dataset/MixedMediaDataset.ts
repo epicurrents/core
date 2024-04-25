@@ -5,15 +5,16 @@
  * @license    Apache-2.0
  */
 
+import { type ResourceState } from '#types/application'
 import { type MediaDataset } from '#types/dataset'
 import { type StudyContext } from '#types/study'
 import GenericDataset from '#assets/dataset/GenericDataset'
 import GenericResource from '#assets/GenericResource'
 
 export default class MixedMediaDataset extends GenericDataset implements MediaDataset {
-    protected _isPrepared = false
     protected _scope = ''
     protected _source: StudyContext | null = null
+    protected _state: ResourceState = 'added'
     /**
      * Create a new media dataset with the given properties.
      * @param name - Name of the dataset.
@@ -22,14 +23,8 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         super(name)
     }
 
-    get isPrepared () {
-        return this._isPrepared
-    }
-    set isPrepared (value: boolean) {
-        if (value !== this._isPrepared) {
-            this._isPrepared = value
-            this.onPropertyUpdate('is-prepared', value, !value)
-        }
+    get isReady () {
+        return this._state === 'ready'
     }
     get resources () {
         return this._resources as GenericResource[]
@@ -55,9 +50,19 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         this._source = value
         this.onPropertyUpdate('source')
     }
+    get state () {
+        return this._state
+    }
+    set state (value: ResourceState) {
+        const prevState = this._state
+        this._state = value
+        this.onPropertyUpdate('state', value, prevState)
+    }
+
     addResource (resource: GenericResource) {
         super.addResource(resource)
     }
+
     getMainProperties(): Map<string, { [key: string]: string | number } | null> {
         return new Map<string, { [key: string]: string | number } | null>([
             [
@@ -70,11 +75,9 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
             ]
         ])
     }
+
     async prepare () {
-        this.isPrepared = true
+        this.state = 'ready'
         return true
-    }
-    removeResource(resource: string | number | GenericResource): void {
-        super.removeResource(resource)
     }
 }
