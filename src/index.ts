@@ -13,8 +13,8 @@ import {
     BiosignalAudio,
     BiosignalCache,
     BiosignalMutex,
-    GenericBiosignalService,
     BiosignalStudyLoader,
+    ErrorResource,
     FileSystemDirectory,
     FileSystemFile,
     GenericAsset,
@@ -22,6 +22,7 @@ import {
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
     GenericBiosignalResource,
+    GenericBiosignalService,
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
@@ -45,8 +46,8 @@ export {
     BiosignalAudio,
     BiosignalCache,
     BiosignalMutex,
-    GenericBiosignalService,
     BiosignalStudyLoader,
+    ErrorResource,
     FileSystemDirectory,
     FileSystemFile,
     GenericAsset,
@@ -54,6 +55,7 @@ export {
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
     GenericBiosignalResource,
+    GenericBiosignalService,
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
@@ -249,6 +251,9 @@ export class EpiCurrents implements EpiCurrentsApp {
         const context = this.#runtime.APP.studyLoaders.get(loader)
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
+            // Add an error resource in place of the resource that failed to load.
+            const errorResource = new ErrorResource(name || 'Unknown', 'unknown', 'UNKNOWN', undefined)
+            this.#runtime.addResource('UNKNOWN', errorResource)
             return null
         }
         if (this.#memoryManager) {
@@ -265,6 +270,14 @@ export class EpiCurrents implements EpiCurrentsApp {
             : source.file ? await context.loader.loadFromFile(source.file, config)
                           : null
         if (!study) {
+            // Add an error resource in place of the resource that failed to load.
+            const errorResource = new ErrorResource(
+                name || 'Unknown',
+                context.loader.resourceType,
+                context.loader.resourceScope,
+                undefined
+            )
+            this.#runtime.addResource(context.loader.resourceScope, errorResource)
             return null
         }
         const nextIdx = await context.loader.useStudy(study)
@@ -278,6 +291,9 @@ export class EpiCurrents implements EpiCurrentsApp {
                 }
             })
             return resource
+        } else {
+            const errorResource = new ErrorResource(study.name, study.type, context.loader.resourceScope, study)
+            this.#runtime.addResource(context.loader.resourceScope, errorResource)
         }
         return null
     }
@@ -320,7 +336,7 @@ export class EpiCurrents implements EpiCurrentsApp {
         }
         const setResources = this.#runtime.APP.activeDataset.resources
         for (const resource of setResources) {
-            if (resource.id === id && resource.isPrepared) {
+            if (resource.id === id && resource.isReady) {
                 this.#runtime.setActiveResource(resource)
             }
         }
@@ -328,11 +344,6 @@ export class EpiCurrents implements EpiCurrentsApp {
 
     setActiveDataset (dataset: MediaDataset | null) {
         this.#runtime.setActiveDataset(dataset)
-    }
-
-    setOnnxService (service: OnnxService) {
-        this.#runtime.setService('ONNX', service)
-        this.#runtime.setSettingsValue('services.ONNX', true) //service ? true : false
     }
 
     setSettingsValue (field: string, value: SettingsValue) {

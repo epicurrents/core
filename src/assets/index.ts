@@ -20,6 +20,9 @@ import {
     GenericDocumentResource,
 } from './document'
 import {
+    ErrorResource,
+} from './error'
+import {
     BiosignalAudio,
 } from './media'
 import {
@@ -45,14 +48,15 @@ export {
     BiosignalAudio,
     BiosignalCache,
     BiosignalMutex,
-    GenericBiosignalService,
     BiosignalStudyLoader,
+    ErrorResource,
     FileSystemDirectory,
     FileSystemFile,
     GenericBiosignalChannel,
     GenericBiosignalHeaders,
     GenericBiosignalMontage,
     GenericBiosignalResource,
+    GenericBiosignalService,
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
