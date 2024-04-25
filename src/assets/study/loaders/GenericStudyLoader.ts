@@ -96,6 +96,11 @@ export default class GenericStudyLoader implements StudyLoader {
         return 'UNKNOWN'
     }
 
+    get resourceType () {
+        // Override this in the child loader.
+        return 'unknown'
+    }
+
     get supportedScopes () {
         return this._supportedScopes
     }

@@ -354,6 +354,13 @@ export const combineSignalParts = (partA: SignalCachePart, partB: SignalCachePar
                     partA.start = newPart.start
                 }
                 return true
+            } else {
+                // Explain failure to combine parts.
+                Log.debug(
+                    `Cannot combine non-consecutive signal parts; ` +
+                    `neither first part end equals second part start (${partA.end} != ${partB.start})) ` +
+                    `nor second part end equals first part start (${partB.end} != ${partA.start}).`,
+                SCOPE)
             }
         }
     }
@@ -935,29 +942,24 @@ export const mapSignalsToSamplingRates = (signals: Float32Array[], channels: Bio
  * @return SignalCacheParts with the range and signal data adjusted
  */
 export const partsNotCached = (partToCheck: SignalCachePart, ...cachedParts: SignalCachePart[]): SignalCachePart[] => {
-    /*const notCached = [{
-        start: partToCheck.start,
-        end: partToCheck.end,
-        signals: partToCheck.signals.map((sig) => { return {...sig} })
-    }] as SignalCachePart[]*/
     const notCached = [{ start: partToCheck.start, end: partToCheck.end }] as SignalCachePart[]
-    for (const cached of cachedParts) {
-        // First check if the entire part has already been cached
+    for (const cached of cachedParts.sort((a, b) => a.start - b.start)) {
+        // First check if the entire part has already been cached.
         if (cached.start <= partToCheck.start && cached.end >= partToCheck.end) {
             return []
         }
         for (let i=0; i<notCached.length; i++) {
             const part = notCached[i]
             if (cached.start <= part.start && cached.end >= part.end) {
-                // Entire part has already been cached, remove it
+                // Entire part has already been cached, remove it.
                 notCached.splice(i, 1)
                 if (!notCached.length) {
-                    // Nothing left to check
+                    // Nothing left to check.
                     return notCached
                 }
                 i--
             } else if (cached.start > part.start && cached.end < part.end) {
-                // A portion in the middle has been already cached, so split the part in two
+                // A portion in the middle has been already cached, so split the part in two.
                 const partToSplit = notCached.splice(i, 1)[0]
                 const firstPart = {
                     start: partToSplit.start,
@@ -972,15 +974,15 @@ export const partsNotCached = (partToCheck: SignalCachePart, ...cachedParts: Sig
                 } as SignalCachePart
                 notCached.push(secondPart)
             } else if (cached.end < part.end && cached.end > part.start) {
-                // End of the part has not been cached
+                // End of the part has not been cached.
                 part.start = cached.end
             } else if (cached.start > part.start && cached.start < part.end) {
-                // Start of the part has not been cached
+                // Start of the part has not been cached.
                 part.end = cached.start
             }
         }
     }
-    // Finally, add actual signal data to notCached parts
+    // Finally, add actual signal data to notCached parts.
     for (const part of notCached) {
         for (const sig of partToCheck.signals) {
             if (!part.signals) {
