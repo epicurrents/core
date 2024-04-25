@@ -291,6 +291,16 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         Log.debug(`Cound not locate the requsted handlers for ${property.join(', ')}.`, SCOPE)
     }
 
+    removeResource (resource: DataResource | string | number, dataset?: MediaDataset) {
+        const activeSet = dataset || this.APP.activeDataset
+        if (!activeSet) {
+            Log.error(`Could not remove resource: no dataset is active or defined.`, SCOPE)
+            return
+        }
+        activeSet.removeResource(resource)
+        this.onPropertyUpdate('resouces')
+    }
+
     setActiveDataset (dataset: MediaDataset | null) {
         const prevActive = state.APP.activeDataset
         if (prevActive) {

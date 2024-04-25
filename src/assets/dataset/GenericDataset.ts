@@ -129,36 +129,23 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
     }
 
     removeResource (resource: DataResource | string | number) {
-        if (typeof resource === 'number') {
-            if (!this._resources[resource]) {
-                Log.warn(
-                    `Could not remove dataset resource at index ${resource}, array index is out of bounds.`,
-                    SCOPE
-                )
-                return
-            }
-            const removed = this._resources.splice(resource, 1)[0]
-            if (this._resourceSorting.scheme === 'id') {
-                this._resourceSorting.order.splice(this._resourceSorting.order.indexOf(removed.id), 1)
-            }
-            Log.debug(`Removed ${removed.name} from dataset resources.`, SCOPE)
-        } else {
-            for (let i=0; i<this._resources.length; i++) {
-                const existing = this._resources[i]
-                if (
-                    typeof resource === 'string' && existing.id === resource ||
-                    typeof resource === 'object' && resource.id === existing.id
-                ) {
-                    const removed = this._resources.splice(i, 1)[0]
-                    if (this._resourceSorting.scheme === 'id') {
-                        this._resourceSorting.order.splice(this._resourceSorting.order.indexOf(removed.id), 1)
-                    }
-                    Log.debug(`Removed ${removed.name} from dataset resources.`, SCOPE)
-                    return
-                }
-            }
-            Log.warn(`Could not find the given resource to remove from dataset.`, SCOPE)
+        const resourceIdx = typeof resource === 'number'
+                            ? resource
+                            : typeof resource === 'string'
+                              ? this._resources.filter(r => r.id === resource).map((_r, idx) => idx)[0]
+                              : this._resources.filter(r => r.id === resource.id).map((_r, idx) => idx)[0]
+        if (resourceIdx === undefined) {
+            Log.error(`Could not remove given resource from dataset: ther resource was not found.`, SCOPE)
+            return null
         }
+        const removed = this._resources.splice(resourceIdx, 1)[0]
+        if (this._resourceSorting.scheme === 'id') {
+            this._resourceSorting.order.splice(this._resourceSorting.order.indexOf(removed.id), 1)
+        }
+        Log.debug(`Removed ${removed.name} from dataset resources.`, SCOPE)
+        this.onPropertyUpdate('resources')
+        // Unload the removed resource.
+        return removed
     }
 
     setCredentials (username: string, password: string) {
@@ -191,5 +178,13 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
         this._resourceSorting.scheme = scheme
         this._resourceSorting.order = []
         this.onPropertyUpdate('resources')
+    }
+
+    async unload () {
+        for (let i=0; i<this._resources.length;) {
+            const removed = this.removeResource(0)
+            await removed?.unload()
+        }
+        Log.debug(`Dataset ${this._name} and associated resources unloaded.`, SCOPE)
     }
 }

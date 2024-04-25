@@ -50,10 +50,12 @@ export interface BaseDataset extends BaseAsset {
      */
     getResourcesByType (...types: string[]): DataResource[]
     /**
-     * Remove the given resource from this dataset. Removal will **not** automatically destroy the resource.
+     * Remove the given resource from this dataset, returning it.
+     * Removal will **not** automatically unload or destroy the resource.
      * @param resource - Either the resource object *or* the ID of the resource *or* its index within the resource array (in adding order).
+     * @returns The removed resource or null on failure.
      */
-    removeResource (resource: DataResource | string | number): void
+    removeResource (resource: DataResource | string | number): DataResource | null
     /**
      * Set credentials to use when loading data from the dataset resources.
      * *Not yet implemented*.
@@ -79,6 +81,10 @@ export interface BaseDataset extends BaseAsset {
      * @param scheme - New sorting scheme.
      */
     setResourceSortingScheme (scheme: ResourceSortingScheme): void
+    /**
+     * Unload and remove all the resources registered to this dataset.
+     */
+    unload (): Promise<void>
 }
 /**
  * Credentials for authenticating to a data server.
@@ -103,20 +109,7 @@ export interface DatasetLoader {
 /**
  * Dataset for holding media resources. These include signal recordings and traditional types of media.
  */
-export interface MediaDataset extends BaseDataset, DataResource  {
-    /** Resources added to this dataset. */
-    resources: DataResource[]
-    /**
-     * Add a new media resource into the dataset.
-     * @param resource - The resource to add.
-     */
-    addResource (resource: DataResource): void
-    /**
-     * Remove a resource from this dataset.
-     * @param resource - The resource to remove, its id, or its index in this dataset's array of `resources`.
-     */
-    removeResource (resource: string | number | DataResource): void
-}
+export interface MediaDataset extends BaseDataset, DataResource  {}
 /**
  * Set of instructions for sorting resources within a dataset.
  */
