@@ -328,26 +328,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
-    deleteAnnotations (...ids: string[] | number[]): BiosignalAnnotation[] {
-        let idxOffset = 0
-        const deleted = [] as BiosignalAnnotation[]
-        for (const id of ids) {
-            if (typeof id === 'number' && id >= 0 && id - idxOffset < this._annotations.length) {
-                deleted.push(...this._annotations.splice(id - idxOffset, 1))
-                idxOffset++
-            } else if (typeof id === 'string') {
-                for (let i=0; i<this._annotations.length; i++) {
-                    if (this._annotations[i].id === id) {
-                        deleted.push(...this._annotations.splice(i, 1))
-                        break
-                    }
-                }
-            }
-        }
-        this.onPropertyUpdate('annotations')
-        return deleted
-    }
-
     getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
         if (!this._activeMontage) {
             return this.getAllRawSignals(range, config)
@@ -511,6 +491,31 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             chan.removeAllPropertyUpdateHandlers()
         }
         super.removeAllPropertyUpdateHandlers()
+    }
+
+    removeAnnotations (...annos: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[] {
+        const deleted = [] as BiosignalAnnotation[]
+        // All arguments must be of the same type, so we can check the first element.
+        if (typeof annos[0] === 'number') {
+            // Remaining IDs must be offset when annotations are removed from the preceding array.
+            // We must go through the IDs in ascending order for this to work.
+            const annoIdxs = (annos as number[]).sort((a, b) => a - b).map((v, i) => v - i)
+            for (const idx of annoIdxs) {
+                deleted.push(...this._annotations.splice(idx, 1))
+            }
+        } else {
+            for (const anno of annos as string[] | BiosignalAnnotation[]) {
+                const annoId = typeof anno === 'string' ? anno : anno.id
+                for (let i=0; i<this._annotations.length; i++) {
+                    if (this._annotations[i].id === annoId) {
+                        deleted.push(...this._annotations.splice(i, 1))
+                        break
+                    }
+                }
+            }
+        }
+        this.onPropertyUpdate('annotations')
+        return deleted
     }
 
     async setActiveMontage (montage: number | string | null) {

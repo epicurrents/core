@@ -775,11 +775,11 @@ export interface BiosignalResource extends DataResource {
      */
     addDataGaps (gaps: SignalDataGapMap): void
     /**
-     * Delete the given annotations from this recording, returning them as an array.
-     * @param ids - Annotation IDs or indices within the annotations array.
+     * Remove the given `annotations` from this recording, returning them as an array.
+     * @param annotations - Annotation objects or IDs, or indices within the annotations array.
      * @returns An array containing the removed annotations.
      */
-    deleteAnnotations (...ids: string[] | number[]): BiosignalAnnotation[]
+    removeAnnotations (...annotations: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[]
     /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
