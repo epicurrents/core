@@ -13,7 +13,11 @@ import {
     SignalDataGap,
     SignalDataGapMap,
 } from './biosignal'
-import { MemoryManager, SignalCachePart } from './service'
+import { 
+    MemoryManager,
+    SignalCachePart,
+    SignalCacheProcess,
+} from './service'
 import {
     StudyContext,
     StudyContextFile,
@@ -314,8 +318,9 @@ export interface SignalDataReader extends SignalDataProcesser {
      * Read a single part from the cached file.
      * @param startFrom - Starting point of the loading process in seconds of file duration.
      * @param dataLength - Length of the requested data in seconds.
+     * @returns Promise containing the signal file part or null.
      */
-    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart>
+    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart | null>
 }
 /**
  * SignalFileReader has additional methods for reading the signal header and actuals signal data.
@@ -339,12 +344,22 @@ export interface SignalFileReader extends FileFormatReader {
     readSignals: (source: ArrayBuffer, config?: ConfigReadSignals) => Promise<void>
 }
 /**
- * Partially loaded file containing:
+ * Partially loaded signal file containing:
  * - `data` as a pseudo-File object.
+ * - `dataLen` as length of the actual signal data in seconds.
  * - `length` of the loaded part in seconds (recording time).
  * - `start` position of the loaded part in seconds (recording time).
  */
-export type SignalFilePart = { data: File, length: number, start: number } | null
+export type SignalFilePart = {
+    /** Signal data as a pseudo-File object. */
+    data: File
+    /** Length of the actual data in seconds. */
+    dataLength: number
+    /** Length of the loaded part in seconds (recording time, i.e. containing possible gaps). */
+    length: number
+    /** Starting time of the loaded part in seconds (recording time, i.e. including possible prior gaps). */
+    start: number
+}
 export type SuccessReject = (reason: string) => void
 export type SuccessResolve = (response: SuccessResponse) => void
 export type SuccessResponse = boolean

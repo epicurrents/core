@@ -73,7 +73,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
     /** A plain fallback data cache in case mutex is not usable. */
     protected _fallbackCache = null as SignalDataCache | null
     /** The file to load. */
-    protected _file = null as SignalFilePart
+    protected _file = null as SignalFilePart | null
     /** Index of next data data unit to load. */
     protected _filePos = 0
     /** Is the mutex fully setup and ready. */
@@ -470,7 +470,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return null
     }
 
-    async readPartFromFile (_startFrom: number, _dataLength: number): Promise<SignalFilePart> {
+    async readPartFromFile (_startFrom: number, _dataLength: number): Promise<SignalFilePart | null> {
         Log.error(`readPartFromFile has not been overridden by child class.`, SCOPE)
         return nullPromise
     }
@@ -481,8 +481,9 @@ export default abstract class SignalFileReader implements SignalDataReader {
             .then(blobFile => {
                 this._file = {
                     data: new File([blobFile], "recording"),
+                    dataLength: this._totalDataLength,
                     start: 0,
-                    length: this._totalDataLength
+                    length: this._totalRecordingLength,
                 }
                 return true
             }).catch((reason: Error) => {
