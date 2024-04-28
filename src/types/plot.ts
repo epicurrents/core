@@ -238,8 +238,6 @@ export type SignalHighlight = {
     label: string
     /** Start time in recording seconds. */
     start: number
-    /** Is this highlight part of the actual detection or a sliding "collar" around it. */
-    type: "collar" | "detection"
     /** Should this highlight be visible. */
     visible: boolean
     /** Should this highlight be shown in the background. */
@@ -254,6 +252,8 @@ export type SignalHighlight = {
     hasPrevious?: boolean
     /** Additional opacity multiplier for the highlight as a value or gradient range. */
     opacity?: number | number[]
+    /** Is this part the actual highlight or a sliding "collar" around it. */
+    type?: "collar" | "highlight"
     /** Optional numeric value for highlight (to compare with ref). */
     value?: number
 }
