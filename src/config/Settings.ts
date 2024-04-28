@@ -190,6 +190,17 @@ const _settings = {
         const configFields = [SETTINGS] as any[]
         let i = 0
         for (const f of fPath) {
+            const nextField = configFields[i][f as keyof typeof configFields]
+            if (nextField === undefined) {
+                Log.warn(
+                    `Could not locate field '${field}': property '${fPath.slice(i).join('.')}' ` +
+                    `does not exist. Valid properties on this level are '` +
+                    Object.entries(configFields[i])
+                          .filter(f => !f[0].startsWith('_') && typeof f[1] !== 'function')
+                          .map(f => f[0]).join("', '") + "'.",
+                SCOPE)
+                return undefined
+            }
             if (
                 (depth !== undefined && (
                     depth >= 0 && i === depth ||
@@ -197,21 +208,11 @@ const _settings = {
                 )) ||
                 (depth === undefined && i === fPath.length - 1)
             ) {
-                if (
-                    configFields[i][f as keyof typeof configFields] === undefined
-                ) {
-                    Log.warn(
-                        `Could not locate field '${field}': property '${fPath.slice(i).join('.')}' ` +
-                        `does not exist. Valid properties on this level are ` +
-                        Object.keys(configFields[i]).join("', '") + '.',
-                    SCOPE)
-                    return undefined
-                }
                 // Final field
                 const config = configFields.pop()
                 return config[f]
             } else {
-                configFields.push(configFields[i][f as keyof typeof configFields])
+                configFields.push(nextField)
             }
             i++
         }
