@@ -204,25 +204,17 @@ export type PlotLineStyles = {
  * Signal part selected for closer inspection.
  */
 export type PlotTraceSelection = {
-    amplitude: number
+    /** Selected channel. */
     channel: BiosignalChannel
+    /** Crop dimensions of the selected signal. */
     crop: number[]
-    dragDimensions: number[]
-    frequencyBandProperties: {
-        name: string
-        absolute: number
-        average: number
-        peakFrequency: number
-        relativeAbsolute: number
-        relativeAverage: number
-        topAbsolute: boolean
-        topAverage: boolean
-        topFrequency: boolean
-    }[]
+    /** Selection element dimensions as pixels from left edge of the overlay. */
+    dimensions: number[]
+    /** Element displaying the drag range. */
     getDragElement: () => HTMLDivElement
+    /** Markers contained in this selection. */
     markers: SignalPoI[]
-    maxValue: number
-    minValue: number
+    /** Range of the selection as seconds of recording time. */
     range: number[]
     signal: SignalPart | null
 }
