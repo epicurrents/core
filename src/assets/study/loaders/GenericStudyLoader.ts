@@ -419,7 +419,6 @@ export default class GenericStudyLoader implements StudyLoader {
             Log.error(`No file loaders matched the given file name.`, SCOPE)
             return null
         }
-        console.warn(study)
         this._study = study
         return study
     }
