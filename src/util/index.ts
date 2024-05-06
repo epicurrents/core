@@ -57,6 +57,7 @@ import {
     shouldFilterSignal,
 } from './signal'
 import {
+    inlineWorker,
     syncSettings,
     validateCommissionProps,
     type RelayLogMessage,
@@ -87,6 +88,7 @@ export {
     getIncludedChannels,
     getOrSetValue,
     hexToSettingsColor,
+    inlineWorker,
     interpolateSignalValues,
     isAnnotationSignal,
     isContinuousSignal,
