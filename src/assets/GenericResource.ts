@@ -14,7 +14,6 @@ import GenericAsset from '#assets/GenericAsset'
 
 export default abstract class GenericResource extends GenericAsset implements DataResource {
     /** Is this record selected as active in the UI. */
-    protected _active: boolean = false
     protected _loaded = false
     protected _source: StudyContext | null = null
     protected _state: ResourceState = 'added'
@@ -25,22 +24,9 @@ export default abstract class GenericResource extends GenericAsset implements Da
             this._source = source
         }
     }
-    
-    get isActive () {
-        return this._active
-    }
-    set isActive (value: boolean) {
-        this._active = value
-        this.onPropertyUpdate('is-active')
-    }
+
     get isReady () {
         return this._state === 'ready'
-    }
-    get scope () {
-        return this._scope
-    }
-    set scope (value: string) {
-        this._scope = value
     }
     get source () {
         return this._source
