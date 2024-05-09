@@ -57,6 +57,7 @@ export default abstract class GenericAsset implements BaseAsset {
         handler: (newValue?: unknown, oldValue?: unknown) => unknown
         pattern: RegExp
         property: string
+        single: boolean
     }[] = []
     protected _scope: string
     protected _type: string
@@ -109,7 +110,8 @@ export default abstract class GenericAsset implements BaseAsset {
     addPropertyUpdateHandler (
         property: string | string[],
         handler: (newValue?: unknown, oldValue?: unknown) => unknown,
-        caller?: string
+        caller?: string,
+        singleEvent = false,
     ) {
         property = Array.isArray(property) ? property : [property] // Simplify method.
         for (const update of this._propertyUpdateHandlers) {
@@ -130,16 +132,22 @@ export default abstract class GenericAsset implements BaseAsset {
                 handler: handler,
                 pattern: new RegExp(`^${property}$`, 'i'),
                 property: prop,
+                single: singleEvent,
             })
         }
         Log.debug(`Added a handler(s) for ${property}.`, SCOPE)
     }
 
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
-        for (const update of this._propertyUpdateHandlers) {
+        for (let i=0; i<this._propertyUpdateHandlers.length; i++) {
+            const update = this._propertyUpdateHandlers[i]
             if (update.property === property || property.match(update.pattern)) {
                 Log.debug(`Executing ${property} handler${update.caller ? ' for ' + update.caller : ''}.`, SCOPE)
                 update.handler(newValue, oldValue)
+                if (update.single) {
+                    this._propertyUpdateHandlers.splice(i, 1)
+                    i--
+                }
             }
         }
     }

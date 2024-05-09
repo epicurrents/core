@@ -42,8 +42,14 @@ export interface BaseAsset {
      * @param property - Name of the property or array of property names (in kebab-case).
      * @param handler - Handler to fire when the property changes.
      * @param caller - Optional ID for the caller.
+     * @param singleEvent - Should the handler be removed after the first time this event occurs (default false).
      */
-    addPropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler, caller?: string): void
+    addPropertyUpdateHandler (
+        property: string | string[],
+        handler: PropertyUpdateHandler,
+        caller?: string,
+        signleEvent?: boolean
+    ): void
     /**
      * Fire all property update handlers attached to the given property.
      * @param property - Property that was updated.
