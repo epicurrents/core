@@ -31,11 +31,47 @@ import { StudyContext } from './study'
 import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-mutex'
 
 /**
+ * Object template to use when constructing a biosignal annotation.
+ */
+export type AnnotationTemplate = {
+    /** Author of this annotation. */
+    annotator: BiosignalAnnotation['annotator']
+    /** Should this annotation be shown in the background. */
+    background: BiosignalAnnotation['background']
+    /** List of channel numbers, empty for a general type annotation. */
+    channels: BiosignalAnnotation['channels']
+    /** Annotation class.
+     * - `activation` is any activation procedure meant to modify the EEG.
+     * - `comment` is free from commentary, may be unrelated to the recording itself.
+     * - `event` describes something taking place during the recording at that exact moment.
+     * - `technical` describes any technical data/events regarding the recording, such as impedance readings, calibration, input montage switches etc.
+     */
+    class: BiosignalAnnotation['class']
+    /** Duration of the annotation, in seconds (zero for instant annotation). */
+    duration: BiosignalAnnotation['duration']
+    /** Text label for the annotation (visible on the interface and annotation list). */
+    label: BiosignalAnnotation['label']
+    /** Priority of this annotation (lower number has higher priority). */
+    priority: BiosignalAnnotation['priority']
+    /** Annotation starting position, in seconds. */
+    start: BiosignalAnnotation['start']
+    /** Additional commentary regarding the annotation. */
+    text: BiosignalAnnotation['text']
+    /** Color override for the annotation. */
+    color?: BiosignalAnnotation['color']
+    /** Additional opacity multiplier for the highlight. */
+    opacity?: BiosignalAnnotation['opacity']
+    /** Optional visibility property (annotations are visible by default). */
+    visible?: BiosignalAnnotation['visible']
+}
+/**
  * Annotation for a single moment or period of time in a biosignal resource.
  */
-export interface BiosignalAnnotation {
+export interface BiosignalAnnotation extends BaseAsset {
     /** Author of this annotation. */
     annotator: string | null
+    /** Should this annotation be placed in the background (behind the plot). */
+    background: boolean
     /** List of channel numbers, empty for a general type annotation. */
     channels: number[]
     /** Annotation class.
@@ -47,8 +83,6 @@ export interface BiosignalAnnotation {
     class: "activation" | "comment" | "event" | "technical"
     /** Duration of the annotation, in seconds (zero for instant annotation). */
     duration: number
-    /** Unique identifier for this annotation. */
-    id: string
     /** Text label for the annotation (visible on the interface and annotation list). */
     label: string
     /** Priority of this annotation (lower number has higher priority). */
@@ -58,15 +92,19 @@ export interface BiosignalAnnotation {
     /** Additional commentary regarding the annotation. */
     text: string
     /** Identifier for a pre-set annotation type. */
-    type: string | null
-    /** Should this highlight be shown in the background. */
-    background?: boolean
-    /** Color override for the annotation. */
+    type: string
+    /** Is this annotation visible. */
+    visible: boolean
+    /**
+     * Color override for the annotation.
+     * Changing this property triggers an additional update event `appearance`.
+     */
     color?: SettingsColor
-    /** Additional opacity multiplier for the highlight. */
+    /**
+     * Additional opacity multiplier for the annotation opacity set in the `color` property.
+     * Changing this property triggers an additional update event `appearance`.
+     */
     opacity?: number
-    /** Optional visibility property (annotations are visible by default). */
-    visible?: boolean
 }
 /**
  * Common base for all biosignal channel types.
@@ -306,7 +344,7 @@ export type BiosignalFilters = {
  */
 export interface BiosignalHeaderRecord {
     /** List of annotations for this recording. */
-    annotations: BiosignalAnnotation[]
+    annotations: AnnotationTemplate[]
     /** Duration of the actual data (excluding gaps) in seconds. */
     dataDuration: number
     /** List of data gaps in the recording as <startTime, length> in seconds. */
@@ -765,6 +803,11 @@ export interface BiosignalResource extends DataResource {
      */
     addAnnotations (...items: BiosignalAnnotation[]): void
     /**
+     * Add new annotations to the recording from the given templates.
+     * @param templates - Templates to use for the annotations.
+     */
+    addAnnotationsFromTemplates (...templates: AnnotationTemplate[]): void
+    /**
      * Add the given `cursors` to this resource.
      * @param cursors - Cursors to add.
      */
@@ -774,12 +817,6 @@ export interface BiosignalResource extends DataResource {
      * @param gaps - Map of new gaps to add `<start data time, duration>`.
      */
     addDataGaps (gaps: SignalDataGapMap): void
-    /**
-     * Remove the given `annotations` from this recording, returning them as an array.
-     * @param annotations - Annotation objects or IDs, or indices within the annotations array.
-     * @returns An array containing the removed annotations.
-     */
-    removeAnnotations (...annotations: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[]
     /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
@@ -823,6 +860,12 @@ export interface BiosignalResource extends DataResource {
      * Release all buffers referenced by this resource.
      */
     releaseBuffers (): Promise<void>
+    /**
+     * Remove the given `annotations` from this recording, returning them as an array.
+     * @param annotations - Annotation objects or IDs, or indices within the annotations array.
+     * @returns An array containing the removed annotations.
+     */
+    removeAnnotations (...annotations: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[]
     /**
      * Set the given montage as active.
      * @param montage - Montage index or name.

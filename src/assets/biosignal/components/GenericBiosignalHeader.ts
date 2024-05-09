@@ -1,5 +1,5 @@
 /**
- * Generic biosignal recording headers.
+ * Generic biosignal recording header.
  * @package    epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
@@ -7,17 +7,17 @@
 
 import { Log } from 'scoped-ts-log'
 import {
-    type BiosignalAnnotation,
+    type AnnotationTemplate,
     type BiosignalFilters,
     type BiosignalHeaderRecord,
     type BiosignalHeaderSignal,
     type SignalDataGapMap,
 } from '#types/biosignal'
 
-const SCOPE = 'GenericBiosignalHeaders'
+const SCOPE = 'GenericBiosignalHeader'
 
-export default class GenericBiosignalHeaders implements BiosignalHeaderRecord {
-    private _annotations: BiosignalAnnotation[]
+export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
+    private _annotations: AnnotationTemplate[]
     private _dataGaps: SignalDataGapMap
     private _dataDuration: number
     private _dataRecordCount: number
@@ -44,7 +44,7 @@ export default class GenericBiosignalHeaders implements BiosignalHeaderRecord {
         signalProperties: BiosignalHeaderSignal[],
         recordingStartTime = null as Date | null,
         discontinuous = false,
-        annotations = [] as BiosignalAnnotation[],
+        annotations = [] as AnnotationTemplate[],
         dataGaps = new Map() as SignalDataGapMap,
     ) {
         this._annotations = annotations
@@ -149,7 +149,7 @@ export default class GenericBiosignalHeaders implements BiosignalHeaderRecord {
         return this._dataRecordCount*this._dataRecordDuration
     }
 
-    addAnnotations (...items: BiosignalAnnotation[]) {
+    addAnnotations (...items: AnnotationTemplate[]) {
         this._annotations.push(...items)
     }
 

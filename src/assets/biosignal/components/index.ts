@@ -1,11 +1,13 @@
+import GenericBiosignalAnnotation from './GenericBiosignalAnnotation'
 import GenericBiosignalChannel from './GenericBiosignalChannel'
-import GenericBiosignalHeaders from './GenericBiosignalHeaders'
+import GenericBiosignalHeader from './GenericBiosignalHeader'
 import GenericBiosignalMontage from './GenericBiosignalMontage'
 import GenericBiosignalSetup from './GenericBiosignalSetup'
 
 export {
+    GenericBiosignalAnnotation,
     GenericBiosignalChannel,
-    GenericBiosignalHeaders,
+    GenericBiosignalHeader,
     GenericBiosignalMontage,
     GenericBiosignalSetup,
 }

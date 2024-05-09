@@ -7,6 +7,7 @@
  */
 
 import {
+    AnnotationTemplate,
     type BiosignalAnnotation,
     type BiosignalChannel,
     type BiosignalCursor,
@@ -307,6 +308,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             this._annotations.sort((a, b) => a.start - b.start)
             this.onPropertyUpdate('annotations')
         }
+    }
+
+    addAnnotationsFromTemplates (..._templates: AnnotationTemplate[]) {
+        Log.warn(`addAnnotationsFromTemplates was not overridden in child class.`, SCOPE)
     }
 
     addCursors (...cursors: BiosignalCursor[]) {

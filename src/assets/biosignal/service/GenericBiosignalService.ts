@@ -6,7 +6,7 @@
  */
 
 import {
-    type BiosignalAnnotation,
+    type AnnotationTemplate,
     type BiosignalDataService,
     type BiosignalHeaderRecord,
     type BiosignalResource,
@@ -102,9 +102,9 @@ export default abstract class GenericBiosignalService extends GenericService imp
         if (data.action === 'cache-signals') {
             const range = data.range as number[]
             this._recording.signalCacheStatus = [...range]
-            const annotations = data.annotations as BiosignalAnnotation[] | undefined
+            const annotations = data.annotations as AnnotationTemplate[] | undefined
             if (annotations?.length) {
-                this._recording.addAnnotations(...annotations)
+                this._recording.addAnnotationsFromTemplates(...annotations)
             }
             const dataGaps = data.dataGaps as SignalDataGap[] | undefined
             if (dataGaps?.length) {

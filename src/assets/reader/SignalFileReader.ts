@@ -10,7 +10,7 @@ import {
     nullPromise,
 } from '#util'
 import {
-    type BiosignalAnnotation,
+    type AnnotationTemplate,
     type SignalCacheMutex,
     type SignalCachePart,
     type SignalCacheProcess,
@@ -28,7 +28,7 @@ const SCOPE = 'SignalFileReader'
 export default abstract class SignalFileReader implements SignalDataReader {
 
     /** Map of annotations as <position in seconds, list of annotations>. */
-    protected _annotations = new Map<number, BiosignalAnnotation[]>()
+    protected _annotations = new Map<number, AnnotationTemplate[]>()
     /** Promise awaiting data to update. */
     protected _awaitData = null as null | {
         range: number[],
@@ -355,9 +355,9 @@ export default abstract class SignalFileReader implements SignalDataReader {
         Log.error(`cacheFile has not been overridden by child class.`, SCOPE)
     }
 
-    cacheNewAnnotations (...annotations: BiosignalAnnotation[]) {
+    cacheNewAnnotations (...annotations: AnnotationTemplate[]) {
         // Arrange the annotations by record.
-        const recordAnnos = [] as BiosignalAnnotation[][]
+        const recordAnnos = [] as AnnotationTemplate[][]
         for (const anno of annotations) {
             if (!anno) {
                 continue
@@ -412,7 +412,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
             Log.error(`Requested annotation range ${start} - ${end} was empty or invalid.`, SCOPE)
             return []
         }
-        const annotations = [] as BiosignalAnnotation[]
+        const annotations = [] as AnnotationTemplate[]
         for (const annos of this._annotations.entries()) {
             for (const anno of annos[1]) {
                 if (anno.start >= start && anno.start < end) {

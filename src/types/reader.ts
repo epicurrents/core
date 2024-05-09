@@ -8,15 +8,15 @@
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import {
+    AnnotationTemplate,
     BiosignalAnnotation,
     SignalDataCache,
     SignalDataGap,
     SignalDataGapMap,
 } from './biosignal'
-import { 
+import {
     MemoryManager,
     SignalCachePart,
-    SignalCacheProcess,
 } from './service'
 import {
     StudyContext,
@@ -194,7 +194,7 @@ export interface SignalDataProcesser {
      * Add new, unique annotations to the annotation cache.
      * @param annotations - New annotations to check and cache.
      */
-    cacheNewAnnotations (...annotations: BiosignalAnnotation[]): void
+    cacheNewAnnotations (...annotations: AnnotationTemplate[]): void
     /**
      * Add new, unique data gaps to the data gap cache.
      * @param newGaps - New data gaps to check and cache.
@@ -205,7 +205,7 @@ export interface SignalDataProcesser {
      * @param range - Recording range in seconds [inluded, excluded].
      * @returns List of annotations as BiosignalAnnotation[].
      */
-    getAnnotations (range?: number[]): BiosignalAnnotation[]
+    getAnnotations (range?: number[]): AnnotationTemplate[]
     /**
      * Retrieve data gaps in the given `range`.
      * @param range - Time range to check in seconds.

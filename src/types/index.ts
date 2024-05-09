@@ -44,6 +44,7 @@ export {
 /////////////////////////////////////////////////
 
 import {
+    type AnnotationTemplate,
     type BiosignalAnnotation,
     type BiosignalChannel,
     type BiosignalChannelMarker,
@@ -89,6 +90,7 @@ import {
     type WorkerMontage,
 } from './biosignal'
 export {
+    AnnotationTemplate,
     BiosignalAnnotation,
     BiosignalChannel,
     BiosignalChannelMarker,
