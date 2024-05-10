@@ -48,7 +48,7 @@ export interface BaseAsset {
         property: string | string[],
         handler: PropertyUpdateHandler,
         caller?: string,
-        signleEvent?: boolean
+        singleEvent?: boolean
     ): void
     /**
      * Fire all property update handlers attached to the given property.
