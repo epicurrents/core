@@ -64,88 +64,99 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         return this._annotator
     }
     set annotator (value: string) {
+        const prevVal = this._annotator
         this._annotator = value
-        this.onPropertyUpdate('annotator')
+        this.onPropertyUpdate('annotator', value, prevVal)
     }
 
     get background () {
         return this._background
     }
     set background (value: boolean) {
+        const prevVal = this._background
         this._background = value
-        this.onPropertyUpdate('background')
+        this.onPropertyUpdate('background', value, prevVal)
     }
 
     get channels () {
         return this._channels
     }
     set channels (value: number[]) {
+        const prevVal = [...this._channels]
         this._channels = value
-        this.onPropertyUpdate('channels')
+        this.onPropertyUpdate('channels', value, prevVal)
     }
 
     get class () {
         return this._class
     }
     set class (value: BiosignalAnnotation['class']) {
+        const prevVal = this._class
         this._class = value
-        this.onPropertyUpdate('class')
+        this.onPropertyUpdate('class', value, prevVal)
     }
 
     get duration () {
         return this._duration
     }
     set duration (value: number) {
+        const prevVal = this._duration
         this._duration = value
-        this.onPropertyUpdate('duration')
+        this.onPropertyUpdate('duration', value, prevVal)
     }
 
     get label () {
         return this._label
     }
     set label (value: string) {
+        const prevVal = this._label
         this._label = value
-        this.onPropertyUpdate('label')
+        this.onPropertyUpdate('label', value, prevVal)
     }
 
     get priority () {
         return this._priority
     }
     set priority (value: number) {
+        const prevVal = this._priority
         this._priority = value
-        this.onPropertyUpdate('priority')
+        this.onPropertyUpdate('priority', value, prevVal)
     }
 
     get start () {
         return this._start
     }
     set start (value: number) {
+        const prevVal = this._start
         this._start = value
-        this.onPropertyUpdate('start')
+        this.onPropertyUpdate('start', value, prevVal)
     }
 
     get text () {
         return this._text
     }
     set text (value: string) {
+        const prevVal = this._text
         this._text = value
-        this.onPropertyUpdate('text')
+        this.onPropertyUpdate('text', value, prevVal)
     }
 
     get visible () {
         return this._visible
     }
     set visible (value: boolean) {
+        const prevVal = this._visible
         this._visible = value
-        this.onPropertyUpdate('visible')
+        this.onPropertyUpdate('visible', value, prevVal)
     }
 
     get color () {
         return this._color
     }
     set color (value: SettingsColor | undefined) {
+        const prevVal = [...(this._color || [])]
         this._color = value
-        this.onPropertyUpdate('color')
+        this.onPropertyUpdate('color', value, prevVal)
         this.onPropertyUpdate('appearance')
     }
 
@@ -153,8 +164,9 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         return this._opacity
     }
     set opacity (value: number | undefined) {
+        const prevVal = this._opacity
         this._opacity = value
-        this.onPropertyUpdate('opacity')
+        this.onPropertyUpdate('opacity', value, prevVal)
         this.onPropertyUpdate('appearance')
     }
 }
