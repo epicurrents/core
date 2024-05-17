@@ -210,8 +210,8 @@ export type PlotTraceSelection = {
     crop: number[]
     /** Selection element dimensions as pixels from left edge of the overlay. */
     dimensions: number[]
-    /** Element displaying the drag range. */
-    getDragElement: () => HTMLDivElement
+    /** Element displaying the selection range. */
+    getElement: () => HTMLDivElement
     /** Markers contained in this selection. */
     markers: SignalPoI[]
     /** Range of the selection as seconds of recording time. */
