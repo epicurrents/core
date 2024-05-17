@@ -795,7 +795,7 @@ export interface BiosignalResource extends DataResource {
     videos: VideoAttachment[]
     /** Position of the left edge of the UI viewport (in seconds). */
     viewStart: number
-    /** This resource's visible channels. */
+    /** This resource's currently visible channels (primarily montage channels if a montage is active). */
     visibleChannels: BiosignalChannel[]
     /**
      * Add a set of new annotations to this recording.

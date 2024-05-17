@@ -272,7 +272,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     get visibleChannels () {
-        return this._channels.filter(c => shouldDisplayChannel(c, true))
+        return this.activeMontage 
+               ? this.activeMontage.channels.filter(c => shouldDisplayChannel(c, false))
+               : this._channels.filter(c => shouldDisplayChannel(c, true))
     }
 
     ///////////////////////////////////////////////////
