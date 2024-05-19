@@ -6,7 +6,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { type FileFormatReader } from '#types/reader'
+import { type AssociatedFileTypes, type FileFormatReader } from '#types/reader'
 import { type MemoryManager } from '#types/service'
 import {
     type StudyContext,
@@ -58,19 +58,19 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         // Text
         'efbbbf': 'text/plain',
     }
-    protected _fileExtensions: string[]
     protected _matchPatterns: RegExp[] = []
     protected _memoryManager: MemoryManager | null  = null
+    protected _fileTypes: AssociatedFileTypes
     protected _name: string
     protected _scopes: string[]
     protected _study: StudyContext = studyContextTemplate()
     protected _studyLoader: StudyLoader | null = null
     protected _workerOverride = new Map<string, (() => Worker)|null>()
 
-    constructor (name: string, scopes: string[], fileExtensions = [] as string[], namePatterns = [] as string[]) {
+    constructor (name: string, scopes: string[], fileTypes: AssociatedFileTypes, namePatterns = [] as string[]) {
         super(name, GenericAsset.SCOPES.LOADER, "unk")
         this._scopes = scopes
-        this._fileExtensions = fileExtensions
+        this._fileTypes = fileTypes
         this._name = name
         for (const pattern of namePatterns) {
             this._matchPatterns.push(new RegExp(pattern, 'i'))
@@ -148,8 +148,8 @@ export default abstract class GenericFileReader extends GenericAsset implements 
                 return true
             }
         }
-        for (const ext of this._fileExtensions) {
-            if (fileName.indexOf(ext) !== -1) {
+        for (const extensions of Object.values(this._fileTypes.accept)) {
+            if (extensions.includes(fileName)) {
                 return true
             }
         }

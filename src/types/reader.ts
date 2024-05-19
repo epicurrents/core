@@ -9,7 +9,6 @@ import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import {
     AnnotationTemplate,
-    BiosignalAnnotation,
     SignalDataCache,
     SignalDataGap,
     SignalDataGapMap,
@@ -24,6 +23,34 @@ import {
     StudyLoader,
 } from './study'
 
+/**
+ * An object describing the file types associated with a file reader.
+ */
+export type AssociatedFileTypes = {
+    /**
+     * File mime types and their possible extensions that the reader accepts.
+     * These are the only file visible (by default) in the file picker when opening a file for this reader.
+     * @example
+     * {
+     *  "application/edf": ['.edf'] // Only EDF files with .edf extension.
+     * }
+     * {
+     *  "image/*": [".png", ".gif", ".jpeg", ".jpg"] // Any image mime type file with one of the given extensions.
+     * }
+     */
+    accept: {
+        [mime: string]: string[]
+    }
+    /**
+     * A description of the file types allowed, shown also in the file picker.
+     */
+    description: string
+    /**
+     * Only allow selection of the accepted mime types. Will disable the option to show all files in the file picker.
+     * False by default.
+     */
+    onlyAccepted?: boolean
+}
 /**
  * Header reader optional configuration.
  * @param byteSize - Byte size of the header part of the file.
