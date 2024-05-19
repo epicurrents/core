@@ -119,7 +119,7 @@ export const roundTo = (value: number, precision: number) => {
 /**
  * Convert seconds into a more human-readable time string.
  * @param secs - Number of seconds to convert.
- * @param components - Only return the components as an array of numbers (default false).
+ * @param components - Only return the components as an array of numbers `[days, hrs, mins, secs]` (default false).
  * @returns
  * * `{d} d {h} hr {m} min {s} s` if time is 24 hours or more
  * * `{h} hr {m} min {s} s` if time is 1 hour or more
