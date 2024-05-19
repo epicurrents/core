@@ -81,7 +81,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._annotations
     }
     set annotations (value: BiosignalAnnotation[]) {
-        const oldVal = [...this._annotations]
         for (const newAnno of value) {
             if (!newAnno.id) {
                 newAnno.id = GenericBiosignalResource.CreateUniqueId()
@@ -89,7 +88,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         // Sort the annotations in ascending order according to start time.
         value.sort((a, b) => a.start - b.start)
-        this._annotations = value
+        const oldVal = this._annotations.splice(0, this._annotations.length, ...value)
         this.onPropertyUpdate('annotations', value, oldVal)
     }
 
@@ -272,7 +271,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     get visibleChannels () {
-        return this.activeMontage 
+        return this.activeMontage
                ? this.activeMontage.channels.filter(c => shouldDisplayChannel(c, false))
                : this._channels.filter(c => shouldDisplayChannel(c, true))
     }
