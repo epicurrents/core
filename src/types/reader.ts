@@ -24,12 +24,12 @@ import {
 } from './study'
 
 /**
- * An object describing the file types associated with a file reader.
+ * An object describing a file type associated with a file reader.
  */
-export type AssociatedFileTypes = {
+export type AssociatedFileType = {
     /**
-     * File mime types and their possible extensions that the reader accepts.
-     * These are the only file visible (by default) in the file picker when opening a file for this reader.
+     * Mime types and their possible extensions that the reader accepts as this file type.
+     * These are the only files visible (by default) in the file picker when opening a file for this reader.
      * @example
      * {
      *  "application/edf": ['.edf'] // Only EDF files with .edf extension.
@@ -45,11 +45,6 @@ export type AssociatedFileTypes = {
      * A description of the file types allowed, shown also in the file picker.
      */
     description: string
-    /**
-     * Only allow selection of the accepted mime types. Will disable the option to show all files in the file picker.
-     * False by default.
-     */
-    onlyAccepted?: boolean
 }
 /**
  * Header reader optional configuration.
@@ -112,7 +107,10 @@ export interface FileDecoder {
     setInput (buffer: ArrayBuffer): void
 }
 export interface FileFormatReader extends BaseAsset {
-    fileType: string
+    /** File types associated with this reader. */
+    fileTypes: AssociatedFileType[]
+    /** Only allow selecting accepted types in the file picker. */
+    onlyAcceptedTypes: boolean
     /** `StudyContext` registered to this reader. */
     study: StudyContext | null
     /** The study loader instance that this file reader serves. */

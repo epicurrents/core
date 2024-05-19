@@ -6,7 +6,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { type AssociatedFileTypes, type FileFormatReader } from '#types/reader'
+import { type AssociatedFileType, type FileFormatReader } from '#types/reader'
 import { type MemoryManager } from '#types/service'
 import {
     type StudyContext,
@@ -60,14 +60,21 @@ export default abstract class GenericFileReader extends GenericAsset implements 
     }
     protected _matchPatterns: RegExp[] = []
     protected _memoryManager: MemoryManager | null  = null
-    protected _fileTypes: AssociatedFileTypes
+    protected _fileTypes: AssociatedFileType[]
     protected _name: string
+    protected _onlyAcceptedTypes: boolean
     protected _scopes: string[]
     protected _study: StudyContext = studyContextTemplate()
     protected _studyLoader: StudyLoader | null = null
     protected _workerOverride = new Map<string, (() => Worker)|null>()
 
-    constructor (name: string, scopes: string[], fileTypes: AssociatedFileTypes, namePatterns = [] as string[]) {
+    constructor (
+        name: string,
+        scopes: string[],
+        fileTypes: AssociatedFileType[],
+        namePatterns = [] as string[],
+        onlyAcceptedTypes = false
+    ) {
         super(name, GenericAsset.SCOPES.LOADER, "unk")
         this._scopes = scopes
         this._fileTypes = fileTypes
@@ -75,14 +82,17 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         for (const pattern of namePatterns) {
             this._matchPatterns.push(new RegExp(pattern, 'i'))
         }
+        this._onlyAcceptedTypes = onlyAcceptedTypes
     }
 
-    get fileType () {
-        return 'unknown'
+    get fileTypes () {
+        return this._fileTypes
     }
-
     get name () {
         return this._name
+    }
+    get onlyAcceptedTypes () {
+        return this._onlyAcceptedTypes
     }
     get study (): StudyContext | null {
         return this._study
@@ -148,9 +158,13 @@ export default abstract class GenericFileReader extends GenericAsset implements 
                 return true
             }
         }
-        for (const extensions of Object.values(this._fileTypes.accept)) {
-            if (extensions.includes(fileName)) {
-                return true
+        for (const fileType of this._fileTypes) {
+            for (const extensions of Object.values(fileType.accept)) {
+                for (const ext of extensions) {
+                    if (fileName.endsWith(ext)) {
+                        return true
+                    }
+                }
             }
         }
         return false

@@ -287,7 +287,7 @@ export {
 /////////////////////////////////////////////////
 
 import {
-    type AssociatedFileTypes,
+    type AssociatedFileType,
     type ConfigReadHeader,
     type ConfigReadSignals,
     type ConfigReadUrl,
@@ -307,7 +307,7 @@ import {
     type SuccessResponse,
 } from './reader'
 export {
-    AssociatedFileTypes,
+    AssociatedFileType,
     ConfigReadHeader,
     ConfigReadSignals,
     ConfigReadUrl,

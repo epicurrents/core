@@ -126,6 +126,8 @@ export type StudyFileContext = {
  * Base interface for classes that are used to load and form studies from various data resources.
  */
 export interface StudyLoader {
+    /** File reader associated with this study loader. */
+    fileReader: null | FileFormatReader
     resourceScope: string
     resourceType: string
     /** Resource scopes supported by this loader. */

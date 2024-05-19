@@ -91,6 +91,10 @@ export default class GenericStudyLoader implements StudyLoader {
         return true
     }
 
+    get fileReader () {
+        return this._fileReader
+    }
+
     get resourceScope () {
         // Override this in the child loader.
         return 'UNKNOWN'
