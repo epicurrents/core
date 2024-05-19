@@ -24,7 +24,9 @@ import {
 } from './study'
 
 /**
- * An object describing a file type associated with a file reader.
+ * An object describing a file type associated with a file reader. This object is meant to emulate the File System API
+ * file/directory picker types parameter so it can be directly passed to the picker.
+ * See https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker#types for documentation.
  */
 export type AssociatedFileType = {
     /**
