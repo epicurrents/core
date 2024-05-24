@@ -6,6 +6,15 @@
  */
 
 /* eslint-disable */
+/**
+ * Epicurrents properties available in the global scope.
+ */
+type EpicurrentsGlobal = {
+    /**
+     * Runtime state manager of the initiated application (null before initiation).
+     */
+    RUNTIME: import('#types/application').StateManager | null
+}
 declare global {
     /** Path where WebPack serves its public assets (js) from. */
     let __webpack_public_path__: string
@@ -19,7 +28,7 @@ declare global {
          * imported runtime `state` will also point to the same object and stay synchronized between the modules.
          * See documentation for more details.
          */
-        __EPICURRENTS_RUNTIME__: import('#types/application').StateManager
+        __EPICURRENTS__: EpicurrentsGlobal
     }
 }
 export {} // Guarantees the global declaration to work.

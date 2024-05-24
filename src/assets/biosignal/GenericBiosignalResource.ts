@@ -65,7 +65,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _viewStart: number = 0
 
     constructor (name: string, type: string, source?: StudyContext) {
-        const TYPE_SETTINGS = window.__EPICURRENTS_RUNTIME__?.SETTINGS.modules[type] as CommonBiosignalSettings
+        const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS.modules[type] as CommonBiosignalSettings
         super(name, GenericResource.SCOPES.BIOSIGNAL, type, source)
         // Set default filters.
         this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0

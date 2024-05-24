@@ -149,10 +149,15 @@ export class EpiCurrents implements EpiCurrentsApp {
     #runtime = new RuntimeStateManager()
 
     constructor () {
-        if (window.__EPICURRENTS_RUNTIME__) {
+        if (typeof window.__EPICURRENTS__ === 'undefined') {
+            window.__EPICURRENTS__ = {
+                RUNTIME: null,
+            }
+        }
+        if (window.__EPICURRENTS__.RUNTIME) {
             Log.error(`A previous runtime state manager was set to window object.`, SCOPE)
         }
-        window.__EPICURRENTS_RUNTIME__ = this.runtime
+        window.__EPICURRENTS__.RUNTIME = this.runtime
     }
 
     // Public properties.

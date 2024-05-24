@@ -65,10 +65,10 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        if (!window.__EPICURRENTS_RUNTIME__) {
+        if (!window.__EPICURRENTS__?.RUNTIME) {
             Log.error(`Reference to main runtime was not found.`, SCOPE)
         }
-        const overrideWorker = window.__EPICURRENTS_RUNTIME__?.WORKERS.get('memory-manager')
+        const overrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get('memory-manager')
         this._worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'memory-manager.worker' */
@@ -192,14 +192,14 @@ export default class ServiceMemoryManager implements MemoryManager {
     }
 
     async allocate (amount: number, service: AssetService): Promise<AllocateMemoryResponse> {
-        if (!window.__EPICURRENTS_RUNTIME__) {
+        if (!window.__EPICURRENTS__?.RUNTIME) {
             Log.error(`Reference to main runtime was not found.`, SCOPE)
             return null
         }
         // Correct amount to a 32-bit array size.
         amount = amount + (4 - amount%4)
         // Don't exceed maximum allowed buffer size.
-        if (amount > window.__EPICURRENTS_RUNTIME__?.SETTINGS.app.maxLoadCacheSize) {
+        if (amount > window.__EPICURRENTS__.RUNTIME?.SETTINGS.app.maxLoadCacheSize) {
             Log.error(`Tried to allocate an array that exceeds maximum allowed buffer size.`, SCOPE)
             return null
         }
@@ -209,8 +209,8 @@ export default class ServiceMemoryManager implements MemoryManager {
         }
         // Zero means use the entire buffer.
         if (amount === 0) {
-            amount = window.__EPICURRENTS_RUNTIME__?.SETTINGS.app.maxLoadCacheSize
-                     - window.__EPICURRENTS_RUNTIME__?.SETTINGS.app.maxLoadCacheSize%4
+            amount = window.__EPICURRENTS__.RUNTIME?.SETTINGS.app.maxLoadCacheSize
+                     - window.__EPICURRENTS__.RUNTIME?.SETTINGS.app.maxLoadCacheSize%4
         }
         // Do not assign memory twice for the same service.
         for (const existing of this._managed) {

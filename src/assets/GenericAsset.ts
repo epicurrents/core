@@ -63,6 +63,14 @@ export default abstract class GenericAsset implements BaseAsset {
     protected _type: string
 
     constructor (name: string, scope: string, type: string) {
+        // Make sure that reference to the global __EPICURRENTS__ object exists.
+        if (typeof window.__EPICURRENTS__ === 'undefined') {
+            Log.error(
+                `Reference to global __EPICURRENTS__ object was not found. ` +
+                `Main application instance must be created before creating assets.`,
+                SCOPE
+            )
+        }
         this._id = GenericAsset.CreateUniqueId()
         this._scope = GenericAsset.SCOPES.UNKNOWN
         for (const validScope of Object.values(GenericAsset.SCOPES)) {

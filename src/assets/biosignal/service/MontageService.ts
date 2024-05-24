@@ -43,10 +43,10 @@ export default class MontageService extends GenericService implements BiosignalM
     }
 
     constructor (montage: BiosignalMontage, manager?: MemoryManager) {
-        if (!window.__EPICURRENTS_RUNTIME__) {
+        if (!window.__EPICURRENTS__?.RUNTIME) {
             Log.error(`Reference to application runtime was not found.`, SCOPE)
         }
-        const overrideWorker = window.__EPICURRENTS_RUNTIME__?.WORKERS.get('montage')
+        const overrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get('montage')
         const worker = overrideWorker ? overrideWorker() : new Worker(
             new URL(
                 /* webpackChunkName: 'montage.worker' */
@@ -198,7 +198,7 @@ export default class MontageService extends GenericService implements BiosignalM
                 ['config', this._montage.config],
                 ['montage', this._montage.name],
                 ['namespace', this._montage.type],
-                ['settings', window.__EPICURRENTS_RUNTIME__?.SETTINGS._CLONABLE],
+                ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS._CLONABLE],
                 ['setupChannels', this._montage.setup.channels],
             ])
         )

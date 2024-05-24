@@ -33,7 +33,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
         const action = message.action
         Log.debug(`Received message with action ${action}.`, SCOPE)
         if (action === 'setup-worker') {
-            if (!window.__EPICURRENTS_RUNTIME__) {
+            if (!window.__EPICURRENTS__?.RUNTIME) {
                 Log.error(`Reference to application runtime was not found.`, SCOPE)
                 return
             }
@@ -53,7 +53,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 return
             }
             const MOD_SETTINGS = window
-                                 .__EPICURRENTS_RUNTIME__?.SETTINGS
+                                 .__EPICURRENTS__.RUNTIME?.SETTINGS
                                  .modules[data.namespace] as CommonBiosignalSettings
             this._montage = new MontageProcesser(MOD_SETTINGS)
             this._montage.setupChannels(data.montage, data.config, data.setupChannels)
