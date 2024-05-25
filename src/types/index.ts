@@ -231,25 +231,6 @@ export {
 }
 
 /////////////////////////////////////////////////
-//                    ONNX                     //
-/////////////////////////////////////////////////
-
-import {
-    type AvailableOnnxModel,
-    type AvailableOnnxModelPublicProperties,
-    type OnnxService,
-    type OnnxServiceReject,
-    type OnnxServiceResolve,
-} from './onnx'
-export {
-    AvailableOnnxModel,
-    AvailableOnnxModelPublicProperties,
-    OnnxService,
-    OnnxServiceReject,
-    OnnxServiceResolve,
-}
-
-/////////////////////////////////////////////////
 //                   PLOT                      //
 /////////////////////////////////////////////////
 

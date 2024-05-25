@@ -83,12 +83,6 @@ export {
     SETTINGS,
 }
 import {
-    GenericOnnxService,
-} from './onnx'
-export {
-    GenericOnnxService,
-}
-import {
     CanvasPlot,
     PlotColor,
     WebGlPlot,
@@ -121,7 +115,6 @@ import {
     type InterfaceModuleConstructor,
     type ReaderMode,
     type MediaDataset,
-    type OnnxService,
     type ResourceModule,
     type SettingsValue,
     type StudyLoader,

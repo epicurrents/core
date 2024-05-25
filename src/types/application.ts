@@ -12,7 +12,6 @@ import {
 } from './config'
 import { DatasetLoader, MediaDataset } from './dataset'
 import { FileSystemItem, ReaderMode } from './reader'
-import { OnnxService } from './onnx'
 import { BiosignalPlot } from './plot'
 import { AssetService } from './service'
 import {
