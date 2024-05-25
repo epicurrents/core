@@ -42,7 +42,7 @@ module.exports = {
         publicPath: ASSET_PATH,
         filename: '[name].js',
         chunkFilename: '[name].js?v=[contenthash]',
-        library: 'EpiCurrentsCore',
+        library: 'EpicurrentsCore',
         libraryTarget: 'umd'
     },
     plugins: [

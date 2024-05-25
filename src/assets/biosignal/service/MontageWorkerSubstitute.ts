@@ -1,5 +1,5 @@
 /**
- * EpiCurrents montage worker substitute. Allows using the montage loader in the main thread without an actual worker.
+ * Epicurrents montage worker substitute. Allows using the montage loader in the main thread without an actual worker.
  * @package    epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0

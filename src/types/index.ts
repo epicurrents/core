@@ -5,7 +5,7 @@
 import {
     type BaseAsset,
     type DataResource,
-    type EpiCurrentsApp,
+    type EpicurrentsApp,
     type InterfaceModule,
     type InterfaceModuleConstructor,
     type InterfaceResourceModule,
@@ -23,7 +23,7 @@ import {
 export {
     BaseAsset,
     DataResource,
-    EpiCurrentsApp,
+    EpicurrentsApp,
     InterfaceModule,
     InterfaceModuleConstructor,
     InterfaceResourceModule,

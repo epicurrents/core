@@ -1,5 +1,5 @@
 /**
- * EpiCurrents signal file reader. This class can be used inside a worker or the main thread.
+ * Epicurrents signal file reader. This class can be used inside a worker or the main thread.
  * @package    epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0

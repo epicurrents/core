@@ -1,5 +1,5 @@
 /**
- * EpiCurrents core application main script.
+ * Epicurrents core application main script.
  * @package    epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
@@ -115,7 +115,7 @@ import { Log } from 'scoped-ts-log'
 import {
     type AssetService,
     type DataResource,
-    type EpiCurrentsApp,
+    type EpicurrentsApp,
     type FileSystemItem,
     type InterfaceModule,
     type InterfaceModuleConstructor,
@@ -129,7 +129,7 @@ import {
 
 const SCOPE = 'index'
 
-export class EpiCurrents implements EpiCurrentsApp {
+export class Epicurrents implements EpicurrentsApp {
     // Private poperties.
     /**
      * Initiated user interface.

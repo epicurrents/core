@@ -1,11 +1,11 @@
 /**
- * EpiCurrents core tests.
+ * Epicurrents core tests.
  * @package    epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
  */
 
-import { EpiCurrents, SETTINGS, ServiceMemoryManager } from '../src'
+import { Epicurrents, SETTINGS, ServiceMemoryManager } from '../src'
 // Mock module.
 import * as mod from './module'
 import { ResourceModule } from '../src/types'
@@ -62,8 +62,8 @@ Object.defineProperty(window, 'Worker', {
 /** Bytes in one megabyte. */
 const MB_BYTES = 1024*1024
 
-describe('EpiCurrents core tests', () => {
-    var epic: EpiCurrents
+describe('Epicurrents core tests', () => {
+    var epic: Epicurrents
     var manager: ServiceMemoryManager
     var biosignalService: BiosignalDataService
     var biosignalResource: BiosignalResource
@@ -71,7 +71,7 @@ describe('EpiCurrents core tests', () => {
      * INITIALIZATION TESTS
      */
     test("Create core application with log level debug", () => {
-        epic = new EpiCurrents()
+        epic = new Epicurrents()
         expect(epic).toBeDefined()
     })
     /**

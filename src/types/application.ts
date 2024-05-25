@@ -1,5 +1,5 @@
 /**
- * Asset types. Asset is the root type of all classes and resources used in EpiCurrents.
+ * Asset types. Asset is the root type of all classes and resources used in Epicurrents.
  * @package    epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
@@ -121,9 +121,9 @@ export interface BaseAsset {
     unload (): Promise<void>
 }
 /**
- * The main EpiCurrents application.
+ * The main Epicurrents application.
  */
-export interface EpiCurrentsApp {
+export interface EpicurrentsApp {
     /**
      * Path where public assets (mostly javascript) are served from.
      */
@@ -148,7 +148,7 @@ export interface EpiCurrentsApp {
      * After launching the app, use setSettingsValue() instead.
      * @param config - Field and value pairs to modify.
      * @example
-     * EpiCurrents.configure(
+     * Epicurrents.configure(
      *  { 'services.PYODIDE': false }
      * )
      */
@@ -250,7 +250,7 @@ export interface InterfaceModule {
  */
 export interface InterfaceModuleConstructor {
     new (
-        epicvApp: EpiCurrentsApp,
+        epicvApp: EpicurrentsApp,
         runtime?: StateManager,
         containerId?: string,
         appId?: string,

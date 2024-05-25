@@ -1,5 +1,5 @@
 /**
- * EpiCurrents local file reader.
+ * Epicurrents local file reader.
  * @package    epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
