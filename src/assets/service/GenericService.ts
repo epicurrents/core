@@ -198,7 +198,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             if (data.action === 'setup-worker') {
                 this._isWorkerSetup = data.success
                 if (data.success) {
-                    Log.debug(`Worker intiation complete.`, SCOPE)
+                    Log.debug(`Worker setup complete.`, SCOPE)
                     commission.resolve(data.success)
                     this.onPropertyUpdate('is-ready')
                 } else if (commission.reject) {
