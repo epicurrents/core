@@ -263,8 +263,8 @@ export interface InterfaceModuleConstructor {
  * These getters are very difficult to type properly, have to try again later.
  */
 export type InterfaceResourceModule = RuntimeResourceModule & {
-    getControlsComponent (): any
-    getViewerComponent (): any
+    getControlsComponent (): unknown
+    getViewerComponent (): unknown
 }
 /**
  * Context for the interface resource module.

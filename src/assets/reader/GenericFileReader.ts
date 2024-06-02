@@ -22,7 +22,6 @@ export default abstract class GenericFileReader extends GenericAsset implements 
      * I may finish this some day, or may not.
      * Seems like a lot of work for something that can be left for
      * external libraries to handle.
-     */
     private static MIME_TYPES: {
         // Image types
         '00000100': 'image/x-icon',
@@ -58,6 +57,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         // Text
         'efbbbf': 'text/plain',
     }
+     */
     protected _matchPatterns: RegExp[] = []
     protected _memoryManager: MemoryManager | null  = null
     protected _fileTypes: AssociatedFileType[]

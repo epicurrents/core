@@ -105,7 +105,7 @@ export default class WebGlPlotTrace implements WebGlTrace {
     }
 
     getData () {
-        return this._xyPairs.filter((value: number, index: number) => (index%2))
+        return this._xyPairs.filter((_value: number, index: number) => (index%2))
     }
 
     initData (length = this.length, step: number = 1) {

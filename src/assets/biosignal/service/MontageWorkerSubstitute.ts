@@ -10,6 +10,7 @@ import ServiceWorkerSubstitute from '#assets/service/ServiceWorkerSubstitute'
 import { validateCommissionProps } from '#util'
 import MontageProcesser from './MontageProcesser'
 import {
+    type AppSettings,
     type BiosignalFilters,
     type CommonBiosignalSettings,
     type ConfigChannelFilter,
@@ -17,16 +18,19 @@ import {
     type GetSignalsResponse,
     type ReleaseCacheResponse,
     type SetFiltersResponse,
+    type SetupChannel,
     type SignalCacheResponse,
+    type SignalDataCache,
     type SignalDataGapMap,
     type WorkerCommissionResponse,
+    type WorkerMessage,
 } from '#types'
 
 const SCOPE = 'MontageWorkerSubstitute'
 
 export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
     protected _montage = null as MontageProcesser | null
-    async postMessage (message: any) {
+    async postMessage (message: WorkerMessage['data']) {
         if (!message?.action) {
             return
         }
@@ -38,7 +42,13 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 return
             }
             const data = validateCommissionProps(
-                message,
+                message as WorkerMessage['data'] & {
+                    config: ConfigMapChannels
+                    montage: string
+                    namespace: string
+                    settings: AppSettings
+                    setupChannels: SetupChannel[]
+                },
                 {
                     config: 'Object',
                     montage: 'String',
@@ -72,7 +82,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
             } as WorkerCommissionResponse)
         } else if (action === 'get-signals') {
             const data = validateCommissionProps(
-                message,
+                message as WorkerMessage['data'] & { range: number[] },
                 {
                     range: ['Number', 'Number']
                 },
@@ -91,13 +101,13 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                         success: true,
                         rn: message.rn,
                         ...sigs
-                    } as GetSignalsResponse)
+                    } as WorkerMessage['data'] & GetSignalsResponse)
                 } else {
                     this.returnMessage({
                         action: action,
                         success: false,
                         rn: message.rn,
-                    } as GetSignalsResponse)
+                    } as WorkerMessage['data'] & GetSignalsResponse)
                 }
             } catch (e) {
                 this.returnMessage({
@@ -134,10 +144,12 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 action: action,
                 success: true,
                 rn: message.rn,
-            } as ReleaseCacheResponse)
+            } as WorkerMessage['data'] & ReleaseCacheResponse)
         } else if (action === 'set-data-gaps') {
             const data = validateCommissionProps(
-                message,
+                message as WorkerMessage['data'] & {
+                    dataGaps: { duration: number, start: number }[],
+                },
                 {
                     dataGaps: 'Array'
                 },
@@ -208,10 +220,14 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 success: true,
                 updated: someUpdated,
                 rn: data.rn,
-            } as SetFiltersResponse)
+            } as WorkerMessage['data'] & SetFiltersResponse)
         } else if (action === 'setup-cache') {
             const data = validateCommissionProps(
-                message,
+                message as WorkerMessage['data'] & {
+                    cache: SignalDataCache
+                    dataDuration: number
+                    recordingDuration: number
+                },
                 {
                     cache: 'BiosignalCache',
                     dataDuration: 'Number',

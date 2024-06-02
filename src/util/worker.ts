@@ -96,12 +96,12 @@ export const syncSettings = (
  * @param returnMessage - Optional override for the postMessage method (if not in worker scope).
  * @returns False if data is invalid, or an object containing the validated properties.
  */
-export const validateCommissionProps = (
-    data: WorkerMessage['data'],
+export const validateCommissionProps = <T extends WorkerMessage['data']>(
+    data: T,
     requiredProps: { [name: string]: string | string[] },
     requiredSetup = true,
     returnMessage = postMessage,
-): false | { [name: keyof typeof requiredProps]: any } => {
+): false | T => {
     if (!requiredSetup) {
         Log.error(`Received commission '${data.action}' before required setup was complete.`, SCOPE)
         returnMessage({
@@ -124,7 +124,7 @@ export const validateCommissionProps = (
             })
             return false
         }
-        const dataProp = data[prop[0]] as any
+        const dataProp = data[prop[0]] as object // May not be object, but we only use the constructor property.
         if (Array.isArray(prop[1])) {
             if (!Array.isArray(dataProp)) {
                 Log.error(`Property '${prop[0]}' for commission '${data.action}' is not an array.`, SCOPE)

@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { type WorkerMessage } from '#types'
 import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'ServiceWorkerSubstitute'
@@ -12,16 +13,16 @@ const SCOPE = 'ServiceWorkerSubstitute'
 export default class ServiceWorkerSubstitute {
     protected _eventListeners = [] as {
         event: string,
-        callback: (message: any) => unknown
+        callback: (message: Pick<WorkerMessage, 'data'>) => unknown
     }[]
     onerror = null
-    onmessage = null as ((message: any) => unknown) | null
+    onmessage = null as ((message: Pick<WorkerMessage, 'data'>) => unknown) | null
     onmessageerror = null
 
     constructor () {
     }
 
-    postMessage (message: any) {
+    postMessage (message: WorkerMessage['data']) {
         if (!message?.action) {
             return
         }
@@ -33,7 +34,7 @@ export default class ServiceWorkerSubstitute {
             rn: message.rn,
         })
     }
-    returnMessage (message: any) {
+    returnMessage (message: WorkerMessage['data']) {
         for (const listener of this._eventListeners) {
             if (listener.event === 'message') {
                 // Responses from actual workers are held in the data property.
@@ -49,7 +50,7 @@ export default class ServiceWorkerSubstitute {
     }
     addEventListener <K extends keyof WorkerEventMap>(
         type: K,
-        listener: (this: Worker, ev: WorkerEventMap[K]) => any,
+        listener: (this: Worker, ev: WorkerEventMap[K]) => unknown,
         _options?: boolean | AddEventListenerOptions | undefined
     ) {
         for (const existing of this._eventListeners) {
@@ -61,12 +62,13 @@ export default class ServiceWorkerSubstitute {
         Log.debug(`Adding a listener for event '${type}'.`, SCOPE)
         this._eventListeners.push({
             event: type,
-            callback: listener
+            // This is a bit ridiculous and should be typed better.
+            callback: listener as unknown as (message: Pick<WorkerMessage, 'data'>) => unknown
         })
     }
     removeEventListener <K extends keyof WorkerEventMap>(
         type: K,
-        listener: (this: Worker, ev: WorkerEventMap[K]) => any,
+        listener: (this: Worker, ev: WorkerEventMap[K]) => unknown,
         _options?: boolean | EventListenerOptions | undefined
     ) {
         for (let i=0; i<this._eventListeners.length; i++) {
