@@ -19,19 +19,13 @@ import { StudyContextCollection } from './study'
 export interface AppSettings {
     _CLONABLE: ClonableAppSettings
     app: BaseModuleSettings & {
-        /** Maximum number of bytes to load in one chunk. This will be
-         * rounded down to the nearest whole data record size - 1
-         * (because one data record may be added for signal interpolation).
-         * If the size of a single data record is larger than dataChunkSize,
-         * the value will be rounded up to match one data record.
+        /** 
+         * Maximum number of bytes to load in one chunk. This will be rounded down to the nearest whole data record 
+         * size - 1 (because one data record may be added for signal interpolation).
+         * If the size of a single data record is larger than dataChunkSize, the value will be rounded up to match one 
+         * data record.
          */
         dataChunkSize: number
-        /** FontAwesome library to use for icons (to be deprecated). */
-        fontawesomeLib: string
-        /** Require either the alt or option (on Mac) key to trigger hotkey actions. */
-        hotkeyAltOrOpt: boolean
-        iconLib: string
-        isMainComponent: boolean
         /** Messages ≥ this level will be logged. */
         logThreshold: "DEBUG" | "INFO" | "WARN" | "ERROR" | "DISABLE"
         /** Load files of this size directly. */
@@ -43,8 +37,6 @@ export interface AppSettings {
          * float array, only half this amount of EDF signal data can be loaded.
          */
         maxLoadCacheSize: number
-        screenPPI: number
-        theme: string
         /** Should a centralized manager be used to control memory available to services. */
         useMemoryManager: boolean
     }
@@ -138,60 +130,8 @@ export interface AppSettings {
  */
 export type BaseModuleSettings = {
     /**
-     * An object defining the composition of the settings menu of
-     * this module.
-     */
-    _settingsMenu?: {
-        /** Description text right under the main header. */
-        description: string
-        /**
-         * The actual fileds of the menu, also containing section
-         * subtitles and descriptions. Any settings listed here must
-         * also be listed under _userDefinable, or changes in them
-         * will be ignored.
-         */
-        fields: {
-            /**
-             * Optional component name, only applicable to setting type.
-             * Subtitle and description types always use `div`.
-             */
-            component?: string
-            /** Preset options for this setting. */
-            options?: {
-                /** Optional prefix printed before the actual value. */
-                prefix?: string
-                /** Optional suffix printed after the actual value. */
-                suffix?: string
-                /** The value in the format that it is in the settings. */
-                value: boolean | number | string
-            }[]
-            presets?: {
-                setting: string
-                value: boolean | number | string
-            }[]
-            /** Path and name of the settings field. */
-            setting?: string
-            /**
-             * Accompanying text.
-             * * For a setting this is the description of the setting.
-             * * For a subtitle and description this is the content of the field.
-             */
-            text: string
-            /**
-             * Type of the field.
-             */
-            type: 'description' | 'preset' | 'setting' | 'subtitle'
-        }[],
-        name: {
-            full: string
-            short: string
-        }
-    }
-    /**
-     * All the properties (settings) in this module that can be
-     * modified by the user and saved locally. Key is the name
-     * of the setting and value is the constructor of the allowed
-     * value type.
+     * All the properties (settings) in this module that can be  modified by the user and saved locally.
+     * Key is the name of the setting and value is the constructor of the allowed value type.
      */
     _userDefinable?: { [field: string]: SettingsValueConstructor }
 }
@@ -211,11 +151,10 @@ export type CommonBiosignalSettings = {
     defaultMontages: { [setup: string]: [string, string][] }
     defaultSetups: string[]
     /**
-     * The amount of padding is always a compromise between overhead from the
-     * extra signal data that needs to be processed and possible artefacts
-     * introduced by filtering; the slower and larger amplitude the waves,
-     * the more padding is needed to avoid significant artefacts. Use this amount
-     * of signal data (in seconds) as padding at both ends.
+     * The amount of padding is always a compromise between overhead from the extra signal data that needs to be 
+     * processed and possible artefacts introduced by filtering; the slower and larger amplitude the waves,
+     * the more padding is needed to avoid significant artefacts. Use this amount of signal data (in seconds) as 
+     * padding at both ends.
      */
     filterPaddingSeconds: number
     filters: {
