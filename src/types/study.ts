@@ -206,7 +206,7 @@ export interface StudyLoader {
 export type StudyLoaderContext = {
     /** Label for the loader (to be displayed in the UI). */
     label: string
-    /** Mode to use (file, folder). */
+    /** Mode to use (file, folder, study or url). */
     mode: ReaderMode
     /** The loader itself. */
     loader: StudyLoader
@@ -221,7 +221,7 @@ export type StudyLoaderContext = {
 export type StudyLoaderProtocolContext = {
     /** Label for the protocol (to be displayed in the UI). */
     label: string
-    /** Mode to use (file, folder). */
+    /** Mode to use (file, folder, study or url). */
     mode: ReaderMode
     /** The protocol itself. */
     protocol: OrderedLoadingProtocol

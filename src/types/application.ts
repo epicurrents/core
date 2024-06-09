@@ -200,7 +200,7 @@ export interface EpicurrentsApp {
      * Register a new study loader.
      * @param name - Unique name of the loader. If another loader exists with the same name it will be replaced.
      * @param label - A user-facing label for the loader.
-     * @param mode - Opening mode for this loader (`file`, `folder`, or `study`).
+     * @param mode - Opening mode for this loader (`file`, `folder`, `study` or `url`).
      * @param loader - The study loader itself.
      */
     registerStudyLoader (name: string, label: string, mode: ReaderMode, loader: StudyLoader): void

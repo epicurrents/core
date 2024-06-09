@@ -196,7 +196,7 @@ export type FileSystemItemType = 'directory' | 'file'
  * Identifiers for indicating the direction in which to continue when reading continuous data.
  */
 export type ReadDirection = 'backward' | 'alternate' | 'forward'
-export type ReaderMode = 'file' | 'folder' | 'study'
+export type ReaderMode = 'file' | 'folder' | 'study' | 'url'
 /**
  * SignalDataProcessers provide methods for storing and processing signal data.
  */
