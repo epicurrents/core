@@ -15,10 +15,10 @@ export type DocumentFormat = 'html' | 'markdown' | 'pdf'
 export interface DocumentResource extends DataResource {
     /** Promise that resolves with the content of the document. */
     content: Promise<unknown>
+    /** Current page number of the document, starting from 1. */
+    currentPage: number
     /** Total number of pages in the document. */
     numPages: number
-    /** Current page number of the document. */
-    pageNum: number
     /** Format of the source file. */
     sourceFormat: DocumentFormat
     /** Increase page number by one, if there is a following page. */
