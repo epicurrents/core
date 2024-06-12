@@ -16,6 +16,7 @@ import {
 } from '#types/biosignal'
 import { type ConfigChannelLayout } from '../types/config'
 import { type SignalCachePart } from '#types/service'
+import { type TypedNumberArray, type TypedNumberArrayConstructor } from '#types/util'
 import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
 import { Log } from 'scoped-ts-log'
@@ -334,13 +335,13 @@ export const combineSignalParts = (partA: SignalCachePart, partB: SignalCachePar
                     if (partA.signals[i].data.length || newPart.signals[i].data.length) {
                         if (partA.end === newPart.start) {
                             // New part extends partA at the end
-                            partA.signals[i].data = concatFloat32Arrays(
+                            partA.signals[i].data = concatTypedNumberArrays(
                                 partA.signals[i].data.slice(0, Math.floor((newPart.start - partA.start)*partA.signals[i].samplingRate)),
                                 newPart.signals[i].data
                             )
                         } else {
                             // New part extends partA at the start
-                            partA.signals[i].data = concatFloat32Arrays(
+                            partA.signals[i].data = concatTypedNumberArrays(
                                 newPart.signals[i].data,
                                 partA.signals[i].data.slice(Math.floor((partA.start - newPart.start)*partA.signals[i].samplingRate))
                             )
@@ -372,13 +373,14 @@ export const combineSignalParts = (partA: SignalCachePart, partB: SignalCachePar
  * @param parts array parts to concatenate
  * @returns concatenated Float32Array
  */
-export const concatFloat32Arrays = (...parts: Float32Array[]) => {
+export const concatTypedNumberArrays = <T extends TypedNumberArray>(...parts: T[]): T => {
     if (parts.length < 2) {
         return parts ? parts[0] : parts
     }
     let totalLen = 0
+    const TypedConstructor = Object.getPrototypeOf(parts[0].constructor).constructor as TypedNumberArrayConstructor
     parts.map((arr) => { totalLen += arr.length })
-    const finalArr = new Float32Array(totalLen)
+    const finalArr = new TypedConstructor(totalLen) as T
     let curPos = 0
     // Append each part to the final array
     for (const arr of parts) {
@@ -435,21 +437,21 @@ export const fftAnalysis = (signal: Float32Array, samplingRate: number): FftAnal
     // If there are blockLen or fewer datapoints, create three blocks with the
     // actual data in the start, in the middle and in the end.
     if (signal.length < blockLen) {
-        sigBlocks.push(concatFloat32Arrays(signal, new Float32Array(padLen).fill(0.0)))
-        sigBlocks.push(concatFloat32Arrays(padStart, signal, padEnd))
-        sigBlocks.push(concatFloat32Arrays(new Float32Array(padLen).fill(0.0), signal))
+        sigBlocks.push(concatTypedNumberArrays(signal, new Float32Array(padLen).fill(0.0)))
+        sigBlocks.push(concatTypedNumberArrays(padStart, signal, padEnd))
+        sigBlocks.push(concatTypedNumberArrays(new Float32Array(padLen).fill(0.0), signal))
     } else {
         // Create segments with 0.5 seconds of overlap on both sides
         // (so that each signal segment is essentially analyzed twice).
         const nBlocks = Math.floor(signal.length/blockLen)*2 + 1
-        sigBlocks.push(concatFloat32Arrays(padStart, signal.subarray(0, blockLen - padStart.length)))
+        sigBlocks.push(concatTypedNumberArrays(padStart, signal.subarray(0, blockLen - padStart.length)))
         for (let i=1; i<(nBlocks-1); i++) {
             sigBlocks.push(signal.subarray(
                 (i/2)*blockLen - padStart.length,
                 ((i/2)+1)*blockLen - padStart.length
             ))
         }
-        sigBlocks.push(concatFloat32Arrays(signal.subarray(
+        sigBlocks.push(concatTypedNumberArrays(signal.subarray(
             ((nBlocks-1)/2)*blockLen - padStart.length
         ), padEnd))
     }

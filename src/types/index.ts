@@ -382,7 +382,11 @@ export {
 
 import {
     type Modify,
+    type TypedNumberArray,
+    type TypedNumberArrayConstructor,
 } from './util'
 export {
     Modify,
+    TypedNumberArray,
+    TypedNumberArrayConstructor,
 }

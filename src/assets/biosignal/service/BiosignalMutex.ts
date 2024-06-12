@@ -12,7 +12,7 @@ import {
     type MutexExportProperties,
     type MutexMetaField,
 } from 'asymmetric-io-mutex'
-import { concatFloat32Arrays } from '#util/signal'
+import { concatTypedNumberArrays } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { Log } from 'scoped-ts-log'
 
@@ -921,7 +921,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     // Truncate signals.
                     signals[i] = signals[i].subarray(0, dataView.length)
                 } else {
-                    signals[i] = concatFloat32Arrays(
+                    signals[i] = concatTypedNumberArrays(
                         signals[i],
                         // Fill the missing part with zeroes.
                         new Float32Array(dataView.length - signals[i].length).fill(0)

@@ -9,7 +9,7 @@ import BiosignalCache from './BiosignalCache'
 import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
 import GenericBiosignalSetup from '#assets/biosignal/components/GenericBiosignalSetup'
 import {
-    concatFloat32Arrays,
+    concatTypedNumberArrays,
     filterSignal,
     getFilterPadding,
     mapMontageChannels,
@@ -253,7 +253,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                     gapSig.fill(0.0)
                     sigParts.push(gapSig)
                     sigParts.push(gapped.slice(gap[0]))
-                    gapped = concatFloat32Arrays(...sigParts)
+                    gapped = concatTypedNumberArrays(...sigParts)
                     lastGapEnd = gap[1]
                 }
                 sigProps.data = filterSignal(
@@ -265,7 +265,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 )
                 // Remove the gap parts in reverse order.
                 for (const gap of gapIndices.reverse()) {
-                    sigProps.data = concatFloat32Arrays(
+                    sigProps.data = concatTypedNumberArrays(
                         sigProps.data.slice(0, gap[0]),
                         sigProps.data.slice(gap[1])
                     )
