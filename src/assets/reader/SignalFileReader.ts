@@ -357,25 +357,29 @@ export default abstract class SignalFileReader implements SignalDataReader {
 
     cacheNewAnnotations (...annotations: AnnotationTemplate[]) {
         // Arrange the annotations by record.
-        const recordAnnos = [] as AnnotationTemplate[][]
+        const annoMap = new Map<number, AnnotationTemplate[]>()
         for (const anno of annotations) {
             if (!anno) {
+                // Don't add empty annotations.
                 continue
             }
             const annoRec = Math.round(anno.start/this._dataUnitSize)
-            if (!recordAnnos[annoRec]) {
-                recordAnnos[annoRec] = []
+            const recordAnnos = annoMap.get(annoRec)
+            if (!recordAnnos) {
+                annoMap.set(annoRec, [anno])
+            } else {
+                recordAnnos.push(anno)
             }
-            recordAnnos[annoRec].push(anno)
         }
         new_loop:
-        for (const newKey of recordAnnos.keys()) {
+        for (const [newKey, newAnno] of annoMap) {
             for (const exsistingKey of Object.keys(this._annotations)) {
                 if (newKey === parseFloat(exsistingKey)) {
+                    // This record has already been processed, don't duplicate.
                     continue new_loop
                 }
             }
-            this._annotations.set(newKey, recordAnnos[newKey])
+            this._annotations.set(newKey, newAnno)
         }
     }
 
