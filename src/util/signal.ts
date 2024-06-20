@@ -378,7 +378,7 @@ export const concatTypedNumberArrays = <T extends TypedNumberArray>(...parts: T[
         return parts ? parts[0] : parts
     }
     let totalLen = 0
-    const TypedConstructor = Object.getPrototypeOf(parts[0].constructor).constructor as TypedNumberArrayConstructor
+    const TypedConstructor = Object.getPrototypeOf(parts[0]).constructor as TypedNumberArrayConstructor
     parts.map((arr) => { totalLen += arr.length })
     const finalArr = new TypedConstructor(totalLen) as T
     let curPos = 0
