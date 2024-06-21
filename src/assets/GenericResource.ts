@@ -13,6 +13,7 @@ import GenericAsset from '#assets/GenericAsset'
 //const SCOPE = 'GenericResource'
 
 export default abstract class GenericResource extends GenericAsset implements DataResource {
+    protected _errorReason = ''
     /** Is this record selected as active in the UI. */
     protected _loaded = false
     protected _source: StudyContext | null = null
@@ -25,6 +26,14 @@ export default abstract class GenericResource extends GenericAsset implements Da
         }
     }
 
+    get errorReason () {
+        return this._errorReason
+    }
+    set errorReason (value: string) {
+        const prevValue = this._errorReason
+        this._errorReason = value
+        this.onPropertyUpdate('error-reason', value, prevValue)
+    }
     get isReady () {
         return this._state === 'ready'
     }
@@ -41,6 +50,10 @@ export default abstract class GenericResource extends GenericAsset implements Da
     set state (value: ResourceState) {
         const prevState = this._state
         this._state = value
+        if (prevState === 'error' && value !== 'error') {
+            // Reset error message if state changes from error into something else.
+            this._errorReason = ''
+        }
         this.onPropertyUpdate('state', value, prevState)
     }
 

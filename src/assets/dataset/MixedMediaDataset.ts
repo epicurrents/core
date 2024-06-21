@@ -12,6 +12,7 @@ import GenericDataset from '#assets/dataset/GenericDataset'
 import GenericResource from '#assets/GenericResource'
 
 export default class MixedMediaDataset extends GenericDataset implements MediaDataset {
+    protected _errorReason = ''
     protected _scope = ''
     protected _source: StudyContext | null = null
     protected _state: ResourceState = 'added'
@@ -23,6 +24,14 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         super(name)
     }
 
+    get errorReason () {
+        return this._errorReason
+    }
+    set errorReason (value: string) {
+        const prevValue = this._errorReason
+        this._errorReason = value
+        this.onPropertyUpdate('error-reason', value, prevValue)
+    }
     get isReady () {
         return this._state === 'ready'
     }

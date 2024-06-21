@@ -77,6 +77,8 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
+    /** Message to display as the error state reason. */
+    errorReason: string
     /** Is the resource ready for use. */
     isReady: boolean
     /**
