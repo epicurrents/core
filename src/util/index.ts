@@ -14,7 +14,6 @@ import {
     MICRO,
     MILLI,
     NANO,
-    NO_MOUSE_BUTTON_DOWN,
     NUMERIC_ERROR_VALUE,
 } from './constants'
 import {
@@ -74,7 +73,6 @@ export {
     MICRO,
     MILLI,
     NANO,
-    NO_MOUSE_BUTTON_DOWN,
     NUMERIC_ERROR_VALUE,
 }
 export {

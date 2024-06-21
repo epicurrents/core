@@ -35,8 +35,3 @@ export const INDEX_NOT_ASSIGNED = -1
  * Numeric value to return when an error occurred.
  */
 export const NUMERIC_ERROR_VALUE = -1
-
-/**
- * Value indicating that no mouse button is pressed at the moment.
- */
-export const NO_MOUSE_BUTTON_DOWN = -1
