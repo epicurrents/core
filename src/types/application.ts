@@ -286,10 +286,6 @@ export type InterfaceResourceModuleContext = {
     mutations?: unknown // TODO: Better typing.
 }
 /**
- * Supported mouse interactions in the UI.
- */
-export type MouseInteraction = 'drag'
-/**
  * Object with the __proto__ property pointing to null.
  */
 export type NullProtoObject = {
