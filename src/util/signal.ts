@@ -19,6 +19,9 @@ import { type SignalCachePart } from '#types/service'
 import { type TypedNumberArray, type TypedNumberArrayConstructor } from '#types/util'
 import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
+import { PRECISION as FLOAT16_PRECISION } from '@stdlib/constants-float16'
+import { PRECISION as FLOAT32_PRECISION } from '@stdlib/constants-float32'
+import { PRECISION as FLOAT64_PRECISION } from '@stdlib/constants-float64'
 import { Log } from 'scoped-ts-log'
 //import { BiosignalMutex } from '#assets/biosignal'
 import { LTTB } from 'downsample'
@@ -563,6 +566,22 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
     // Convert into a Float32Array
     signal = new Float32Array(signal)
     return signal
+}
+
+/**
+ * See if two floats are equal to the given bit precision.
+ * @param float1 - One of the floats to test.
+ * @param float2 - The other float to test.
+ * @param bits - Float bits (either `16`, `32` or default `64`).
+ * @returns True/false.
+ */
+export const floatsAreEqual = (float1: number, float2: number, bits = 64 as 16 | 32 | 64) => {
+    const sigPrecision = bits === 16 ? FLOAT16_PRECISION
+                       : bits === 32 ? FLOAT32_PRECISION
+                       : FLOAT64_PRECISION
+    const val1Rounded = Math.round(float1*Math.pow(10, sigPrecision - Math.floor(Math.log10(float1))))
+    const val2Rounded = Math.round(float2*Math.pow(10, sigPrecision - Math.floor(Math.log10(float2))))
+    return val1Rounded - val2Rounded === 0
 }
 
 /**
