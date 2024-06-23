@@ -748,15 +748,6 @@ export const interpolateSignalValues = (signal: Float32Array, targetLen: number,
 }
 
 /**
- * Check if the given signal is an annotation signal.
- * @param channel - Channel info from EDF header.
- * @returns true/false
- */
-export const isAnnotationSignal = (format: string, channel: { label: string }) => {
-    return format.toLowerCase() === 'edf+' && channel.label === 'EDF Annotations'
-}
-
-/**
  * Check if the given signal cache parts form one continuous signal.
  * @param signalParts parts to check
  * @returns boolean
