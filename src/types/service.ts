@@ -317,7 +317,7 @@ export interface SignalCacheMutex extends AsymmetricMutex {
         dataLength: number,
         buffer: SharedArrayBuffer,
         bufferStart?: number
-    ): void
+    ): void | Promise<void>
     /**
      * Insert new signal data to the existing buffer.
      * This will overwrite possible overlapping signal data.

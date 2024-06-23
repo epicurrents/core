@@ -330,7 +330,10 @@ export const combineSignalParts = (partA: SignalCachePart, partB: SignalCachePar
                         continue
                     }
                     if (partA.signals[i].samplingRate !== newPart.signals[i].samplingRate) {
-                        Log.error(`Cannot combine signals with different sampling rates (${newPart.signals[i].samplingRate} <> ${partA.signals[i].samplingRate})!`, SCOPE)
+                        Log.error(
+                            `Cannot combine signals with different sampling rates ` +
+                            `(${newPart.signals[i].samplingRate} != ${partA.signals[i].samplingRate}).`,
+                        SCOPE)
                         // Replace the signal data with an empty array, since it is no longer valid
                         partA.signals[i].data = new Float32Array()
                         continue
@@ -339,14 +342,19 @@ export const combineSignalParts = (partA: SignalCachePart, partB: SignalCachePar
                         if (partA.end === newPart.start) {
                             // New part extends partA at the end
                             partA.signals[i].data = concatTypedNumberArrays(
-                                partA.signals[i].data.slice(0, Math.floor((newPart.start - partA.start)*partA.signals[i].samplingRate)),
+                                partA.signals[i].data.slice(
+                                    0,
+                                    Math.floor((newPart.start - partA.start)*partA.signals[i].samplingRate)
+                                ),
                                 newPart.signals[i].data
                             )
                         } else {
                             // New part extends partA at the start
                             partA.signals[i].data = concatTypedNumberArrays(
                                 newPart.signals[i].data,
-                                partA.signals[i].data.slice(Math.floor((partA.start - newPart.start)*partA.signals[i].samplingRate))
+                                partA.signals[i].data.slice(
+                                    Math.floor((partA.start - newPart.start)*partA.signals[i].samplingRate)
+                                )
                             )
                         }
                     }
@@ -576,6 +584,9 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
  * @returns True/false.
  */
 export const floatsAreEqual = (float1: number, float2: number, bits = 64 as 16 | 32 | 64) => {
+    if (float1 === float2 || (!float1 && !float2)) {
+        return true
+    }
     const sigPrecision = bits === 16 ? FLOAT16_PRECISION
                        : bits === 32 ? FLOAT32_PRECISION
                        : FLOAT64_PRECISION

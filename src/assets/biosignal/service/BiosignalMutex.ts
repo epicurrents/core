@@ -12,7 +12,7 @@ import {
     type MutexExportProperties,
     type MutexMetaField,
 } from 'asymmetric-io-mutex'
-import { concatTypedNumberArrays } from '#util/signal'
+import { concatTypedNumberArrays, floatsAreEqual } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { Log } from 'scoped-ts-log'
 
@@ -707,7 +707,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 //       the browser runs out of memory. Catch and handle this somehow?
                 // Construct buffer views, setting sampling rates and up-to-date data ranges.
                 this.setDataFieldValue(BiosignalMutex.SIGNAL_SAMPLING_RATE_NAME, sig.samplingRate, [i])
-                this.setDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_START_NAME , BiosignalMutex.EMPTY_FIELD, [i])
+                this.setDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_START_NAME, BiosignalMutex.EMPTY_FIELD, [i])
                 this.setDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_END_NAME, BiosignalMutex.EMPTY_FIELD, [i])
             }
         })
@@ -744,6 +744,10 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         }
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, async () => {
             for (let i=0; i<(this._outputData?.arrays || []).length; i++) {
+                // This is an empty or disabled signal, skip.
+                if (!signalPart.signals[i].samplingRate) {
+                    continue
+                }
                 // Check that we have the required view.
                 const dataView = this._outputData?.arrays[i]?.view
                 if (!dataView) {
@@ -753,7 +757,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 const dataPartLen = dataView.length - this._outputDataFieldsLen
                 // Check that sampling rates match (direct access to avoid array read lock).
                 const samplingRate = dataView[BiosignalMutex.SIGNAL_SAMPLING_RATE_POS]
-                if (!IOMutex.floatsAreEqual(samplingRate, signalPart.signals[i].samplingRate)) {
+                if (!floatsAreEqual(samplingRate, signalPart.signals[i].samplingRate, 32)) {
                     Log.error(`Sampling rates of existing and new signals at index ${i} don't match ` +
                               `(${samplingRate} vs ${signalPart.signals[i].samplingRate}).`, SCOPE)
                     // Fill the buffer with zeroes so the error won't go unnoticed.

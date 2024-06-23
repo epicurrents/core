@@ -525,7 +525,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         _recordingDuration: number,
         _dataGaps = [] as SignalDataGap[]
     ) {
-        Log.error(`useCache must be overridden in the child class.`, SCOPE)
+        Log.error(`setupCacheWithInput must be overridden in the child class.`, SCOPE)
     }
 
     async setupMutex (_buffer: SharedArrayBuffer, _bufferStart: number) {
@@ -540,7 +540,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         _recordingDuration: number,
         _dataGaps = [] as SignalDataGap[]
     ): Promise<MutexExportProperties|null> {
-        Log.error(`useInputWorker must be overridden in the child class.`, SCOPE)
+        Log.error(`setupMutexWithInput must be overridden in the child class.`, SCOPE)
         return null
     }
 
@@ -557,7 +557,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         _recordingDuration: number,
         _dataGaps = [] as SignalDataGap[]
     ) {
-        Log.error(`useInputWorker must be overridden in the child class.`, SCOPE)
+        Log.error(`setupSharedWorkerWithInput must be overridden in the child class.`, SCOPE)
         return false
     }
 }
