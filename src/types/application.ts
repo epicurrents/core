@@ -155,6 +155,13 @@ export interface EpicurrentsApp {
      */
     configure (config: { [field: string]: SettingsValue }): void
     /**
+     * Create a new dataset.
+     * @param name - Name of the dataset.
+     * @param setAsActive - Should the created dataset be set as active.
+     * @returns The created dataset.
+     */
+    createDataset (name?: string, setAsActive?: boolean): MediaDataset
+    /**
      * Get a worker instance to override a default worker or null if no override exists.
      * @param name - Name of the worker to override.
      */

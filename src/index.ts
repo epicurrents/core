@@ -197,10 +197,11 @@ export class Epicurrents implements EpicurrentsApp {
         }
     }
 
-    createDataset (name?: string) {
+    createDataset (name?: string, setAsActive?: boolean) {
         const setName = name || `Dataset ${this.#runtime.APP.datasets.length + 1 }`
         const newSet = new MixedMediaDataset(setName)
-        this.#runtime.addDataset(newSet)
+        this.#runtime.addDataset(newSet, setAsActive)
+        Log.debug(`New dataset '${setName}' created${ setAsActive ? ' and set as active dataset' : '' }.`, SCOPE)
         return newSet
     }
 
