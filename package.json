@@ -30,8 +30,7 @@
   },
   "imports": {
     "#runtime*": "./dist/src/runtime/index.ts",
-    "#root/*": "./dist/*",
-    "#*": "./dist/src/*"
+    "#*": "./dist/*"
   },
   "files": [
     "dist/*",
