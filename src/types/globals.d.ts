@@ -1,6 +1,6 @@
 /**
  * Global property type declarations.
- * @package    @epicurrents/core
+ * @package    epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0
  */
