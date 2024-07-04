@@ -199,14 +199,12 @@ export {
 /////////////////////////////////////////////////
 
 import {
-    type DocumentFormat,
     type DocumentResource,
     type DocumentServiceReject,
     type DocumentServiceResolve,
     type DocumentServiceResponse,
 } from './document'
 export {
-    DocumentFormat,
     DocumentResource,
     DocumentServiceReject,
     DocumentServiceResolve,

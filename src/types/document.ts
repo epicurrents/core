@@ -7,8 +7,6 @@
 
 import { DataResource } from './application'
 
-/** Valid HTML resource formats. */
-export type DocumentFormat = 'html' | 'markdown' | 'pdf'
 /**
  * Resource holding (usually paginated) text and images.
  */
@@ -20,7 +18,7 @@ export interface DocumentResource extends DataResource {
     /** Total number of pages in the document. */
     numPages: number
     /** Format of the source file. */
-    sourceFormat: DocumentFormat
+    sourceFormat: string
     /** Increase page number by one, if there is a following page. */
     nextPage (): void
     /** Reduce page number by one, if there is a preceding page. */
