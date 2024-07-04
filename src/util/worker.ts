@@ -153,7 +153,7 @@ export const validateCommissionProps = <T extends WorkerMessage['data']>(
                 }
                 if (dataItem.constructor.name !== propItem) {
                     Log.error(
-                        `Property '${prop[0]}' for commission '${data.action}' item type at index is wrong ${i}: ` +
+                        `Property '${prop[0]}' for commission '${data.action}' item type at index ${i} is wrong: ` +
                         `expected ${propItem}, received ${dataItem.constructor.name}.`,
                     SCOPE)
                     returnMessage({
