@@ -789,6 +789,14 @@ export interface BiosignalResource extends DataResource {
     signalCacheStatus: number[]
     /** Recording start time. */
     startTime: Date | null
+    /** Active timebase value. */
+    timebase: number
+    /**
+     * Unit of the active timebase.\
+     * If switching from one timebase unit to another, always change the unit first and value after, since listeners
+     * are only notified of value changes.
+     */
+    timebaseUnit: string
     /** Total recording duration in seconds, with possible gaps. */
     totalDuration: number
     /** List of record video attachments. */

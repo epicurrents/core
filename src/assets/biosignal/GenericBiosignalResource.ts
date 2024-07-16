@@ -59,6 +59,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _setup: BiosignalSetup | null = null
     protected _signalCacheStatus: number[] = [0, 0]
     protected _startTime: Date | null = null
+    protected _timebase = 0
+    protected _timebaseUnit = ''
     protected _totalDuration: number = 0
     protected _url: string = ''
     protected _videos: VideoAttachment[] = []
@@ -227,6 +229,22 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     get startTime () {
         return this._startTime
+    }
+
+    get timebase () {
+        return this._timebase
+    }
+    set timebase (value: number) {
+        const oldVal = this._timebase
+        this._timebase = value
+        this.onPropertyUpdate('timebase', value, oldVal)
+    }
+
+    get timebaseUnit () {
+        return this._timebaseUnit
+    }
+    set timebaseUnit (value: string) {
+        this._timebaseUnit = value
     }
 
     get totalDuration () {
