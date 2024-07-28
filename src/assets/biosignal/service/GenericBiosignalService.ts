@@ -56,7 +56,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
     }
 
     protected async _isStudyReady (): Promise<boolean> {
-        const studySetup = this._waiters.get('setup-study')
+        const studySetup = this._waiters.get('setup-worker')
         if (studySetup !== undefined) {
             const studyLoad = new Promise<boolean>(success => {
                 studySetup.push(success)
@@ -149,11 +149,19 @@ export default abstract class GenericBiosignalService extends GenericService imp
             this._isCacheSetup = data.success
             if (data.success) {
                 commission.resolve(data.cacheProperties)
-                this._isCacheSetup = true
             } else {
                 commission.resolve(null)
             }
             this._notifyWaiters('setup-cache', data.success)
+            return true
+        } else if (data.action === 'setup-worker') {
+            this._isWorkerSetup = data.success
+            if (data.success) {
+                commission.resolve(data.recordingLength)
+            } else {
+                commission.resolve(0)
+            }
+            this._notifyWaiters('setup-worker', data.success)
             return true
         }
         return super._handleWorkerCommission(message)
@@ -169,9 +177,9 @@ export default abstract class GenericBiosignalService extends GenericService imp
         // Find biosignal files.
         const fileUrls = study.files.filter(file => file.role === 'data').map(file => file.url)
         Log.info(`Loading study ${study.name} in worker.`, SCOPE)
-        this._initWaiters('setup-study')
+        this._initWaiters('setup-worker')
         const commission = this._commissionWorker(
-            'setup-study',
+            'setup-worker',
             new Map<string, unknown>([
                 ['header', header.serializable],
                 ['urls', fileUrls],
