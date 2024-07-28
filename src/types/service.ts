@@ -27,6 +27,10 @@ export interface AssetService extends BaseAsset {
     /** Starting index of the reserved buffer range (-1 if no range is reserved). */
     bufferRangeStart: number
     /**
+     * Returns a promise that resolves with the setup result or `undefined` if setup state cannot be determied.
+     */
+    initialSetup: Promise<unknown|undefined>
+    /**
      * A loader may need various steps of initial setup before it is ready
      * to load its target asset. This property indicates if all the necessary
      * setup is complete and the loader ready to load the target asset.
