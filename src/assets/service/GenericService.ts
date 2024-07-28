@@ -86,7 +86,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
         }
         if (!this._waiters.get('setup-worker')) {
             // The setup process hasn't begun yet or has failed.
-            return false
+            return Promise.resolve(undefined)
         }
         return this.awaitAction('setup-worker') as Promise<SetupWorkerResponse>
     }
