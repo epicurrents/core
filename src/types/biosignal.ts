@@ -25,7 +25,6 @@ import {
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
-    SetupWorkerResponse,
 } from './service'
 import { StudyContext } from './study'
 import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-mutex'
@@ -316,12 +315,15 @@ export interface BiosignalDataService extends AssetService {
      */
     handleMessage (message: WorkerResponse): Promise<MessageHandled>
     /**
-     * Prepare the worker with the given biosignal recording.
+     * Prepare the worker with the given biosignal study.
      * @param header - BiosignalHeaderRecord for the study.
-     * @param study - study object to load
+     * @param study - Study object to load.
+     * @param formatHeader - Possible format-specific header object, if needed by the worker.
      * @returns Promise that fulfills with the real duration of the recording, or 0 if loading failed.
      */
-    prepareWorker (header: BiosignalHeaderRecord, study: StudyContext): Promise<SetupStudyResponse>
+    setupWorker (
+        header: BiosignalHeaderRecord, study: StudyContext, formatHeader?: unknown
+    ): Promise<SetupStudyResponse>
     /**
      * Setup a simple signal data cache.
      */
@@ -690,11 +692,6 @@ export interface BiosignalMontageService extends AssetService {
      * Map montage channels in the web worker using the montage config.
      */
     mapChannels (): Promise<void>
-    /**
-     * Perform initial preparations in this service's worker.
-     * @returns True if successful, false otherwise.
-     */
-    prepareWorker (): Promise<SetupWorkerResponse>
     /**
      * Set the given gaps to the recording in the web worker.
      * @param gaps - The gaps to set as a map of <start data time, duration> in seconds.

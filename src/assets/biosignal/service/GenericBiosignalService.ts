@@ -155,20 +155,17 @@ export default abstract class GenericBiosignalService extends GenericService imp
             }
             this._notifyWaiters('setup-cache', data.success)
             return true
-        } else if (data.action === 'setup-study') {
-            if (data.success) {
-                commission.resolve(data.recordingLength)
-                this._isWorkerSetup = true
-            } else {
-                commission.resolve(0)
-            }
-            this._notifyWaiters('setup-study', data.success)
-            return true
         }
         return super._handleWorkerCommission(message)
     }
 
-    async prepareWorker (header: BiosignalHeaderRecord, study: StudyContext) {
+    async setupCache (): Promise<SignalDataCache|null> {
+        this._initWaiters('setup-cache')
+        const commission = this._commissionWorker('setup-cache')
+        return commission.promise as Promise<SignalDataCache|null>
+    }
+
+    async setupWorker (header: BiosignalHeaderRecord, study: StudyContext) {
         // Find biosignal files.
         const fileUrls = study.files.filter(file => file.role === 'data').map(file => file.url)
         Log.info(`Loading study ${study.name} in worker.`, SCOPE)
@@ -181,11 +178,5 @@ export default abstract class GenericBiosignalService extends GenericService imp
             ])
         )
         return commission.promise as Promise<SetupStudyResponse>
-    }
-
-    async setupCache (): Promise<SignalDataCache|null> {
-        this._initWaiters('setup-cache')
-        const commission = this._commissionWorker('setup-cache')
-        return commission.promise as Promise<SignalDataCache|null>
     }
 }

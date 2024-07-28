@@ -12,6 +12,7 @@ import {
     type CommissionPromise,
     type MemoryManager,
     type RequestMemoryResponse,
+    type SetupWorkerResponse,
     type WorkerCommission,
     type WorkerMessage,
     type WorkerResponse,
@@ -78,6 +79,16 @@ export default abstract class GenericService extends GenericAsset implements Ass
             return 0
         }
         return this._memoryRange.end - this._memoryRange.start
+    }
+    get initialSetup () {
+        if (this._isWorkerSetup) {
+            return Promise.resolve(true)
+        }
+        if (!this._waiters.get('setup-worker')) {
+            // The setup process hasn't begun yet or has failed.
+            return false
+        }
+        return this.awaitAction('setup-worker') as Promise<SetupWorkerResponse>
     }
     get isReady () {
         if (!this._isWorkerSetup || !this._isCacheSetup) {
@@ -449,6 +460,13 @@ export default abstract class GenericService extends GenericAsset implements Ass
             return null
         }
         return initResult
+    }
+
+    async setupWorker (..._params: unknown[]): Promise<SetupWorkerResponse> {
+        Log.debug(`Setting up worker.`, SCOPE)
+        this._initWaiters('setup-worker')
+        const commission = this._commissionWorker('setup-worker')
+        return commission.promise as Promise<SetupWorkerResponse>
     }
 
     shutdown () {

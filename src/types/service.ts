@@ -84,6 +84,12 @@ export interface AssetService extends BaseAsset {
      */
     setupMutex (): Promise<MutexExportProperties|null>
     /**
+     * Perform necessary setup in the worker handling commissions for this service.
+     * @param params - Any parameters required for the setup.
+     * @return Promise that resolves with the success of the setup operation.
+     */
+    setupWorker (...params: unknown[]): Promise<SetupWorkerResponse>
+    /**
      * Shut down this service, releasing any allocated memory and destroying the web worker.
      * @returns Promise that fulfills when shutdown is complete.
      */
@@ -221,9 +227,9 @@ export type RequestMemoryResponse = boolean
 export type SetupStudyResponse = number
 /**
  * Response from the worker when initial worker setup is complete.
- * Returs true on success, false on failure.
+ * Returns a context-specific value, usually true on success, false on failure.
  */
-export type SetupWorkerResponse = boolean
+export type SetupWorkerResponse = unknown
 /**
  * A mutex responsible for caching signal data.
  */

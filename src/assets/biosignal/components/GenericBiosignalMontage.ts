@@ -428,7 +428,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             type: this._config.reference?.type || 'unknown',
         } : null
         // We can prepare the worker now that montage setup is complete.
-        this._service.prepareWorker()
+        this._service.setupWorker()
     }
 
     async setupLoaderWithCache (cache: SignalDataCache) {

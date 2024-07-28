@@ -190,21 +190,6 @@ export default class MontageService extends GenericService implements BiosignalM
         return channels.promise as Promise<void>
     }
 
-    async prepareWorker () {
-        this._initWaiters('setup-worker')
-        const commission = this._commissionWorker(
-            'setup-worker',
-            new Map<string, unknown>([
-                ['config', this._montage.config],
-                ['montage', this._montage.name],
-                ['namespace', this._montage.type],
-                ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS._CLONABLE],
-                ['setupChannels', this._montage.setup.channels],
-            ])
-        )
-        return commission.promise as Promise<SetupWorkerResponse>
-    }
-
     setDataGaps (gaps: SignalDataGapMap) {
         // Convert gaps into a JSON friendly format.
         const gapList = []
@@ -319,5 +304,20 @@ export default class MontageService extends GenericService implements BiosignalM
             ])
         )
         return montage.promise as Promise<SetupSharedWorkerResponse>
+    }
+
+    async setupWorker () {
+        this._initWaiters('setup-worker')
+        const commission = this._commissionWorker(
+            'setup-worker',
+            new Map<string, unknown>([
+                ['config', this._montage.config],
+                ['montage', this._montage.name],
+                ['namespace', this._montage.type],
+                ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS._CLONABLE],
+                ['setupChannels', this._montage.setup.channels],
+            ])
+        )
+        return commission.promise as Promise<SetupWorkerResponse>
     }
 }
