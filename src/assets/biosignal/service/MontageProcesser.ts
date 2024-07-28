@@ -175,7 +175,13 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 //paddingStart, paddingEnd,
                 //rangeStart, rangeEnd,
                 //signalStart, signalEnd,
-            } = getFilterPadding([relStart, relEnd] || [], SIGNALS[chan.active].length, chan, this._settings, this._filters)
+            } = getFilterPadding(
+                [relStart, relEnd] || [],
+                SIGNALS[chan.active].length,
+                chan,
+                this._settings,
+                this._filters
+            )
             // Calculate signal indices (relative to the retrieved data part) for data gaps.
             const gapIndices = [] as number[][]
             let totalGapLen = 0
@@ -240,7 +246,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 padded.set([(SIGNALS[chan.active][n] - refAvg)], j)
                 j++
             }
-            if (shouldFilterSignal(this._filters, chan)) {
+            if (shouldFilterSignal(chan, this._filters, this._settings)) {
                 // Add possible data gaps.
                 let gapped = padded
                 let lastGapEnd = 0

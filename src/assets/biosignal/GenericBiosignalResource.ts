@@ -7,14 +7,16 @@
  */
 
 import {
-    AnnotationTemplate,
+    type AnnotationTemplate,
     type BiosignalAnnotation,
     type BiosignalChannel,
     type BiosignalCursor,
     type BiosignalDataService,
+    type BiosignalFilterType,
     type BiosignalMontage,
     type BiosignalResource,
     type BiosignalSetup,
+    type SignalDataCache,
     type SignalDataGap,
     type SignalDataGapMap,
     type SignalPart,
@@ -31,6 +33,7 @@ import { nullPromise } from '#util/general'
 import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
 import GenericResource from '#assets/GenericResource'
 import Log from 'scoped-ts-log'
+import { type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericBiosignalResource'
 
@@ -38,11 +41,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     protected _activeMontage: BiosignalMontage | null = null
     protected _annotations: BiosignalAnnotation[] = []
+    protected _cacheProps: SignalDataCache | null = null
     protected _channels: BiosignalChannel[] = []
     protected _cursors: BiosignalCursor[] = []
     protected _dataDuration: number = 0
     protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _displayViewStart: number = 0
+    protected _filterChannelTypes = {} as { [type: string]: BiosignalFilterType[] }
     protected _filters = {
         highpass: 0,
         lowpass: 0,
@@ -51,6 +56,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
+    protected _mutexProps: MutexExportProperties | null = null
     protected _recordMontage: BiosignalMontage | null = null
     protected _sampleCount: number | null = null
     protected _samplingRate: number | null = null
@@ -70,6 +76,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS.modules[type] as CommonBiosignalSettings
         super(name, GenericResource.SCOPES.BIOSIGNAL, type, source)
         // Set default filters.
+        this._filterChannelTypes = TYPE_SETTINGS?.filterChannelTypes || []
         this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0
         this._filters.lowpass = TYPE_SETTINGS?.filters.lowpass.default || 0
         this._filters.notch = TYPE_SETTINGS?.filters.notch.default || 0
@@ -102,6 +109,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._cursors
     }
 
+    get dataCache () {
+        return this._mutexProps || this._cacheProps
+    }
+
     get dataDuration () {
         return this._dataDuration
     }
@@ -118,6 +129,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         const oldVal = this._displayViewStart
         this._displayViewStart = value
         this.onPropertyUpdate('display-view-start', value, oldVal)
+    }
+
+    get filterChannelTypes () {
+        return this._filterChannelTypes
     }
 
     get filters () {
@@ -664,6 +679,39 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         this._activeMontage?.updateFilters()
         this.onPropertyUpdate('notch-filter')
+    }
+
+    async setupCache () {
+        if (!this._service) {
+            Log.error(`Cannot setup cache before service has been set.`, SCOPE)
+            return null
+        }
+        const result = await this._service.setupCache()
+        if (result) {
+            this._cacheProps = result as SignalDataCache
+        }
+        return this._cacheProps
+    }
+
+    async setupMutex (): Promise<MutexExportProperties | null> {
+        if (!this._service) {
+            Log.error(`Cannot setup cache before service has been set.`, SCOPE)
+            return null
+        }
+        const result = await this._service.setupMutex().then(async response => {
+            if (response) {
+                Log.debug(`Cache for raw signal data initiated.`, SCOPE)
+                this._mutexProps = response
+                return response
+            } else {
+                Log.error(`Cache initialization failed.`, SCOPE)
+                return null
+            }
+        }).catch(e => {
+            Log.error(`Failed to set up mutex in worker.`, SCOPE, e)
+            return null
+        })
+        return result
     }
 
     startCachingSignals () {

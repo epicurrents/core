@@ -14,7 +14,7 @@ import {
     type MontageChannel,
     type SetupChannel,
 } from '#types/biosignal'
-import { type ConfigChannelLayout } from '../types/config'
+import { CommonBiosignalSettings, type ConfigChannelLayout } from '../types/config'
 import { type SignalCachePart } from '#types/service'
 import { type TypedNumberArray, type TypedNumberArrayConstructor } from '#types/util'
 import * as d3 from 'd3-interpolate'
@@ -596,12 +596,38 @@ export const floatsAreEqual = (float1: number, float2: number, bits = 64 as 16 |
 }
 
 /**
+ * Get the filters to apply to the signal in this `channel`.
+ * @param channel - Signal channel.
+ * @param defaultFilters - Recording default filters.
+ * @param settings - Module settings.
+ * @returns Standard biosignal filters.
+ */
+export const getChannelFilters = (
+    channel: BiosignalChannel,
+    defaultFilters: BiosignalFilters,
+    settings: CommonBiosignalSettings
+): BiosignalFilters => {
+    const applyDefaults = settings.filterChannelTypes[channel.type]
+    const highpass = channel.highpassFilter
+                     || (applyDefaults?.includes('highpass') ? defaultFilters.highpass : 0) || 0
+    const lowpass = channel.lowpassFilter
+                    || (applyDefaults?.includes('lowpass') ? defaultFilters.lowpass : 0) || 0
+    const notch = channel.notchFilter
+                  || (applyDefaults?.includes('notch') ? defaultFilters.notch : 0) || 0
+    return {
+        highpass: highpass,
+        lowpass: lowpass,
+        notch: notch
+    }
+}
+
+/**
  * Get filter properties for the given signal range.
  * @param range - Requested signal range in seconds.
  * @param sigLen - Total signal length.
  * @param channel - Channel properties.
  * @param config - Configuration properties for the biosignal in question.
- * @param filters - Active general filters as BiosignalFilters (optional).
+ * @param filters - Active default filters to check if signal should be filtered (optional).
  * @returns Padding properties as
  * ```
  * Object<{
@@ -630,9 +656,7 @@ export const getFilterPadding = (
     range: number[],
     sigLen: number,
     channel: BiosignalChannel,
-    config: {
-        filterPaddingSeconds: number
-    },
+    settings: CommonBiosignalSettings,
     filters?: BiosignalFilters,
 ) => {
     // If range is falsy, just use the whole signal
@@ -655,8 +679,10 @@ export const getFilterPadding = (
     // Apply padding to channel if it has any filters set
     let filtSize = 0
     let filtPad = [0, 0]
-    if (!filters || shouldFilterSignal(filters, channel)) {
-        filtSize = Math.round(channel.samplingRate*config.filterPaddingSeconds)
+    if (!filters // Padding information is wanted if these are omitted.
+        || shouldFilterSignal(channel, filters, settings)
+    ) {
+        filtSize = Math.round(channel.samplingRate*settings.filterPaddingSeconds)
         filtPad = chanRange === null
                   // Always add full padding on both ends if the whole signal is requested
                   ? [filtSize, filtSize]
@@ -1044,14 +1070,19 @@ export const resampleSignal = (signal: Float32Array, targetLen: number) => {
     )
 }
 
-export const shouldFilterSignal = (filters: BiosignalFilters, channel: BiosignalChannel) => {
-    return (
-        (
-            (filters.highpass || filters.lowpass || filters.notch) &&
-            (channel.type === 'eeg' || channel.type === 'ekg' || channel.type === 'eog' || channel.type === 'meg')
-        ) ||
-        channel.highpassFilter || channel.lowpassFilter || channel.notchFilter
-    )
+/**
+ * A helper method to determine if the signal on the given `channel` should be filtered or not.
+ * @param channel - Channel containing the signal.
+ * @param defaultFilters - Default filters for this recording.
+ * @param settings - Settings for the recording type.
+ * @returns True/false.
+ */
+export const shouldFilterSignal = (
+    channel: BiosignalChannel,
+    defaultFilters: BiosignalFilters,
+    settings: CommonBiosignalSettings
+) => {
+    return Object.values(getChannelFilters(channel, defaultFilters, settings)).some(v => Array.isArray(v) || v > 0)
 }
 
 /**

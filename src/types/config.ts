@@ -9,6 +9,7 @@ import { PropertyUpdateHandler } from './application'
 import {
     BiosignalAnnotation,
     BiosignalChannelTemplate,
+    BiosignalFilterType,
     SetupChannel,
 } from './biosignal'
 import { StudyContextCollection } from './study'
@@ -150,6 +151,14 @@ export type CommonBiosignalSettings = {
     }
     defaultMontages: { [setup: string]: [string, string][] }
     defaultSetups: string[]
+    /**
+     * Channel types and the associated default filter types that should be applied to this channel.
+     * @example
+     * { eeg: ['highpass', 'lowpass', 'notch'] }
+     */
+    filterChannelTypes: {
+        [type: string]: BiosignalFilterType[]
+    }
     /**
      * The amount of padding is always a compromise between overhead from the extra signal data that needs to be 
      * processed and possible artefacts introduced by filtering; the slower and larger amplitude the waves,

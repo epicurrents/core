@@ -419,7 +419,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
         if (response.success) {
             this._memoryRange.start = range[0]
             this._memoryRange.end = range[1]
-            Log.debug(`Buffer range shift successful, new range is ${range[0]}-${range[1]}.`, SCOPE)
+            Log.debug(`Buffer range shift successful, new range is ${range.join('-')}.`, SCOPE)
         } else {
             Log.debug(`Buffer range shift failed: ${response.reason}`, SCOPE)
         }

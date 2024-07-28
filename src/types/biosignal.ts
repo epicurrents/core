@@ -334,11 +334,13 @@ export type BiosignalFilters = {
     highpass: number
     lowpass: number
     notch: number
-    /** List of possible additional band-pass filters. */
-    bandpass?: number[][]
-    /** Nost of possible additional band-reject filters. */
+    /** List of possible additional band-reject filters. */
     bandreject?: number[][]
 }
+/**
+ * Types of default filters that can be applied to biosignals.
+ */
+export type BiosignalFilterType = 'highpass' | 'lowpass' | 'notch'
 /**
  * A record containing the essential metadata of a biosignal recording.
  */
@@ -767,10 +769,19 @@ export interface BiosignalResource extends DataResource {
     channels: BiosignalChannel[]
     /** Cursors for marking points in time on the plot. */
     cursors: BiosignalCursor[]
+    /** 
+     * Contains the properties of the raw signal data cache as:
+     * - `MutexExportProperties` if memory manager is used.
+     * - `SignalDataCache` if no memory manager is used.
+     * - `null` if cache has not been set up.
+     */
+    dataCache: MutexExportProperties | SignalDataCache | null
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
     /** The display view start can be optionally updated after signals are processed and actually displayed. */
     displayViewStart: number
+    /** List of channel types and default filters that should be applied to them. */
+    filterChannelTypes: { [type: string]: BiosignalFilterType[] }
     /** Get the currently active filters. */
     filters: BiosignalFilters
     /** List of available, initialized montages. */
@@ -915,7 +926,16 @@ export interface BiosignalResource extends DataResource {
      * @param scope - Scope of the change: `recording` (default) or `montage`.
      */
     setNotchFilter (value: number | null, target?: number | string, scope?: string): void
-
+    /**
+     * Setu up a signal data cache for input signals.
+     * @returns A promise resolving with the created signal data cache or null on error.
+     */
+    setupCache (): Promise<SignalDataCache | null>
+    /**
+     * Set up a mutex as input signal data cache.
+     * @returns A promise resolving with clonable mutex properties if success, null on failure.
+     */
+    setupMutex (): Promise<MutexExportProperties | null>
     /**
      * Start the process of caching signals from the saved URL.
      */
