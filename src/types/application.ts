@@ -77,6 +77,10 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
+    /** Any dependencies of this resource that are not yet ready to use. */
+    dependenciesMissing: string[]
+    /** Dependencies of this resource that are ready to use. */
+    dependenciesReady: string[]
     /** Message to display as the error state reason. */
     errorReason: string
     /** Is the resource ready for use. */
@@ -99,6 +103,23 @@ export interface BaseAsset {
      * - `error`: There was a loading error.
      */
     state: ResourceState
+    /**
+     * Add `dependencies` to the list of missing dependencies for this resource.
+     * @param dependencies - Dependency or dependencies to add.
+     */
+    addDependencies (...dependencies: string[]): void
+    /**
+     * Remove `dependencies` from the list of missing dependencies for this resource.
+     * @param dependencies - Dependency or dependencies to remove.
+     */
+    removeDependencies (...dependencies: string[]): void
+    /**
+     * Set `dependencies` as ready, moving them from the list of missing dependencies to the ready dependencies.
+     * @param dependencies - Dependency or dependencies to set as ready.
+     * @remarks
+     * This method fires property watchers for both missng and ready dependencies.
+     */
+    setDependenciesReady (...dependencies: string[]): void
     /**
      * Get the main properties of this resource as a map of
      * <labelString, stringParams>.
