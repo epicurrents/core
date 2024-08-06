@@ -210,13 +210,12 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 }
             }
             // We must preserve space for padding on both ends of the signal array.
-            const padded = new Float32Array(filterEnd - filterStart)
+            const padded = new Float32Array(filterEnd - filterStart).fill(0)
             let j = 0
             for (let n=filterStart; n<filterEnd; n++) {
                 let refAvg = 0
-                // Just add zero if we are outside tha actual signal range.
+                // Just leave the value at zero if we are outside tha actual signal range.
                 if (n < 0 || n >= SIGNALS[chan.active].length) {
-                    padded.set([0], j)
                     j++
                     continue
                 }
