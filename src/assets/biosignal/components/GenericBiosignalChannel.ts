@@ -50,17 +50,16 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     protected _visible: boolean
 
     constructor (
-        name: string, label: string, type: string,
-        active: number, reference: number[], averaged: boolean,
-        samplingRate: number, unit: string, visible: boolean,
-        extraProperties: {
-            amplification?: number, sensitivity?: number,
-            displayPolarity?: -1 | 0 | 1, offset?: number | BiosignalChannel['offset'],
-            laterality?: BiosignalLaterality,
-            highpassFilter?: number, lowpassFilter?: number, notchFilter?: number,
-            sampleCount?: number,
-            originalSamplingRate?: number, originalSampleCount?: number
-        } = {}
+        name: string,
+        label: string,
+        type: string,
+        active: number,
+        reference: number[],
+        averaged: boolean,
+        samplingRate: number,
+        unit: string,
+        visible: boolean,
+        extraProperties = {} as Partial<BiosignalChannel>
     ) {
         super(name, GenericAsset.SCOPES.BIOSIGNAL, type || 'unk')
         this._type = type // override the checking in generic asset for now... need to make this more dynamic
