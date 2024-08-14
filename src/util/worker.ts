@@ -7,7 +7,7 @@
 
 import { type SafeObject } from '#root/src/types/application'
 import { Log } from 'scoped-ts-log'
-import { WorkerMessage } from '../types'
+import { type WorkerCommissionResponse, type WorkerMessage } from '../types'
 
 const SCOPE = "util:worker"
 
@@ -102,80 +102,63 @@ export const validateCommissionProps = <T extends WorkerMessage['data']>(
     requiredSetup = true,
     returnMessage = postMessage,
 ): false | T => {
-    if (!requiredSetup) {
-        Log.error(`Received commission '${data.action}' before required setup was complete.`, SCOPE)
+    /** Send worker response with `success`: false, with the given reason as `error` message. */
+    const validationFailure = (reason: string): false => {
         returnMessage({
             action: data.action,
+            error: reason,
             success: false,
             rn: data.rn,
-        })
+        } as WorkerCommissionResponse)
         return false
+    }
+    if (!requiredSetup) {
+        return validationFailure(`Received commission '${data.action}' before required setup was complete.`)
     }
     for (const prop of Object.entries(requiredProps)) {
         if (!Object.hasOwn(data, prop[0]) || data[prop[0]] === undefined) {
             if (prop[1].includes('undefined')) {
                 continue
             }
-            Log.error(`Received commission '${data.action}' without the required '${prop[0]}' property.`, SCOPE)
-            returnMessage({
-                action: data.action,
-                success: false,
-                rn: data.rn,
-            })
-            return false
+            return validationFailure(`Received commission '${data.action}' without the required '${prop[0]}' property.`)
+        }
+        // Check if property can optionally be undefined and remove that.
+        if (Array.isArray(prop[1]) && prop[1].includes('undefined')) {
+            prop[1].splice(prop[1].indexOf('undefined'), 1)
+            // If only one option remains, flatten the array.
+            // This is not an optimal solution, optional properties should be handled some other way.
+            if (prop[1].length === 1) {
+                prop[1] = prop[1][0]
+            }
         }
         const dataProp = data[prop[0]] as object // May not be object, but we only use the constructor property.
         if (Array.isArray(prop[1])) {
             if (!Array.isArray(dataProp)) {
-                Log.error(`Property '${prop[0]}' for commission '${data.action}' is not an array.`, SCOPE)
-                returnMessage({
-                    action: data.action,
-                    success: false,
-                    rn: data.rn,
-                })
-                return false
+                return validationFailure(`Property '${prop[0]}' for commission '${data.action}' is not an array.`)
             }
             for (let i=0; i<prop[1].length; i++) {
                 const propItem = prop[1][i]
                 const dataItem = dataProp[i]
                 if (dataItem === undefined) {
-                    Log.error(
+                    return validationFailure(
                         `Property '${prop[0]}' for commission '${data.action}' ` +
                         `does not have the correct number of items: ` +
-                        `expected ${prop[1].length}, received ${dataItem.length}.`,
-                    SCOPE)
-                    returnMessage({
-                        action: data.action,
-                        success: false,
-                        rn: data.rn,
-                    })
-                    return false
+                        `expected ${prop[1].length}, received ${dataItem.length}.`
+                    )
                 }
                 if (dataItem.constructor.name !== propItem) {
-                    Log.error(
+                    return validationFailure(
                         `Property '${prop[0]}' for commission '${data.action}' item type at index ${i} is wrong: ` +
-                        `expected ${propItem}, received ${dataItem.constructor.name}.`,
-                    SCOPE)
-                    returnMessage({
-                        action: data.action,
-                        success: false,
-                        rn: data.rn,
-                    })
-                    return false
+                        `expected ${propItem}, received ${dataItem.constructor.name}.`
+                    )
                 }
             }
         } else {
             if (dataProp.constructor.name !== prop[1]) {
-                Log.error(
+                return validationFailure(
                     `Property '${prop[0]}' for commission '${data.action}' has a wrong type: ` +
-                    `expected ${prop[1]}, received ${dataProp.constructor.name}.`,
-                SCOPE)
-                returnMessage({
-                    action: data.action,
-                    success: false,
-                    rn: data.rn,
-                })
-                return false
+                    `expected ${prop[1]}, received ${dataProp.constructor.name}.`
+                )
             }
         }
     }
