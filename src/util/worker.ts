@@ -7,7 +7,7 @@
 
 import { type SafeObject } from '#root/src/types/application'
 import { Log } from 'scoped-ts-log'
-import { type WorkerCommissionResponse, type WorkerMessage } from '../types'
+import { type WorkerResponse, type WorkerMessage } from '../types'
 
 const SCOPE = "util:worker"
 
@@ -109,7 +109,7 @@ export const validateCommissionProps = <T extends WorkerMessage['data']>(
             error: reason,
             success: false,
             rn: data.rn,
-        } as WorkerCommissionResponse)
+        } as WorkerResponse['data'])
         return false
     }
     if (!requiredSetup) {

@@ -203,6 +203,19 @@ export interface MemoryManager {
     updateLastUsed (loader: ManagedService): void
 }
 /**
+ * Commission types for a memory manager worker with the action name as key and property types as value.
+ */
+export type MemoryManagerWorkerCommission = {
+    'release-and-rearrange': WorkerMessage['data'] & {
+        rearrange: { id: string, range: number[] }[]
+        release: number[][]
+    }
+    'set-buffer': WorkerMessage['data'] & {
+        buffer: SharedArrayBuffer
+    }
+}
+export type MemoryManagerWorkerCommissionAction = keyof MemoryManagerWorkerCommission
+/**
  * Returned value is `true` if the message was handled by the service, and `false` otherwise.
  */
 export type MessageHandled = boolean
@@ -416,12 +429,7 @@ export type WorkerCommission = {
      */
     resolve (value: unknown): void
 }
-/** A simple response indicating whether a commission was successful or not. */
-export type WorkerCommissionResponse = {
-    action: string
-    rn: number
-    success: boolean
-}
+/** Required data properties for a worker message. */
 export type WorkerMessage = {
     data: {
         /** Name of the action to perform. */
@@ -432,6 +440,7 @@ export type WorkerMessage = {
         [prop: string]: unknown
     }
 }
+/** A response to a worker message/commission. */
 export type WorkerResponse = {
     data: {
         /** Name of the action that was performed. */

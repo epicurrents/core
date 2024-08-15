@@ -326,7 +326,6 @@ import {
     type SignalCacheProcess,
     type SignalCacheResponse,
     type WorkerCommission,
-    type WorkerCommissionResponse,
     type WorkerMessage,
     type WorkerResponse,
 } from './service'
@@ -344,7 +343,6 @@ export {
     SignalCacheProcess,
     SignalCacheResponse,
     WorkerCommission,
-    WorkerCommissionResponse,
     WorkerMessage,
     WorkerResponse,
 }

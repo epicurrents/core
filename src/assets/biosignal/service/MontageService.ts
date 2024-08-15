@@ -157,7 +157,7 @@ export default class MontageService extends GenericService implements BiosignalM
             }
             this._notifyWaiters('setup-cache', data.success)
             return true
-        } else if (data.action === 'setup-shared-worker') {
+        } else if (data.action === 'setup-input-cache') {
             this._isCacheSetup = data.success
             if (data.success) {
                 commission.resolve(true)
@@ -293,7 +293,7 @@ export default class MontageService extends GenericService implements BiosignalM
         // We will use the generic setup-cache action to wait for this setup to complete.
         this._initWaiters('setup-cache')
         const montage = this._commissionWorker(
-            'setup-shared-worker',
+            'setup-input-cache',
             new Map<string, unknown>([
                 ['montage', this._montage.name],
                 ['config', this._montage.config],

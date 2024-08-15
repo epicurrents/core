@@ -12,8 +12,11 @@ import {
 } from './application'
 import { BiosignalMutex } from '../assets'
 import {
+    AppSettings,
     ConfigBiosignalSetup,
+    ConfigChannelFilter,
     ConfigChannelLayout,
+    ConfigMapChannels,
     SettingsColor,
 } from './config'
 import { HighlightContext, SignalHighlight } from './plot'
@@ -25,6 +28,7 @@ import {
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
+    WorkerMessage,
 } from './service'
 import { StudyContext } from './study'
 import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-mutex'
@@ -1015,6 +1019,73 @@ export interface MontageChannel extends BiosignalChannel {
     /** Set of reference channel indices; multiple channels will be averaged. */
     reference: number[]
 }
+/**
+ * Commission types for a montage worker with the action name as key and property types as value.
+ */
+export type MontageWorkerCommission = {
+    /** Get montage signals for the given range */
+    'get-signals': WorkerMessage['data'] & {
+        /** Signals range in seconds as [start (included), end (excluded)]. */
+        range: number[]
+        config?: ConfigChannelFilter
+    }
+    /** Map montage channels according to given configuration. */
+    'map-channels': WorkerMessage['data'] & {
+        /** Channel configuration. */
+        config: ConfigMapChannels
+    }
+    /** Release the momery used by the cache in this montage. */
+    'release-cache': WorkerMessage['data']
+    /** Set gaps in signal data. */
+    'set-data-gaps': WorkerMessage['data'] & {
+        /** Array of data gaps. */
+        dataGaps: { duration: number, start: number }[]
+    }
+    /** Set default filters as a JSON string. */
+    'set-filters': WorkerMessage['data'] & {
+        /** Filters as a JSON string. */
+        filters: string
+    }
+    /** Set up a shared worker cache as signal data source in the montage worker. */
+    'setup-input-cache': WorkerMessage['data'] & {
+        /** Duration of the signal data in seconds. */
+        dataDuration: number
+        /** Message port of the cache worker. */
+        port: MessagePort
+        /** Total duration of the recording in seconds. */
+        recordingDuration: number
+    }
+    /** Set up an input mutex as signal data source in the montage worker. */
+    'setup-input-mutex': WorkerMessage['data'] & {
+        /** Index of the data position where this mutex starts in the input buffer. */
+        bufferStart: number
+        /** Actual signal data duration in seconds. */
+        dataDuration: number
+        /** Export properties from the input data mutex. */
+        input: MutexExportProperties
+        /** Total recording duration in seconds. */
+        recordingDuration: number
+    }
+    /** Set up the necessary properties; the worker should be ready to receive commissions after this. */
+    'setup-worker': WorkerMessage['data'] & {
+        /** Channel mapping configuration. */
+        config: ConfigMapChannels
+        /** Name of the montage. */
+        montage: string
+        /** General recording type (e.g. 'eeg'). */
+        namespace: string
+        /** Global settings. */
+        settings: AppSettings
+        /** Channel setup configuration. */
+        setupChannels: SetupChannel[]
+    }
+    /** Update global settings. */
+    'update-settings': WorkerMessage['data'] & {
+        settings: AppSettings
+    }
+}
+/** A valid commission action for a montage worker. */
+export type MontageWorkerCommissionAction = keyof MontageWorkerCommission
 /**
  * Response sent after a request to release cache buffers.
  */

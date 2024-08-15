@@ -22,7 +22,7 @@ import {
     type SignalCacheResponse,
     type SignalDataCache,
     type SignalDataGapMap,
-    type WorkerCommissionResponse,
+    type WorkerResponse,
     type WorkerMessage,
 } from '#types'
 
@@ -72,14 +72,14 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 action: action,
                 success: true,
                 rn: message.rn,
-            } as WorkerCommissionResponse)
+            } as WorkerResponse['data'])
         } else if (action === 'update-settings') {
             // No need to update settings.
             this.returnMessage({
                 action: action,
                 success: true,
                 rn: message.rn,
-            } as WorkerCommissionResponse)
+            } as WorkerResponse['data'])
         } else if (action === 'get-signals') {
             const data = validateCommissionProps(
                 message as WorkerMessage['data'] & { range: number[] },
@@ -136,7 +136,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 action: action,
                 success: true,
                 rn: data.rn,
-            } as WorkerCommissionResponse)
+            } as WorkerResponse['data'])
         } else if (action === 'release-cache') {
             await this._montage?.releaseCache()
             Log.debug(`Cache released.`, SCOPE)
@@ -169,7 +169,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 action: action,
                 success: true,
                 rn: data.rn,
-            } as WorkerCommissionResponse)
+            } as WorkerResponse['data'])
         } else if (action === 'set-filters') {
             const data = validateCommissionProps(
                 message,
@@ -250,13 +250,13 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     action: action,
                     success: true,
                     rn: data.rn,
-                } as WorkerCommissionResponse)
+                } as WorkerResponse['data'])
             } else {
                 this.returnMessage({
                     action: action,
                     success: false,
                     rn: data.rn,
-                } as WorkerCommissionResponse)
+                } as WorkerResponse['data'])
             }
         } else {
             super.postMessage(message)
