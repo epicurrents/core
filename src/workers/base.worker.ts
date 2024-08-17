@@ -50,6 +50,15 @@ export abstract class BaseWorker {
         return true
     }
     /**
+     * Extend the action map with provided actions and associated handlers.
+     * @param actions - Array of new actions and handlers as `[action, handler]`.
+     */
+    extendActionMap (actions: [string, (message: WorkerMessage['data']) => Promise<boolean>][]) {
+        for (const [newAction, newHandler] of actions) {
+            this._actionMap.set(newAction, newHandler)
+        }
+    }
+    /**
      * Handle a commission message to the worker.
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
