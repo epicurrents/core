@@ -5,11 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { 
-    type MemoryManagerWorkerCommission,
-    type MemoryManagerWorkerCommissionAction,
-    type WorkerMessage,
-} from '#types/service'
+import { type MemoryManagerWorkerCommission, type WorkerMessage } from '#types/service'
 import IOMutex from 'asymmetric-io-mutex'
 import { Log } from 'scoped-ts-log'
 import { validateCommissionProps } from '../util'
@@ -19,18 +15,15 @@ const SCOPE = 'MemoryManagerWorker'
 const WAIT_TIMEOUT = 5000
 
 export class MemoryManagerWorker extends BaseWorker {
-    protected _actionMap = new Map<
-        MemoryManagerWorkerCommissionAction,
-        (message: WorkerMessage['data']) => Promise<boolean>
-    >([
-        ['release-and-rearrange', this.releaseAndRearrange],
-        ['set-buffer', this.setBuffer],
-    ])
     protected _buffer = null as SharedArrayBuffer | null
     protected _view = null as Int32Array | null
     
     constructor () {
         super()
+        this.extendActionMap([
+            ['release-and-rearrange', this.releaseAndRearrange],
+            ['set-buffer', this.setBuffer],
+        ])
     }
     /**
      * Remove the given index ranges from buffer and rearrange the remaining elements to fill the empty spaces.
