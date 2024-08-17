@@ -14,7 +14,7 @@ import {
     type SignalDataGapMap,
 } from '#types/biosignal'
 import { type CommonBiosignalSettings } from '#types/config'
-import { type WorkerMessage, type WorkerResponse } from '#types/service'
+import { type WorkerMessage } from '#types/service'
 import MontageProcesser from '#assets/biosignal/service/MontageProcesser'
 import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-ts-log'
@@ -39,8 +39,8 @@ export class MontageWorker extends BaseWorker {
     ])
     /** Montage processer. */
     protected _montage = null as MontageProcesser | null
-    constructor (postMessage: (message: WorkerResponse['data']) => void) {
-        super(postMessage)
+    constructor () {
+        super()
     }
     /**
      * 
@@ -288,7 +288,7 @@ export class MontageWorker extends BaseWorker {
     }
 }
 
-const MONTAGE = new MontageWorker(postMessage)
+const MONTAGE = new MontageWorker()
 
 onmessage = async (message: WorkerMessage) => {
     MONTAGE.handleMessage(message)

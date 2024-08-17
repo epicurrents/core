@@ -8,7 +8,6 @@
 import { 
     type MemoryManagerWorkerCommission,
     type MemoryManagerWorkerCommissionAction,
-    type WorkerResponse,
     type WorkerMessage,
 } from '#types/service'
 import IOMutex from 'asymmetric-io-mutex'
@@ -30,8 +29,8 @@ export class MemoryManagerWorker extends BaseWorker {
     protected _buffer = null as SharedArrayBuffer | null
     protected _view = null as Int32Array | null
     
-    constructor (postMessage: (message: WorkerResponse['data']) => void) {
-        super(postMessage)
+    constructor () {
+        super()
     }
     /**
      * Remove the given index ranges from buffer and rearrange the remaining elements to fill the empty spaces.
@@ -166,7 +165,7 @@ export class MemoryManagerWorker extends BaseWorker {
     }
 }
 
-const MEMORY_MANAGER = new MemoryManagerWorker(postMessage)
+const MEMORY_MANAGER = new MemoryManagerWorker()
 
 onmessage = async (message: WorkerMessage) => {
     MEMORY_MANAGER.handleMessage(message)
