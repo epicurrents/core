@@ -18,6 +18,7 @@
     "./runtime": "./dist/runtime/index.js",
     "./types": "./dist/types/index.d.ts",
     "./util": "./dist/util/index.js",
+    "./workers": "./dist/workers/index.js",
     "./package.json": "./package.json",
     "./dist/assets": "./dist/assets/index.js",
     "./dist/config": "./dist/config/index.js",
@@ -26,7 +27,8 @@
     "./dist/plots": "./dist/plots/index.js",
     "./dist/runtime": "./dist/runtime/index.js",
     "./dist/types": "./dist/types/index.d.ts",
-    "./dist/util": "./dist/util/index.js"
+    "./dist/util": "./dist/util/index.js",
+    "./dist/workers": "./dist/workers/index.js"
   },
   "imports": {
     "#runtime*": "./dist/src/runtime/index.ts",
