@@ -33,23 +33,6 @@ export abstract class BaseWorker {
         return false
     }
     /**
-     * Handle a commission message to the worker.
-     * @param msgData - Data property from the message to the worker.
-     * @returns True if action was successful, false otherwise.
-     */
-    async handleMessage (message: WorkerMessage) {
-        if (!message?.data?.action) {
-            // Failsafe.
-            return this._failure(message.data || {}, `Worker commission did not contain data or an action.`)
-        }
-        const action = message.data.action
-        const handler = this._actionMap.get(action)?.bind(this)
-        if (!handler) {
-            return this._failure(message.data, `Action '${action}' is not supported by montage worker.`)
-        }
-        return handler(message.data)
-    }
-    /**
      * Return a success response to the service.
      * @param data - Data part of the received message.
      * @param results - Optional results to add to the response message.
@@ -62,6 +45,23 @@ export abstract class BaseWorker {
             ...results
         })
         return true
+    }
+    /**
+     * Handle a commission message to the worker.
+     * @param msgData - Data property from the message to the worker.
+     * @returns True if action was successful, false otherwise.
+     */
+    async handleMessage (message: WorkerMessage) {
+        if (!message?.data?.action) {
+            // Failsafe.
+            return this._failure(message.data || {}, `Worker commission did not contain data or an action.`)
+        }
+        const action = message.data.action
+        const handler = this._actionMap.get(action)?.bind(this)
+        if (!handler) {
+            return this._failure(message.data, `Action '${action}' is not supported by this worker.`)
+        }
+        return handler(message.data)
     }
     /**
      * Extend the action map with provided actions and associated handlers.
