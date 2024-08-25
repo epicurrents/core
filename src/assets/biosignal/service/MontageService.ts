@@ -89,6 +89,7 @@ export default class MontageService extends GenericService implements BiosignalM
             new Map<string, unknown>([
                 ['range', range],
                 ['config', config],
+                ['montage', this.name],
             ]),
             undefined,
             config?.overwriteRequest === true ? true : false

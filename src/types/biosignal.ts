@@ -1028,6 +1028,8 @@ export type MontageWorkerCommission = {
         /** Signals range in seconds as [start (included), end (excluded)]. */
         range: number[]
         config?: ConfigChannelFilter
+        /** Name of the montage, for validation. */
+        montage?: string
     }
     /** Map montage channels according to given configuration. */
     'map-channels': WorkerMessage['data'] & {
@@ -1045,6 +1047,8 @@ export type MontageWorkerCommission = {
     'set-filters': WorkerMessage['data'] & {
         /** Filters as a JSON string. */
         filters: string
+        /** Filters for individual channels. */
+        channels?: BiosignalFilters[]
     }
     /** Set up a shared worker cache as signal data source in the montage worker. */
     'setup-input-cache': WorkerMessage['data'] & {

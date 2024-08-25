@@ -363,6 +363,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             }
         }
         if (anyChange) {
+            // Propagate new data gaps to montages.
+            for (const montage of this._montages) {
+                montage.setDataGaps(gaps)
+            }
             this.onPropertyUpdate('data-gaps')
         }
     }

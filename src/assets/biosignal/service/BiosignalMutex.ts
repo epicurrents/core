@@ -358,6 +358,14 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         return this._getSignals(IOMutex.MUTEX_SCOPE.INPUT)
     }
 
+    get inputSignalSamplingRates (): Promise<number>[] {
+        const rates = [] as Promise<number>[]
+        for (let i=0; i<this._inputDataViews.length; i++) {
+            rates.push(this._signalSamplingRate(i, IOMutex.MUTEX_SCOPE.INPUT))
+        }
+        return rates
+    }
+
     get inputSignalViews (): Promise<Float32Array[]| null> {
         return this._getSingalViews(IOMutex.MUTEX_SCOPE.INPUT)
     }

@@ -53,6 +53,7 @@ export class MontageWorker extends BaseWorker {
             {
                 range: ['Number', 'Number'],
                 config: ['Object', 'undefined'],
+                montage: ['String', 'undefined'],
             },
             this._montage !== null
         )
@@ -135,7 +136,8 @@ export class MontageWorker extends BaseWorker {
         const data = validateCommissionProps(
             msgData as MontageWorkerCommission['set-filters'],
             {
-                filters: 'String'
+                filters: 'String',
+                channels: ['Array', 'undefined'],
             },
             this._montage !== null
         )

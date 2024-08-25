@@ -280,6 +280,10 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      */
     readonly inputSignalProperties: Promise<{ [field: string]: number }[] | null>
     /**
+     * Contains sampling rates for each of the input signals.
+     */
+    readonly inputSignalSamplingRates: Promise<number>[]
+    /**
      * Get up-to-date input signal data.
      */
     readonly inputSignals: Promise<Float32Array[]>

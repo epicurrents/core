@@ -110,6 +110,7 @@ export const validateCommissionProps = <T extends WorkerMessage['data']>(
             success: false,
             rn: data.rn,
         } as WorkerResponse['data'])
+        Log.error(reason, SCOPE)
         return false
     }
     if (!requiredSetup) {
