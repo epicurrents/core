@@ -142,10 +142,9 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         const SIGNALS = await this._cache.inputSignals
         const padding = this._settings.filterPaddingSeconds || 0
         // Check for possible gaps in this range.
-        const filtStart = cacheStart - padding > 0 ? cacheStart - padding : 0
-        const filtEnd = cacheEnd + padding < this._totalDataLength
-                    ? cacheEnd + padding : this._totalDataLength
-        const dataGaps = this.getDataGaps([filtStart, filtEnd], true)
+        const filterRangeStart = Math.max(cacheStart - padding, 0)
+        const filterRangeEnd = Math.min(cacheEnd + padding, this._totalDataLength)
+        const dataGaps = this.getDataGaps([filterRangeStart, filterRangeEnd], true)
         channel_loop:
         for (let i=0; i<channels.length; i++) {
             const chan = channels[i]
@@ -169,11 +168,12 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             const highpass = chan.highpassFilter !== null ? chan.highpassFilter : this._filters.highpass
             const lowpass = chan.lowpassFilter !== null ? chan.lowpassFilter : this._filters.lowpass
             const notch = chan.notchFilter !== null ? chan.notchFilter : this._filters.notch
-            // Get filter padding for the channel.
+            // Get filter padding for the channel ignoring possible data gaps.
             const {
-                filterLen, filterStart, filterEnd,
+                filterLen,
+                filterStart, filterEnd,
                 //paddingStart, paddingEnd,
-                //rangeStart, rangeEnd,
+                rangeStart, rangeEnd,
                 //signalStart, signalEnd,
             } = getFilterPadding(
                 [relStart, relEnd] || [],
@@ -182,24 +182,39 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 this._settings,
                 this._filters
             )
+            const filterRange = filterEnd - filterStart
+            let dataStart = filterStart
+            let dataEnd = filterEnd
             // Calculate signal indices (relative to the retrieved data part) for data gaps.
             const gapIndices = [] as number[][]
-            let totalGapLen = 0
             for (const gap of dataGaps) {
-                const gapStart = totalGapLen + Math.round((gap.start - filtStart)*chan.samplingRate)
-                if (gapStart + gap.duration < 0 || gapStart > filterLen) {
-                    totalGapLen += gap.duration
+                const gapStart = Math.round(gap.start*chan.samplingRate) - filterStart
+                const gapLen = Math.round(gap.duration*chan.samplingRate)
+                if (gapStart >= filterRange) {
+                    break
+                } else if (gapStart + gapLen <= 0) {
                     continue
                 }
                 // Apply a maximum of filter padding length of gap.
-                const gapEnd = gapStart + Math.round(
-                    Math.min(
-                        gap.duration*chan.samplingRate,
-                        padding*chan.samplingRate,
-                    )
-                )
-                gapIndices.push([gapStart, gapEnd])
-                totalGapLen += gapEnd - gapStart
+                const startPos = Math.max(gapStart, 0)
+                const endPos = Math.min(gapStart + gapLen, filterRange)
+                if (filterLen) {
+                    // Adjust data (=padding) starting and ending positions, if gap is withing filter padding range.
+                    if (startPos >= 0 && startPos < filterLen) {
+                        dataStart += Math.min(endPos, filterLen) - startPos
+                    } else if (gap.start < start) {
+                        // If a data gap crosses or is adjacent to the requested range start, we cannot determine its
+                        // position by cache coordinates; we need to compare actual gap and range start times.
+                        const relStart = Math.max(gap.start - start, -padding)
+                        const maxDur = Math.min(gap.duration, padding)
+                        if (relStart <= 0 && maxDur >= -relStart) {
+                            dataStart += Math.round(-relStart*chan.samplingRate)
+                        }
+                    } else if (startPos >= rangeEnd - filterStart && startPos < filterRange) {
+                        dataEnd -= Math.min(endPos, filterRange) - startPos
+                    }
+                }
+                gapIndices.push([startPos, endPos])
             }
             // Need to calculate signal relative to reference(s), one datapoint at a time.
             // Check that active signal and all reference signals have the same length.
@@ -209,10 +224,10 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                     refs.push(ref)
                 }
             }
-            // We must preserve space for padding on both ends of the signal array.
-            const padded = new Float32Array(filterEnd - filterStart).fill(0)
+            // Set up a signal array with length of the actual data.
+            const data = new Float32Array(dataEnd - dataStart).fill(0)
             let j = 0
-            for (let n=filterStart; n<filterEnd; n++) {
+            for (let n=dataStart; n<dataEnd; n++) {
                 let refAvg = 0
                 // Just leave the value at zero if we are outside tha actual signal range.
                 if (n < 0 || n >= SIGNALS[chan.active].length) {
@@ -242,12 +257,12 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                     refAvg -= SIGNALS[chan.active][n]/refs.length
                     refAvg *= refs.length/(refs.length - 1)
                 }
-                padded.set([(SIGNALS[chan.active][n] - refAvg)], j)
+                data.set([(SIGNALS[chan.active][n] - refAvg)], j)
                 j++
             }
             if (shouldFilterSignal(chan, this._filters, this._settings)) {
                 // Add possible data gaps.
-                let gapped = padded
+                let gapped = data
                 let lastGapEnd = 0
                 const sigParts = [] as Float32Array[]
                 for (const gap of gapIndices) {
@@ -275,9 +290,12 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                         sigProps.data.slice(gap[1])
                     )
                 }
-                sigProps.data = sigProps.data.slice(filterLen, sigProps.data.length - filterLen)
+                // Remove the part of signal data that was used for filtering.
+                const trimStart = rangeStart - dataStart
+                const trimEnd = rangeEnd - rangeStart + trimStart
+                sigProps.data = sigProps.data.slice(trimStart, trimEnd)
             } else {
-                sigProps.data = padded
+                sigProps.data = data
             }
             derivedSignals.push(sigProps)
         }
