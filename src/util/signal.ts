@@ -631,25 +631,24 @@ export const getChannelFilters = (
  * @returns Padding properties as
  * ```
  * Object<{
- *      // Number of filter-added datapoints
- *      filterLen: number
- *      // Signal index of filter start point
- *      filterStart: number
- *      // Signal index of filter end point
- *      filterEnd: number
- *      // Length of possible additional padding to the start of the signal
- *      paddingStart: number
- *      // Length of possible additional padding to the end of the signal
- *      paddingEnd: number
- *      // Starting index of the requested range
- *      rangeStart: number
- *      // Ending index of the requested range
- *      rangeEnd: number
- *      // Starting index of the signal data
- *      signalStart: number
- *      // Ending index of the signal data
- *      signalEnd: number
+ *      filterLen: number // Number of filter-added datapoints
+ *      filterStart: number // Signal index of filter start point
+ *      filterEnd: number // Signal index of filter end point
+ *      paddingStart: number // Length of possible additional padding to the start of the signal
+ *      paddingEnd: number // Length of possible additional padding to the end of the signal
+ *      rangeStart: number // Starting index of the requested range
+ *      rangeEnd: number // Ending index of the requested range
+ *      signalStart: number // Starting index of the signal data
+ *      signalEnd: number // Ending index of the signal data
  *  }>
+ * // Where
+ * filterStart = rangeStart - filterLen // Negative if filter range extends beyond data start.
+ * filterEnd = rangeEnd + filterLen // Greater than signal length if filter range exceeds signal data.
+ * // Padding represents filter range that exceed actual signal data and must be ignored or complemented.
+ * signalStart - paddingStart = filterStart
+ * signalEnd + paddingEnd = filterEnd // or
+ * (rangeStart - signalStart) + paddingStart = filterLen
+ * (signalEnd - rangeStart) + paddingEnd = filterLen
  * ```
  */
 export const getFilterPadding = (
@@ -659,22 +658,19 @@ export const getFilterPadding = (
     settings: CommonBiosignalSettings,
     filters?: BiosignalFilters,
 ) => {
-    // If range is falsy, just use the whole signal
-    const chanRange = !range || range.length !== 2 ? null
-                      // Convert range from seconds to current channel datapoint indices
+    // If range is falsy, use the whole signal.
+    const dataRange = !range || range.length !== 2 ? null
+                      // Convert range from seconds to current channel datapoint indices.
                       : [
+                          // If range start is between two datapoints, we need the previous point to intrapolate.
                           Math.floor(range[0]*channel.samplingRate),
+                          // Same logic for range ends between two data points.
                           Math.ceil((range[1] || 0)*channel.samplingRate)
                         ]
-    // Check that possible calculated range is valid
-    if (chanRange) {
-        if (chanRange[0] < 0 || chanRange[0] > sigLen) {
-            // TODO: Need a better way to handle invalid input
-            chanRange[0] = 0
-        }
-        if (chanRange[1] < 0 || chanRange[1] > sigLen || chanRange[1] < chanRange[0]) {
-            chanRange[1] = sigLen
-        }
+    // Check that possible calculated range is valid.
+    if (dataRange) {
+        dataRange[0] = Math.max(Math.min(dataRange[0], sigLen), 0)
+        dataRange[1] = Math.max(Math.min(dataRange[1], sigLen), dataRange[0])
     }
     // Apply padding to channel if it has any filters set
     let filtSize = 0
@@ -683,25 +679,34 @@ export const getFilterPadding = (
         || shouldFilterSignal(channel, filters, settings)
     ) {
         filtSize = Math.round(channel.samplingRate*settings.filterPaddingSeconds)
-        filtPad = chanRange === null
-                  // Always add full padding on both ends if the whole signal is requested
+        filtPad = dataRange === null
+                  // Always add full padding on both ends if the whole signal is requested.
                   ? [filtSize, filtSize]
-                  // Add padding for the parts that cannot be filled with actual signal data
+                  // Add padding for the parts that cannot be filled with actual signal data.
                   : [
-                        Math.max(filtSize - chanRange[0], 0),
-                        Math.max(filtSize - (sigLen - chanRange[1]), 0),
+                        Math.max(filtSize - dataRange[0], 0),
+                        Math.max(filtSize - (sigLen - dataRange[1]), 0),
                     ]
     }
     return {
+        /** Length of the filter padding in signal data points. */
         filterLen: filtSize,
-        filterStart: chanRange ? chanRange[0] - filtSize : -filtSize,
-        filterEnd:  chanRange ? chanRange[1] + filtSize : sigLen + filtSize,
+        /** Starting index of the padded range; may be negative by `paddingStart` amount. */
+        filterStart: dataRange ? dataRange[0] - filtSize : -filtSize,
+        /** Starting index of the padded range; may exceed actual signal length by `paddingEnd` amount. */
+        filterEnd:  dataRange ? dataRange[1] + filtSize : sigLen + filtSize,
+        /** The amount of additional padding (e.g. zeroes) needed to add before the actual signal data. */
         paddingStart: filtPad[0],
+        /** The amount of additional padding (e.g. zeroes) needed to add after the actual signal data. */
         paddingEnd: filtPad[1],
-        rangeStart: chanRange ? chanRange[0] : 0,
-        rangeEnd: chanRange ? chanRange[1] : sigLen,
-        signalStart: chanRange ? Math.max(chanRange[0] - filtSize, 0) : 0,
-        signalEnd: chanRange ? Math.min(chanRange[1] + filtSize, sigLen) : sigLen,
+        /** Starting position of the requested range as signal data point index. */
+        rangeStart: dataRange ? dataRange[0] : 0,
+        /** Ending position of the requested range as signal data point index. */
+        rangeEnd: dataRange ? dataRange[1] : sigLen,
+        /** Starting position of the filter padded range as signal data point index. */
+        signalStart: dataRange ? Math.max(dataRange[0] - filtSize, 0) : 0,
+        /** Ending position of the filter padded range as signal data point index. */
+        signalEnd: dataRange ? Math.min(dataRange[1] + filtSize, sigLen) : sigLen,
     }
 }
 
