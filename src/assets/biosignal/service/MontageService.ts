@@ -217,6 +217,7 @@ export default class MontageService extends GenericService implements BiosignalM
             'set-filters',
             new Map<string, unknown>([
                 ['filters', JSON.stringify(this._montage.filters)],
+                ['name', this._montage.name],
                 ['channels', channelFilters],
             ])
         )

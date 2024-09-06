@@ -39,6 +39,7 @@ export class MontageWorker extends BaseWorker {
     ])
     /** Montage processer. */
     protected _montage = null as MontageProcesser | null
+    protected _name = ''
     constructor () {
         super()
     }
@@ -137,41 +138,48 @@ export class MontageWorker extends BaseWorker {
             msgData as MontageWorkerCommission['set-filters'],
             {
                 filters: 'String',
+                name: 'String',
                 channels: ['Array', 'undefined'],
             },
             this._montage !== null
         )
-        if (!data) {
+        if (!data || !this._montage) {
             return this._failure(msgData)
+        }
+        if (this._name !== data.name)  {
+            // This event may trigger before the montage itself has been updated.
+            Log.debug(`Received set-filters commission for a different montage.`, SCOPE)
+            // TODO: Prevent this from happening in the first place, but don't throw an error for now.
+            return this._success(msgData)
         }
         const newFilters = JSON.parse(data.filters as string) as BiosignalFilters
         let someUpdated = false
-        if (newFilters.highpass !== this._montage?.filters.highpass) {
-            this._montage?.setHighpassFilter(newFilters.highpass)
+        if (newFilters.highpass !== this._montage.filters.highpass) {
+            this._montage.setHighpassFilter(newFilters.highpass)
             someUpdated = true
         }
-        if (newFilters.lowpass !== this._montage?.filters.lowpass) {
-            this._montage?.setLowpassFilter(newFilters.lowpass)
+        if (newFilters.lowpass !== this._montage.filters.lowpass) {
+            this._montage.setLowpassFilter(newFilters.lowpass)
             someUpdated = true
         }
-        if (newFilters.notch !== this._montage?.filters.notch) {
-            this._montage?.setNotchFilter(newFilters.notch)
+        if (newFilters.notch !== this._montage.filters.notch) {
+            this._montage.setNotchFilter(newFilters.notch)
             someUpdated = true
         }
-        if (data.channels) {
+        if (data.channels && data.channels.length === this._montage.channels.length) {
             const channels = data.channels as { highpass: number, lowpass: number, notch: number }[]
             for (let i=0; i<channels.length; i++) {
                 const chan = channels[i]
-                if (chan.highpass !== this._montage?.channels[i].highpassFilter) {
-                    this._montage?.setHighpassFilter(chan.highpass, i)
+                if (chan.highpass !== this._montage.channels[i].highpassFilter) {
+                    this._montage.setHighpassFilter(chan.highpass, i)
                     someUpdated = true
                 }
-                if (chan.lowpass !== this._montage?.channels[i].lowpassFilter) {
-                    this._montage?.setLowpassFilter(chan.lowpass, i)
+                if (chan.lowpass !== this._montage.channels[i].lowpassFilter) {
+                    this._montage.setLowpassFilter(chan.lowpass, i)
                     someUpdated = true
                 }
-                if (chan.notch !== this._montage?.channels[i].notchFilter) {
-                    this._montage?.setNotchFilter(chan.notch, i)
+                if (chan.notch !== this._montage.channels[i].notchFilter) {
+                    this._montage.setNotchFilter(chan.notch, i)
                     someUpdated = true
                 }
             }
@@ -265,6 +273,7 @@ export class MontageWorker extends BaseWorker {
         const settings = data.settings.modules[this._namespace] as CommonBiosignalSettings
         this._montage = new MontageProcesser(settings)
         this._montage.setupChannels(data.montage, data.config, data.setupChannels)
+        this._name = data.montage
         Log.debug(`Worker setup complete.`, SCOPE)
         return this._success(msgData)
     }

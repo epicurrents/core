@@ -1047,6 +1047,8 @@ export type MontageWorkerCommission = {
     'set-filters': WorkerMessage['data'] & {
         /** Filters as a JSON string. */
         filters: string
+        /** Name of the montage. */
+        name: string
         /** Filters for individual channels. */
         channels?: BiosignalFilters[]
     }
