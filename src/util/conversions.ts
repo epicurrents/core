@@ -231,10 +231,13 @@ export const timePartsToShortString = (parts: number[]) => {
                             })
                             .map(n => n.toFixed().padStart(2, '0'))
                             .join(':')
-    // Strip possible leading zero
-    if (timeShort.length === 2) {
+    // Return a minimum of <mins>:<secs>.
+    if (!timeShort) {
+        return '00:00'
+    } else if (timeShort.length === 2) {
         return `00:${timeShort}`
     } else if (timeShort.length > 6) {
+        // Strip possible leading zero
         return timeShort.startsWith('0') ? timeShort.substring(1) : timeShort
     }
     return timeShort
