@@ -22,6 +22,22 @@ export const enumerate = function* (iterable: unknown[]) {
 }
 
 /**
+ * Get the value stored at the given `key` in the target Map.
+ * If the key does not exist, it will be initiated with the given `value` and a reference to the set value is returned.
+ * @param map - The target Map.
+ * @param key - Key to look for.
+ * @param value - Default value to use as initiator, if the `key` doesn't exist.
+ * @returns Value stored at the given key.
+ */
+export const getOrSetValue = <T>(
+    map: Map<typeof key, typeof value>,
+    key: string|number,
+    value: T
+): T => {
+    return map.has(key) ? map.get(key) as T : map.set(key, value).get(key) as T
+}
+
+/**
  * Check if the given object is empty, i.e. doesn't have own properties.
  * @param obj - Object to check.
  * @returns True/false.
@@ -35,23 +51,6 @@ export const isEmptyObject = (obj: object) => {
         return true
     }
     return false
-}
-
-/**
- * Get the value stored at the given `key` in the target Map.
- * If the key does not exist, it will be initiated with the given `value`
- * and a reference to the set value is returned.
- * @param map - The target Map.
- * @param key - Key to look for.
- * @param value - Default value to use as initiator, if the `key` doesn't exist.
- * @returns Map with the given key assigned.
- */
-export const getOrSetValue = <T>(
-    map: Map<typeof key, typeof value>,
-    key: string|number,
-    value: T
-): T => {
-    return map.has(key) ? map.get(key) as T : map.set(key, value).get(key) as T
 }
 
 /**
