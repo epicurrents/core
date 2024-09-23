@@ -697,7 +697,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._cacheProps
     }
 
-    async setupMutex (): Promise<MutexExportProperties | null> {
+    async setupMutex (): Promise<MutexExportProperties | null> {
         if (!this._service) {
             Log.error(`Cannot setup cache before service has been set.`, SCOPE)
             return null
