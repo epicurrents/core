@@ -22,7 +22,7 @@ export const inlineWorker = (name: string, code: string): Worker => {
     try {
         blob = new Blob([code], { type: 'application/javascript' })
     } catch (e) {
-        Log.error(`Could not turn code string into blob, worker '${name} creation failed.`, SCOPE)
+        Log.error(`Could not turn code string into blob, worker '${name}' creation failed.`, SCOPE)
     }
     return new Worker(URL.createObjectURL(blob))
 }
