@@ -108,6 +108,7 @@ export { util }
 //////////////////////////////////////////////////////////////////
 
 import { Log } from 'scoped-ts-log'
+import { EventBus } from '#events'
 import {
     type AssetService,
     type DataResource,
@@ -126,6 +127,10 @@ const SCOPE = 'index'
 
 export class Epicurrents implements EpicurrentsApp {
     // Private poperties.
+    /**
+     * Master event bus.
+     */
+    #eventBus = new EventBus()
     /**
      * Initiated user interface.
      */
@@ -146,16 +151,21 @@ export class Epicurrents implements EpicurrentsApp {
     constructor () {
         if (typeof window.__EPICURRENTS__ === 'undefined') {
             window.__EPICURRENTS__ = {
+                EVENT_BUS: null,
                 RUNTIME: null,
             }
         }
         if (window.__EPICURRENTS__.RUNTIME) {
-            Log.error(`A previous runtime state manager was set to window object.`, SCOPE)
+            Log.error(`A previous runtime state manager was set to global __EPICURRENTS__ object.`, SCOPE)
         }
+        window.__EPICURRENTS__.EVENT_BUS = this.eventBus
         window.__EPICURRENTS__.RUNTIME = this.runtime
     }
 
     // Public properties.
+    get eventBus () {
+        return this.#eventBus
+    }
     get publicPath () {
         return __webpack_public_path__
     }

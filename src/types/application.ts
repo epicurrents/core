@@ -21,6 +21,12 @@ import {
     StudyLoaderContext,
 } from './study'
 import { Modify } from './util'
+import {
+    ScopedEventBus,
+    ScopedEventCallback,
+    ScopedEventHooks,
+    ScopedEventPhase,
+} from 'scoped-event-bus/dist/types'
 
 /**
  * The most basic type defining properties that must exist in every asset.
@@ -37,6 +43,19 @@ export interface BaseAsset {
     /** Specific type (or modality) of the resource. */
     type: string
     /**
+     * Add a listener for an `event` or list of events.
+     * @param event - Event or list of events to listen for.
+     * @param callback - Method to call when event occurs.
+     * @param subscriber - Name of the subscriber.
+     * @param phase - Event phase to trigger the callback in (optional, default 'after').
+     */
+    addEventListener (
+        event: string|string[],
+        callback: ScopedEventCallback,
+        subscriber: string,
+        phase?: ScopedEventPhase
+    ): void
+    /**
      * Add and update handler for the given `property` or properties.
      * @param property - Name of the property or array of property names (in kebab-case).
      * @param handler - Handler to fire when the property changes.
@@ -50,12 +69,53 @@ export interface BaseAsset {
         singleEvent?: boolean
     ): void
     /**
+     * Dispatch an `event`.
+     * @param event - Name of the event.
+     * @param phase - Event phase (optinal, default 'after').
+     * @param detail - Optional `CustomEvent` details.
+     * @returns False if the event default was prevented, true otherwise.
+     */
+    dispatchEvent (event: string, phase?: ScopedEventPhase, detail?: { [key: string]: unknown }): boolean
+    /**
+     * Dispatch an event to signal a change in the value of a property. This is merely a helper method that formats
+     * the custom event details correctly.
+     * @param event - Name of the event.
+     * @param newValue - The new value of the property.
+     * @param oldValue - The old value of the property.
+     * @param phase - Phase of the event (optional, default 'after').
+     * @returns False if the event default was prevented, true otherwise.
+     */
+    dispatchPropertyChangeEvent (event: string, newValue: unknown, oldValue: unknown, phase?: ScopedEventPhase): boolean
+    /**
+     * Get methods for adding listeners to the `before` and `after` phases of a specific `event`.
+     * The `unsubscribe` method returned alongside the hooks can be used to unsubscribe from both phases.
+     * @param event - Name of the event.
+     * @param subscriber - Name of the subscriber.
+     * @returns Methods to hook into asset events.
+     * @example
+     * const hooks = asset.getEventHooks('some-event', 'some-subscriber')
+     * hooks.before((event) => {
+     *   // Do something before the event occurs...
+     *   event.preventDefault() // May stop the event from actually taking place.
+     * })
+     * hooks.after((event) => {
+     *   // Do something after the event has occurred...
+     * })
+     * hooks.unsubscribe() // Remove all event listeners from this subscriber.
+     */
+    getEventHooks (event: string, subscriber: string): ScopedEventHooks
+    /**
      * Fire all property update handlers attached to the given property.
      * @param property - Property that was updated.
      * @param newValue - Optional new value of the property to pass to the handler.
      * @param oldValue - Optional previous value of the property to pass to the handler.
      */
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown): void
+    /**
+     * Remove all event listeners, optinally limited to a specific `subscriber`.
+     * @param subscriber - Name of the subscriber (optional).
+     */
+    removeAllEventListeners (subscriber?: string): void
     /**
      * Remove all property update handlers from this asset.
      */
@@ -66,11 +126,36 @@ export interface BaseAsset {
      */
     removeAllPropertyUpdateHandlersFor (caller: string): void
     /**
+     * Remove the listener for the given `event`(s).
+     * @param event - Event or list of events to match.
+     * @param callback - Callback of the listener.
+     * @param subscriber - Name of the subscriber.
+     * @param phase - Optional phase of the event (omitted or undefined will match any phase).
+     */
+    removeEventListener (
+        event: string|string[],
+        callback: ScopedEventCallback,
+        subscriber: string,
+        phase?: ScopedEventPhase
+    ): void
+    /**
      * Remove an update handler from the given `property` or properties.
      * @param property - Name of the property or array of peroperty names (in kebab-case).
      * @param handler - Handler to remove.
      */
     removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
+    /**
+     * Alias for `addEventListener`.
+     */
+    subscribe: BaseAsset['addEventListener']
+    /**
+     * Alias for `removeEventListener`.
+     */
+    unsubscribe: BaseAsset['removeEventListener']
+    /**
+     * Alias for `removeAllEventListeners`.
+     */
+    unsubscribeAll: BaseAsset['removeAllEventListeners']
 }
 /**
  * DataResource is the most basic scope of resource containing biomedical or media data.
@@ -146,6 +231,10 @@ export interface BaseAsset {
  * The main Epicurrents application.
  */
 export interface EpicurrentsApp {
+    /**
+     * Master event bus to broadcast application events.
+     */
+    eventBus: ScopedEventBus
     /**
      * Path where public assets (mostly javascript) are served from.
      */
