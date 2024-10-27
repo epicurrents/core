@@ -60,7 +60,12 @@ export default class ServiceMemoryManager implements MemoryManager {
      * @param bufferSize - The total size of the buffer in bytes; from this on, sizes are always in 32-bit units.
      */
     constructor (bufferSize: number) {
-        this._buffer = new SharedArrayBuffer(bufferSize + 4)
+        try {
+            //  This will fail if the browser doesn't have enough memory available to it.
+            this._buffer = new SharedArrayBuffer(bufferSize + 4)
+        } catch (e) {
+            this._buffer = new SharedArrayBuffer(4)
+        }
         this._masterLock = new Int32Array(this._buffer).subarray(
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
@@ -79,10 +84,13 @@ export default class ServiceMemoryManager implements MemoryManager {
         )
         Log.registerWorker(this._worker)
         this._worker.addEventListener('message', this._handleMessage.bind(this))
-        this._worker.postMessage({
-            action: 'set-buffer',
-            buffer: this._buffer,
-        })
+        // Free memory will be 0 if buffer allocation fails.
+        if (this.freeMemory) {
+            this._worker.postMessage({
+                action: 'set-buffer',
+                buffer: this._buffer,
+            })
+        }
     }
 
     get buffer () {
@@ -106,9 +114,9 @@ export default class ServiceMemoryManager implements MemoryManager {
     }
 
     get memoryUsed () {
-        let totalUsed = 0
-        for (const loader of this._managed.values()) {
-            totalUsed += loader.service.memoryConsumption
+        let totalUsed = 4 // For the lock buffer.
+        for (const managed of this._managed.values()) {
+            totalUsed += managed.service.memoryConsumption
         }
         return totalUsed/4
     }
@@ -196,6 +204,11 @@ export default class ServiceMemoryManager implements MemoryManager {
             Log.error(`Reference to main runtime was not found.`, SCOPE)
             return null
         }
+        if (!this.freeMemory) {
+            // Buffer allocation has failed or there is simply no memory available.
+            Log.error(`Tried to allocate memory when no memory is available.`, SCOPE)
+            return null
+        }
         // Correct amount to a 32-bit array size.
         amount = amount + (4 - amount%4)
         // Don't exceed maximum allowed buffer size.
@@ -220,16 +233,12 @@ export default class ServiceMemoryManager implements MemoryManager {
             }
         }
         // Check if we have memory to spare and try to free some if needed.
-        let totalUsed = 0
-        for (const managed of this._managed.values()) {
-            totalUsed += managed.bufferRange[1] - managed.bufferRange[0]
-        }
-        const delta = Math.max(0, amount - (this.bufferSize - totalUsed))
+        const delta = Math.max(0, amount - this.freeMemory)
         if (delta && !(await this.freeBy(delta))) {
             Log.warn(`Could not free the required amount of memory to assign to a new service.`, SCOPE)
             return null
         }
-        // Find the end of the allocated buffer range from remaining manageds.
+        // Find the end of the allocated buffer range from remaining managed services.
         let endIndex = 0
         for (const managed of this._managed.values()) {
             if (managed.bufferRange[1] > endIndex) {

@@ -408,6 +408,10 @@ export default abstract class GenericService extends GenericAsset implements Ass
             Log.error(`Too early to request memory, manager is not set yet.`, SCOPE)
             return false
         }
+        if (!this._manager.freeMemory) {
+            Log.error(`Memory manager has no memory available.`, SCOPE)
+            return false
+        }
         Log.debug(`Requesting to allocate ${amount*4} bytes of memory.`, SCOPE)
         const prevState = this.memoryConsumption
         this._memoryRange = await this._manager.allocate(amount, this)
