@@ -30,7 +30,7 @@ const SCOPE = 'GenericService'
  * outside the main thread and return promises that are fulfilled once the task completes.
  */
 export default abstract class GenericService extends GenericAsset implements AssetService {
-    #requestNumber: number = 1
+    private _requestNumber: number = 1
     /** Watchers for worker actions (not yet fully implemented). */
     protected _actionWatchers = [] as ActionWatcher[]
     /** On-going worker commissions waiting to be resolved. */
@@ -101,7 +101,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
      * The next unique request number.
      */
     protected get _nextRequestNumber () {
-        return this.#requestNumber++
+        return this._requestNumber++
     }
     get port () {
         return this._port
