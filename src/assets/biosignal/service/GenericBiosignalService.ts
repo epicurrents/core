@@ -40,7 +40,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return this._signalBufferStart
     }
     set signalBufferStart (value: number) {
-        this._signalBufferStart = value
+        this._setPropertyValue('signalBufferStart', value)
     }
 
     get worker () {

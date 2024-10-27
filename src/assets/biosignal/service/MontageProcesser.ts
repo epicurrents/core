@@ -176,7 +176,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 rangeStart, rangeEnd,
                 //signalStart, signalEnd,
             } = getFilterPadding(
-                [relStart, relEnd] || [],
+                [relStart, relEnd],
                 SIGNALS[chan.active].length,
                 chan,
                 this._settings,

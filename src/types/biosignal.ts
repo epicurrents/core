@@ -100,12 +100,12 @@ export interface BiosignalAnnotation extends BaseAsset {
     visible: boolean
     /**
      * Color override for the annotation.
-     * Changing this property triggers an additional update event `appearance`.
+     * Changing this property triggers an additional event `appearance-changed`.
      */
     color?: SettingsColor
     /**
      * Additional opacity multiplier for the annotation opacity set in the `color` property.
-     * Changing this property triggers an additional update event `appearance`.
+     * Changing this property triggers an additional event `appearance-changed`.
      */
     opacity?: number
 }
@@ -770,7 +770,7 @@ export interface BiosignalResource extends DataResource {
     channels: BiosignalChannel[]
     /** Cursors for marking points in time on the plot. */
     cursors: BiosignalCursor[]
-    /** 
+    /**
      * Contains the properties of the raw signal data cache as:
      * - `MutexExportProperties` if memory manager is used.
      * - `SignalDataCache` if no memory manager is used.
@@ -779,6 +779,11 @@ export interface BiosignalResource extends DataResource {
     dataCache: MutexExportProperties | SignalDataCache | null
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
+    /**
+     * Gaps in source signal data as an array of
+     * { `start`: number (in seconds of recording time), `duration`: number (in seconds) }.
+     * */
+    dataGaps: SignalDataGap[]
     /** The display view start can be optionally updated after signals are processed and actually displayed. */
     displayViewStart: number
     /** List of channel types and default filters that should be applied to them. */
@@ -833,7 +838,7 @@ export interface BiosignalResource extends DataResource {
      */
     addCursors (...cursors: BiosignalCursor[]): void
     /**
-     * Add new data gaps to the recording.
+     * Add new data gaps to the recording in the form of a data gap map.
      * @param gaps - Map of new gaps to add `<start data time, duration>`.
      */
     addDataGaps (gaps: SignalDataGapMap): void
@@ -867,7 +872,8 @@ export interface BiosignalResource extends DataResource {
      */
     getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
-     * Get a list of data gaps in this recording.
+     * Get a list of data gaps in this recording. This method allows you to alternatively get the gaps using data cache
+     * time (i.e. not including prior gap time) instead of recording time.
      * @param useCacheTime - Use cache time (ignoring previous gaps) instead of recording time.
      */
     getDataGaps (useCacheTime?: boolean): SignalDataGap[]

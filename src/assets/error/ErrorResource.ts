@@ -28,8 +28,8 @@ export default class ErrorResource extends GenericResource implements DataResour
         return this._reason
     }
     set reason (value: string) {
-        this._reason = value
-        this.onPropertyUpdate('reason')
+        this._setPropertyValue('reason', value)
+        this.onPropertyUpdate('reason') // TODO: Deprecated.
     }
 
     ///////////////////////////////////////////////////

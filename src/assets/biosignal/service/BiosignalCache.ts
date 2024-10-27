@@ -8,7 +8,7 @@
 import { combineSignalParts } from '#util'
 import { type SignalCachePart, type SignalDataCache } from '#types'
 import { Log } from 'scoped-ts-log'
-import GenericAsset from '../../GenericAsset'
+import GenericAsset from '#assets/GenericAsset'
 
 const SCOPE = 'BiosignalCache'
 
@@ -24,7 +24,7 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
      * @param input - Possible signal cache to use for input data.
      */
     constructor (input?: SignalDataCache) {
-        super('Biosignal cache', 'sig', 'cache')
+        super('Biosignal cache', GenericAsset.CONTEXTS.BIOSIGNAL, 'cache')
         if (input) {
             this._input = input
         }
@@ -64,7 +64,7 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
         })
     }
 
-    asCachePart(): SignalCachePart {
+    asCachePart (): SignalCachePart {
         return this._signalCache
     }
 

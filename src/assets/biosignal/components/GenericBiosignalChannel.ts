@@ -45,7 +45,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     protected _triggerPoints: number[] = []
     protected _triggerPosition: number = 0.5
     protected _triggerValue: number = 0
-    protected _triggerValueTimeout: number = 0
     protected _unit: string
     protected _visible: boolean
 
@@ -61,7 +60,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         visible: boolean,
         extraProperties = {} as Partial<BiosignalChannel>
     ) {
-        super(name, GenericAsset.SCOPES.BIOSIGNAL, type || 'unk')
+        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, type || 'unk')
         this._type = type // override the checking in generic asset for now... need to make this more dynamic
         this._label = label
         this._active = active
@@ -114,7 +113,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         return this._active
     }
     set active (value: number) {
-        this._active = value
+        this._setPropertyValue('active', value)
     }
 
     get amplification () {
@@ -125,22 +124,22 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         return this._averaged
     }
     set averaged (value: boolean) {
-        this._averaged = value
+        this._setPropertyValue('averaged', value)
     }
 
     get cursors () {
         return this._cursors
     }
     set cursors (value: { horizontal: BiosignalCursor[], vertical: BiosignalCursor[] }) {
-        this._cursors = value
+        this._setPropertyValue('cursors', value)
     }
 
     get displayPolarity () {
         return this._displayPolarity
     }
     set displayPolarity (value: SignalPolarity) {
-        this._displayPolarity = value
-        this.onPropertyUpdate('display-polarity')
+        this._setPropertyValue('displayPolarity', value)
+        this.onPropertyUpdate('display-polarity') // TODO: Deprecated.
     }
 
     get highpassFilter () {
@@ -151,8 +150,8 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             Log.error(`High-pass filter must be either null or non-negative number, ${value} was given.`, SCOPE)
             return
         }
-        this._highpassFilter = value
-        this.onPropertyUpdate('highpass-filter')
+        this._setPropertyValue('highpassFilter', value)
+        this.onPropertyUpdate('highpass-filter') // TODO: Deprecated.
     }
 
     get label () {
@@ -171,8 +170,8 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             Log.error(`Low-pass filter must be either null or non-negative number, ${value} was given.`, SCOPE)
             return
         }
-        this._lowpassFilter = value
-        this.onPropertyUpdate('lowpass-filter')
+        this._setPropertyValue('lowpassFilter', value)
+        this.onPropertyUpdate('lowpass-filter') // TODO: Deprecated.
     }
 
     get markers () {
@@ -187,26 +186,26 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             Log.error(`Notch filter must be either null or non-negative number, ${value} was given.`, SCOPE)
             return
         }
-        this._notchFilter = value
-        this.onPropertyUpdate('notch-filter')
+        this._setPropertyValue('notchFilter', value)
+        this.onPropertyUpdate('notch-filter') // TODO: Deprecated.
     }
 
     get offset () {
         return this._offset
     }
     set offset (value: BiosignalChannel['offset']) {
-        this._offset = {
+        this._setPropertyValue('offset', {
             baseline: value.baseline,
             bottom: value.bottom !== undefined ? value.bottom : 0,
             top: value.top !== undefined ? value.top : 1
-        }
+        })
     }
 
     get reference () {
         return this._reference
     }
     set reference (value: number[]) {
-        this._reference = value
+        this._setPropertyValue('reference', value)
     }
 
     get sampleCount () {
@@ -225,8 +224,8 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             Log.error(`Sensitivity must be a non-negative number, ${value} was given.`, SCOPE)
             return
         }
-        this._sensitivity = value
-        this.onPropertyUpdate('sensitivity')
+        this._setPropertyValue('sensitivity', value)
+        this.onPropertyUpdate('sensitivity') // TODO: Deprecated.
     }
 
     get signal () {
@@ -237,30 +236,35 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         return this._triggerPoints
     }
     set triggerPoints (value: number[]) {
-        this._triggerPoints = value
+        this._setPropertyValue('triggerPoints', value)
     }
 
     get triggerPosition () {
         return this._triggerValue
     }
     set triggerPosition (value: number) {
-        this._triggerPosition = value
+        this._setPropertyValue('triggerPosition', value)
     }
 
     get triggerValue () {
         return this._triggerValue
     }
+    #triggerValueTimeout = 0
     set triggerValue (value: number) {
         // Drag events are fired very rapidly, don't recalculate on every event.
         const RECALCULATION_TIMEOUT = 100
-        this._triggerValue = value
-        this._triggerCache.clear()
-        if (this._triggerValueTimeout) {
-            window.clearTimeout(this._triggerValueTimeout)
+        if (this.#triggerValueTimeout) {
+            window.clearTimeout(this.#triggerValueTimeout)
         }
-        this._triggerValueTimeout = window.setTimeout(() => {
-            this.findTriggerPoints()
-            this.onPropertyUpdate('trigger-value')
+        this.#triggerValueTimeout = window.setTimeout(() => {
+            const prevValue = this._triggerValue
+            if (this.dispatchPropertyChangeEvent('triggerValue', value, prevValue, 'before')) {
+                this._triggerValue = value
+                this._triggerCache.clear()
+                this.findTriggerPoints()
+                this.dispatchPropertyChangeEvent('triggerValue', value, prevValue)
+                this.onPropertyUpdate('trigger-value') // TODO: Deprecated.
+            }
         }, RECALCULATION_TIMEOUT)
     }
 
@@ -268,14 +272,14 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         return this._unit
     }
     set unit (value: string) {
-        this._unit = value
+        this._setPropertyValue('unit', value)
     }
 
     get visible () {
         return this._visible
     }
     set visible (value: boolean) {
-        this._visible = value
+        this._setPropertyValue('visible', value)
     }
 
     addMarkers (...markers: BiosignalChannelMarker[]) {

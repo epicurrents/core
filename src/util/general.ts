@@ -5,6 +5,29 @@
  * @license    Apache-2.0
  */
 
+import { Log } from 'scoped-ts-log'
+
+/**
+ * Deep clone an object including any nested object properties. This method uses JSON to perform the cloning, so the
+ * source object must be JSON-compliant.
+ * @param obj - Object to clone.
+ * @returns If successful, new clone, independent of the source object; null on failure.
+ */
+export const deepClone = <T>(obj: T): T|null => {
+    if (typeof obj !== 'object') {
+        // Return primitives as is.
+        return obj
+    }
+    try {
+        const clone = JSON.parse(JSON.stringify(obj))
+        return clone
+    } catch (e) {
+        // JSON parsing failed.
+        Log.error(`Failed to clone source object.`, 'util:general')
+        return null
+    }
+}
+
 /**
  * Enumerate over an array, returning [index, item].
  * @param iterable - Any array.

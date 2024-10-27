@@ -29,6 +29,7 @@ import {
     timePartsToShortString,
 } from './conversions'
 import {
+    deepClone,
     enumerate,
     isEmptyObject,
     getOrSetValue,
@@ -80,6 +81,7 @@ export {
     combineAllSignalParts,
     combineSignalParts,
     concatTypedNumberArrays,
+    deepClone,
     enumerate,
     fftAnalysis,
     filterSignal,

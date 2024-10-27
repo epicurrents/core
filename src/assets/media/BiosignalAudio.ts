@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import GenericAsset from '#assets/GenericAsset'
 import { type AudioRecording } from '#types/media'
 import { Log } from 'scoped-ts-log'
 
@@ -21,7 +22,7 @@ const SCOPE = 'BiosignalAudio'
  */
 const SAMPLE_MAX_VALUE = 50_000
 
-export default class BiosignalAudio implements AudioRecording {
+export default class BiosignalAudio extends GenericAsset implements AudioRecording {
     protected _audio: AudioContext | null = null
     protected _buffer: AudioBuffer | null = null
     protected _compressor: DynamicsCompressorNode | null = null
@@ -42,7 +43,8 @@ export default class BiosignalAudio implements AudioRecording {
     protected _startTime = 0
     protected _volume: GainNode | null = null
 
-    constructor (data?: ArrayBuffer) {
+    constructor (name: string, data?: ArrayBuffer) {
+        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, 'audio')
         if (data) {
             this.loadFile(data)
         }
@@ -69,9 +71,17 @@ export default class BiosignalAudio implements AudioRecording {
     get hasStarted () {
         return this._hasStarted
     }
+    protected set hasStarted (value: boolean) {
+        // This is not meant for external use.
+        this._setPropertyValue('hasStarted', value)
+    }
 
     get isPlaying () {
         return this._playing
+    }
+    protected set isPlaying (value: boolean) {
+        // This is not meant for external use.
+        this._setPropertyValue('isPlaying', value)
     }
 
     get playbackRate () {
@@ -86,7 +96,7 @@ export default class BiosignalAudio implements AudioRecording {
         return this._sampleMaxAbsValue
     }
     set sampleMaxAbsValue (value: number) {
-        this._sampleMaxAbsValue = value
+        this._setPropertyValue('sampleMaxAbsValue', value)
     }
 
     get samplingRate () {
@@ -136,17 +146,19 @@ export default class BiosignalAudio implements AudioRecording {
         this._source = this._audio.createBufferSource()
         this._source.buffer = await this._audio.decodeAudioData(fileBuffer.slice(0))
         this._data = []
+        const prevSignals = this._signals
         for (let i=0; i<this._source.buffer.numberOfChannels; i++) {
             const data = this._source.buffer.getChannelData(i)
             this._signals.push(data)
             // Save copy channel data for replays.
             this._data.push(data.slice(0))
             if (!this._samplingRate) {
-                this._samplingRate = this._source.buffer.sampleRate
+                this._setPropertyValue('samplingRate', this._source.buffer.sampleRate)
             }
         }
-        this._duration = this._source.buffer.duration
-        this._sampleCount = Math.floor(this._audio.sampleRate*this._duration)
+        this.dispatchPropertyChangeEvent('signals', this.signals, prevSignals)
+        this._setPropertyValue('duration', this._source.buffer.duration)
+        this._setPropertyValue('sampleCount', Math.floor(this._audio.sampleRate*this._duration))
     }
 
     pause () {
@@ -156,7 +168,7 @@ export default class BiosignalAudio implements AudioRecording {
         if (this._audio.state === 'running') {
             this._audio.suspend()
         }
-        this._playing = false
+        this._setPropertyValue('isPlaying', false)
     }
 
     async play (position = 0, gain = 1.0) {
@@ -193,11 +205,11 @@ export default class BiosignalAudio implements AudioRecording {
             this._source.start(0, position)
             this._startTime = this._audio.currentTime - position
         }
-        this._playing = true
+        this._setPropertyValue('isPlaying', true)
         for (const cb of this._playStartedCallbacks) {
             cb()
         }
-        this._hasStarted = true
+        this._setPropertyValue('hasStarted', true)
     }
 
     removePlayEndedCallback (callback: (() => unknown)) {
@@ -232,9 +244,9 @@ export default class BiosignalAudio implements AudioRecording {
     setSignals (length: number, samplingRate: number, ...data: Float32Array[]) {
         this._audio = new AudioContext()
         const nSamples = Math.floor(samplingRate*length)
-        this._sampleCount = nSamples
+        this._setPropertyValue('sampleCount', nSamples)
         const buffer = this._audio.createBuffer(data.length, nSamples, samplingRate)
-        this._duration = length
+        this._setPropertyValue('duration', length)
         for (let i=0; i<buffer.numberOfChannels; i++) {
             const channel = buffer.getChannelData(i)
             // The source sampling rate may be higher than our audio device sampling rate,
@@ -251,7 +263,7 @@ export default class BiosignalAudio implements AudioRecording {
                 chanData.set([data[i][Math.floor(j*dsFactor)]/SAMPLE_MAX_VALUE], j)
             }
             if (!this._samplingRate) {
-                this._samplingRate = samplingRate
+                this._setPropertyValue('samplingRate', samplingRate)
             }
             channel.set(chanData)
             this._signals.push(data[i])
@@ -289,6 +301,6 @@ export default class BiosignalAudio implements AudioRecording {
         }
         this._position = 0
         this._startTime = 0
-        this._playing = false
+        this._setPropertyValue('isPlaying', false)
     }
 }

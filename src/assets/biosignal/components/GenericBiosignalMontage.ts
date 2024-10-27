@@ -6,6 +6,7 @@
  */
 
 import { Log } from 'scoped-ts-log'
+import { type BaseAsset } from '#types'
 import {
     type BiosignalMontage,
     type BiosignalMontageReferenceSignal,
@@ -73,7 +74,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         manager?: MemoryManager,
         config?: ConfigBiosignalMontage,
     ) {
-        super(name, GenericAsset.SCOPES.BIOSIGNAL, recording.type)
+        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, recording.type)
         this._label = config?.label || name
         this._recording = recording
         this._setup = setup
@@ -87,22 +88,36 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._channels
     }
     set channels (channels: MontageChannel[]) {
-        this._channels = channels
+        this._setPropertyValue('channels', channels)
         for (const chan of this._channels) {
             // Trigger a general channels update if any property of a channel changes.
+            chan.addEventListener(/.+/, () => {
+                this.dispatchPropertyChangeEvent('channels', this._channels, this._channels)
+            }, this._id)
             chan.addPropertyUpdateHandler('.+', () => {
-                this.onPropertyUpdate('channels')
+                this.onPropertyUpdate('channels') // TODO: Deprecated.
             })
             // Listen for changes in channel filters.
+            chan.addEventListener('filters', () => {
+                this._service.setFilters().then((updated) => {
+                    if (updated) {
+                        this._recording.dispatchPropertyChangeEvent(
+                            'filters' as keyof BaseAsset, // TypeScript linter cannot figure this out.
+                            this.filters,
+                            this.filters
+                        )
+                    }
+                })
+            }, this._id)
             chan.addPropertyUpdateHandler('.+-filter', () => {
                 this._service.setFilters().then((updated) => {
                     if (updated) {
-                        this._recording.onPropertyUpdate('active-montage-filters')
+                        this._recording.onPropertyUpdate('active-montage-filters') // TODO: Deprecated.
                     }
                 })
             })
         }
-        this.onPropertyUpdate('channels')
+        this.onPropertyUpdate('channels') // TODO: Deprecated.
     }
     get config () {
         return this._config
@@ -125,7 +140,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._label
     }
     set label (label: string) {
-        this._label = label
+        this._setPropertyValue('label', label)
     }
     get recording () {
         return this._recording
@@ -181,7 +196,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             // Highlights may be added in any order, but may need to be processed
             // consecutively, so sort them by start time.
             context.highlights.sort((a, b) => a.start - b.start)
-            this.onPropertyUpdate('highlights', ctxName)
+            this.onPropertyUpdate('highlights', ctxName) // TODO: Deprecated.
         }
     }
 
@@ -275,7 +290,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     removeAllHighlights () {
         this._highlights.clear()
-        this.onPropertyUpdate('highlights')
+        this.onPropertyUpdate('highlights') // TODO: Deprecated.
     }
 
     removeAllHighlightsFrom (ctxName: string) {
@@ -285,7 +300,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             return
         }
         context.highlights.splice(0)
-        this.onPropertyUpdate('highlights', ctxName)
+        this.onPropertyUpdate('highlights', ctxName) // TODO: Deprecated.
     }
 
     removeAllPropertyUpdateHandlers () {
@@ -312,7 +327,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             offset++
         }
         if (offset) {
-            this.onPropertyUpdate('highlights', ctxName)
+            this.onPropertyUpdate('highlights', ctxName) // TODO: Deprecated.
         }
     }
 
@@ -376,7 +391,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     setDataGaps (gaps: SignalDataGapMap) {
         this._service.setDataGaps(gaps)
-        this.onPropertyUpdate('data-gaps', gaps)
+        this.onPropertyUpdate('data-gaps', gaps) // TODO: Deprecated.
     }
 
     async setHighpassFilter (value: number, target?: string | number) {

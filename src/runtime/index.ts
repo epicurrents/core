@@ -76,13 +76,21 @@ export const state: RuntimeState = {
  *                             If a resource is also defined, the property of that resource is modified.
  * - `setService`: Set a service with the given name (key).
  * - `setSettingsValue`: Set a new value to the given settings property.
+ *
+ * Events dispatched by this asset, in addition to property update events:
+ * @emits 'add-dataset' - A new dataset has been added.
+ * @emits 'remove-resource' - A resource is removed from a dataset.
+ * @emits 'set-active-dataset' - A new dataset (or no dataset) is set active.
+ * @emits 'set-active-resource' - A new resource (or no resource) is set active.
+ * @emits 'set-module' - A new module has been set (usually added) to the manager.
+ * @emits 'set-service' - A new service has been set (usually added) to the manager.
  */
 export default class RuntimeStateManager extends GenericAsset implements StateManager {
     /** Has the manager been initialized. */
-    isInitialized = false
+    protected _isInitialized = false
 
     constructor () {
-        super('RuntimeStateManager', GenericAsset.SCOPES.UTILITY, GenericAsset.SCOPES.UTILITY)
+        super('RuntimeStateManager', GenericAsset.CONTEXTS.UTILITY, GenericAsset.CONTEXTS.UTILITY)
     }
 
     // Returning null for __proto__ is required to make this class compatible with the RuntimeState type.
@@ -117,9 +125,17 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         return state.WORKERS
     }
 
+    get isInitialized () {
+        return this._isInitialized
+    }
+    set isInitialized (value: boolean) {
+        this._setPropertyValue('isInitialized', value)
+    }
+
     addDataset (dataset: MediaDataset, setAsActive = false) {
         state.APP.datasets.push(dataset)
-        this.onPropertyUpdate('datasets', dataset)
+        this.dispatchPayloadEvent('add-dateset', dataset)
+        this.onPropertyUpdate('datasets', dataset) // TODO: Deprecated.
         if (setAsActive) {
             this.setActiveDataset(dataset)
         }
@@ -159,7 +175,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         if (setAsActive) {
             this.setActiveResource(resource)
         }
-        this.onPropertyUpdate('resources', resource)
+        this.onPropertyUpdate('resources', resource) // TODO: Deprecated.
     }
 
     deactivateResource (resource: DataResource) {
@@ -168,7 +184,8 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             return
         }
         resource.isActive = false
-        this.onPropertyUpdate('active-resource')
+        this.dispatchPayloadEvent('set-active-resource', null)
+        this.onPropertyUpdate('active-resource') // TODO: Deprecated.
     }
 
     getService (name: string) {
@@ -227,7 +244,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         let studyContext = null as StudyContext | null
         loader.loadDataset(folder, async (study) => {
             for (const loader of studyLoaders) {
-                if (loader.isSupportedScope(study.scope) && loader.isSupportedType(study.type)) {
+                if (loader.isSupportedContext(study.context) && loader.isSupportedType(study.type)) {
                     if (study.files.length === 1) {
                         if (study.files[0].file) {
                             if (!studyContext) {
@@ -298,7 +315,8 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             return
         }
         activeSet.removeResource(resource)
-        this.onPropertyUpdate('resouces')
+        this.dispatchPayloadEvent('remove-resource', resource)
+        this.onPropertyUpdate('resouces') // TODO: Deprecated.
     }
 
     setActiveDataset (dataset: MediaDataset | null) {
@@ -310,7 +328,8 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         if (dataset) {
             dataset.isActive = true
         }
-        this.onPropertyUpdate('active-dataset', dataset, prevActive)
+        this.dispatchPayloadEvent('set-active-dataset', dataset)
+        this.onPropertyUpdate('active-dataset', dataset, prevActive) // TODO: Deprecated.
     }
 
     setActiveResource(resource: DataResource | null, deactivateOthers = true) {
@@ -335,13 +354,15 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
                 res.isActive = false
             }
         }
-        this.onPropertyUpdate('active-resource', resource)
+        this.dispatchPayloadEvent('set-active-resource', resource)
+        this.onPropertyUpdate('active-resource', resource) // TODO: Deprecated.
     }
 
     setModule (name: string, module: ResourceModule) {
         this.MODULES.set(name, module.runtime)
         this.SETTINGS.registerModule(name, module.settings)
-        this.onPropertyUpdate('modules', name)
+        this.dispatchPayloadEvent('set-module', { name, module })
+        this.onPropertyUpdate('modules', name) // TODO: Deprecated.
     }
 
     setModulePropertyValue (module: string, property: string, value: unknown, resource?: DataResource): void {
@@ -355,7 +376,8 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
 
     setService (name: string, service: AssetService) {
         state.SERVICES.set(name, service)
-        this.onPropertyUpdate('services', name)
+        this.dispatchPayloadEvent('set-service', { name, service })
+        this.onPropertyUpdate('services', name) // TODO: Deprecated.
     }
 
     setSettingsValue (field: string, value: SettingsValue) {

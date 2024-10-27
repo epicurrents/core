@@ -13,7 +13,6 @@ import GenericResource from '#assets/GenericResource'
 
 export default class MixedMediaDataset extends GenericDataset implements MediaDataset {
     protected _errorReason = ''
-    protected _scope = ''
     protected _source: StudyContext | null = null
     protected _state: ResourceState = 'added'
     /**
@@ -35,8 +34,8 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
     }
     set errorReason (value: string) {
         const prevValue = this._errorReason
-        this._errorReason = value
-        this.onPropertyUpdate('error-reason', value, prevValue)
+        this._setPropertyValue('errorReason', value)
+        this.onPropertyUpdate('error-reason', value, prevValue) // TODO: Deprecated.
     }
     get isReady () {
         return this._state === 'ready'
@@ -45,33 +44,23 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         return this._resources as GenericResource[]
     }
     set resources (value: GenericResource[]) {
-        this._resources = value
-        this.onPropertyUpdate('resources')
-    }
-    get scope () {
-        return this._scope
-    }
-    set scope (value: string) {
-        if (this._scope !== value) {
-            const oldVal = this._scope
-            this._scope = value
-            this.onPropertyUpdate('scope', value, oldVal)
-        }
+        this._setPropertyValue('resources', value)
+        this.onPropertyUpdate('resources') // TODO: Deprecated.
     }
     get source () {
         return this._source
     }
     set source (value: StudyContext | null) {
-        this._source = value
-        this.onPropertyUpdate('source')
+        this._setPropertyValue('source', value)
+        this.onPropertyUpdate('source') // TODO: Deprecated.
     }
     get state () {
         return this._state
     }
     set state (value: ResourceState) {
         const prevState = this._state
-        this._state = value
-        this.onPropertyUpdate('state', value, prevState)
+        this._setPropertyValue('state', value)
+        this.onPropertyUpdate('state', value, prevState) // TODO: Deprecated.
     }
 
     addDependencies(..._dependencies: string[]) {

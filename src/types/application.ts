@@ -32,14 +32,14 @@ import {
  * The most basic type defining properties that must exist in every asset.
  */
 export interface BaseAsset {
+    /** Application context that this asset belongs to. */
+    context: string
     /** Unique id (generated automatically). */
     id: string
     /** Is this asset selected as active. */
     isActive: boolean
     /* Below fields are given proper descriptions in sub-interfaces */
     name: string
-    /** Application scope that this asset belongs to. */
-    scope: string
     /** Specific type (or modality) of the resource. */
     type: string
     /**
@@ -50,7 +50,7 @@ export interface BaseAsset {
      * @param phase - Event phase to trigger the callback in (optional, default 'after').
      */
     addEventListener (
-        event: string|string[],
+        event: string|RegExp|(string|RegExp)[],
         callback: ScopedEventCallback,
         subscriber: string,
         phase?: ScopedEventPhase
@@ -77,15 +77,33 @@ export interface BaseAsset {
      */
     dispatchEvent (event: string, phase?: ScopedEventPhase, detail?: { [key: string]: unknown }): boolean
     /**
-     * Dispatch an event to signal a change in the value of a property. This is merely a helper method that formats
-     * the custom event details correctly.
+     * Dispatch an event that carries some data as payload.
+     *
+     * This is a helper method that formats the custom event details correctly.
      * @param event - Name of the event.
-     * @param newValue - The new value of the property.
-     * @param oldValue - The old value of the property.
+     * @param payload - Data payload for the event.
      * @param phase - Phase of the event (optional, default 'after').
      * @returns False if the event default was prevented, true otherwise.
      */
-    dispatchPropertyChangeEvent (event: string, newValue: unknown, oldValue: unknown, phase?: ScopedEventPhase): boolean
+    dispatchPayloadEvent<T> (event: string, payload: T, phase?: ScopedEventPhase): boolean
+    /**
+     * Dispatch an event to signal a change in the value of a property.
+     *
+     * This is a helper method that formats the custom event details correctly.
+     * @param property - Name of the property to change.
+     * @param newValue - The new value of the property.
+     * @param oldValue - The old value of the property.
+     * @param phase - Phase of the event (optional, default 'after').
+     * @param event - Custom override for the property change event name (optional).
+     * @returns False if the event default was prevented, true otherwise.
+     */
+    dispatchPropertyChangeEvent<T> (
+        property: keyof BaseAsset,
+        newValue: T,
+        oldValue: T,
+        phase?: ScopedEventPhase,
+        event?: string
+    ): boolean
     /**
      * Get methods for adding listeners to the `before` and `after` phases of a specific `event`.
      * The `unsubscribe` method returned alongside the hooks can be used to unsubscribe from both phases.
@@ -133,7 +151,7 @@ export interface BaseAsset {
      * @param phase - Optional phase of the event (omitted or undefined will match any phase).
      */
     removeEventListener (
-        event: string|string[],
+        event: string|RegExp|(string|RegExp)[],
         callback: ScopedEventCallback,
         subscriber: string,
         phase?: ScopedEventPhase
@@ -162,6 +180,13 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
+    /**
+     * Application context of this resource.
+     * @remarks
+     * Context in refers to the general modality of the resource, such as
+     * *biosignal*, *radiology* or *multimedia*.
+     */
+    context: string
     /** Any dependencies of this resource that are not yet ready to use. */
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
@@ -170,13 +195,6 @@ export interface BaseAsset {
     errorReason: string
     /** Is the resource ready for use. */
     isReady: boolean
-    /**
-     * General scope of this resource.
-     * @remarks
-     * Scope refers to the gneral modality of the resource, such as
-     * *biosignal*, *radiology* or *multimedia*.
-     */
-    scope: string
     /** Source study for this resource. */
     source: StudyContext | null
     /**

@@ -5,10 +5,12 @@
  * @license    Apache-2.0
  */
 
+import { BaseAsset } from '#types/application'
+
 /**
  * General type for audio recordings.
  */
-export interface AudioRecording {
+export interface AudioRecording extends BaseAsset {
     /** Buffer to use as audio data source. */
     buffer: ArrayBuffer | null
     /** Current audio playback time. */

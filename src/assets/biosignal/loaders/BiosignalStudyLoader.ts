@@ -10,6 +10,7 @@ import { type ConfigStudyContext, type ConfigStudyLoader } from '#types/config'
 import { type FileFormatReader } from '#root/src/types/reader'
 import { type StudyContext } from '#types/study'
 import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
+import GenericBiosignalResource from '#assets/biosignal/GenericBiosignalResource'
 
 //const SCOPE = 'BiosignalStudyLoader'
 
@@ -25,7 +26,7 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
         if (!study) {
             return null
         }
-        study.scope = 'sig'
+        study.context = GenericBiosignalResource.CONTEXT
         return study
     }
 

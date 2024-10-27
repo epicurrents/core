@@ -9,6 +9,6 @@ export default class AssetInstance extends GenericAsset implements BaseAsset {
         return null
     }
     set testProperty (value: any) {
-        this.onPropertyUpdate('test-property')
+        this.onPropertyUpdate('test-property') // TODO: Deprecated.
     }
 }

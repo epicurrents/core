@@ -1,5 +1,7 @@
 /**
  * Epicurrents service worker replacement. Allows using a services in the main thread without actual workers.
+ * @remarks
+ * WORKER SUBSTITUTES ARE SUBJECT TO DEPRECATION.
  * @package    epicurrents/core
  * @copyright  2024 Sampsa Lohi
  * @license    Apache-2.0

@@ -138,7 +138,7 @@ export interface FileFormatReader extends BaseAsset {
      * @param scope - Scope to check.
      * @return True if supported, false if not.
      */
-    isSupportedScope (scope: string): boolean
+    isSupportedContext (scope: string): boolean
     /**
      * Match the given file name against files supported by this reader.
      * @param fileName - Name of the file to match.

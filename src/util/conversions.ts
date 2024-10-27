@@ -8,6 +8,19 @@
 import { type SettingsColor } from '#types/config'
 
 /**
+ * Convert a cameCase name into kebab-case.
+ * @param name - Name (of the property or variable).
+ * @returns Name of kebab-case.
+ */
+export const camelCaseToKebabCase = (name: string): string => {
+    const kebabCase = name.replace(
+        /((?<=[a-z\d])[A-Z]|(?<=[A-Z\d])[A-Z](?=[a-z]))/g,
+        '-$1'
+    ).toLowerCase()
+    return kebabCase
+}
+
+/**
  * Convert the given hex color string to settings color array.
  * @param rgba - Hex string in the form of `#[rgb|rgba|rrggbb|rrggbbaa]`.
  * @returns SettingsColor presentation of the color or null.
