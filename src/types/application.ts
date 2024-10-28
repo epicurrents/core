@@ -61,6 +61,7 @@ export interface BaseAsset {
      * @param handler - Handler to fire when the property changes.
      * @param caller - Optional ID for the caller.
      * @param singleEvent - Should the handler be removed after the first time this event occurs (default false).
+     * @todo TO BE DEPRECATED
      */
     addPropertyUpdateHandler (
         property: string | string[],
@@ -123,10 +124,27 @@ export interface BaseAsset {
      */
     getEventHooks (event: string, subscriber: string): ScopedEventHooks
     /**
+     * Add a `handler` for changes occurring in the given `property` or properties.
+     * @param property - Name of the property/properties.
+     * @param handler - Handler to run when a change occurs.
+     * @param subscriber - Name of the subscriber.
+     * @param phase - Optional phase of the event (default 'after').
+     *
+     * @remarks
+     * This is a utility method that correctly formats a default event listener for changes in the given property.
+     */
+    onPropertyChange (
+        property: keyof this | (keyof this)[],
+        handler: PropertyChangeHandler,
+        subscriber: string,
+        phase?: ScopedEventPhase,
+    ): void
+    /**
      * Fire all property update handlers attached to the given property.
      * @param property - Property that was updated.
      * @param newValue - Optional new value of the property to pass to the handler.
      * @param oldValue - Optional previous value of the property to pass to the handler.
+     * @todo TO BE DEPRECATED
      */
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown): void
     /**
@@ -136,11 +154,13 @@ export interface BaseAsset {
     removeAllEventListeners (subscriber?: string): void
     /**
      * Remove all property update handlers from this asset.
+     * @todo TO BE DEPRECATED
      */
     removeAllPropertyUpdateHandlers (): void
     /**
      * Remove all property update handlers registered for the given `caller`.
      * @param caller - ID of the caller.
+     * @todo TO BE DEPRECATED
      */
     removeAllPropertyUpdateHandlersFor (caller: string): void
     /**
@@ -160,6 +180,7 @@ export interface BaseAsset {
      * Remove an update handler from the given `property` or properties.
      * @param property - Name of the property or array of peroperty names (in kebab-case).
      * @param handler - Handler to remove.
+     * @todo TO BE DEPRECATED
      */
     removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
     /**
@@ -426,6 +447,7 @@ export type InterfaceResourceModuleContext = {
 export type NullProtoObject = {
     __proto__: null
 }
+export type PropertyChangeHandler = <T>(newValue?: T, oldValue?: T) => unknown
 export type PropertyUpdateHandler = (newValue?: unknown, oldValue?: unknown) => unknown
 /**
  * Module containing the required runtime and settings properties for a given resource type.

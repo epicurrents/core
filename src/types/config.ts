@@ -20,10 +20,10 @@ import { StudyContextCollection } from './study'
 export interface AppSettings {
     _CLONABLE: ClonableAppSettings
     app: BaseModuleSettings & {
-        /** 
-         * Maximum number of bytes to load in one chunk. This will be rounded down to the nearest whole data record 
+        /**
+         * Maximum number of bytes to load in one chunk. This will be rounded down to the nearest whole data record
          * size - 1 (because one data record may be added for signal interpolation).
-         * If the size of a single data record is larger than dataChunkSize, the value will be rounded up to match one 
+         * If the size of a single data record is larger than dataChunkSize, the value will be rounded up to match one
          * data record.
          */
         dataChunkSize: number
@@ -160,9 +160,9 @@ export type CommonBiosignalSettings = {
         [type: string]: BiosignalFilterType[]
     }
     /**
-     * The amount of padding is always a compromise between overhead from the extra signal data that needs to be 
+     * The amount of padding is always a compromise between overhead from the extra signal data that needs to be
      * processed and possible artefacts introduced by filtering; the slower and larger amplitude the waves,
-     * the more padding is needed to avoid significant artefacts. Use this amount of signal data (in seconds) as 
+     * the more padding is needed to avoid significant artefacts. Use this amount of signal data (in seconds) as
      * padding at both ends.
      */
     filterPaddingSeconds: number

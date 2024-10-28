@@ -9,8 +9,8 @@
 import EventBus from '#events/EventBus'
 import { Log } from 'scoped-ts-log'
 import { AssetEvents } from '#events/EventTypes'
-import { type BaseAsset } from '#types/application'
-import { EventWithPayload, type PropertyChangeEvent } from '#types/event'
+import { type BaseAsset, type PropertyChangeHandler } from '#types/application'
+import { type EventWithPayload, type PropertyChangeEvent } from '#types/event'
 import {
     type ScopedEventBus,
     type ScopedEventCallback,
@@ -211,7 +211,7 @@ export default abstract class GenericAsset implements BaseAsset {
     dispatchPayloadEvent<T> (event: string, payload: T, phase: ScopedEventPhase = 'after') {
         const detail = {
             payload: payload,
-        } as EventWithPayload<T>
+        } as EventWithPayload<T>['detail']
         return this.dispatchEvent(event, phase, detail)
     }
 
@@ -226,12 +226,29 @@ export default abstract class GenericAsset implements BaseAsset {
             property: property,
             newValue: newValue,
             oldValue: oldValue,
-        } as PropertyChangeEvent<T>
+        } as PropertyChangeEvent<T>['detail']
         return this.dispatchEvent(event || `property-change:${property.toString()}`, phase, detail)
     }
 
     getEventHooks (event: string, subscriber: string) {
         return this._eventBus.getEventHooks(event, subscriber, this.id)
+    }
+
+    onPropertyChange (
+        property: keyof this | (keyof this)[],
+        handler: PropertyChangeHandler,
+        subscriber: string,
+        phase: ScopedEventPhase = 'after',
+    ) {
+        const properties = Array.isArray(property) ? property : [property]
+        for (const prop of properties) {
+            if (typeof prop !== 'string') {
+                continue
+            }
+            this.addEventListener(`property-change:${prop}`, (e) => {
+                handler(e.detail.newValue, e.detail.oldValue)
+            }, subscriber, phase)
+        }
     }
 
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
