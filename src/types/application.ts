@@ -21,27 +21,47 @@ import {
     StudyLoaderContext,
 } from './study'
 import { Modify } from './util'
+import {
+    ScopedEventBus,
+    ScopedEventCallback,
+    ScopedEventHooks,
+    ScopedEventPhase,
+} from 'scoped-event-bus/dist/types'
 
 /**
  * The most basic type defining properties that must exist in every asset.
  */
 export interface BaseAsset {
+    /** Application context that this asset belongs to. */
+    context: string
     /** Unique id (generated automatically). */
     id: string
     /** Is this asset selected as active. */
     isActive: boolean
     /* Below fields are given proper descriptions in sub-interfaces */
     name: string
-    /** Application scope that this asset belongs to. */
-    scope: string
     /** Specific type (or modality) of the resource. */
     type: string
+    /**
+     * Add a listener for an `event` or list of events.
+     * @param event - Event or list of events to listen for.
+     * @param callback - Method to call when event occurs.
+     * @param subscriber - Name of the subscriber.
+     * @param phase - Event phase to trigger the callback in (optional, default 'after').
+     */
+    addEventListener (
+        event: string|RegExp|(string|RegExp)[],
+        callback: ScopedEventCallback,
+        subscriber: string,
+        phase?: ScopedEventPhase
+    ): void
     /**
      * Add and update handler for the given `property` or properties.
      * @param property - Name of the property or array of property names (in kebab-case).
      * @param handler - Handler to fire when the property changes.
      * @param caller - Optional ID for the caller.
      * @param singleEvent - Should the handler be removed after the first time this event occurs (default false).
+     * @todo TO BE DEPRECATED
      */
     addPropertyUpdateHandler (
         property: string | string[],
@@ -50,33 +70,144 @@ export interface BaseAsset {
         singleEvent?: boolean
     ): void
     /**
+     * Dispatch an `event`.
+     * @param event - Name of the event.
+     * @param phase - Event phase (optinal, default 'after').
+     * @param detail - Optional `CustomEvent` details.
+     * @returns False if the event default was prevented, true otherwise.
+     */
+    dispatchEvent (event: string, phase?: ScopedEventPhase, detail?: { [key: string]: unknown }): boolean
+    /**
+     * Dispatch an event that carries some data as payload.
+     *
+     * This is a helper method that formats the custom event details correctly.
+     * @param event - Name of the event.
+     * @param payload - Data payload for the event.
+     * @param phase - Phase of the event (optional, default 'after').
+     * @returns False if the event default was prevented, true otherwise.
+     */
+    dispatchPayloadEvent<T> (event: string, payload: T, phase?: ScopedEventPhase): boolean
+    /**
+     * Dispatch an event to signal a change in the value of a property.
+     *
+     * This is a helper method that formats the custom event details correctly.
+     * @param property - Name of the property to change.
+     * @param newValue - The new value of the property.
+     * @param oldValue - The old value of the property.
+     * @param phase - Phase of the event (optional, default 'after').
+     * @param event - Custom override for the property change event name (optional).
+     * @returns False if the event default was prevented, true otherwise.
+     */
+    dispatchPropertyChangeEvent<T> (
+        property: keyof BaseAsset,
+        newValue: T,
+        oldValue: T,
+        phase?: ScopedEventPhase,
+        event?: string
+    ): boolean
+    /**
+     * Get methods for adding listeners to the `before` and `after` phases of a specific `event`.
+     * The `unsubscribe` method returned alongside the hooks can be used to unsubscribe from both phases.
+     * @param event - Name of the event.
+     * @param subscriber - Name of the subscriber.
+     * @returns Methods to hook into asset events.
+     * @example
+     * const hooks = asset.getEventHooks('some-event', 'some-subscriber')
+     * hooks.before((event) => {
+     *   // Do something before the event occurs...
+     *   event.preventDefault() // May stop the event from actually taking place.
+     * })
+     * hooks.after((event) => {
+     *   // Do something after the event has occurred...
+     * })
+     * hooks.unsubscribe() // Remove all event listeners from this subscriber.
+     */
+    getEventHooks (event: string, subscriber: string): ScopedEventHooks
+    /**
+     * Add a `handler` for changes occurring in the given `property` or properties.
+     * @param property - Name of the property/properties.
+     * @param handler - Handler to run when a change occurs.
+     * @param subscriber - Name of the subscriber.
+     * @param phase - Optional phase of the event (default 'after').
+     *
+     * @remarks
+     * This is a utility method that correctly formats a default event listener for changes in the given property.
+     */
+    onPropertyChange (
+        property: keyof this | (keyof this)[],
+        handler: PropertyChangeHandler,
+        subscriber: string,
+        phase?: ScopedEventPhase,
+    ): void
+    /**
      * Fire all property update handlers attached to the given property.
      * @param property - Property that was updated.
      * @param newValue - Optional new value of the property to pass to the handler.
      * @param oldValue - Optional previous value of the property to pass to the handler.
+     * @todo TO BE DEPRECATED
      */
     onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown): void
     /**
+     * Remove all event listeners, optinally limited to a specific `subscriber`.
+     * @param subscriber - Name of the subscriber (optional).
+     */
+    removeAllEventListeners (subscriber?: string): void
+    /**
      * Remove all property update handlers from this asset.
+     * @todo TO BE DEPRECATED
      */
     removeAllPropertyUpdateHandlers (): void
     /**
      * Remove all property update handlers registered for the given `caller`.
      * @param caller - ID of the caller.
+     * @todo TO BE DEPRECATED
      */
     removeAllPropertyUpdateHandlersFor (caller: string): void
+    /**
+     * Remove the listener for the given `event`(s).
+     * @param event - Event or list of events to match.
+     * @param callback - Callback of the listener.
+     * @param subscriber - Name of the subscriber.
+     * @param phase - Optional phase of the event (omitted or undefined will match any phase).
+     */
+    removeEventListener (
+        event: string|RegExp|(string|RegExp)[],
+        callback: ScopedEventCallback,
+        subscriber: string,
+        phase?: ScopedEventPhase
+    ): void
     /**
      * Remove an update handler from the given `property` or properties.
      * @param property - Name of the property or array of peroperty names (in kebab-case).
      * @param handler - Handler to remove.
+     * @todo TO BE DEPRECATED
      */
     removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
+    /**
+     * Alias for `addEventListener`.
+     */
+    subscribe: BaseAsset['addEventListener']
+    /**
+     * Alias for `removeEventListener`.
+     */
+    unsubscribe: BaseAsset['removeEventListener']
+    /**
+     * Alias for `removeAllEventListeners`.
+     */
+    unsubscribeAll: BaseAsset['removeAllEventListeners']
 }
 /**
  * DataResource is the most basic scope of resource containing biomedical or media data.
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
+    /**
+     * Application context of this resource.
+     * @remarks
+     * Context in refers to the general modality of the resource, such as
+     * *biosignal*, *radiology* or *multimedia*.
+     */
+    context: string
     /** Any dependencies of this resource that are not yet ready to use. */
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
@@ -85,13 +216,6 @@ export interface BaseAsset {
     errorReason: string
     /** Is the resource ready for use. */
     isReady: boolean
-    /**
-     * General scope of this resource.
-     * @remarks
-     * Scope refers to the gneral modality of the resource, such as
-     * *biosignal*, *radiology* or *multimedia*.
-     */
-    scope: string
     /** Source study for this resource. */
     source: StudyContext | null
     /**
@@ -146,6 +270,10 @@ export interface BaseAsset {
  * The main Epicurrents application.
  */
 export interface EpicurrentsApp {
+    /**
+     * Master event bus to broadcast application events.
+     */
+    eventBus: ScopedEventBus
     /**
      * Path where public assets (mostly javascript) are served from.
      */
@@ -319,6 +447,7 @@ export type InterfaceResourceModuleContext = {
 export type NullProtoObject = {
     __proto__: null
 }
+export type PropertyChangeHandler = <T>(newValue?: T, oldValue?: T) => unknown
 export type PropertyUpdateHandler = (newValue?: unknown, oldValue?: unknown) => unknown
 /**
  * Module containing the required runtime and settings properties for a given resource type.

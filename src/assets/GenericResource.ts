@@ -22,8 +22,8 @@ export default abstract class GenericResource extends GenericAsset implements Da
     protected _source: StudyContext | null = null
     protected _state: ResourceState = 'added'
 
-    constructor (name: string, scope: string, type: string, source?: StudyContext) {
-        super(name, scope, type)
+    constructor (name: string, context: string, type: string, source?: StudyContext) {
+        super(name, context, type)
         if (source) {
             this._source = source
         }
@@ -33,23 +33,23 @@ export default abstract class GenericResource extends GenericAsset implements Da
         return this._dependenciesMissing
     }
     set dependenciesMissing (value: string[]) {
-        this._dependenciesMissing = value
-        this.onPropertyUpdate('dependencies-missing')
+        this._setPropertyValue('dependenciesMissing', value)
+        this.onPropertyUpdate('dependencies-missing') // TODO: Deprecated.
     }
     get dependenciesReady () {
         return this._dependenciesMissing
     }
     set dependenciesReady (value: string[]) {
-        this._dependenciesReady = value
-        this.onPropertyUpdate('dependencies-ready')
+        this._setPropertyValue('dependenciesReady', value)
+        this.onPropertyUpdate('dependencies-ready') // TODO: Deprecated.
     }
     get errorReason () {
         return this._errorReason
     }
     set errorReason (value: string) {
         const prevValue = this._errorReason
-        this._errorReason = value
-        this.onPropertyUpdate('error-reason', value, prevValue)
+        this._setPropertyValue('errorReason', value)
+        this.onPropertyUpdate('error-reason', value, prevValue) // TODO: Deprecated.
     }
     get isReady () {
         return this._dependenciesMissing.length === 0 && this._state === 'ready'
@@ -58,29 +58,30 @@ export default abstract class GenericResource extends GenericAsset implements Da
         return this._source
     }
     set source (value: StudyContext | null) {
-        this._source = value
-        this.onPropertyUpdate('source')
+        this._setPropertyValue('source', value)
+        this.onPropertyUpdate('source') // TODO: Deprecated.
     }
     get state () {
         return this._state
     }
     set state (value: ResourceState) {
         const prevState = this._state
-        this._state = value
+        this._setPropertyValue('state', value)
         if (prevState === 'error' && value !== 'error') {
             // Reset error message if state changes from error into something else.
             this._errorReason = ''
         }
-        this.onPropertyUpdate('state', value, prevState)
+        this.onPropertyUpdate('state', value, prevState) // TODO: Deprecated.
     }
 
     addDependencies (...dependencies: string[]) {
-        const prevCount = this._dependenciesMissing.length
-        this._dependenciesMissing.push(...dependencies)
-        this.onPropertyUpdate('dependencies-missing')
-        if (!prevCount && this._state === 'ready') {
-            // This resource is no longer ready to be used.
-            this.onPropertyUpdate('is-ready')
+        // This action may change the resource from being ready to not being ready.
+        const wasReady = this.isReady
+        this._setPropertyValue('dependenciesMissing', [...this._dependenciesMissing, ...dependencies])
+        this.onPropertyUpdate('dependencies-missing') // TODO: Deprecated.
+        if (wasReady) {
+            this.dispatchPropertyChangeEvent('isReady', this.isReady, wasReady)
+            this.onPropertyUpdate('is-ready') // TODO: Deprecated.
         }
     }
 
@@ -95,26 +96,31 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     removeDependencies (...dependencies: string[]): string[] {
         const removed = [] as string[]
+        const newList = [...this._dependenciesMissing]
+        const wasReady = this.isReady
         dep_loop:
         for (const dep of dependencies) {
-            for (let i=0; i<this._dependenciesMissing.length; i++) {
-                if (this._dependenciesMissing[i] === dep) {
-                    removed.push(...this._dependenciesMissing.splice(i, 1))
+            for (let i=0; i<newList.length; i++) {
+                if (newList[i] === dep) {
+                    removed.push(...newList.splice(i, 1))
                     continue dep_loop
                 }
             }
-            Log.warn(`Depedency '${dep}' was not found in missing dependencies.`, SCOPE)
+            Log.warn(`Depedency '${dep}' was not found when removing dependencies.`, SCOPE)
         }
-        this.onPropertyUpdate('dependencies-missing')
-        if (!this._dependenciesMissing.length && this._state === 'ready') {
+        this._setPropertyValue('dependenciesMissing', newList)
+        this.onPropertyUpdate('dependencies-missing') // TODO: Deprecated.
+        if (wasReady !== this.isReady) {
             // Notify listeners that this recording is ready to use.
-            this.onPropertyUpdate('is-ready')
+            this.dispatchPropertyChangeEvent('isReady', this.isReady, wasReady)
+            this.onPropertyUpdate('is-ready') // TODO: Deprecated.
         }
         return removed
     }
     setDependenciesReady (...dependencies: string[]) {
-        this._dependenciesReady.push(...this.removeDependencies(...dependencies))
-        this.onPropertyUpdate('dependencies-ready')
+        const depsReady = this.removeDependencies(...dependencies)
+        this._setPropertyValue('dependenciesReady', [...this._dependenciesReady, ...depsReady])
+        this.onPropertyUpdate('dependencies-ready') // TODO: Deprecated.
     }
     async unload () {
         // Override this in a child class.

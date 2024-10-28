@@ -31,7 +31,7 @@ export const studyContextTemplate = () => {
         format: '',
         meta: {},
         name: '',
-        scope: '',
+        context: '',
         type: '',
         version: '1.0'
     } as StudyContext
@@ -82,7 +82,7 @@ export default class GenericStudyLoader implements StudyLoader {
         if (config.loader && config.loader !== this._name) {
             return false
         }
-        if (config.scope && !this.isSupportedScope(config.scope)) {
+        if (config.scope && !this.isSupportedContext(config.scope)) {
             return false
         }
         if (config.type && !this.isSupportedType(config.type)) {
@@ -136,7 +136,7 @@ export default class GenericStudyLoader implements StudyLoader {
         return null
     }
 
-    isSupportedScope (scope: string): boolean {
+    isSupportedContext (scope: string): boolean {
         for (const supported of this._supportedScopes) {
             if (supported === scope) {
                 return true
@@ -227,7 +227,7 @@ export default class GenericStudyLoader implements StudyLoader {
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.scope && !this._fileReader.isSupportedScope(config.scope)) {
+        if (config.scope && !this._fileReader.isSupportedContext(config.scope)) {
             Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
             return null
         }
@@ -395,7 +395,7 @@ export default class GenericStudyLoader implements StudyLoader {
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.scope && !this._fileReader.isSupportedScope(config.scope)) {
+        if (config.scope && !this._fileReader.isSupportedContext(config.scope)) {
             Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
             return null
         }

@@ -19,7 +19,7 @@ export default abstract class GenericDocumentResource extends GenericResource im
     protected _sourceFormat: string
 
     constructor (name: string, type: string, format: string, source: StudyContext) {
-        super(name, GenericResource.SCOPES.DOCUMENT, type, source)
+        super(name, GenericResource.CONTEXTS.DOCUMENT, type, source)
         this._sourceFormat = format
     }
 
@@ -31,16 +31,16 @@ export default abstract class GenericDocumentResource extends GenericResource im
         return this._currentPage
     }
     set currentPage (value: number) {
-        this._currentPage = value
-        this.onPropertyUpdate('current-page')
+        this._setPropertyValue('currentPage', value)
+        this.onPropertyUpdate('current-page') // TODO: Deprecated.
     }
 
     get numPages () {
         return this._numPages
     }
     set numPages (value: number) {
-        this._numPages = value
-        this.onPropertyUpdate('num-pages')
+        this._setPropertyValue('numPages', value)
+        this.onPropertyUpdate('num-pages') // TODO: Deprecated.
     }
 
     get sourceFormat () {

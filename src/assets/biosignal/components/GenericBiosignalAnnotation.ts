@@ -29,7 +29,7 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         annoClass?: BiosignalAnnotation['class'], channels?: number[], priority?: number, text?: string,
         visible?: boolean, background?: boolean, color?: SettingsColor, opacity?: number
     ) {
-        super(name, GenericAsset.SCOPES.BIOSIGNAL, 'annotation')
+        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, 'annotation')
         this._duration = duration
         this._label = label
         this._start = start
@@ -65,8 +65,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set annotator (value: string) {
         const prevVal = this._annotator
-        this._annotator = value
-        this.onPropertyUpdate('annotator', value, prevVal)
+        this._setPropertyValue('annotator', value)
+        this.onPropertyUpdate('annotator', value, prevVal) // TODO: Deprecated.
     }
 
     get background () {
@@ -74,8 +74,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set background (value: boolean) {
         const prevVal = this._background
-        this._background = value
-        this.onPropertyUpdate('background', value, prevVal)
+        this._setPropertyValue('background', value)
+        this.onPropertyUpdate('background', value, prevVal) // TODO: Deprecated.
     }
 
     get channels () {
@@ -83,8 +83,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set channels (value: number[]) {
         const prevVal = [...this._channels]
-        this._channels = value
-        this.onPropertyUpdate('channels', value, prevVal)
+        this._setPropertyValue('channels', value)
+        this.onPropertyUpdate('channels', value, prevVal) // TODO: Deprecated.
     }
 
     get class () {
@@ -92,8 +92,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set class (value: BiosignalAnnotation['class']) {
         const prevVal = this._class
-        this._class = value
-        this.onPropertyUpdate('class', value, prevVal)
+        this._setPropertyValue('class', value)
+        this.onPropertyUpdate('class', value, prevVal) // TODO: Deprecated.
     }
 
     get duration () {
@@ -101,8 +101,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set duration (value: number) {
         const prevVal = this._duration
-        this._duration = value
-        this.onPropertyUpdate('duration', value, prevVal)
+        this._setPropertyValue('duration', value)
+        this.onPropertyUpdate('duration', value, prevVal) // TODO: Deprecated.
     }
 
     get label () {
@@ -110,8 +110,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set label (value: string) {
         const prevVal = this._label
-        this._label = value
-        this.onPropertyUpdate('label', value, prevVal)
+        this._setPropertyValue('label', value)
+        this.onPropertyUpdate('label', value, prevVal) // TODO: Deprecated.
     }
 
     get priority () {
@@ -119,8 +119,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set priority (value: number) {
         const prevVal = this._priority
-        this._priority = value
-        this.onPropertyUpdate('priority', value, prevVal)
+        this._setPropertyValue('priority', value)
+        this.onPropertyUpdate('priority', value, prevVal) // TODO: Deprecated.
     }
 
     get start () {
@@ -128,8 +128,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set start (value: number) {
         const prevVal = this._start
-        this._start = value
-        this.onPropertyUpdate('start', value, prevVal)
+        this._setPropertyValue('start', value)
+        this.onPropertyUpdate('start', value, prevVal) // TODO: Deprecated.
     }
 
     get text () {
@@ -137,8 +137,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set text (value: string) {
         const prevVal = this._text
-        this._text = value
-        this.onPropertyUpdate('text', value, prevVal)
+        this._setPropertyValue('text', value)
+        this.onPropertyUpdate('text', value, prevVal) // TODO: Deprecated.
     }
 
     get visible () {
@@ -146,8 +146,8 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set visible (value: boolean) {
         const prevVal = this._visible
-        this._visible = value
-        this.onPropertyUpdate('visible', value, prevVal)
+        this._setPropertyValue('visible', value)
+        this.onPropertyUpdate('visible', value, prevVal) // TODO: Deprecated.
     }
 
     get color () {
@@ -155,9 +155,10 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set color (value: SettingsColor | undefined) {
         const prevVal = [...(this._color || [])]
-        this._color = value
-        this.onPropertyUpdate('color', value, prevVal)
-        this.onPropertyUpdate('appearance')
+        this._setPropertyValue('color', value)
+        this.dispatchEvent('appearance-changed')
+        this.onPropertyUpdate('color', value, prevVal) // TODO: Deprecated.
+        this.onPropertyUpdate('appearance') // TODO: Deprecated.
     }
 
     get opacity () {
@@ -165,8 +166,9 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set opacity (value: number | undefined) {
         const prevVal = this._opacity
-        this._opacity = value
-        this.onPropertyUpdate('opacity', value, prevVal)
-        this.onPropertyUpdate('appearance')
+        this._setPropertyValue('opacity', value)
+        this.dispatchEvent('appearance-changed')
+        this.onPropertyUpdate('opacity', value, prevVal) // TODO: Deprecated.
+        this.onPropertyUpdate('appearance') // TODO: Deprecated.
     }
 }

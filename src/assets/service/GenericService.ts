@@ -43,7 +43,6 @@ export default abstract class GenericService extends GenericAsset implements Ass
     protected _port: MessagePort | null = null
     protected _manager: MemoryManager | null
     protected _memoryRange: { start: number, end: number } | null = null
-    protected _scope: string
     /**
      * A map with actions as keys and an array of callbacks to call when that action completes.
      * Some generic actions are used to check if the service is ready:
@@ -53,9 +52,8 @@ export default abstract class GenericService extends GenericAsset implements Ass
     protected _waiters = new Map<string, ((result: boolean) => void)[]>()
     protected _worker: Worker | null = null
 
-    constructor (scope: string, worker?: Worker | MessagePort, shared?: boolean, manager?: MemoryManager) {
-        super(scope, GenericAsset.SCOPES.LOADER, '')
-        this._scope = scope
+    constructor (name: string, worker?: Worker | MessagePort, shared?: boolean, manager?: MemoryManager) {
+        super(name, GenericAsset.CONTEXTS.LOADER, '')
         this._manager = manager || null
         if (worker) {
             if (shared) {
@@ -99,7 +97,10 @@ export default abstract class GenericService extends GenericAsset implements Ass
         }
         return true
     }
-    get nextRequestNumber () {
+    /**
+     * The next unique request number.
+     */
+    protected get _nextRequestNumber () {
         return this._requestNumber++
     }
     get port () {
@@ -137,7 +138,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             commission.resolve = resolve
             commission.reject = reject
         })
-        const requestNum = this.nextRequestNumber
+        const requestNum = this._nextRequestNumber
         const msgData = safeObjectFrom({
             action: action,
             rn: requestNum
@@ -207,19 +208,23 @@ export default abstract class GenericService extends GenericAsset implements Ass
         const commission = this._getCommissionForMessage(message)
         if (commission) {
             if (data.action === 'setup-worker') {
+                const prevState = this.isReady
                 this._isWorkerSetup = data.success
                 if (data.success) {
                     Log.debug(`Worker setup complete.`, SCOPE)
                     commission.resolve(data.success)
-                    this.onPropertyUpdate('is-ready')
+                    this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+                    this.onPropertyUpdate('is-ready') // TODO: Deprecated.
                 } else if (commission.reject) {
                     commission.reject(data.error as string)
                 }
                 this._notifyWaiters('setup-worker', data.success)
                 return true
             } else if (data.action === 'setup-cache') {
+                const prevState = this.isReady
                 this._isCacheSetup = data.success
                 commission.resolve(data.success)
+                this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
                 this._notifyWaiters('setup-cache', data.success)
                 return true
             } else if (
@@ -228,13 +233,17 @@ export default abstract class GenericService extends GenericAsset implements Ass
             ) {
                 const decommission = this._commissions.get('decommission')
                 if (decommission && message.data.success === true) {
+                    const prevState = this.memoryConsumption
                     this._memoryRange = null
-                    this.onPropertyUpdate('memory-consumption')
+                    this.dispatchPropertyChangeEvent('memoryConsumption', this.memoryConsumption, prevState)
+                    this.onPropertyUpdate('memory-consumption') // TODO: Deprecated.
                     decommission.get(0)?.resolve()
                     if (message.data.action === 'shutdown') {
+                        const prevState = this.isReady
                         this._worker?.terminate()
                         this._worker = null
-                        this.onPropertyUpdate('is-ready')
+                        this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+                        this.onPropertyUpdate('is-ready') // TODO: Deprecated.
                     }
                 }
                 return true
@@ -283,7 +292,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
                         field: field,
                         value: window.__EPICURRENTS__?.RUNTIME?.SETTINGS.getFieldValue(field)
                     })
-                }, this._scope)
+                }, this._name)
             }
             return true
         }
@@ -399,9 +408,15 @@ export default abstract class GenericService extends GenericAsset implements Ass
             Log.error(`Too early to request memory, manager is not set yet.`, SCOPE)
             return false
         }
+        if (!this._manager.freeMemory) {
+            Log.error(`Memory manager has no memory available.`, SCOPE)
+            return false
+        }
         Log.debug(`Requesting to allocate ${amount*4} bytes of memory.`, SCOPE)
+        const prevState = this.memoryConsumption
         this._memoryRange = await this._manager.allocate(amount, this)
-        this.onPropertyUpdate('memory-consumption')
+        this.dispatchPropertyChangeEvent('memoryConsumption', this.memoryConsumption, prevState)
+        this.onPropertyUpdate('memory-consumption') // TODO: Deprecated.
         return true
     }
 
@@ -474,7 +489,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             Log.error(`Reference to application runtime was not found.`, SCOPE)
             return Promise.reject()
         }
-        window.__EPICURRENTS__.RUNTIME?.SETTINGS.removeAllPropertyUpdateHandlersFor(this._scope)
+        window.__EPICURRENTS__.RUNTIME?.SETTINGS.removeAllPropertyUpdateHandlersFor(this._name)
         const response = this._commissionWorker('shutdown')
         // Shutdown doesn't need a request number
         const shutdown = getOrSetValue(

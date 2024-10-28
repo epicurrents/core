@@ -746,9 +746,21 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         const rangeEnd = rangeEndView[0]
         if (signalPart.start < rangeStart || signalPart.end > rangeEnd) {
             // The offered part is out of signal buffer bounds.
-            Log.error(`Tried to insert signals with range ${signalPart.start} - ${signalPart.end} ` +
-                      `when buffer range is ${rangeStart} - ${rangeEnd}!`, SCOPE)
-            return
+            Log.warn(`Tried to insert signals with range ${signalPart.start} - ${signalPart.end} ` +
+                     `when buffer range is ${rangeStart} - ${rangeEnd}!`, SCOPE)
+            const minStart = Math.max(signalPart.start, rangeStart)
+            const maxEnd = Math.min(signalPart.end, rangeEnd)
+            for (const sig of signalPart.signals) {
+                // Crop signal to cache bounds.
+                sig.data = sig.data.subarray(
+                    Math.round(minStart*sig.samplingRate),
+                    Math.round(maxEnd*sig.samplingRate)
+                )
+                sig.start = minStart
+                sig.end = maxEnd
+            }
+            signalPart.start = minStart
+            signalPart.end = maxEnd
         }
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, async () => {
             for (let i=0; i<(this._outputData?.arrays || []).length; i++) {

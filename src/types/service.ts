@@ -38,8 +38,6 @@ export interface AssetService extends BaseAsset {
     isReady: boolean
     /** The amount of memory (in bytes) the asset in this loader consumes when fully loaded. */
     memoryConsumption: number
-    /** A unique request number for a worker request. */
-    nextRequestNumber: number
     /** Message port to the data cache, if using shared workers. */
     port: MessagePort | null
     /**

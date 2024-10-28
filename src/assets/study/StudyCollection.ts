@@ -1,6 +1,7 @@
 /**
  * Study collection.
- * This concept is a work in prgoress.
+ * @remarks
+ * This concept is a work in progress.
  * @package    epicurrents/core
  * @copyright  2023 Sampsa Lohi
  * @license    Apache-2.0

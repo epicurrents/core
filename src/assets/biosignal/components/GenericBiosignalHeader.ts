@@ -105,6 +105,7 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         return this._discontinous
     }
     set discontinuous (value: boolean) {
+        // This probably does not need a change event emitted.
         this._discontinous = value
     }
 

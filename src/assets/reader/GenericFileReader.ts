@@ -58,25 +58,25 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         'efbbbf': 'text/plain',
     }
      */
+    protected _contexts: string[]
     protected _matchPatterns: RegExp[] = []
     protected _memoryManager: MemoryManager | null  = null
     protected _fileTypes: AssociatedFileType[]
     protected _name: string
     protected _onlyAcceptedTypes: boolean
-    protected _scopes: string[]
     protected _study: StudyContext = studyContextTemplate()
     protected _studyLoader: StudyLoader | null = null
     protected _workerOverride = new Map<string, (() => Worker)|null>()
 
     constructor (
         name: string,
-        scopes: string[],
+        contexts: string[],
         fileTypes: AssociatedFileType[],
         namePatterns = [] as string[],
         onlyAcceptedTypes = false
     ) {
-        super(name, GenericAsset.SCOPES.LOADER, "unk")
-        this._scopes = scopes
+        super(name, GenericAsset.CONTEXTS.LOADER, "unknown")
+        this._contexts = contexts
         this._fileTypes = fileTypes
         this._name = name
         for (const pattern of namePatterns) {
@@ -101,7 +101,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         return this._studyLoader
     }
     set studyLoader (value: StudyLoader | null) {
-        this._studyLoader = value
+        this._setPropertyValue('studyLoader', value)
     }
 
 
@@ -117,8 +117,8 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         }
     }*/
 
-    isSupportedScope (scope: string) {
-        for (const supportedScope of this._scopes) {
+    isSupportedContext (scope: string) {
+        for (const supportedScope of this._contexts) {
             if (supportedScope === scope) {
                 return true
             }
@@ -176,7 +176,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
 
     registerStudy (study: StudyContext) {
         if (study) {
-            this._study = study
+            this._setPropertyValue('study', study)
         }
     }
 

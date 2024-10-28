@@ -47,8 +47,8 @@ export interface OrderedLoadingProtocol {
     meta: unknown
     /** Descriptive name of the resource. */
     name: string
-    /** Resource scope, e.g. 'doc', 'sig'. */
-    scope: string
+    /** Resource context, e.g. 'doc', 'sig'. */
+    context: string
     /** Resource type within the context. */
     type: string
     /** Study object definition version. */
@@ -145,7 +145,7 @@ export interface StudyLoader {
      * @param scope - Study scope.
      * @returns true/false
      */
-    isSupportedScope (scope: string): boolean
+    isSupportedContext (scope: string): boolean
     /**
      * Check if this loader supports the given study type.
      * @param type - Full study type (`scope:type`) or plain type.
