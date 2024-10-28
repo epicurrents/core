@@ -94,9 +94,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             chan.addEventListener(/.+/, () => {
                 this.dispatchPropertyChangeEvent('channels', this._channels, this._channels)
             }, this._id)
-            chan.addPropertyUpdateHandler('.+', () => {
-                this.onPropertyUpdate('channels') // TODO: Deprecated.
-            })
             // Listen for changes in channel filters.
             chan.addEventListener('filters', () => {
                 this._service.setFilters().then((updated) => {
@@ -109,15 +106,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
                     }
                 })
             }, this._id)
-            chan.addPropertyUpdateHandler('.+-filter', () => {
-                this._service.setFilters().then((updated) => {
-                    if (updated) {
-                        this._recording.onPropertyUpdate('active-montage-filters') // TODO: Deprecated.
-                    }
-                })
-            })
         }
-        this.onPropertyUpdate('channels') // TODO: Deprecated.
     }
     get config () {
         return this._config
@@ -134,7 +123,11 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._reference?.common || false
     }
     get highlights () {
-        return this._highlights
+        const highlightsObj = new Object(null) as { [key:string]: HighlightContext }
+        for (const [context, highlights] of this._highlights) {
+            highlightsObj[context] = highlights
+        }
+        return highlightsObj
     }
     get label () {
         return this._label
@@ -172,6 +165,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
 
     addHighlights (ctxName: string, ...highlights: SignalHighlight[]) {
+        const prevState = this.highlights
         const context = this._highlights.get(ctxName)
         if (!context) {
             Log.warn(`Tried to add highlights to a non-existing source ${ctxName}.`, SCOPE)
@@ -196,7 +190,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             // Highlights may be added in any order, but may need to be processed
             // consecutively, so sort them by start time.
             context.highlights.sort((a, b) => a.start - b.start)
-            this.onPropertyUpdate('highlights', ctxName) // TODO: Deprecated.
+            this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
         }
     }
 
@@ -289,28 +283,31 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
 
     removeAllHighlights () {
+        const prevState = this.highlights
         this._highlights.clear()
-        this.onPropertyUpdate('highlights') // TODO: Deprecated.
+        this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
     }
 
     removeAllHighlightsFrom (ctxName: string) {
+        const prevState = this.highlights
         const context = this._highlights.get(ctxName)
         if (!context) {
             Log.warn(`Tried to remove all highlights from a non-existing context ${ctxName}.`, SCOPE)
             return
         }
         context.highlights.splice(0)
-        this.onPropertyUpdate('highlights', ctxName) // TODO: Deprecated.
+        this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
     }
 
-    removeAllPropertyUpdateHandlers () {
+    removeAllEventListeners (subscriber?: string) {
         for (const chan of this._channels) {
-            chan.removeAllPropertyUpdateHandlers()
+            chan.removeAllEventListeners(subscriber)
         }
-        super.removeAllPropertyUpdateHandlers()
+        super.removeAllEventListeners(subscriber)
     }
 
     removeHighlights (ctxName: string, ...indices: number[]) {
+        const prevState = this.highlights
         const context = this._highlights.get(ctxName)
         if (!context) {
             Log.warn(`Tried to remove highlights from a non-exsting source ${ctxName}.`, SCOPE)
@@ -327,7 +324,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             offset++
         }
         if (offset) {
-            this.onPropertyUpdate('highlights', ctxName) // TODO: Deprecated.
+            this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
         }
     }
 
@@ -365,18 +362,14 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             })
         }
         // Combine signal parts if possible.
-        if (combineSignalParts(this._cachedSignals, newPart)) {
-            this._recording.onPropertyUpdate('active-montage-signal-cache')
-        } else {
+        if (!combineSignalParts(this._cachedSignals, newPart)) {
             // Cound not combine this part directly, save it in temporary parts.
-            // The new part can extend more than one existing part,
-            // so combine any overlapping parts.
+            // The new part can extend more than one existing part, so combine any overlapping parts.
             this._cacheParts = combineAllSignalParts(newPart, ...this._cacheParts)
             // Try again to combine into main cache.
             if (isContinuousSignal(...this._cacheParts, this._cachedSignals)) {
                 this._cachedSignals = combineAllSignalParts(this._cachedSignals, ...this._cacheParts)[0]
                 this._cacheParts = []
-                this._recording.onPropertyUpdate('active-montage-signal-cache')
             }
         }
     }
@@ -391,7 +384,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     setDataGaps (gaps: SignalDataGapMap) {
         this._service.setDataGaps(gaps)
-        this.onPropertyUpdate('data-gaps', gaps) // TODO: Deprecated.
     }
 
     async setHighpassFilter (value: number, target?: string | number) {
@@ -401,9 +393,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             this._filters.highpass = value
         }
         const updated = await this._service.setFilters()
-        if (updated) {
-            this._recording.onPropertyUpdate('active-montage-filters')
-        }
         return updated
     }
 
@@ -414,9 +403,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             this._filters.lowpass = value
         }
         const updated = await this._service.setFilters()
-        if (updated) {
-            this._recording.onPropertyUpdate('active-montage-filters')
-        }
         return updated
     }
 
@@ -427,9 +413,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             this._filters.notch = value
         }
         const updated = await this._service.setFilters()
-        if (updated) {
-            this._recording.onPropertyUpdate('active-montage-filters')
-        }
         return updated
     }
 
@@ -468,10 +451,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     async updateFilters (): Promise<SetFiltersResponse> {
         const response = await this._service.setFilters()
-        if (response) {
-            // Fire property update change.
-            this._recording.onPropertyUpdate('active-montage-filters')
-        }
         return response
     }
 }

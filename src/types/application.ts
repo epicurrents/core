@@ -56,20 +56,6 @@ export interface BaseAsset {
         phase?: ScopedEventPhase
     ): void
     /**
-     * Add and update handler for the given `property` or properties.
-     * @param property - Name of the property or array of property names (in kebab-case).
-     * @param handler - Handler to fire when the property changes.
-     * @param caller - Optional ID for the caller.
-     * @param singleEvent - Should the handler be removed after the first time this event occurs (default false).
-     * @todo TO BE DEPRECATED
-     */
-    addPropertyUpdateHandler (
-        property: string | string[],
-        handler: PropertyUpdateHandler,
-        caller?: string,
-        singleEvent?: boolean
-    ): void
-    /**
      * Dispatch an `event`.
      * @param event - Name of the event.
      * @param phase - Event phase (optinal, default 'after').
@@ -140,29 +126,10 @@ export interface BaseAsset {
         phase?: ScopedEventPhase,
     ): void
     /**
-     * Fire all property update handlers attached to the given property.
-     * @param property - Property that was updated.
-     * @param newValue - Optional new value of the property to pass to the handler.
-     * @param oldValue - Optional previous value of the property to pass to the handler.
-     * @todo TO BE DEPRECATED
-     */
-    onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown): void
-    /**
-     * Remove all event listeners, optinally limited to a specific `subscriber`.
+     * Remove all event listeners from this asset, optionally limited to the given `subscriber`.
      * @param subscriber - Name of the subscriber (optional).
      */
     removeAllEventListeners (subscriber?: string): void
-    /**
-     * Remove all property update handlers from this asset.
-     * @todo TO BE DEPRECATED
-     */
-    removeAllPropertyUpdateHandlers (): void
-    /**
-     * Remove all property update handlers registered for the given `caller`.
-     * @param caller - ID of the caller.
-     * @todo TO BE DEPRECATED
-     */
-    removeAllPropertyUpdateHandlersFor (caller: string): void
     /**
      * Remove the listener for the given `event`(s).
      * @param event - Event or list of events to match.
@@ -176,13 +143,6 @@ export interface BaseAsset {
         subscriber: string,
         phase?: ScopedEventPhase
     ): void
-    /**
-     * Remove an update handler from the given `property` or properties.
-     * @param property - Name of the property or array of peroperty names (in kebab-case).
-     * @param handler - Handler to remove.
-     * @todo TO BE DEPRECATED
-     */
-    removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
     /**
      * Alias for `addEventListener`.
      */
@@ -525,20 +485,13 @@ export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
  * In addition to the actual modules, it also includes shorthands for
  * core APP properties and methods for altering MODULES and SERVICES.
  */
-export interface StateManager extends RuntimeState {
+export interface StateManager extends RuntimeState, BaseAsset {
     /**
      * Add a new dataset to the list of datasets.
      * @param dataset - New dataset to add.
      * @param setAsActive - Optionally set the new dataset as active (default false).
      */
     addDataset (dataset: MediaDataset, setAsActive?: boolean): void
-    /**
-     * Add and update handler for the given `property`.
-     * @param property - Name of the property/properties (in kebab-case).
-     * @param handler - Handler to fire when the property changes.
-     * @param caller - Optional ID for the caller.
-     */
-    addPropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler, caller?: string): void
     /**
      * Add a new `resource` into the given `scope`.
      * @param scope - Scope of the new resoure.
@@ -574,23 +527,12 @@ export interface StateManager extends RuntimeState {
      * @param studyLoaders - Set of study loaders for the studies in the dataset.
      * @param config - Additional configuration (TODO: Config definitions).
      */
-    loadDatasetFolder (folder: FileSystemItem, loader: DatasetLoader, studyLoaders: StudyLoader[], config?: unknown):
-    Promise<MediaDataset>
-    /**
-     * Remove all property update handlers from this asset.
-     */
-    removeAllPropertyUpdateHandlers (): void
-    /**
-     * Remove all property update handlers registered for the given `caller`.
-     * @param caller - ID of the caller.
-     */
-    removeAllPropertyUpdateHandlersFor (caller: string): void
-    /**
-     * Remove an update handler from the given `property`.
-     * @param property - Name of the property/properties (in kebab-case).
-     * @param handler - Handler to remove.
-     */
-    removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
+    loadDatasetFolder (
+        folder: FileSystemItem,
+        loader: DatasetLoader,
+        studyLoaders: StudyLoader[],
+        config?: unknown
+    ): Promise<MediaDataset>
     /**
      * Remove the given `resource` from available resources.
      * @param resource - The resource to remove (either resources array index, resource id or resource object).

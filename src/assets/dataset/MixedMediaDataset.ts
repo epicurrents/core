@@ -33,9 +33,7 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         return this._errorReason
     }
     set errorReason (value: string) {
-        const prevValue = this._errorReason
         this._setPropertyValue('errorReason', value)
-        this.onPropertyUpdate('error-reason', value, prevValue) // TODO: Deprecated.
     }
     get isReady () {
         return this._state === 'ready'
@@ -45,22 +43,18 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
     }
     set resources (value: GenericResource[]) {
         this._setPropertyValue('resources', value)
-        this.onPropertyUpdate('resources') // TODO: Deprecated.
     }
     get source () {
         return this._source
     }
     set source (value: StudyContext | null) {
         this._setPropertyValue('source', value)
-        this.onPropertyUpdate('source') // TODO: Deprecated.
     }
     get state () {
         return this._state
     }
     set state (value: ResourceState) {
-        const prevState = this._state
         this._setPropertyValue('state', value)
-        this.onPropertyUpdate('state', value, prevState) // TODO: Deprecated.
     }
 
     addDependencies(..._dependencies: string[]) {

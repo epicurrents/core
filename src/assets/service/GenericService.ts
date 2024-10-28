@@ -214,7 +214,6 @@ export default abstract class GenericService extends GenericAsset implements Ass
                     Log.debug(`Worker setup complete.`, SCOPE)
                     commission.resolve(data.success)
                     this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
-                    this.onPropertyUpdate('is-ready') // TODO: Deprecated.
                 } else if (commission.reject) {
                     commission.reject(data.error as string)
                 }
@@ -236,14 +235,12 @@ export default abstract class GenericService extends GenericAsset implements Ass
                     const prevState = this.memoryConsumption
                     this._memoryRange = null
                     this.dispatchPropertyChangeEvent('memoryConsumption', this.memoryConsumption, prevState)
-                    this.onPropertyUpdate('memory-consumption') // TODO: Deprecated.
                     decommission.get(0)?.resolve()
                     if (message.data.action === 'shutdown') {
                         const prevState = this.isReady
                         this._worker?.terminate()
                         this._worker = null
                         this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
-                        this.onPropertyUpdate('is-ready') // TODO: Deprecated.
                     }
                 }
                 return true
@@ -416,7 +413,6 @@ export default abstract class GenericService extends GenericAsset implements Ass
         const prevState = this.memoryConsumption
         this._memoryRange = await this._manager.allocate(amount, this)
         this.dispatchPropertyChangeEvent('memoryConsumption', this.memoryConsumption, prevState)
-        this.onPropertyUpdate('memory-consumption') // TODO: Deprecated.
         return true
     }
 

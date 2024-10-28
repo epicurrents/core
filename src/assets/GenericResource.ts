@@ -34,22 +34,18 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     set dependenciesMissing (value: string[]) {
         this._setPropertyValue('dependenciesMissing', value)
-        this.onPropertyUpdate('dependencies-missing') // TODO: Deprecated.
     }
     get dependenciesReady () {
         return this._dependenciesMissing
     }
     set dependenciesReady (value: string[]) {
         this._setPropertyValue('dependenciesReady', value)
-        this.onPropertyUpdate('dependencies-ready') // TODO: Deprecated.
     }
     get errorReason () {
         return this._errorReason
     }
     set errorReason (value: string) {
-        const prevValue = this._errorReason
         this._setPropertyValue('errorReason', value)
-        this.onPropertyUpdate('error-reason', value, prevValue) // TODO: Deprecated.
     }
     get isReady () {
         return this._dependenciesMissing.length === 0 && this._state === 'ready'
@@ -59,7 +55,6 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     set source (value: StudyContext | null) {
         this._setPropertyValue('source', value)
-        this.onPropertyUpdate('source') // TODO: Deprecated.
     }
     get state () {
         return this._state
@@ -71,17 +66,14 @@ export default abstract class GenericResource extends GenericAsset implements Da
             // Reset error message if state changes from error into something else.
             this._errorReason = ''
         }
-        this.onPropertyUpdate('state', value, prevState) // TODO: Deprecated.
     }
 
     addDependencies (...dependencies: string[]) {
         // This action may change the resource from being ready to not being ready.
         const wasReady = this.isReady
         this._setPropertyValue('dependenciesMissing', [...this._dependenciesMissing, ...dependencies])
-        this.onPropertyUpdate('dependencies-missing') // TODO: Deprecated.
         if (wasReady) {
             this.dispatchPropertyChangeEvent('isReady', this.isReady, wasReady)
-            this.onPropertyUpdate('is-ready') // TODO: Deprecated.
         }
     }
 
@@ -109,18 +101,15 @@ export default abstract class GenericResource extends GenericAsset implements Da
             Log.warn(`Depedency '${dep}' was not found when removing dependencies.`, SCOPE)
         }
         this._setPropertyValue('dependenciesMissing', newList)
-        this.onPropertyUpdate('dependencies-missing') // TODO: Deprecated.
         if (wasReady !== this.isReady) {
             // Notify listeners that this recording is ready to use.
             this.dispatchPropertyChangeEvent('isReady', this.isReady, wasReady)
-            this.onPropertyUpdate('is-ready') // TODO: Deprecated.
         }
         return removed
     }
     setDependenciesReady (...dependencies: string[]) {
         const depsReady = this.removeDependencies(...dependencies)
         this._setPropertyValue('dependenciesReady', [...this._dependenciesReady, ...depsReady])
-        this.onPropertyUpdate('dependencies-ready') // TODO: Deprecated.
     }
     async unload () {
         // Override this in a child class.

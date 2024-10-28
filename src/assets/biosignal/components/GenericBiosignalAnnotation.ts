@@ -64,111 +64,85 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         return this._annotator
     }
     set annotator (value: string) {
-        const prevVal = this._annotator
         this._setPropertyValue('annotator', value)
-        this.onPropertyUpdate('annotator', value, prevVal) // TODO: Deprecated.
     }
 
     get background () {
         return this._background
     }
     set background (value: boolean) {
-        const prevVal = this._background
         this._setPropertyValue('background', value)
-        this.onPropertyUpdate('background', value, prevVal) // TODO: Deprecated.
     }
 
     get channels () {
         return this._channels
     }
     set channels (value: number[]) {
-        const prevVal = [...this._channels]
         this._setPropertyValue('channels', value)
-        this.onPropertyUpdate('channels', value, prevVal) // TODO: Deprecated.
     }
 
     get class () {
         return this._class
     }
     set class (value: BiosignalAnnotation['class']) {
-        const prevVal = this._class
         this._setPropertyValue('class', value)
-        this.onPropertyUpdate('class', value, prevVal) // TODO: Deprecated.
     }
 
     get duration () {
         return this._duration
     }
     set duration (value: number) {
-        const prevVal = this._duration
         this._setPropertyValue('duration', value)
-        this.onPropertyUpdate('duration', value, prevVal) // TODO: Deprecated.
     }
 
     get label () {
         return this._label
     }
     set label (value: string) {
-        const prevVal = this._label
         this._setPropertyValue('label', value)
-        this.onPropertyUpdate('label', value, prevVal) // TODO: Deprecated.
     }
 
     get priority () {
         return this._priority
     }
     set priority (value: number) {
-        const prevVal = this._priority
         this._setPropertyValue('priority', value)
-        this.onPropertyUpdate('priority', value, prevVal) // TODO: Deprecated.
     }
 
     get start () {
         return this._start
     }
     set start (value: number) {
-        const prevVal = this._start
         this._setPropertyValue('start', value)
-        this.onPropertyUpdate('start', value, prevVal) // TODO: Deprecated.
     }
 
     get text () {
         return this._text
     }
     set text (value: string) {
-        const prevVal = this._text
         this._setPropertyValue('text', value)
-        this.onPropertyUpdate('text', value, prevVal) // TODO: Deprecated.
     }
 
     get visible () {
         return this._visible
     }
     set visible (value: boolean) {
-        const prevVal = this._visible
         this._setPropertyValue('visible', value)
-        this.onPropertyUpdate('visible', value, prevVal) // TODO: Deprecated.
     }
 
     get color () {
         return this._color
     }
     set color (value: SettingsColor | undefined) {
-        const prevVal = [...(this._color || [])]
         this._setPropertyValue('color', value)
         this.dispatchEvent('appearance-changed')
-        this.onPropertyUpdate('color', value, prevVal) // TODO: Deprecated.
-        this.onPropertyUpdate('appearance') // TODO: Deprecated.
     }
 
     get opacity () {
         return this._opacity
     }
     set opacity (value: number | undefined) {
-        const prevVal = this._opacity
         this._setPropertyValue('opacity', value)
         this.dispatchEvent('appearance-changed')
-        this.onPropertyUpdate('opacity', value, prevVal) // TODO: Deprecated.
-        this.onPropertyUpdate('appearance') // TODO: Deprecated.
     }
 }

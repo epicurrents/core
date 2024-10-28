@@ -29,7 +29,6 @@ export default class ErrorResource extends GenericResource implements DataResour
     }
     set reason (value: string) {
         this._setPropertyValue('reason', value)
-        this.onPropertyUpdate('reason') // TODO: Deprecated.
     }
 
     ///////////////////////////////////////////////////

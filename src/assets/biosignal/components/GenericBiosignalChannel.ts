@@ -139,7 +139,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     }
     set displayPolarity (value: SignalPolarity) {
         this._setPropertyValue('displayPolarity', value)
-        this.onPropertyUpdate('display-polarity') // TODO: Deprecated.
     }
 
     get highpassFilter () {
@@ -151,7 +150,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             return
         }
         this._setPropertyValue('highpassFilter', value)
-        this.onPropertyUpdate('highpass-filter') // TODO: Deprecated.
     }
 
     get label () {
@@ -171,7 +169,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             return
         }
         this._setPropertyValue('lowpassFilter', value)
-        this.onPropertyUpdate('lowpass-filter') // TODO: Deprecated.
     }
 
     get markers () {
@@ -187,7 +184,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             return
         }
         this._setPropertyValue('notchFilter', value)
-        this.onPropertyUpdate('notch-filter') // TODO: Deprecated.
     }
 
     get offset () {
@@ -225,7 +221,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             return
         }
         this._setPropertyValue('sensitivity', value)
-        this.onPropertyUpdate('sensitivity') // TODO: Deprecated.
     }
 
     get signal () {
@@ -263,7 +258,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
                 this._triggerCache.clear()
                 this.findTriggerPoints()
                 this.dispatchPropertyChangeEvent('triggerValue', value, prevValue)
-                this.onPropertyUpdate('trigger-value') // TODO: Deprecated.
             }
         }, RECALCULATION_TIMEOUT)
     }

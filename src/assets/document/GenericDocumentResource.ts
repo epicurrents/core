@@ -32,7 +32,6 @@ export default abstract class GenericDocumentResource extends GenericResource im
     }
     set currentPage (value: number) {
         this._setPropertyValue('currentPage', value)
-        this.onPropertyUpdate('current-page') // TODO: Deprecated.
     }
 
     get numPages () {
@@ -40,7 +39,6 @@ export default abstract class GenericDocumentResource extends GenericResource im
     }
     set numPages (value: number) {
         this._setPropertyValue('numPages', value)
-        this.onPropertyUpdate('num-pages') // TODO: Deprecated.
     }
 
     get sourceFormat () {

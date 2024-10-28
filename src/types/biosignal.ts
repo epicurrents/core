@@ -480,7 +480,7 @@ export interface BiosignalMontage extends BaseAsset {
      * Highlights for montage signal segments.
      * `key` is the id of the source of the highlights.
      */
-    highlights: Map<string, HighlightContext>
+    highlights: { [key: string]: HighlightContext }
     /** Descriptive name for this montage. */
     label: string
     /** Unique, identifying name for this montage. */
