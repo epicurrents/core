@@ -34,8 +34,8 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     protected _markers: BiosignalChannelMarker[] = []
     protected _notchFilter: number | null = null
     protected _offset: BiosignalChannel['offset']
-    protected _originalSampleCount: number = 0
-    protected _originalSamplingRate: number = 0
+    protected _originalSampleCount?: number
+    protected _originalSamplingRate?: number
     protected _reference: number[]
     protected _sampleCount: number = 0
     protected _samplingRate: number = 0
@@ -195,6 +195,14 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             bottom: value.bottom !== undefined ? value.bottom : 0,
             top: value.top !== undefined ? value.top : 1
         })
+    }
+
+    get originalSampleCount () {
+        return this._originalSampleCount
+    }
+
+    get originalSamplingRate () {
+        return this._originalSamplingRate
     }
 
     get reference () {
