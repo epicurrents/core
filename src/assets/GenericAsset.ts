@@ -34,22 +34,30 @@ export default abstract class GenericAsset implements BaseAsset {
         UNKNOWN: 'unknown',
         UTILITY: 'utility',
     }
+    /**
+     * Core events emitted by this asset (not including property change events).
+     */
+    static readonly EVENTS = AssetEvents
+    /**
+     * Create an identifier that is unique among the identifiers created with this method.
+     * @returns Unique identifier as a string.
+     */
     static CreateUniqueId () {
         let retries = 100
         while (retries > 0) {
-            const id = Math.random().toString(36).substring(2, 10)
-            if (!GenericAsset.USED_IDS.includes(id)) {
-                GenericAsset.USED_IDS.push(id)
+            const id = (Date.now() + Math.random()).toString(36)
+            if (!GenericAsset.USED_IDS.has(id)) {
+                GenericAsset.USED_IDS.add(id)
                 return id
             }
             retries--
         }
-        Log.error(`Reached retry limit while creating unique ID.`, SCOPE)
-        const errorId = `id-error-${GenericAsset.USED_IDS.length}`
-        GenericAsset.USED_IDS.push(errorId)
+        Log.warn(`Reached retry limit while creating a unique ID.`, SCOPE)
+        const errorId = `id-error-${GenericAsset.USED_IDS.size}`
+        GenericAsset.USED_IDS.add(errorId)
         return errorId
     }
-    private static USED_IDS: string[] = []
+    private static USED_IDS = new Set<string>()
     protected _context: string
     protected _eventBus: ScopedEventBus
     protected _id: string
@@ -77,12 +85,15 @@ export default abstract class GenericAsset implements BaseAsset {
         }
         this._type = type
         this._name = name
+        // Dispatch asset created event.
+        setTimeout(() => this.dispatchEvent(AssetEvents.CREATE), 1)
     }
 
     get context () {
         return this._context
     }
     set context (value: string) {
+        // Context and type should not actually change after the asset has been created.
         this._setPropertyValue('context', value)
     }
     get id () {
@@ -92,7 +103,10 @@ export default abstract class GenericAsset implements BaseAsset {
         return this._isActive
     }
     set isActive (value: boolean) {
-        this._setPropertyValue('isActive', value, value ? AssetEvents.ACTIVATE : AssetEvents.DEACTIVATE)
+        // Dispatch an additional primitive event type on asset activation/deactivation.
+        this.dispatchEvent(value ? AssetEvents.ACTIVATE : AssetEvents.DEACTIVATE, 'before')
+        this._setPropertyValue('isActive', value)
+        this.dispatchEvent(value ? AssetEvents.ACTIVATE : AssetEvents.DEACTIVATE, 'after')
     }
     get name () {
         return this._name
@@ -101,7 +115,7 @@ export default abstract class GenericAsset implements BaseAsset {
         if (!value) {
             return
         }
-        this._setPropertyValue('name', value, AssetEvents.RENAME)
+        this._setPropertyValue('name', value)
     }
     get type () {
         return this._type

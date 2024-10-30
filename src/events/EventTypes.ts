@@ -8,24 +8,29 @@
 import { BroadcastStateEvent, EventWithPayload, PropertyChangeEvent } from '#types/event'
 import { BaseAsset, BiosignalAnnotation, BiosignalMontage, DataResource, VideoAttachment } from '#types'
 
+/**
+ * Names of events emitted by all assets.
+ */
 export enum AssetEvents {
+    /** The asset has been set as active. */
     ACTIVATE = 'activate',
+    /** The asset has been created (this is for global listeners). */
     CREATE = 'create',
+    /** The asset has been set as not active. */
     DEACTIVATE = 'deactivate',
+    /** The asset is going to be destroyed. */
     DESTROY = 'destroy',
-    RENAME = 'rename',
 }
 /**
- * Events emitted by the asset class.
+ * Events emitted by asset classes.
  */
 export type AssetEvent = {
     [AssetEvents.ACTIVATE]: BroadcastStateEvent
     [AssetEvents.CREATE]: BroadcastStateEvent
     [AssetEvents.DEACTIVATE]: BroadcastStateEvent
     [AssetEvents.DESTROY]: BroadcastStateEvent
-    [AssetEvents.RENAME]: BroadcastStateEvent
 }
-// Property events emitted by the asset class.
+// Property events emitted by asset classes.
 export enum AssetPropertyEvents {
     SCOPE = 'property-change:scope',
     TYPE = 'property-change:type',
@@ -34,8 +39,13 @@ export type AssetPropertyEvent = {
     [AssetPropertyEvents.SCOPE]: PropertyChangeEvent<string>
     [AssetPropertyEvents.TYPE]: PropertyChangeEvent<string>
 }
+/**
+ * Events emitted by datasets.
+ */
 export enum DatasetEvents {
+    /** An item has been added to the dataset. */
     ADD_ITEM = 'add-item',
+    /** The given resource within this dataset has been set as active. */
     SET_ACTIVE_RESOURCE = 'set-active-resource',
 }
 /**
@@ -45,15 +55,18 @@ export type DatasetEvent = {
     [DatasetEvents.ADD_ITEM]: EventWithPayload<BaseAsset>
     [DatasetEvents.SET_ACTIVE_RESOURCE]: EventWithPayload<DataResource>
 }
-enum ResourcePropertyEvents {
-    DEPENDENCIES_MISSING = 'property-change:dependencies-missing',
-    DEPENDENCIES_READY = 'property-change:dependencies-ready',
-    ERROR_REASON = 'property-change:error-reason',
+/**
+ * Names of property change events emitted by resource classes.
+ */
+export enum ResourcePropertyEvents {
+    DEPENDENCIES_MISSING = 'property-change:dependenciesMissing',
+    DEPENDENCIES_READY = 'property-change:dependenciesReady',
+    ERROR_REASON = 'property-change:errorReason',
     SOURCE = 'property-change:source',
     STATE = 'property-change:state',
 }
 /**
- * Property events emitted by the resource class.
+ * Property change events emitted by resource classes.
  */
 export type ResourcePropertyEvent = AssetPropertyEvent & {
     [ResourcePropertyEvents.DEPENDENCIES_MISSING]: PropertyChangeEvent<string[]>
@@ -62,21 +75,26 @@ export type ResourcePropertyEvent = AssetPropertyEvent & {
     [ResourcePropertyEvents.SOURCE]: PropertyChangeEvent<string>
     [ResourcePropertyEvents.STATE]: PropertyChangeEvent<string>
 }
-// Property events emitted by the biosignal resource class (in addition to resource events).
-enum BiosignalPropertyEvents {
+/**
+ * Names of property change events emitted by the biosignal resource class (in addition to resource events).
+ */
+export enum BiosignalPropertyEvents {
     ANNOTATIONS = 'property-change:annotations',
-    DATA_DURATION = 'property-change:data-duration',
-    DISPLAY_VIEW_START = 'property-change:display-view-start',
+    DATA_DURATION = 'property-change:dataDuration',
+    DISPLAY_VIEW_START = 'property-change:displayViewStart',
     MONTAGES = 'property-change:montages',
-    SAMPLE_COUNT = 'property-change:sample-count',
-    SAMPLING_RATE = 'property-change:sampling-rate',
+    SAMPLE_COUNT = 'property-change:sampleCount',
+    SAMPLING_RATE = 'property-change:samplingRate',
     SENSITIVITY = 'property-change:sensitivity',
-    SIGNAL_CACHE_STATUS = 'property-change:signal-cache-status',
+    SIGNAL_CACHE_STATUS = 'property-change:signalCacheStatus',
     TIMEBASE = 'property-change:timebase',
-    TOTAL_DURATION = 'property-change:total-duration',
+    TOTAL_DURATION = 'property-change:totalDuration',
     VIDEOS = 'property-change:videos',
-    VIEW_START = 'property-change:view-start',
+    VIEW_START = 'property-change:viewStart',
 }
+/**
+ * Property change events emitted by the biosignal resource class.
+ */
 export type BiosignalPropertyEvent = ResourcePropertyEvent & {
     [BiosignalPropertyEvents.ANNOTATIONS]: PropertyChangeEvent<BiosignalAnnotation[]>
     [BiosignalPropertyEvents.DATA_DURATION]: PropertyChangeEvent<number>

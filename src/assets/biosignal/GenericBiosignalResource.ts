@@ -6,6 +6,9 @@
  * @license    Apache-2.0
  */
 
+import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
+import { nullPromise } from '#util/general'
+import GenericResource from '#assets/GenericResource'
 import {
     type AnnotationTemplate,
     type BiosignalAnnotation,
@@ -29,9 +32,6 @@ import {
     type SignalCacheResponse,
 } from '#types/service'
 import { type StudyContext } from '#types/study'
-import { nullPromise } from '#util/general'
-import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
-import GenericResource from '#assets/GenericResource'
 import Log from 'scoped-ts-log'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 

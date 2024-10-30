@@ -6,14 +6,15 @@
  * @license    Apache-2.0
  */
 
+import GenericAsset from '#assets/GenericAsset'
 import { type DataResource, type ResourceState } from '#types/application'
 import { type StudyContext } from '#types/study'
-import GenericAsset from '#assets/GenericAsset'
 import { Log } from 'scoped-ts-log'
 
 const SCOPE = 'GenericResource'
 
 export default abstract class GenericResource extends GenericAsset implements DataResource {
+
     protected _dependenciesMissing = [] as string[]
     protected _dependenciesReady = [] as string[]
     protected _errorReason = ''
