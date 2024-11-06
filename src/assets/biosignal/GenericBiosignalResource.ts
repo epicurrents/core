@@ -32,7 +32,7 @@ import {
     type SignalCacheResponse,
 } from '#types/service'
 import { type StudyContext } from '#types/study'
-import Log from 'scoped-ts-log'
+import Log from 'scoped-event-log'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericBiosignalResource'

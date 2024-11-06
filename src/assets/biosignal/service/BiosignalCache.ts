@@ -7,7 +7,7 @@
 
 import { combineSignalParts } from '#util'
 import { type SignalCachePart, type SignalDataCache } from '#types'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
 
 const SCOPE = 'BiosignalCache'

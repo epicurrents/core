@@ -6,7 +6,7 @@
  */
 
 import { type SafeObject } from '#root/src/types/application'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { type WorkerResponse, type WorkerMessage } from '../types'
 
 const SCOPE = "util:worker"

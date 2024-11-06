@@ -23,7 +23,7 @@ import {
     type WorkerResponse,
     type SetupWorkerResponse,
 } from '#types/service'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import BiosignalMutex from './BiosignalMutex'
 import GenericService from '#assets/service/GenericService'
 import { MutexExportProperties } from 'asymmetric-io-mutex'

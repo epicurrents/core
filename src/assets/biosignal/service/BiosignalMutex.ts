@@ -14,7 +14,7 @@ import {
 } from 'asymmetric-io-mutex'
 import { concatTypedNumberArrays, floatsAreEqual } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 const SCOPE = 'BiosignalMutex'
 

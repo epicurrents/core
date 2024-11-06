@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import {
     type AnnotationTemplate,
     type BiosignalFilters,

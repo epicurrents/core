@@ -10,7 +10,7 @@ import {
     type WebGlCompatibleColor,
     type WebGlTrace
 } from '#types/plot'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 const SCOPE = 'WebGlPlotTrace'
 

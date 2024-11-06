@@ -15,7 +15,7 @@ import {
     type StudyLoader,
     type UseStudyResponse,
 } from '#types/study'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import ServiceMemoryManager from '#assets/service/ServiceMemoryManager'
 
 export const studyContextTemplate = () => {

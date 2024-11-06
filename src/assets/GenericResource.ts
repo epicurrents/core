@@ -9,7 +9,7 @@
 import GenericAsset from '#assets/GenericAsset'
 import { type DataResource, type ResourceState } from '#types/application'
 import { type StudyContext } from '#types/study'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 const SCOPE = 'GenericResource'
 

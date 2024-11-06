@@ -7,7 +7,7 @@
  */
 
 import EventBus from '#events/EventBus'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { AssetEvents } from '#events/EventTypes'
 import { type BaseAsset, type PropertyChangeHandler } from '#types/application'
 import { type EventWithPayload, type PropertyChangeEvent } from '#types/event'

@@ -17,7 +17,7 @@ import {
     type WorkerMessage,
     type WorkerResponse,
 } from '#types/service'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { getOrSetValue, nullPromise, safeObjectFrom } from '#util/general'

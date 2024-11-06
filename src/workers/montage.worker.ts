@@ -17,7 +17,7 @@ import { type CommonBiosignalSettings } from '#types/config'
 import { type WorkerMessage } from '#types/service'
 import MontageProcesser from '#assets/biosignal/service/MontageProcesser'
 import { validateCommissionProps } from '#util'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { BaseWorker } from './base.worker'
 
 const SCOPE = "MontageWorker"

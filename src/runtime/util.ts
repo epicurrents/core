@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 /**
  * Make a log entry of a mutation attempt with an invalid value.

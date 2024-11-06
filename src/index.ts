@@ -107,7 +107,7 @@ export { util }
 //                            TYPES                             //
 //////////////////////////////////////////////////////////////////
 
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { EventBus } from '#events'
 import {
     type AssetService,

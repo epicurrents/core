@@ -7,7 +7,7 @@
 
 import GenericAsset from '#assets/GenericAsset'
 import { type AudioRecording } from '#types/media'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 const SCOPE = 'BiosignalAudio'
 

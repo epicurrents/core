@@ -21,7 +21,7 @@ import {
     type SignalFilePart,
 } from '#types'
 import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 const SCOPE = 'SignalFileReader'
 

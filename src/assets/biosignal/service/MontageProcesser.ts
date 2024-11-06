@@ -39,7 +39,7 @@ import {
     type SignalCachePart,
 } from '#types/service'
 
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = "MontageProcesser"

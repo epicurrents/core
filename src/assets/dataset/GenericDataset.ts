@@ -12,7 +12,7 @@ import {
     type ResourceSortingInstructions,
     type ResourceSortingScheme
 } from '#types/dataset'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import GenericAsset from '../GenericAsset'
 import { deepClone } from '#util'
 
