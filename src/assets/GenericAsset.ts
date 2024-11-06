@@ -177,6 +177,10 @@ export default abstract class GenericAsset implements BaseAsset {
         this._eventBus.addScopedEventListener(event, callback, subscriber, this.id, phase)
     }
 
+    async destroy () {
+        this.dispatchEvent(GenericAsset.EVENTS.DESTROY)
+    }
+
     dispatchEvent (event: string, phase: ScopedEventPhase = 'after', detail?: { [key: string]: unknown }) {
         return this._eventBus.dispatchScopedEvent(event, this.id, phase, Object.assign({ origin: this }, detail))
     }

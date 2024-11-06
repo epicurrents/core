@@ -105,19 +105,16 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             Log.error("Cannot return signal part, signal cache has not been set up yet.", SCOPE)
             return false
         }
-        const cacheStart = this._recordingTimeToCacheTime(Math.max(0, start))
-        const cacheEnd = this._recordingTimeToCacheTime(Math.min(end, this._totalRecordingLength))
-        // Check that cache has the part that we need.
+        // Check the limits of the signal data cache.
         const inputRangeStart = await this._cache.inputRangeStart
         const inputRangeEnd = await this._cache.inputRangeEnd
-        if (
-            inputRangeStart === null || cacheStart < inputRangeStart ||
-            inputRangeEnd === null || (cacheEnd > inputRangeEnd && inputRangeEnd < this._totalDataLength)
-        ) {
+        if (inputRangeStart === null || inputRangeEnd === null) {
             // TODO: Signal that the required part must be loaded by the file loader first.
             Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
             return false
         }
+        const cacheStart = this._recordingTimeToCacheTime(Math.max(0, start, inputRangeStart))
+        const cacheEnd = this._recordingTimeToCacheTime(Math.min(end, this._totalRecordingLength, inputRangeEnd))
         const relStart = cacheStart - inputRangeStart
         const relEnd = cacheEnd - inputRangeStart
         const derivedSignals = [] as SignalPart[]
@@ -529,7 +526,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
         }
-        this._fallbackCache = new BiosignalCache(cache)
+        this._fallbackCache = new BiosignalCache(dataDuration, cache)
     }
 
     /**

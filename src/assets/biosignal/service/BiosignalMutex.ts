@@ -481,7 +481,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     /**
-     * Get a meta field object holding the buffered range end (in seconds) of the signals.
+     * Get a meta field object holding the range end (in seconds) reserved to the signals.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
     protected async _getRangeEnd (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
@@ -497,7 +497,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     /**
-     * Get the buffered range start (in seconds) of the signals.
+     * Get the range start (in seconds) reserved to the signals.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
     protected async _getRangeStart (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
@@ -687,9 +687,9 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, () => {
             // Set meta values (we can use the same write lock to reduce operations).
             this._setOutputMetaFieldValue(BiosignalMutex.RANGE_ALLOCATED_NAME, dataLength)
-            // Set initial range start to zero and end to max buffer seconds.
-            this._setOutputMetaFieldValue(BiosignalMutex.RANGE_START_NAME, 0)
-            this._setOutputMetaFieldValue(BiosignalMutex.RANGE_END_NAME, dataLength)
+            // Set initial range start and end according to given parameters.
+            this._setOutputMetaFieldValue(BiosignalMutex.RANGE_START_NAME, cacheProps.start)
+            this._setOutputMetaFieldValue(BiosignalMutex.RANGE_END_NAME, cacheProps.start + dataLength)
             /*
             // Determine the amount of memory available for cached signals
             let totalBytesForSecond = 0
@@ -753,8 +753,8 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             for (const sig of signalPart.signals) {
                 // Crop signal to cache bounds.
                 sig.data = sig.data.subarray(
-                    Math.round(minStart*sig.samplingRate),
-                    Math.round(maxEnd*sig.samplingRate)
+                    Math.round((minStart - signalPart.start)*sig.samplingRate),
+                    Math.round((maxEnd - signalPart.start)*sig.samplingRate)
                 )
                 sig.start = minStart
                 sig.end = maxEnd

@@ -112,7 +112,7 @@ export interface BiosignalAnnotation extends BaseAsset {
 /**
  * Common base for all biosignal channel types.
  */
-export interface BiosignalChannel extends BaseAsset {
+export interface BiosignalChannel {
     /** Index of the active source channel. */
     active: number
     /** Channel base amplification, mostly used if the channel has a different unit value (e.g. mV instead of uV). */
@@ -155,6 +155,8 @@ export interface BiosignalChannel extends BaseAsset {
     sensitivity: number
     /** The computed channel signal. */
     signal: Float32Array
+    /** Type of signal held in this channel. */
+    type: string
     /** Unit of the signal on this channel (e.g. 'uV'). */
     unit: string
     /** Is this channel visible to the user. */
@@ -330,8 +332,10 @@ export interface BiosignalDataService extends AssetService {
     ): Promise<SetupStudyResponse>
     /**
      * Setup a simple signal data cache.
+     * @param dataDuration - Duration of signal data in the recording in seconds.
+     * @returns A promise that resolves with the created cache if successful, null otherwise.
      */
-    setupCache (): Promise<SignalDataCache|null>
+    setupCache (dataDuration: number): Promise<SignalDataCache|null>
 }
 /**
  * Filter types for biosignal resources.
@@ -536,8 +540,9 @@ export interface BiosignalMontage extends BaseAsset {
      * Map the channels that have been loaded into the setup of this montage.
      * Mapping will match the source signals and derivations into proper montage channels.
      * @param config - Optional configuration (TODO: config definitions).
+     * @returns Mapped channels as an array.
      */
-    mapChannels (config?: unknown): void
+    mapChannels (config?: unknown): MontageChannel[]
     /**
      * Release the buffers reserved for this montage's signal data.
      * @param config - Optional configuration (TODO: config definitions).
@@ -1017,7 +1022,7 @@ export type GetSignalsResponse = {
 /**
  * A single channel in an biosignal montage configuration.
  */
-export interface MontageChannel extends BiosignalChannel {
+export interface MontageChannel extends BiosignalChannel, BaseAsset {
     /** Index of the active channel. */
     active: number
     /** Does this channel use a common average reference. */
@@ -1115,13 +1120,17 @@ export type SetFiltersResponse = {
 /**
  * Configuration for a single signal channel in BiosignalSetup.
  */
-export interface SetupChannel extends BiosignalChannel {
+export interface SetupChannel extends BiosignalChannelTemplate {
+    /** Index of the active channel. */
+    active: number
     /** Set to true if the raw signal uses average reference, so it is not applied twice. */
     averaged: boolean
+    /** Non-default polarity of this channel's signal. */
+    displayPolarity: SignalPolarity
     /** Index of the matched raw signal. */
     index: number
-    /** Non-default polarity of this channel's signal. */
-    polarity?: SignalPolarity
+    /** Set of reference channel indices; multiple channels will be averaged. */
+    reference: number[]
 }
 /**
  * Response sent after setting up a signal cache.

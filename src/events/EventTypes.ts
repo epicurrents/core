@@ -18,7 +18,7 @@ export enum AssetEvents {
     CREATE = 'create',
     /** The asset has been set as not active. */
     DEACTIVATE = 'deactivate',
-    /** The asset is going to be destroyed. */
+    /** The asset is being destroyed. */
     DESTROY = 'destroy',
 }
 /**

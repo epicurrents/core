@@ -56,6 +56,12 @@ export interface BaseAsset {
         phase?: ScopedEventPhase
     ): void
     /**
+     * Ideally, this method should take care of releasing any resources the asset has reserved.
+     * It should be called starting from the last inheriting class and calling the super's `destroy` once all the
+     * necessary preparations have been made.
+     */
+    destroy (): Promise<void>
+    /**
      * Dispatch an `event`.
      * @param event - Name of the event.
      * @param phase - Event phase (optinal, default 'after').

@@ -260,9 +260,10 @@ export interface SignalDataProcesser {
     setDataGaps (dataGaps: SignalDataGapMap): void
     /**
      * Initialize a new, plain reader cache.
+     * @param dataDuration - Duration of the signal data in seconds, if known.
      * @returns Created cache on success, null on failure.
      */
-    setupCache (): SignalDataCache | null
+    setupCache (dataDuration?: number): SignalDataCache | null
     /**
      * Set up a simple signal cache as the data source for this montage.
      * @param cache - The data cache to use.

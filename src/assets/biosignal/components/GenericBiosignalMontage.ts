@@ -275,7 +275,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
 
     mapChannels (config?: ConfigMapChannels) {
-        this._channels = mapMontageChannels(this._setup, config)
+        return mapMontageChannels(this._setup, config)
     }
 
     async releaseBuffers () {

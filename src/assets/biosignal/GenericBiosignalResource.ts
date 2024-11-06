@@ -534,13 +534,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.signalCacheStatus = [0, 0]
     }
 
-    removeAllEventListeners (subscriber?: string) {
-        for (const chan of this._channels) {
-            chan.removeAllEventListeners(subscriber)
-        }
-        super.removeAllEventListeners(subscriber)
-    }
-
     removeAnnotations (...annos: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[] {
         const prevState = [...this._annotations]
         const deleted = [] as BiosignalAnnotation[]
@@ -698,7 +691,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot setup cache before service has been set.`, SCOPE)
             return null
         }
-        const result = await this._service.setupCache()
+        const result = await this._service.setupCache(this._dataDuration)
         if (result) {
             this._cacheProps = result as SignalDataCache
         }
