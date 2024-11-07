@@ -729,21 +729,13 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                       `(${signalPart.signals.length} vs ${this._outputData?.arrays.length})`, SCOPE)
             return
         }
-        const rangeStartView = await this._getMetaFieldValue(
-                                        IOMutex.MUTEX_SCOPE.OUTPUT,
-                                        BiosignalMutex.RANGE_START_NAME
-                                     )
-        const rangeEndView = await this._getMetaFieldValue(
-                                        IOMutex.MUTEX_SCOPE.OUTPUT,
-                                        BiosignalMutex.RANGE_END_NAME
-                                    )
-        if (rangeStartView === null || rangeEndView === null || !rangeStartView.length || !rangeEndView.length) {
+        const rangeStart = await this.outputRangeStart
+        const rangeEnd = await this.outputRangeEnd
+        if (rangeStart === null || rangeEnd === null) {
             // Meta fields have not been initialized correctly.
             Log.error(`Output meta fields have not been inizialied correctly.`, SCOPE)
             return
         }
-        const rangeStart = rangeStartView[0]
-        const rangeEnd = rangeEndView[0]
         if (signalPart.start < rangeStart || signalPart.end > rangeEnd) {
             // The offered part is out of signal buffer bounds.
             Log.warn(`Tried to insert signals with range ${signalPart.start} - ${signalPart.end} ` +
@@ -797,7 +789,6 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     this.setData(i, signalPart.signals[i].data.subarray(0, endPos - dataPartLen), startPos)
                 }
                 // Update the range of up-to-date signal values if needed.
-                // The range values are stored as Floats, so round them to avoid precision errors.
                 const updatedRangeStart = dataView[BiosignalMutex.SIGNAL_UPDATED_START_POS]
                 const updatedRangeEnd = dataView[BiosignalMutex.SIGNAL_UPDATED_END_POS]
                 if (updatedRangeStart === BiosignalMutex.EMPTY_FIELD || updatedRangeStart > startPos) {
