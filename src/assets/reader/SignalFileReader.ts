@@ -22,6 +22,7 @@ import {
 } from '#types'
 import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
 import { Log } from 'scoped-event-log'
+import FLOAT32_EPSILON from '@stdlib/constants-float32-eps'
 
 const SCOPE = 'SignalFileReader'
 
@@ -348,7 +349,8 @@ export default abstract class SignalFileReader implements SignalDataReader {
             return NUMERIC_ERROR_VALUE
         }
         const priorGapsTotal = time > 0 ? this._getGapTimeBetween(0, time) : 0
-        return Math.floor((time - priorGapsTotal)/this._dataUnitDuration)
+        // Avoid float rounding error when converting from stored 32 bit into internal 64 bit float.
+        return Math.floor((time + FLOAT32_EPSILON - priorGapsTotal)/this._dataUnitDuration)
     }
 
     async cacheFile(_file: File, _startFrom?: number | undefined): Promise<void> {
