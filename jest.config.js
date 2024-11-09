@@ -1,7 +1,9 @@
 const path = require('path')
 
 module.exports = {
-    rootDir: path.resolve(__dirname, './'),
+    rootDir: path.resolve(__dirname),
+    preset: 'ts-jest',
+    testEnvironment: 'jsdom',
     coverageDirectory: "<rootDir>/tests/coverage/",
     extensionsToTreatAsEsm: ['.ts'],
     globals: {
@@ -49,13 +51,20 @@ module.exports = {
     ],
     snapshotSerializers: [
     ],
+    testPathIgnorePatterns: [
+       '<rootDir>/node_modules/'
+    ],
     transform: {
         "^.+\\.ts$": "ts-jest",
     },
     transformIgnorePatterns: [
+       '<rootDir>/node_modules/'
     ],
-    //testRegex: "(test/.*|(\\.|/)(test|spec))\\.(tsx?)$",
-    testRegex: "tests.(t|j)s$",
+    haste: {
+        retainAllFiles: true,
+    },
+    //testRegex: "(tests/.*|(\\.|/)(test|spec))\\.(tsx?)$",
+    testRegex: "test\\.(t|j)s$",
     testEnvironment: "jsdom",
     testEnvironmentOptions: {
         browsers: [

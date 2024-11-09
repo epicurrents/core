@@ -17,11 +17,10 @@ import {
 import { CommonBiosignalSettings, type ConfigChannelLayout } from '../types/config'
 import { type SignalCachePart } from '#types/service'
 import { type TypedNumberArray, type TypedNumberArrayConstructor } from '#types/util'
-import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
-import { PRECISION as FLOAT16_PRECISION } from '@stdlib/constants-float16'
-import { PRECISION as FLOAT32_PRECISION } from '@stdlib/constants-float32'
-import { PRECISION as FLOAT64_PRECISION } from '@stdlib/constants-float64'
+import { EPS as FLOAT16_EPS } from '@stdlib/constants-float16'
+import { EPS as FLOAT32_EPS } from '@stdlib/constants-float32'
+import { EPS as FLOAT64_EPS } from '@stdlib/constants-float64'
 import { Log } from 'scoped-event-log'
 //import { BiosignalMutex } from '#assets/biosignal'
 import { LTTB } from 'downsample'
@@ -303,77 +302,79 @@ export const combineAllSignalParts = (...signalParts: SignalCachePart[]): Signal
 }
 
 /**
- * See if two signal parts can be combined into one and combine them if so.
- * @param partA first part to compare against
- * @param partB new part to combine into the first part
- * @returns true if combined, false if not
+ * See if two signal parts can be combined into one and combine them if so. The latter part has priority on overlapping
+ * samples (will replace samples from first part).
+ * @param partA First part to compare against.
+ * @param partB New part to combine into the first part.
+ * @returns True if combined, false if not.
  */
 export const combineSignalParts = (partA: SignalCachePart, partB: SignalCachePart) => {
-    if (partA.start <= partB.start && partA.end >= partB.end) {
-        // partA contains partB: we can just ignore partB
-        return true
-    } else if (partA.start > partB.start && partA.end < partB.end) {
-        // partB contains partA: replace partA with partB
+    if (partA.start > partB.start && partA.end < partB.end) {
+        // partB contains partA: replace partA with partB.
         partA.start = partB.start
         partA.end = partB.end
         partA.signals = partB.signals
         return true
     } else {
-        // This should only return one part for now, but I think I may change this in the future
-        const notCachedParts = partsNotCached(partB, partA)
-        for (const newPart of notCachedParts) {
-            // Check if parts are consecutive
-            if (partA.start === newPart.end || partA.end === newPart.start) {
-                for (let i=0; i<partA.signals.length; i++) {
-                    // Empty signals in an already cached part with non-empty length should be skipped (see below)
-                    if (!partA.signals[i].data.length && partA.end !== partA.start) {
-                        continue
-                    }
-                    if (partA.signals[i].samplingRate !== newPart.signals[i].samplingRate) {
-                        Log.error(
-                            `Cannot combine signals with different sampling rates ` +
-                            `(${newPart.signals[i].samplingRate} != ${partA.signals[i].samplingRate}).`,
-                        SCOPE)
-                        // Replace the signal data with an empty array, since it is no longer valid
-                        partA.signals[i].data = new Float32Array()
-                        continue
-                    }
-                    if (partA.signals[i].data.length || newPart.signals[i].data.length) {
-                        if (partA.end === newPart.start) {
-                            // New part extends partA at the end
-                            partA.signals[i].data = concatTypedNumberArrays(
-                                partA.signals[i].data.slice(
-                                    0,
-                                    Math.floor((newPart.start - partA.start)*partA.signals[i].samplingRate)
-                                ),
-                                newPart.signals[i].data
+        // Check if parts are consecutive.
+        if (partA.start <= partB.end || partA.end >= partB.start) {
+            for (let i=0; i<partA.signals.length; i++) {
+                // Empty signals in an already cached part with non-empty length should be skipped (see below).
+                if (!partA.signals[i].data.length && partA.end !== partA.start) {
+                    continue
+                }
+                if (partA.signals[i].samplingRate !== partB.signals[i].samplingRate) {
+                    Log.error(
+                        `Cannot combine signals with different sampling rates ` +
+                        `(${partB.signals[i].samplingRate} != ${partA.signals[i].samplingRate}).`,
+                    SCOPE)
+                    // Replace the signal data with an empty array, since it is no longer valid.
+                    // An empty signal is easier to identify visually for debugging purposes, but this could also
+                    // return false.
+                    partA.signals[i].data = new Float32Array()
+                    continue
+                }
+                if (partA.signals[i].data.length || partB.signals[i].data.length) {
+                    if (partA.start <= partB.start && partA.end >= partB.end) {
+                        // partA contains partB: insert partB.
+                        partA.signals[i].data.set(
+                            partB.signals[i].data,
+                            Math.floor((partB.start - partA.start)*partA.signals[i].samplingRate)
+                        )
+                    } else if (partA.end >= partB.start) {
+                        // New part extends partA at the end.
+                        partA.signals[i].data = concatTypedNumberArrays(
+                            partA.signals[i].data.slice(
+                                0,
+                                Math.floor((partB.start - partA.start)*partA.signals[i].samplingRate)
+                            ),
+                            partB.signals[i].data
+                        )
+                    } else {
+                        // New part extends partA at the start.
+                        partA.signals[i].data = concatTypedNumberArrays(
+                            partB.signals[i].data,
+                            partA.signals[i].data.slice(
+                                Math.floor((partA.start - partB.start)*partA.signals[i].samplingRate)
                             )
-                        } else {
-                            // New part extends partA at the start
-                            partA.signals[i].data = concatTypedNumberArrays(
-                                newPart.signals[i].data,
-                                partA.signals[i].data.slice(
-                                    Math.floor((partA.start - newPart.start)*partA.signals[i].samplingRate)
-                                )
-                            )
-                        }
+                        )
                     }
                 }
-                // Adjust start or end point accordingly
-                if (partA.end === newPart.start) {
-                    partA.end = newPart.end
-                } else {
-                    partA.start = newPart.start
-                }
-                return true
-            } else {
-                // Explain failure to combine parts.
-                Log.debug(
-                    `Cannot combine non-consecutive signal parts; ` +
-                    `neither first part end equals second part start (${partA.end} != ${partB.start})) ` +
-                    `nor second part end equals first part start (${partB.end} != ${partA.start}).`,
-                SCOPE)
             }
+            // Adjust start or end point accordingly.
+            if (partA.end < partB.end) {
+                partA.end = partB.end
+            } else if (partA.start > partB.start) {
+                partA.start = partB.start
+            }
+            return true
+        } else {
+            // Explain failure to combine parts.
+            Log.debug(
+                `Cannot combine non-consecutive signal parts; ` +
+                `neither first part end equals second part start (${partA.end} != ${partB.start})) ` +
+                `nor second part end equals first part start (${partB.end} != ${partA.start}).`,
+            SCOPE)
         }
     }
     return false
@@ -583,16 +584,16 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
  * @param bits - Float bits (either `16`, `32` or default `64`).
  * @returns True/false.
  */
-export const floatsAreEqual = (float1: number, float2: number, bits = 64 as 16 | 32 | 64) => {
+export const floatsAreEqual = (float1: number, float2: number, bits: 16 | 32 | 64 = 64) => {
     if (float1 === float2 || (!float1 && !float2)) {
         return true
     }
-    const sigPrecision = bits === 16 ? FLOAT16_PRECISION
-                       : bits === 32 ? FLOAT32_PRECISION
-                       : FLOAT64_PRECISION
-    const val1Rounded = Math.round(float1*Math.pow(10, sigPrecision - Math.floor(Math.log10(float1))))
-    const val2Rounded = Math.round(float2*Math.pow(10, sigPrecision - Math.floor(Math.log10(float2))))
-    return val1Rounded - val2Rounded === 0
+    const sigEps = bits === 16 ? FLOAT16_EPS
+                 : bits === 32 ? FLOAT32_EPS
+                 : FLOAT64_EPS
+    const exp1 = Math.max(1, 10**Math.floor(Math.log10(float1)))
+    const exp2 = Math.max(1, 10**Math.floor(Math.log10(float2)))
+    return Math.abs(float1/exp1 - float2/exp2) < sigEps
 }
 
 /**
@@ -755,7 +756,13 @@ export const getIncludedChannels = <T extends Array<unknown>>(
  *      targetSR = 10
  * )
  */
-export const interpolateSignalValues = (signal: Float32Array, targetLen: number, start: number, sigSR: number, targetSR: number) => {
+export const interpolateSignalValues = (
+    signal: Float32Array,
+    targetLen: number,
+    start: number,
+    sigSR: number,
+    targetSR: number
+)=> {
     // Cannot interpolate from fewer than 2 values, so in that case just fill the array with the same value
     if (signal.length === 0) {
         const sig = new Float32Array(targetLen)
@@ -766,16 +773,17 @@ export const interpolateSignalValues = (signal: Float32Array, targetLen: number,
         sig.fill(signal[0])
         return sig
     }
+    const interpolate = (a: number, b: number, v: number) => {
+        return a*(1 - v) + b*v
+    }
     const interpolatedSig = [] as number[]
     let floor = Math.floor(start)
-    let interpolate = d3.interpolateNumber(signal[floor], signal[floor + 1])
     const srFactor = sigSR/targetSR
     for (let i=0; i<targetLen; i++) {
         const pos = start + i*srFactor
         if (Math.floor(pos) !== floor && signal.length > Math.floor(pos) + 1) {
             // New interpolation bounds
             floor = Math.floor(pos)
-            interpolate = d3.interpolateNumber(signal[floor], signal[floor + 1])
             interpolatedSig.push(signal[floor])
             continue
         }
@@ -783,7 +791,7 @@ export const interpolateSignalValues = (signal: Float32Array, targetLen: number,
             // Both bounds are same or we're past the last datapoint
             interpolatedSig.push(signal[floor])
         } else {
-            interpolatedSig.push(interpolate(pos%1))
+            interpolatedSig.push(interpolate(signal[floor], signal[floor + 1], pos%1))
         }
     }
     return new Float32Array(interpolatedSig)
@@ -988,8 +996,8 @@ export const mapSignalsToSamplingRates = (signals: Float32Array[], channels: Bio
 }
 
 /**
- * Check which part of the range in a given signal cache part is not already covered by
- * the given set of already cached parts.
+ * Check which part of the range in a given signal cache part is not already covered by the given set of already cached
+ * signal parts.
  * This method does not check the already cached parts for overlap.
  * @param partToCheck part to check the not cached range of
  * @param cachedParts already cached signal parts
@@ -1110,9 +1118,9 @@ export const shouldDisplayChannel = (
         return false
     } else if (useRaw) {
         return true
-    } else if ((channel as MontageChannel).active === NUMERIC_ERROR_VALUE && (config && !config.showMissingChannels)) {
+    } else if (channel.active === NUMERIC_ERROR_VALUE && !config?.showMissingChannels) {
         return false
-    } else if (!(channel as MontageChannel).visible && (config && !config.showHiddenChannels)) {
+    } else if (!channel.visible && !config?.showHiddenChannels) {
         return false
     }
     return true

@@ -14,7 +14,7 @@ import { type SettingsColor } from '#types/config'
  */
 export const camelCaseToKebabCase = (name: string): string => {
     const kebabCase = name.replace(
-        /((?<=[a-z\d])[A-Z]|(?<=[A-Z\d])[A-Z](?=[a-z]))/g,
+        /((?<!^)((?<=[a-z\d])[A-Z]|(?<=[A-Z\d])[A-Z](?=[a-z])|(1st|2nd|3rd|\d+(th)?)))/g,
         '-$1'
     ).toLowerCase()
     return kebabCase
@@ -26,7 +26,7 @@ export const camelCaseToKebabCase = (name: string): string => {
  * @returns SettingsColor presentation of the color or null.
  */
  export const hexToSettingsColor = (rgba: string): SettingsColor | null => {
-    const color = rgba.match(/#([0-9a-f])([0-9a-f])([0-9a-f])([0-9a-f]?)([0-9a-f]?)([0-9a-f]?)([0-9a-f]?)([0-9a-f]?)/)
+    const color = rgba.match(/#([0-9a-f])([0-9a-f])([0-9a-f])([0-9a-f]?)([0-9a-f]?)([0-9a-f]?)([0-9a-f]?)([0-9a-f]?)/i)
     if (color) {
         if (color[8]) {
             // Full 8 character string
@@ -71,8 +71,7 @@ export const camelCaseToKebabCase = (name: string): string => {
 }
 
 /**
- * Get the rounded version of the given number, including the last
- * fraction digit only if it is significant (not zero).
+ * Get the rounded version of the given number, including the last fraction digit only if it is significant (not zero).
  * @param num - The number to round.
  * @param digits - Number of digits to use at most.
  * @returns Rounded fraction, with the last number only if not zero.
@@ -88,7 +87,7 @@ export const lastFractOnlyIfSignificant = (num: number, digits: number) => {
     if (!fullDigs.endsWith('0')) {
         return fullDigs
     }
-    return num.toFixed(digits - 1)
+    return fullDigs.replace(/\.?0+$/, '')
 }
 
 /**
@@ -126,7 +125,7 @@ export const rgbaToSettingsColor = (rgba: string): SettingsColor | null => {
  * @returns Rounded value.
  */
 export const roundTo = (value: number, precision: number) => {
-    return Math.round(value*(10**precision)/(10**precision))
+    return Math.round(value*(10**precision))/(10**precision)
 }
 
 /**
@@ -150,15 +149,15 @@ export const secondsToTimeString = (secs: number, components: boolean = false) =
     if (components) {
         return [days, hours, mins, secs]
     }
-    const sPart = secs.toFixed() !== '0' ? ` ${secs.toFixed()} s` : ''
-    const mPart = mins ? ` ${mins} min ` : ''
-    const hPart = hours ? ` ${hours} h ` : ''
+    const sPart = secs.toFixed() !== '0' ? `${secs.toFixed()} s` : ''
+    const mPart = mins ? `${mins} min` : ''
+    const hPart = hours ? `${hours} h` : ''
     if (days) {
-        `${days} d${hPart}`
+        `${days} d ${hPart}`
     } else if (hours) {
-        return `${hPart.trim()}${mPart}`
+        return `${hPart.trim()} ${mPart}`
     }
-    return `${mPart.trim()}${sPart}`
+    return `${mPart.trim()} ${sPart}`
 }
 
 /**
@@ -184,10 +183,10 @@ export const settingsColorToHexa = (color: [number, number, number, number], opa
         opacity = 1
     }
     const [r, g, b, a] = color
-    const hexR = Math.floor(r*255).toString(16).padStart(2, '0')
-    const hexG = Math.floor(g*255).toString(16).padStart(2, '0')
-    const hexB = Math.floor(b*255).toString(16).padStart(2, '0')
-    const hexA = (a*opacity*255).toString(16).padStart(2, '0')
+    const hexR = toRGB(r).toString(16).padStart(2, '0')
+    const hexG = toRGB(g).toString(16).padStart(2, '0')
+    const hexB = toRGB(b).toString(16).padStart(2, '0')
+    const hexA = toRGB(a*opacity).toString(16).padStart(2, '0')
     return `#${hexR}${hexG}${hexB}${hexA}`
 }
 
@@ -214,7 +213,7 @@ export const settingsColorToRgba = (color: [number, number, number, number], opa
         opacity = 1
     }
     const [r, g, b, a] = color
-    return `rgba(${Math.floor(r*255)},${Math.floor(g*255)},${Math.floor(b*255)},${a*opacity})`
+    return `rgba(${toRGB(r)},${toRGB(g)},${toRGB(b)},${toRGB(a*opacity, true)})`
 }
 
 /**
@@ -249,9 +248,23 @@ export const timePartsToShortString = (parts: number[]) => {
         return '00:00'
     } else if (timeShort.length === 2) {
         return `00:${timeShort}`
-    } else if (timeShort.length > 6) {
-        // Strip possible leading zero
+    } else if (timeShort.length > 8) {
+        // Strip possible leading zero.
         return timeShort.startsWith('0') ? timeShort.substring(1) : timeShort
     }
     return timeShort
+}
+/**
+ * Convert a fraction into an RGB value.
+ * @param value - The RGB value.
+ * @param alpha - Is this an alpha value (default false).
+ * @returns An RBG value between 0 and 255 or `alpha` fraction between 0 and 1.
+ */
+const toRGB = (value: number, alpha = false) => {
+    if (value > 1) {
+        return (alpha ? 1 : 255)
+    } else if (value < 0) {
+        return 0
+    }
+    return alpha ? value : Math.round(255*value)
 }
