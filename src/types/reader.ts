@@ -302,7 +302,7 @@ export interface SignalDataProcesser {
         dataGaps?: SignalDataGap[]
     ): Promise<MutexExportProperties|null>
     /**
-     * Set up a shared worker as the source for signal data loading.
+     * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
      * @param input - Message port from the input worker.
      * @param dataDuration - Duration of actual signal data in seconds.
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
