@@ -361,12 +361,12 @@ export interface BiosignalHeaderRecord {
     dataDuration: number
     /** List of data gaps in the recording as <startTime, length> in seconds. */
     dataGaps: SignalDataGapMap
-    /** Number of data records in the recording. */
-    dataRecordCount: number
-    /** Duration of a single data record in seconds. */
-    dataRecordDuration: number
-    /** The total size of a single data record in bytes. */
-    dataRecordSize: number
+    /** Number of data units in the recording. */
+    dataUnitCount: number
+    /** Duration of a single data unit in seconds. */
+    dataUnitDuration: number
+    /** The total size of a single data unit in bytes. */
+    dataUnitSize: number
     /** Is the data in this recording discontinuous. */
     discontinuous: boolean
     /** Total recording duration including gaps. */
@@ -385,9 +385,9 @@ export interface BiosignalHeaderRecord {
     serializable: {
         annotations: string[]
         dataGaps: number[][]
-        dataRecordCount: number
-        dataRecordDuration: number
-        dataRecordSize: number
+        dataUnitCount: number
+        dataUnitDuration: number
+        dataUnitSize: number
         discontinuous: boolean
         fileType: string
         patientId: string

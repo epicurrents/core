@@ -20,9 +20,9 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
     private _annotations: AnnotationTemplate[]
     private _dataGaps: SignalDataGapMap
     private _dataDuration: number
-    private _dataRecordCount: number
-    private _dataRecordDuration: number
-    private _dataRecordSize: number
+    private _dataUnitCount: number
+    private _dataUnitDuration: number
+    private _dataUnitSize: number
     private _discontinous: boolean
     private _duration: number
     private _fileType: string
@@ -37,9 +37,9 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         fileType: string,
         recordingId: string,
         patientId: string,
-        dataRecordCount: number,
-        dataRecordDuration: number,
-        dataRecordSize: number,
+        dataUnitCount: number,
+        dataUnitDuration: number,
+        dataUnitSize: number,
         signalCount: number,
         signalProperties: BiosignalHeaderSignal[],
         recordingStartTime = null as Date | null,
@@ -49,10 +49,10 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
     ) {
         this._annotations = annotations
         this._dataGaps = dataGaps
-        this._dataDuration = dataRecordCount*dataRecordDuration
-        this._dataRecordCount = dataRecordCount
-        this._dataRecordDuration = dataRecordDuration
-        this._dataRecordSize = dataRecordSize
+        this._dataDuration = dataUnitCount*dataUnitDuration
+        this._dataUnitCount = dataUnitCount
+        this._dataUnitDuration = dataUnitDuration
+        this._dataUnitSize = dataUnitSize
         this._discontinous = discontinuous
         this._duration = this._dataDuration +
                          Array.from(dataGaps.values())
@@ -77,16 +77,16 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         return this._dataGaps
     }
 
-    get dataRecordCount () {
-        return this._dataRecordCount
+    get dataUnitCount () {
+        return this._dataUnitCount
     }
 
-    get dataRecordDuration () {
-        return this._dataRecordDuration
+    get dataUnitDuration () {
+        return this._dataUnitDuration
     }
 
-    get dataRecordSize () {
-        return this._dataRecordSize
+    get dataUnitSize () {
+        return this._dataUnitSize
     }
 
     get duration () {
@@ -125,9 +125,9 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         return {
             annotations: [],
             dataGaps: Array.from(this.dataGaps.entries()),
-            dataRecordCount: this.dataRecordCount,
-            dataRecordDuration: this.dataRecordDuration,
-            dataRecordSize: this.dataRecordSize,
+            dataUnitCount: this.dataUnitCount,
+            dataUnitDuration: this.dataUnitDuration,
+            dataUnitSize: this.dataUnitSize,
             discontinuous: this.discontinuous,
             fileType: this.fileType,
             patientId: this.patientId,
@@ -147,7 +147,7 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
     }
 
     get totalDuration () {
-        return this._dataRecordCount*this._dataRecordDuration
+        return this._dataUnitCount*this._dataUnitDuration
     }
 
     addAnnotations (...items: AnnotationTemplate[]) {
@@ -199,10 +199,10 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
             Log.warn(`Signal index ${index} is out of range, cannot return signal sampling frequency.`, SCOPE)
             return null
         }
-        if (!this._dataRecordDuration) {
+        if (!this._dataUnitDuration) {
             Log.warn(`Signal index ${index} has a data record duration of zero, cannot determine sampling frequency.`, SCOPE)
             return null
         }
-        return this._signalProperties[index].sampleCount / this._dataRecordDuration
+        return this._signalProperties[index].sampleCount / this._dataUnitDuration
     }
 }
