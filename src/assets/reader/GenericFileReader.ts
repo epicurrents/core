@@ -161,7 +161,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         for (const fileType of this._fileTypes) {
             for (const extensions of Object.values(fileType.accept)) {
                 for (const ext of extensions) {
-                    if (fileName.endsWith(ext)) {
+                    if (fileName.toLowerCase().endsWith(ext.toLowerCase())) {
                         return true
                     }
                 }
