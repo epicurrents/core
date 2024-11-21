@@ -141,14 +141,14 @@ export interface StudyLoader {
      */
     getResource (idx?: number | string): Promise<DataResource | null>
     /**
-     * Check if this loader supports the given study scope.
-     * @param scope - Study scope.
+     * Check if this loader supports the given study context.
+     * @param context - Study context.
      * @returns true/false
      */
-    isSupportedContext (scope: string): boolean
+    isSupportedContext (context: string): boolean
     /**
      * Check if this loader supports the given study type.
-     * @param type - Full study type (`scope:type`) or plain type.
+     * @param type - Full study type (`context:type`) or plain type.
      * @returns true/false
      */
     isSupportedType (type: string): boolean

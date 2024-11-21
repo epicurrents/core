@@ -136,9 +136,9 @@ export default class GenericStudyLoader implements StudyLoader {
         return null
     }
 
-    isSupportedContext (scope: string): boolean {
+    isSupportedContext (context: string): boolean {
         for (const supported of this._supportedScopes) {
-            if (supported === scope) {
+            if (supported === context) {
                 return true
             }
         }
