@@ -279,7 +279,7 @@ export type WebGlCompatibleColor = {
 export type WebGlTrace = BiosignalTrace & {
     buffer: WebGLBuffer
     /** An array buffer holding the line x,y -coordinates. */
-    xy: ArrayBuffer
+    xy: Float32Array
 }
 
 /**

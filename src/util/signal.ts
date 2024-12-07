@@ -505,16 +505,22 @@ export const fftAnalysis = (signal: Float32Array, samplingRate: number): FftAnal
 }
 
 /**
- * Apply bandpass/highpass/lowpass and/or notch filters to the given signal.
- * @param signal the signal to filter
- * @param fs sampling frequency of the signal
- * @param hp high-pass threshold
- * @param lp low-pass threshold
- * @param nf notch filter frequency
- * @returns filtered signal as Float32Array
+ * Apply bandpass/highpass/lowpass and/or notch filters to the given `signal`.
+ * @param signal - The signal to filter.
+ * @param fs - Sampling frequency of the signal.
+ * @param hp - High-pass threshold.
+ * @param lp - Low-pass threshold.
+ * @param nf - Notch filter frequency.
+ * @returns The filtered signal as Float32Array.
  */
-export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: number, nf: number) => {
-    // Fili returns NaNs if lp as over half the sampling rate, so consider that the maximum.
+export const filterSignal = (
+    signal: Float32Array,
+    fs: number,
+    hp: number,
+    lp: number,
+    nf: number
+): Float32Array => {
+    // Fili returns NaNs if lp is over half the sampling rate, so consider that the maximum.
     lp = Math.min(lp, fs/2)
     // Can have either bandpass, highpass or lowpass filter.
     // The highpass and lowpass filters give identical results to SciPy Butterworth filter,
@@ -572,7 +578,7 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
         const stopFilter = new Fili.IirFilter(stopFilterCoeffs)
         signal = stopFilter.filtfilt(signal)
     }
-    // Convert into a Float32Array
+    // Convert into a Float32Array.
     signal = new Float32Array(signal)
     return signal
 }

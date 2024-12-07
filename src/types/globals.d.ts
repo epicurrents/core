@@ -13,7 +13,7 @@ type EpicurrentsGlobal = {
     /**
      * Master event bus for broadcasting application events.
      */
-    EVENT_BUS: import('#events/types').ScopedEventBus | null
+    EVENT_BUS: import('scoped-event-bus').EventBus | null
     /**
      * Runtime state manager of the initiated application (null before initiation).
      */

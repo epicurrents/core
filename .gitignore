@@ -4,6 +4,7 @@
 node_modules
 dev/*
 dist/*
+docs/*
 umd/*
 tests/coverage
 
