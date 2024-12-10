@@ -41,7 +41,7 @@
   ],
   "scripts": {
     "build": "npm run build:umd && npm run build:tsc",
-    "build:docs": "npx typedoc --plugin typedoc-plugin-missing-exports",
+    "build:docs": "npx typedoc",
     "build:tsc": "node node_modules/typescript/bin/tsc && node node_modules/tsconfig-replace-paths/dist/commonjs --project tsconfig.json",
     "build:umd": "node node_modules/webpack/bin/webpack.js --progress --stats-error-details --config webpack.config.js",
     "dev": "node node_modules/webpack/bin/webpack.js serve --progress --config webpack.dev.js",
@@ -88,7 +88,6 @@
     "ts-loader": "^9.3.0",
     "tsconfig-replace-paths": "^0.0.14",
     "typedoc": "^0.27.2",
-    "typedoc-plugin-missing-exports": "^3.1.0",
     "typescript": "5.6",
     "webpack": "^5.73.0",
     "webpack-bundle-analyzer": "^4.5.0",

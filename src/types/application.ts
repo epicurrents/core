@@ -413,8 +413,10 @@ export type InterfaceResourceModuleContext = {
 export type NullProtoObject = {
     __proto__: null
 }
+/**
+ * A handler for asset property change events.
+ */
 export type PropertyChangeHandler = <T>(newValue?: T, oldValue?: T) => unknown
-export type PropertyUpdateHandler = (newValue?: unknown, oldValue?: unknown) => unknown
 /**
  * Module containing the required runtime and settings properties for a given resource type.
  */

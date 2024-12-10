@@ -6,15 +6,13 @@
  */
 
 import {
-    type PropertyUpdateHandler
-} from '#root/src/types/application'
-import {
     type AppSettings,
     type BaseModuleSettings,
     type ClonableAppSettings,
     type ClonableModuleSettings,
+    type PropertyChangeHandler,
     type SettingsValue,
-} from '#types/config'
+} from '#types'
 import { MB_BYTES } from '#util/constants'
 import { hexToSettingsColor, rgbaToSettingsColor } from '#util/conversions'
 import { safeObjectFrom } from '#util/general'
@@ -28,7 +26,7 @@ const _propertyUpdateHandlers = [] as {
     /** Name of the field to watch. Updates to this field and any of it's children trigger the hander. */
     field: string
     /** Handler to execute on field update. */
-    handler: PropertyUpdateHandler
+    handler: PropertyChangeHandler
 }[]
 /**
  * Remove the properties that cannot be cloned to a worker and return the rest as an object.
@@ -139,7 +137,7 @@ const _settings = {
         onnx: false,
         pyodide: false,
     },
-    addPropertyUpdateHandler (field: string, handler: PropertyUpdateHandler, caller?: string) {
+    addPropertyUpdateHandler (field: string, handler: PropertyChangeHandler, caller?: string) {
         if (typeof field !== 'string' || !field) {
             Log.error(`Invalid field supplied to addPropertyUpdateHandler.`, SCOPE)
             return
@@ -241,7 +239,7 @@ const _settings = {
             }
         }
     },
-    removePropertyUpdateHandler (field: string, handler: PropertyUpdateHandler) {
+    removePropertyUpdateHandler (field: string, handler: PropertyChangeHandler) {
         for (let i=0; i<_propertyUpdateHandlers.length; i++) {
             const update = _propertyUpdateHandlers[i]
             if ((field === update.field || field.startsWith(`${update.field}.`)) && handler === update.handler) {

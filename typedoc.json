@@ -1,6 +1,6 @@
 {
     "entryPoints": ["./src"],
-    "entryPointStrategy": "expand",
+    "entryPointStrategy": "resolve",
     "excludeProtected": true,
     "externalPattern": [
         "node_modules/**"
