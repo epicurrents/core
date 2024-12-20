@@ -3,7 +3,6 @@ const path = require('path')
 module.exports = {
     rootDir: path.resolve(__dirname),
     preset: 'ts-jest',
-    testEnvironment: 'jsdom',
     coverageDirectory: "<rootDir>/tests/coverage/",
     extensionsToTreatAsEsm: ['.ts'],
     globals: {
