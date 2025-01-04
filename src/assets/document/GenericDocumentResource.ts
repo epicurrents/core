@@ -14,8 +14,6 @@ import { nullPromise } from '#util/general'
 
 export default abstract class GenericDocumentResource extends GenericResource implements DocumentResource {
 
-    protected _currentPage = 0
-    protected _numPages = 0
     protected _sourceFormat: string
 
     constructor (name: string, type: string, format: string, source: StudyContext) {
@@ -27,37 +25,7 @@ export default abstract class GenericDocumentResource extends GenericResource im
         return nullPromise
     }
 
-    get currentPage () {
-        return this._currentPage
-    }
-    set currentPage (value: number) {
-        this._setPropertyValue('currentPage', value)
-    }
-
-    get numPages () {
-        return this._numPages
-    }
-    set numPages (value: number) {
-        this._setPropertyValue('numPages', value)
-    }
-
     get sourceFormat () {
         return this._sourceFormat
-    }
-
-    ///////////////////////////////////////////////////
-    //                   METHODS                     //
-    ///////////////////////////////////////////////////
-
-    nextPage () {
-        if (this._numPages > this._currentPage) {
-            this.currentPage = this.currentPage + 1
-        }
-    }
-
-    prevPage () {
-        if (this._currentPage > 1) {
-            this.currentPage = this.currentPage - 1
-        }
     }
 }
