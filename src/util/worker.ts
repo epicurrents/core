@@ -15,16 +15,25 @@ const SCOPE = "util:worker"
  * Create a Worker from a code string. The source must be compiled JavaScript (not TypeScript)!
  * @param name - Name of the worker (for logging).
  * @param code - Worker source code as string.
- * @returns Worker with the given source.
+ * @param type - Type of worker to create, either 'classic' or 'module' (default 'classic').
+ * @returns Object with the source object `url` and a method to `create` a worker from the source.
  */
-export const inlineWorker = (name: string, code: string): Worker => {
+export const inlineWorker = (
+    name: string,
+    code: string,
+    type = 'classic' as 'classic' | 'module'
+): { create: () => Worker, url: string } => {
     let blob = new Blob()
     try {
         blob = new Blob([code], { type: 'application/javascript' })
     } catch (e) {
         Log.error(`Could not turn code string into blob, worker '${name}' creation failed.`, SCOPE)
     }
-    return new Worker(URL.createObjectURL(blob))
+    const url = URL.createObjectURL(blob)
+    return { 
+        create: () => new Worker(URL.createObjectURL(blob), { type }),
+        url,
+    }
 }
 /**
  * Method type for relaying log messages inside the worker scope.
