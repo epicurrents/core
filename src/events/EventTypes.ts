@@ -82,7 +82,10 @@ export enum BiosignalPropertyEvents {
     ANNOTATIONS = 'property-change:annotations',
     DATA_DURATION = 'property-change:dataDuration',
     DISPLAY_VIEW_START = 'property-change:displayViewStart',
+    HIGHPASS_FILTER = 'property-change:highpassFilter',
+    LOWPASS_FILTER = 'property-change:lowpassFilter',
     MONTAGES = 'property-change:montages',
+    NOTCH_FILTER = 'property-change:nothcFilter',
     SAMPLE_COUNT = 'property-change:sampleCount',
     SAMPLING_RATE = 'property-change:samplingRate',
     SENSITIVITY = 'property-change:sensitivity',
@@ -99,7 +102,10 @@ export type BiosignalPropertyEvent = ResourcePropertyEvent & {
     [BiosignalPropertyEvents.ANNOTATIONS]: PropertyChangeEvent<BiosignalAnnotation[]>
     [BiosignalPropertyEvents.DATA_DURATION]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.DISPLAY_VIEW_START]: PropertyChangeEvent<number>
+    [BiosignalPropertyEvents.HIGHPASS_FILTER]: PropertyChangeEvent<number>
+    [BiosignalPropertyEvents.LOWPASS_FILTER]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.MONTAGES]: PropertyChangeEvent<BiosignalMontage[]>
+    [BiosignalPropertyEvents.NOTCH_FILTER]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.SAMPLE_COUNT]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.SAMPLING_RATE]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.SENSITIVITY]: PropertyChangeEvent<number>
