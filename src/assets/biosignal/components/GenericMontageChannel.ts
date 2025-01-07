@@ -8,7 +8,7 @@
 import type { BiosignalChannel, MontageChannel } from '#types'
 import GenericBiosignalChannel from './GenericBiosignalChannel'
 
-export default class GenericMontageChannel extends GenericBiosignalChannel implements MontageChannel {
+export default abstract class GenericMontageChannel extends GenericBiosignalChannel implements MontageChannel {
 
     protected _active: number
     protected _averaged: boolean
