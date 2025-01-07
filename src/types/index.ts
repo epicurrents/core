@@ -2,23 +2,23 @@
 //                   ASSETS                    //
 /////////////////////////////////////////////////
 
-import {
-    type BaseAsset,
-    type DataResource,
-    type EpicurrentsApp,
-    type InterfaceModule,
-    type InterfaceModuleConstructor,
-    type InterfaceResourceModule,
-    type InterfaceResourceModuleContext,
-    type NullProtoObject,
-    type PropertyChangeHandler,
-    type ResourceModule,
-    type ResourceState,
-    type RuntimeAppModule,
-    type RuntimeResourceModule,
-    type RuntimeState,
-    type SafeObject,
-    type StateManager,
+import type {
+    BaseAsset,
+    DataResource,
+    EpicurrentsApp,
+    InterfaceModule,
+    InterfaceModuleConstructor,
+    InterfaceResourceModule,
+    InterfaceResourceModuleContext,
+    NullProtoObject,
+    PropertyChangeHandler,
+    ResourceModule,
+    ResourceState,
+    RuntimeAppModule,
+    RuntimeResourceModule,
+    RuntimeState,
+    SafeObject,
+    StateManager,
 } from './application'
 export {
     BaseAsset,
@@ -43,56 +43,57 @@ export {
 //                 BIOSIGNAL                   //
 /////////////////////////////////////////////////
 
-import {
-    type AnnotationTemplate,
-    type BiosignalAnnotation,
-    type BiosignalChannel,
-    type BiosignalChannelMarker,
-    type BiosignalChannelProperties,
-    type BiosignalChannelTemplate,
-    type BiosignalConfig,
-    type BiosignalCursor,
-    type BiosignalDataField,
-    type BiosignalDataReject,
-    type BiosignalDataResolve,
-    type BiosignalDataService,
-    type BiosignalFilters,
-    type BiosignalFilterType,
-    type BiosignalHeaderRecord,
-    type BiosignalHeaderSignal,
-    type BiosignalLaterality,
-    type BiosignalMetaField,
-    type BiosignalMontage,
-    type BiosignalMontageReferenceSignal,
-    type BiosignalMontageService,
-    type BiosignalMontageTemplate,
-    type BiosignalResource,
-    type BiosignalScope,
-    type BiosignalSetup,
-    type BiosignalSetupReject,
-    type BiosignalSetupResolve,
-    type BiosignalSetupResponse,
-    type BiosignalStudyProperties,
-    type ChannelPositionProperties,
-    type FftAnalysisResult,
-    type GetSignalsResponse,
-    type MontageChannel,
-    type MontageWorkerCommission,
-    type MontageWorkerCommissionAction,
-    type ReleaseCacheResponse,
-    type SetFiltersResponse,
-    type SetupCacheResponse,
-    type SetupChannel,
-    type SetupMutexResponse,
-    type SetupSharedWorkerResponse,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
-    type SignalPart,
-    type SignalPolarity,
-    type SignalRange,
-    type VideoAttachment,
-    type WorkerMontage,
+import type {
+    AnnotationTemplate,
+    BiosignalAnnotation,
+    BiosignalChannel,
+    BiosignalChannelMarker,
+    BiosignalChannelProperties,
+    BiosignalChannelTemplate,
+    BiosignalConfig,
+    BiosignalCursor,
+    BiosignalDataField,
+    BiosignalDataReject,
+    BiosignalDataResolve,
+    BiosignalDataService,
+    BiosignalFilters,
+    BiosignalFilterType,
+    BiosignalHeaderRecord,
+    BiosignalHeaderSignal,
+    BiosignalLaterality,
+    BiosignalMetaField,
+    BiosignalMontage,
+    BiosignalMontageReferenceSignal,
+    BiosignalMontageService,
+    BiosignalMontageTemplate,
+    BiosignalResource,
+    BiosignalScope,
+    BiosignalSetup,
+    BiosignalSetupReject,
+    BiosignalSetupResolve,
+    BiosignalSetupResponse,
+    BiosignalStudyProperties,
+    ChannelPositionProperties,
+    FftAnalysisResult,
+    GetSignalsResponse,
+    MontageChannel,
+    MontageWorkerCommission,
+    MontageWorkerCommissionAction,
+    ReleaseCacheResponse,
+    SetFiltersResponse,
+    SetupCacheResponse,
+    SetupChannel,
+    SetupMutexResponse,
+    SetupSharedWorkerResponse,
+    SignalDataCache,
+    SignalDataGap,
+    SignalDataGapMap,
+    SignalPart,
+    SignalPolarity,
+    SignalRange,
+    SourceChannel,
+    VideoAttachment,
+    WorkerMontage,
 } from './biosignal'
 export {
     AnnotationTemplate,
@@ -142,6 +143,7 @@ export {
     SignalPart,
     SignalPolarity,
     SignalRange,
+    SourceChannel,
     VideoAttachment,
     WorkerMontage,
 }
@@ -150,25 +152,25 @@ export {
 //                   CONFIG                    //
 /////////////////////////////////////////////////
 
-import {
-    type AppSettings,
-    type BaseModuleSettings,
-    type ClonableAppSettings,
-    type ClonableModuleSettings,
-    type CommonBiosignalSettings,
-    type ConfigBiosignalMontage,
-    type ConfigBiosignalSetup,
-    type ConfigChannelFilter,
-    type ConfigChannelLayout,
-    type ConfigDatasetLoader,
-    type ConfigMapChannels,
-    type ConfigStudyContext,
-    type ConfigStudyLoader,
-    type SettingsCircle,
-    type SettingsColor,
-    type SettingsLine,
-    type SettingsValue,
-    type SettingsValueConstructor,
+import type {
+    AppSettings,
+    BaseModuleSettings,
+    ClonableAppSettings,
+    ClonableModuleSettings,
+    CommonBiosignalSettings,
+    ConfigBiosignalMontage,
+    ConfigBiosignalSetup,
+    ConfigChannelFilter,
+    ConfigChannelLayout,
+    ConfigDatasetLoader,
+    ConfigMapChannels,
+    ConfigStudyContext,
+    ConfigStudyLoader,
+    SettingsCircle,
+    SettingsColor,
+    SettingsLine,
+    SettingsValue,
+    SettingsValueConstructor,
 } from './config'
 export {
     AppSettings,
@@ -195,13 +197,13 @@ export {
 //                  DATASET                    //
 /////////////////////////////////////////////////
 
-import {
-    type BaseDataset,
-    type DatasetCredentials,
-    type DatasetLoader,
-    type MediaDataset,
-    type ResourceSortingInstructions,
-    type ResourceSortingScheme,
+import type {
+    BaseDataset,
+    DatasetCredentials,
+    DatasetLoader,
+    MediaDataset,
+    ResourceSortingInstructions,
+    ResourceSortingScheme,
 } from './dataset'
 export {
     BaseDataset,
@@ -216,11 +218,11 @@ export {
 //                  DOCUMENT                   //
 /////////////////////////////////////////////////
 
-import {
-    type DocumentResource,
-    type DocumentServiceReject,
-    type DocumentServiceResolve,
-    type DocumentServiceResponse,
+import type {
+    DocumentResource,
+    DocumentServiceReject,
+    DocumentServiceResolve,
+    DocumentServiceResponse,
 } from './document'
 export {
     DocumentResource,
@@ -233,10 +235,10 @@ export {
 //                   MEDIA                     //
 /////////////////////////////////////////////////
 
-import {
-    type AudioRecording,
-    type WavHeader,
-    type WavSignalChannel,
+import type {
+    AudioRecording,
+    WavHeader,
+    WavSignalChannel,
 } from './media'
 export {
     AudioRecording,
@@ -248,19 +250,19 @@ export {
 //                   PLOT                      //
 /////////////////////////////////////////////////
 
-import {
-    type BiosignalPlot,
-    type BiosignalPlotConfig,
-    type BiosignalTrace,
-    type HighlightContext,
-    type PlotCircleStyles,
-    type PlotLineStyles,
-    type PlotTraceSelection,
-    type SignalHighlight,
-    type SignalPoI,
-    type WebGlCompatibleColor,
-    type WebGlPlotConfig,
-    type WebGlTrace,
+import type {
+    BiosignalPlot,
+    BiosignalPlotConfig,
+    BiosignalTrace,
+    HighlightContext,
+    PlotCircleStyles,
+    PlotLineStyles,
+    PlotTraceSelection,
+    SignalHighlight,
+    SignalPoI,
+    WebGlCompatibleColor,
+    WebGlPlotConfig,
+    WebGlTrace,
 } from './plot'
 export {
     BiosignalPlot,
@@ -281,26 +283,26 @@ export {
 //                   READER                    //
 /////////////////////////////////////////////////
 
-import {
-    type AssociatedFileType,
-    type ConfigReadHeader,
-    type ConfigReadSignals,
-    type ConfigReadUrl,
-    type FileDecoder,
-    type FileFormatReader,
-    type FileFormatReaderSpecs,
-    type FileReader,
-    type FileSystemItem,
-    type FileSystemItemType,
-    type ReadDirection,
-    type ReaderMode,
-    type SignalDataReader,
-    type SignalDataProcesser,
-    type SignalFileReader,
-    type SignalFilePart,
-    type SuccessReject,
-    type SuccessResolve,
-    type SuccessResponse,
+import type {
+    AssociatedFileType,
+    ConfigReadHeader,
+    ConfigReadSignals,
+    ConfigReadUrl,
+    FileDecoder,
+    FileFormatReader,
+    FileFormatReaderSpecs,
+    FileReader,
+    FileSystemItem,
+    FileSystemItemType,
+    ReadDirection,
+    ReaderMode,
+    SignalDataReader,
+    SignalDataProcesser,
+    SignalFileReader,
+    SignalFilePart,
+    SuccessReject,
+    SuccessResolve,
+    SuccessResponse,
 } from './reader'
 export {
     AssociatedFileType,
@@ -328,30 +330,30 @@ export {
 //                  SERVICE                    //
 /////////////////////////////////////////////////
 
-import {
-    type ActionWatcher,
-    type AllocateMemoryResponse,
-    type AssetService,
-    type CommissionMap,
-    type CommissionPromise,
-    type FreeMemoryResponse,
-    type ManagedService,
-    type MemoryManager,
-    type MemoryManagerWorkerCommission,
-    type MemoryManagerWorkerCommissionAction,
-    type MessageHandled,
-    type PythonResponse,
-    type ReleaseAssetResponse,
-    type RequestMemoryResponse,
-    type SetupStudyResponse,
-    type SetupWorkerResponse,
-    type SignalCacheMutex,
-    type SignalCachePart,
-    type SignalCacheProcess,
-    type SignalCacheResponse,
-    type WorkerCommission,
-    type WorkerMessage,
-    type WorkerResponse,
+import type {
+    ActionWatcher,
+    AllocateMemoryResponse,
+    AssetService,
+    CommissionMap,
+    CommissionPromise,
+    FreeMemoryResponse,
+    ManagedService,
+    MemoryManager,
+    MemoryManagerWorkerCommission,
+    MemoryManagerWorkerCommissionAction,
+    MessageHandled,
+    PythonResponse,
+    ReleaseAssetResponse,
+    RequestMemoryResponse,
+    SetupStudyResponse,
+    SetupWorkerResponse,
+    SignalCacheMutex,
+    SignalCachePart,
+    SignalCacheProcess,
+    SignalCacheResponse,
+    WorkerCommission,
+    WorkerMessage,
+    WorkerResponse,
 
 } from './service'
 export {
@@ -384,17 +386,17 @@ export {
 //                   STUDY                     //
 /////////////////////////////////////////////////
 
-import {
-    type OrderedLoadingProtocol,
-    type StudyContext,
-    type StudyContextCollection,
-    type StudyContextFile,
-    type StudyContextFileRole,
-    type StudyFileContext,
-    type StudyLoader,
-    type StudyLoaderContext,
-    type StudyLoaderProtocolContext,
-    type UseStudyResponse,
+import type {
+    OrderedLoadingProtocol,
+    StudyContext,
+    StudyContextCollection,
+    StudyContextFile,
+    StudyContextFileRole,
+    StudyFileContext,
+    StudyLoader,
+    StudyLoaderContext,
+    StudyLoaderProtocolContext,
+    UseStudyResponse,
 } from './study'
 export {
     OrderedLoadingProtocol,
@@ -413,10 +415,10 @@ export {
 //                   UTIL                      //
 /////////////////////////////////////////////////
 
-import {
-    type Modify,
-    type TypedNumberArray,
-    type TypedNumberArrayConstructor,
+import type {
+    Modify,
+    TypedNumberArray,
+    TypedNumberArrayConstructor,
 } from './util'
 export {
     Modify,

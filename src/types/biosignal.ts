@@ -1198,6 +1198,13 @@ export type SignalPolarity = -1 | 0 | 1
 /** Start and end of a signal range. */
 export type SignalRange = { start: number, end: number }
 /**
+ * A signal channel containing one raw source signal.
+ */
+export interface SourceChannel extends BiosignalChannel, BaseAsset {
+    /** Index of this channel. */
+    index: number
+}
+/**
  * Video attachment synchronized to biosignal data.
  */
 export interface VideoAttachment {
