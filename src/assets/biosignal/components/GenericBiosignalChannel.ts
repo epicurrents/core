@@ -91,9 +91,13 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         }
         if (extraProperties.originalSampleCount) {
             this._originalSampleCount = extraProperties.originalSampleCount
+        } else if (extraProperties.sampleCount) {
+            this._originalSampleCount = extraProperties.sampleCount
         }
         if (extraProperties.originalSamplingRate) {
             this._originalSamplingRate = extraProperties.originalSamplingRate
+        } else {
+            this._originalSamplingRate = samplingRate
         }
         if (extraProperties.sampleCount) {
             this._sampleCount = extraProperties.sampleCount

@@ -10,8 +10,8 @@ import GenericBiosignalChannel from './GenericBiosignalChannel'
 
 export default abstract class GenericSourceChannel extends GenericBiosignalChannel implements SourceChannel {
 
-    protected _index: number
     protected _averaged: boolean
+    protected _index: number
 
     constructor (
             name: string,
@@ -29,17 +29,17 @@ export default abstract class GenericSourceChannel extends GenericBiosignalChann
         this._averaged = averaged
     }
 
-    get index () {
-        return this._index
-    }
-    set index (value: number) {
-        this._setPropertyValue('index', value)
-    }
-    
     get averaged () {
         return this._averaged
     }
     set averaged (value: boolean) {
         this._setPropertyValue('averaged', value)
+    }
+    
+    get index () {
+        return this._index
+    }
+    set index (value: number) {
+        this._setPropertyValue('index', value)
     }
 }
