@@ -113,12 +113,8 @@ export interface BiosignalAnnotation extends BaseAsset {
  * Common base for all biosignal channel types.
  */
 export interface BiosignalChannel {
-    /** Index of the active source channel. */
-    active: number
     /** Channel base amplification, mostly used if the channel has a different unit value (e.g. mV instead of uV). */
     amplification: number
-    /** Is this channel average referenced. */
-    averaged: boolean
     /** Display polarity of the signal on this channel. */
     displayPolarity: SignalPolarity
     /** Possible individual high-pass filter in Hz. If null, use default from recording. */
@@ -145,8 +141,6 @@ export interface BiosignalChannel {
     originalSampleCount?: number
     /** Original sampling rate of the signal before interpolation/subsampling. */
     originalSamplingRate?: number
-    /** Indices of the source reference channels. */
-    reference: number[]
     /** Total count of samples. */
     sampleCount: number
     /** Sampling rate as samples/second. */
@@ -1201,6 +1195,8 @@ export type SignalRange = { start: number, end: number }
  * A signal channel containing one raw source signal.
  */
 export interface SourceChannel extends BiosignalChannel, BaseAsset {
+    /** Is the recorded source signal on this channel referenced to an average signal. */
+    averaged: boolean
     /** Index of this channel. */
     index: number
 }

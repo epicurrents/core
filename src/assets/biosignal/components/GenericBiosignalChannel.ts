@@ -7,25 +7,23 @@
  */
 
 import { Log } from 'scoped-event-log'
-import {
-    type BiosignalLaterality,
-    type BiosignalChannel,
-    type BiosignalChannelMarker,
-    type BiosignalCursor,
-    type SignalPolarity,
+import type {
+    BiosignalLaterality,
+    BiosignalChannel,
+    BiosignalChannelMarker,
+    BiosignalCursor,
+    SignalPolarity,
 } from '#types/biosignal'
 import GenericAsset from '#assets/GenericAsset'
 
 const SCOPE = "GenericBiosignalChannel"
 
 export default abstract class GenericBiosignalChannel extends GenericAsset implements BiosignalChannel {
-    protected _active: number
     protected _amplification: number
     protected _cursors = {
         horizontal: [] as BiosignalCursor[],
         vertical: [] as BiosignalCursor[],
     }
-    protected _averaged: boolean
     protected _displayPolarity: -1 | 0 | 1 = 0
     protected _highpassFilter: number | null = null
     protected _label: string
@@ -36,7 +34,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     protected _offset: BiosignalChannel['offset']
     protected _originalSampleCount?: number
     protected _originalSamplingRate?: number
-    protected _reference: number[]
     protected _sampleCount: number = 0
     protected _samplingRate: number = 0
     protected _sensitivity: number
@@ -52,9 +49,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         name: string,
         label: string,
         type: string,
-        active: number,
-        reference: number[],
-        averaged: boolean,
         samplingRate: number,
         unit: string,
         visible: boolean,
@@ -63,9 +57,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         super(name, GenericAsset.CONTEXTS.BIOSIGNAL, type || 'unk')
         this._type = type // override the checking in generic asset for now... need to make this more dynamic
         this._label = label
-        this._active = active
-        this._averaged = averaged
-        this._reference = reference
         this._samplingRate = samplingRate
         this._laterality = extraProperties.laterality || ''
         this._visible = visible
@@ -109,22 +100,8 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         }
     }
 
-    get active () {
-        return this._active
-    }
-    set active (value: number) {
-        this._setPropertyValue('active', value)
-    }
-
     get amplification () {
         return this._amplification
-    }
-
-    get averaged () {
-        return this._averaged
-    }
-    set averaged (value: boolean) {
-        this._setPropertyValue('averaged', value)
     }
 
     get cursors () {
@@ -203,13 +180,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
 
     get originalSamplingRate () {
         return this._originalSamplingRate
-    }
-
-    get reference () {
-        return this._reference
-    }
-    set reference (value: number[]) {
-        this._setPropertyValue('reference', value)
     }
 
     get sampleCount () {
