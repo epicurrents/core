@@ -11,7 +11,6 @@ import GenericBiosignalChannel from './GenericBiosignalChannel'
 export default abstract class GenericMontageChannel extends GenericBiosignalChannel implements MontageChannel {
 
     protected _active: number
-    protected _averaged: boolean
     protected _reference: number[]
 
     constructor (
@@ -26,9 +25,8 @@ export default abstract class GenericMontageChannel extends GenericBiosignalChan
             visible: boolean,
             extraProperties = {} as Partial<BiosignalChannel>
     ) {
-        super(name, label, type, samplingRate, unit, visible, extraProperties)
+        super(name, label, type, averaged, samplingRate, unit, visible, extraProperties)
         this._active = active
-        this._averaged = averaged
         this._reference = reference
     }
 
@@ -37,13 +35,6 @@ export default abstract class GenericMontageChannel extends GenericBiosignalChan
     }
     set active (value: number) {
         this._setPropertyValue('active', value)
-    }
-    
-    get averaged () {
-        return this._averaged
-    }
-    set averaged (value: boolean) {
-        this._setPropertyValue('averaged', value)
     }
 
     get reference () {

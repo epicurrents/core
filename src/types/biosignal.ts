@@ -115,6 +115,8 @@ export interface BiosignalAnnotation extends BaseAsset {
 export interface BiosignalChannel {
     /** Channel base amplification, mostly used if the channel has a different unit value (e.g. mV instead of uV). */
     amplification: number
+    /** Is the signal on this channel referenced to an average. */
+    averaged: boolean
     /** Display polarity of the signal on this channel. */
     displayPolarity: SignalPolarity
     /** Possible individual high-pass filter in Hz. If null, use default from recording. */

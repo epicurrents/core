@@ -20,6 +20,7 @@ const SCOPE = "GenericBiosignalChannel"
 
 export default abstract class GenericBiosignalChannel extends GenericAsset implements BiosignalChannel {
     protected _amplification: number
+    protected _averaged: boolean
     protected _cursors = {
         horizontal: [] as BiosignalCursor[],
         vertical: [] as BiosignalCursor[],
@@ -49,6 +50,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         name: string,
         label: string,
         type: string,
+        averaged: boolean,
         samplingRate: number,
         unit: string,
         visible: boolean,
@@ -58,6 +60,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         this._type = type // override the checking in generic asset for now... need to make this more dynamic
         this._label = label
         this._samplingRate = samplingRate
+        this._averaged = averaged
         this._laterality = extraProperties.laterality || ''
         this._visible = visible
         this._unit = unit
@@ -106,6 +109,13 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
 
     get amplification () {
         return this._amplification
+    }
+
+    get averaged () {
+        return this._averaged
+    }
+    set averaged (value: boolean) {
+        this._setPropertyValue('averaged', value)
     }
 
     get cursors () {
