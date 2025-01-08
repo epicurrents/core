@@ -768,7 +768,7 @@ export interface BiosignalResource extends DataResource {
     /** List of annotations. */
     annotations: BiosignalAnnotation[]
     /** List of channels as recorded. */
-    channels: BiosignalChannel[]
+    channels: SourceChannel[]
     /** Cursors for marking points in time on the plot. */
     cursors: BiosignalCursor[]
     /**
@@ -822,7 +822,7 @@ export interface BiosignalResource extends DataResource {
     /** Position of the left edge of the UI viewport (in seconds). */
     viewStart: number
     /** This resource's currently visible channels (primarily montage channels if a montage is active). */
-    visibleChannels: BiosignalChannel[]
+    visibleChannels: (MontageChannel | SourceChannel)[]
     /**
      * Add a set of new annotations to this recording.
      * @param annotations - New annotations.

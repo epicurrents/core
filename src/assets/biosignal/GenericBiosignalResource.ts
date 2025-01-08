@@ -12,7 +12,6 @@ import GenericResource from '#assets/GenericResource'
 import {
     type AnnotationTemplate,
     type BiosignalAnnotation,
-    type BiosignalChannel,
     type BiosignalCursor,
     type BiosignalDataService,
     type BiosignalFilterType,
@@ -23,6 +22,7 @@ import {
     type SignalDataGap,
     type SignalDataGapMap,
     type SignalPart,
+    type SourceChannel,
     type VideoAttachment
 } from '#types/biosignal'
 import { type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
@@ -44,7 +44,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _activeMontage: BiosignalMontage | null = null
     protected _annotations: BiosignalAnnotation[] = []
     protected _cacheProps: SignalDataCache | null = null
-    protected _channels: BiosignalChannel[] = []
+    protected _channels: SourceChannel[] = []
     protected _cursors: BiosignalCursor[] = []
     protected _dataDuration: number = 0
     protected _dataGaps: SignalDataGapMap = new Map<number, number>()
