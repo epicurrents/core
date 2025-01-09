@@ -119,6 +119,12 @@ export interface BiosignalChannel {
     averaged: boolean
     /** Display polarity of the signal on this channel. */
     displayPolarity: SignalPolarity
+    /**
+     * Individual filters in Hz to override the resource's general filter.
+     * Null means that the channel uses the resource's filter value for that type.
+     * Zero means that the filter is disabled.
+     */
+    filters: BiosignalChannelFilters
     /** Possible individual high-pass filter in Hz. If null, use default from recording. */
     highpassFilter: number | null
     /** Descriptive name for this channel (displayed to the user). */
@@ -163,10 +169,38 @@ export interface BiosignalChannel {
      */
     addMarkers (...markers: BiosignalChannelMarker[]): void
     /**
+     * Set a highpass filter value to override the resource's general filter (or null to use it).
+     * @param value - New value for the filter (in Hz).
+     */
+    setHighpassFilter (value: number | null): void
+    /**
+     * Set a lowpass filter value to override the resource's general filter (or null to use it).
+     * @param value - New value for the filter (in Hz).
+     */
+    setLowpassFilter (value: number | null): void
+    /**
+     * Set a notch filter value to override the resource's general filter (or null to use it).
+     * @param value - New value for the filter (in Hz).
+     */
+    setNotchFilter (value: number | null): void
+    /**
      * Replace this channel's signal data with the given array of data points.
      * @param signal - Signal data.
      */
     setSignal (signal: Float32Array): void
+}
+/**
+ * Filters for a single biosignal channel. Null means the channel uses the resource's filter value for that type.
+ */
+export type BiosignalChannelFilters = {
+    /** Null for resource filter value, zero to disable. */
+    highpass: number | null
+    /** Null for resource filter value, zero to disable. */
+    lowpass: number | null
+    /** Null for resource filter value, zero to disable. */
+    notch: number | null
+    /** List of possible additional band-reject filters as `[low limit, high limit]`. */
+    bandreject: [number, number][]
 }
 /**
  * A marker containing a certain value at certain position of the channel signal.
@@ -337,11 +371,14 @@ export interface BiosignalDataService extends AssetService {
  * Filter types for biosignal resources.
  */
 export type BiosignalFilters = {
+    /** List of additional band-reject filters as `[low limit, high limit]`. */
+    bandreject: [number, number][]
+    /** High-pass filter in Hz, zero to disable. */
     highpass: number
+    /** Low-pass filter in Hz, zero to disable. */
     lowpass: number
+    /** Notch filter in Hz, zero to disable. */
     notch: number
-    /** List of possible additional band-reject filters. */
-    bandreject?: number[][]
 }
 /**
  * Types of default filters that can be applied to biosignals.

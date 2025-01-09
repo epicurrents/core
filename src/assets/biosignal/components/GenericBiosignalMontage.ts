@@ -6,32 +6,32 @@
  */
 
 import { Log } from 'scoped-event-log'
-import { type BaseAsset } from '#types'
-import {
-    type BiosignalMontage,
-    type BiosignalMontageReferenceSignal,
-    type BiosignalMontageTemplate,
-    type BiosignalResource,
-    type BiosignalSetup,
-    type MontageChannel,
-    type SetFiltersResponse,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
+import type {
+    BiosignalFilters,
+    BiosignalMontage,
+    BiosignalMontageReferenceSignal,
+    BiosignalMontageTemplate,
+    BiosignalResource,
+    BiosignalSetup,
+    MontageChannel,
+    SetFiltersResponse,
+    SignalDataCache,
+    SignalDataGap,
+    SignalDataGapMap,
 } from '#types/biosignal'
-import {
-    type ConfigBiosignalMontage,
-    type ConfigChannelFilter,
-    type ConfigChannelLayout,
-    type ConfigMapChannels,
+import type {
+    ConfigBiosignalMontage,
+    ConfigChannelFilter,
+    ConfigChannelLayout,
+    ConfigMapChannels,
 } from '#types/config'
-import { type HighlightContext, type SignalHighlight } from '#types/plot'
-import {
-    type MemoryManager,
-    type SignalCachePart,
-    type SignalCacheResponse,
+import type { HighlightContext, SignalHighlight } from '#types/plot'
+import type {
+    MemoryManager,
+    SignalCachePart,
+    SignalCacheResponse,
 } from '#types/service'
-import { type MutexExportProperties } from 'asymmetric-io-mutex'
+import type { MutexExportProperties } from 'asymmetric-io-mutex'
 import {
     calculateSignalOffsets,
     combineAllSignalParts,
@@ -56,10 +56,11 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     protected _cacheParts = [] as SignalCachePart[]
     protected _config: BiosignalMontageTemplate | null =  null
     protected _filters = {
+        bandreject: [],
         highpass: 0,
         lowpass: 0,
         notch: 0,
-    }
+    } as BiosignalFilters
     protected _highlights = new Map<string, HighlightContext>()
     protected _label: string
     protected _reference: BiosignalMontageReferenceSignal = null
@@ -88,25 +89,16 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._channels
     }
     set channels (channels: MontageChannel[]) {
-        this._setPropertyValue('channels', channels)
-        for (const chan of this._channels) {
+        for (const chan of channels) {
             // Trigger a general channels update if any property of a channel changes.
-            chan.addEventListener(/.+/, () => {
+            chan.addEventListener(/.+/, async (event) => {
+                if (event.detail.property === 'filters') {
+                    await this.updateFilters()
+                }
                 this.dispatchPropertyChangeEvent('channels', this._channels, this._channels)
             }, this._id)
-            // Listen for changes in channel filters.
-            chan.addEventListener('filters', () => {
-                this._service.setFilters().then((updated) => {
-                    if (updated) {
-                        this._recording.dispatchPropertyChangeEvent(
-                            'filters' as keyof BaseAsset, // TypeScript linter cannot figure this out.
-                            this.filters,
-                            this.filters
-                        )
-                    }
-                })
-            }, this._id)
         }
+        this._setPropertyValue('channels', channels)
     }
     get config () {
         return this._config
@@ -114,6 +106,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     get filters () {
         // Primarily return local filter values, secondarily recording scope values.
         return {
+            bandreject: [...this._filters.bandreject, ...this._recording.filters.bandreject],
             highpass: this._filters.highpass || this._recording.filters.highpass,
             lowpass: this._filters.lowpass || this._recording.filters.lowpass,
             notch: this._filters.notch || this._recording.filters.notch,
@@ -392,8 +385,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         } else {
             this._filters.highpass = value
         }
-        const updated = await this._service.setFilters()
-        return updated
+        return this.updateFilters()
     }
 
     async setLowpassFilter (value: number, target?: string | number) {
@@ -402,8 +394,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         } else {
             this._filters.lowpass = value
         }
-        const updated = await this._service.setFilters()
-        return updated
+        return this.updateFilters()
     }
 
     async setNotchFilter (value: number, target?: string | number) {
@@ -412,8 +403,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         } else {
             this._filters.notch = value
         }
-        const updated = await this._service.setFilters()
-        return updated
+        return this.updateFilters()
     }
 
     setupChannels (config: BiosignalMontageTemplate) {

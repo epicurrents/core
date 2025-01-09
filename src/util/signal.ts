@@ -622,6 +622,7 @@ export const getChannelFilters = (
     const notch = channel.notchFilter
                   || (applyDefaults?.includes('notch') ? defaultFilters.notch : 0) || 0
     return {
+        bandreject: [],
         highpass: highpass,
         lowpass: lowpass,
         notch: notch

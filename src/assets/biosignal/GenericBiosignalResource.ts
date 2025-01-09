@@ -9,31 +9,32 @@
 import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
 import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
-import {
-    type AnnotationTemplate,
-    type BiosignalAnnotation,
-    type BiosignalCursor,
-    type BiosignalDataService,
-    type BiosignalFilterType,
-    type BiosignalMontage,
-    type BiosignalResource,
-    type BiosignalSetup,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
-    type SignalPart,
-    type SourceChannel,
-    type VideoAttachment
+import type {
+    BiosignalFilters,
+    AnnotationTemplate,
+    BiosignalAnnotation,
+    BiosignalCursor,
+    BiosignalDataService,
+    BiosignalFilterType,
+    BiosignalMontage,
+    BiosignalResource,
+    BiosignalSetup,
+    SignalDataCache,
+    SignalDataGap,
+    SignalDataGapMap,
+    SignalPart,
+    SourceChannel,
+    VideoAttachment
 } from '#types/biosignal'
-import { type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
-import {
-    type MemoryManager,
-    type SignalCachePart,
-    type SignalCacheResponse,
+import type { CommonBiosignalSettings, ConfigChannelFilter } from '#types/config'
+import type {
+    MemoryManager,
+    SignalCachePart,
+    SignalCacheResponse,
 } from '#types/service'
-import { type StudyContext } from '#types/study'
+import type { StudyContext } from '#types/study'
 import Log from 'scoped-event-log'
-import { type MutexExportProperties } from 'asymmetric-io-mutex'
+import type { MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericBiosignalResource'
 
@@ -51,10 +52,11 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _displayViewStart: number = 0
     protected _filterChannelTypes = {} as { [type: string]: BiosignalFilterType[] }
     protected _filters = {
+        bandreject: [],
         highpass: 0,
         lowpass: 0,
         notch: 0,
-    }
+    } as BiosignalFilters
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
@@ -155,7 +157,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     get filters () {
-        return this._filters
+        return { ...this._filters }
     }
 
     get hasVideo () {
@@ -562,7 +564,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     async setActiveMontage (montage: number | string | null) {
         const prevMontage = this.activeMontage
-        this._activeMontage?.removeAllEventListeners()
+        prevMontage?.removeAllEventListeners()
         if (montage === null) {
             // Use raw signals.
             if (this._activeMontage) {
@@ -589,7 +591,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 this._setPropertyValue('activeMontage', this._montages[montage as number])
                 // Relay channel updates to the resource listeners.
                 this._activeMontage?.onPropertyChange('channels', () => {
-                    this.activeMontage?.updateFilters()
+                    this.dispatchPropertyChangeEvent('channels', this.channels, this.channels)
                 }, this.id)
                 // Update filter settings in case they have changed since this montage was created/active.
                 await this._activeMontage?.updateFilters()
@@ -615,7 +617,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     setHighpassFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
-        } else if (value < 0 || value === this._filters.highpass) {
+        } else if (value < 0) {
+            Log.error(`Highpass filter value must be zero or greater, ${value} was given.`, SCOPE)
+            return
+        } else if (value === this._filters.highpass) {
             return
         }
         const prevState = { ...this.filters }
@@ -627,19 +632,22 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 // TODO: Actually check for the type and only alter those channels.
                 if (!target) {
                     this._filters.highpass = value
+                    this._activeMontage?.updateFilters()
                 }
             } else if (this._activeMontage) {
                 this._activeMontage.setHighpassFilter(value, target)
             }
         }
-        this._activeMontage?.updateFilters()
         this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
     }
 
     setLowpassFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
-        } else if (value < 0 || value === this._filters.lowpass) {
+        } else if (value < 0) {
+            Log.error(`Lowpass filter value must be zero or greater, ${value} was given.`, SCOPE)
+            return
+        } else if (value === this._filters.lowpass) {
             return
         }
         const prevState = { ...this.filters }
@@ -650,12 +658,12 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.lowpass = value
+                    this._activeMontage?.updateFilters()
                 }
             } else if (this._activeMontage) {
                 this._activeMontage.setLowpassFilter(value, target)
             }
         }
-        this._activeMontage?.updateFilters()
         this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
     }
 
@@ -666,7 +674,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     setNotchFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
-        } else if (value < 0 || value === this._filters.notch) {
+        } else if (value < 0) {
+            Log.error(`Notch filter value must be zero or greater, ${value} was given.`, SCOPE)
+            return
+        } else if (value === this._filters.notch) {
             return
         }
         const prevState = { ...this.filters }
@@ -677,12 +688,12 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.notch = value
+                    this._activeMontage?.updateFilters()
                 }
             } else if (this._activeMontage) {
                 this._activeMontage.setNotchFilter(value, target)
             }
         }
-        this._activeMontage?.updateFilters()
         this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
     }
 

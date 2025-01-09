@@ -10,6 +10,7 @@ import { Log } from 'scoped-event-log'
 import type {
     BiosignalLaterality,
     BiosignalChannel,
+    BiosignalChannelFilters,
     BiosignalChannelMarker,
     BiosignalCursor,
     SignalPolarity,
@@ -26,12 +27,15 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         vertical: [] as BiosignalCursor[],
     }
     protected _displayPolarity: -1 | 0 | 1 = 0
-    protected _highpassFilter: number | null = null
+    protected _filters = {
+        bandreject: [],
+        highpass: null,
+        lowpass: null,
+        notch: null,
+    } as BiosignalChannelFilters
     protected _label: string
     protected _laterality: BiosignalLaterality
-    protected _lowpassFilter: number | null = null
     protected _markers: BiosignalChannelMarker[] = []
-    protected _notchFilter: number | null = null
     protected _offset: BiosignalChannel['offset']
     protected _originalSampleCount?: number
     protected _originalSamplingRate?: number
@@ -84,13 +88,13 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
             this._displayPolarity = extraProperties.displayPolarity
         }
         if (extraProperties.highpassFilter) {
-            this._highpassFilter = extraProperties.highpassFilter
+            this._filters.highpass = extraProperties.highpassFilter
         }
         if (extraProperties.lowpassFilter) {
-            this._lowpassFilter = extraProperties.lowpassFilter
+            this._filters.lowpass = extraProperties.lowpassFilter
         }
         if (extraProperties.notchFilter) {
-            this._notchFilter = extraProperties.notchFilter
+            this._filters.notch = extraProperties.notchFilter
         }
         if (extraProperties.originalSampleCount) {
             this._originalSampleCount = extraProperties.originalSampleCount
@@ -132,15 +136,31 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         this._setPropertyValue('displayPolarity', value)
     }
 
-    get highpassFilter () {
-        return this._highpassFilter
+    get filters () {
+        return { ...this._filters }
     }
-    set highpassFilter (value: number | null) {
-        if (value && value < 0) {
-            Log.error(`High-pass filter must be either null or non-negative number, ${value} was given.`, SCOPE)
+    set filters (value: BiosignalChannelFilters) {
+        const negVals = Object.values(value).map(v => {
+            if (Array.isArray(v)) {
+                for (const br of v) {
+                    if (br.some(brv => brv < 0)) {
+                        return br.join(',')
+                    }
+                }
+            } else if (v && v < 0) {
+                return v
+            }
+            return undefined
+        }).filter(v => v !== undefined)
+        if (negVals.length) {
+            Log.error(`Filter values must be either non-negative numbers, ${negVals.join('; ')} was given.`, SCOPE)
             return
         }
-        this._setPropertyValue('highpassFilter', value)
+        this._setPropertyValue('filters', value)
+    }
+
+    get highpassFilter () {
+        return this._filters.highpass
     }
 
     get label () {
@@ -152,14 +172,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     }
 
     get lowpassFilter () {
-        return this._lowpassFilter
-    }
-    set lowpassFilter (value: number | null) {
-        if (value && value < 0) {
-            Log.error(`Low-pass filter must be either null or non-negative number, ${value} was given.`, SCOPE)
-            return
-        }
-        this._setPropertyValue('lowpassFilter', value)
+        return this._filters.lowpass
     }
 
     get markers () {
@@ -167,14 +180,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     }
 
     get notchFilter () {
-        return this._notchFilter
-    }
-    set notchFilter (value: number | null) {
-        if (value && value < 0) {
-            Log.error(`Notch filter must be either null or non-negative number, ${value} was given.`, SCOPE)
-            return
-        }
-        this._setPropertyValue('notchFilter', value)
+        return this._filters.notch
     }
 
     get offset () {
@@ -349,6 +355,30 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         }
         this._triggerCache.set(win, finalPoints)
         return finalPoints
+    }
+
+    setHighpassFilter (value: number) {
+        if (value && value < 0) {
+            Log.error(`Highpass filter must be either null or non-negative number, ${value} was given.`, SCOPE)
+            return
+        }
+        this._setPropertyValue('filters', Object.assign(this.filters, { highpass: value }))
+    }
+
+    setLowpassFilter (value: number) {
+        if (value && value < 0) {
+            Log.error(`Lowpass filter must be either null or non-negative number, ${value} was given.`, SCOPE)
+            return
+        }
+        this._setPropertyValue('filters', Object.assign(this.filters, { lowpass: value }))
+    }
+
+    setNotchFilter (value: number) {
+        if (value && value < 0) {
+            Log.error(`Notch filter must be either null or non-negative number, ${value} was given.`, SCOPE)
+            return
+        }
+        this._setPropertyValue('filters', Object.assign(this.filters, { notch: value }))
     }
 
     setSignal (signal: Float32Array) {

@@ -167,7 +167,7 @@ export class MontageWorker extends BaseWorker {
             someUpdated = true
         }
         if (data.channels && data.channels.length === this._montage.channels.length) {
-            const channels = data.channels as { highpass: number, lowpass: number, notch: number }[]
+            const channels = data.channels as BiosignalFilters[]
             for (let i=0; i<channels.length; i++) {
                 const chan = channels[i]
                 if (chan.highpass !== this._montage.channels[i].highpassFilter) {

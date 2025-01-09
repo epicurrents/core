@@ -19,28 +19,26 @@ import {
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
 import { SignalFileReader } from '#assets/reader'
-import {
-    type BiosignalFilters,
-    type BiosignalSetup,
-    type MontageChannel,
-    type SetupChannel,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
-    type SignalPart,
+import type {
+    BiosignalFilters,
+    BiosignalSetup,
+    MontageChannel,
+    SetupChannel,
+    SignalDataCache,
+    SignalDataGap,
+    SignalDataGapMap,
+    SignalPart,
 } from '#types/biosignal'
-import {
-    type CommonBiosignalSettings,
-    type ConfigChannelFilter,
-    type ConfigMapChannels,
+import type {
+    CommonBiosignalSettings,
+    ConfigChannelFilter,
+    ConfigMapChannels,
 } from '#types/config'
-import { type SignalDataReader } from '#types/reader'
-import {
-    type SignalCachePart,
-} from '#types/service'
+import type { SignalDataReader } from '#types/reader'
+import type { SignalCachePart } from '#types/service'
 
 import { Log } from 'scoped-event-log'
-import { type MutexExportProperties } from 'asymmetric-io-mutex'
+import type { MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = "MontageProcesser"
 
@@ -161,7 +159,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         for (let i=0; i<channels.length; i++) {
             const chan = channels[i]
             const sigProps = {
-                data: new Float32Array(),
+                // @ts-ignore Prepare for TypeScript 5.7+.
+                data: new Float32Array() as Float32Array<ArrayBufferLike>,
                 samplingRate: chan.samplingRate
             }
             // Remove missing and inactive channels.
@@ -274,7 +273,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             }
             if (shouldFilterSignal(chan, this._filters, this._settings)) {
                 // Add possible data gaps.
-                let gapped = data
+                // @ts-ignore Prepare for TypeScript 5.7+.
+                let gapped = data as Float32Array<ArrayBufferLike>
                 let lastGapEnd = 0
                 const sigParts = [] as Float32Array[]
                 for (const gap of gapIndices) {
