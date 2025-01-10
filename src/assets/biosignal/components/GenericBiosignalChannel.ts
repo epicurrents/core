@@ -53,15 +53,14 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     constructor (
         name: string,
         label: string,
-        type: string,
+        modality: string,
         averaged: boolean,
         samplingRate: number,
         unit: string,
         visible: boolean,
         extraProperties = {} as Partial<BiosignalChannel>
     ) {
-        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, type || 'unk')
-        this._type = type // override the checking in generic asset for now... need to make this more dynamic
+        super(name, modality || 'unknown')
         this._label = label
         this._samplingRate = samplingRate
         this._averaged = averaged

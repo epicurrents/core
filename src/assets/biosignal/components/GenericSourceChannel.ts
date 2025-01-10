@@ -15,7 +15,7 @@ export default abstract class GenericSourceChannel extends GenericBiosignalChann
     constructor (
             name: string,
             label: string,
-            type: string,
+            modality: string,
             index: number,
             averaged: boolean,
             samplingRate: number,
@@ -23,7 +23,7 @@ export default abstract class GenericSourceChannel extends GenericBiosignalChann
             visible: boolean,
             extraProperties = {} as Partial<BiosignalChannel>
     ) {
-        super(name, label, type, averaged, samplingRate, unit, visible, extraProperties)
+        super(name, label, modality, averaged, samplingRate, unit, visible, extraProperties)
         this._index = index
     }
 

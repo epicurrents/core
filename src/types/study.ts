@@ -45,12 +45,10 @@ export interface OrderedLoadingProtocol {
     format: string
     /** Metadata detailing the resource. */
     meta: unknown
+    /** Resource modality. */
+    modality: string
     /** Descriptive name of the resource. */
     name: string
-    /** Resource context, e.g. 'doc', 'sig'. */
-    context: string
-    /** Resource type within the context. */
-    type: string
     /** Study object definition version. */
     version: string
 }
@@ -97,11 +95,10 @@ export type StudyContextFile = {
      */
     role: StudyContextFileRole
     /**
-     * Application type for this file, or scope if exact type is unknown.
-     * E.g. `sig` for a file containing biosignal signal data or `eeg` for a file
-     * containing EEG signal data.
+     * Modality of the data in this file. More general modality can be used if the exact modality is unknown,
+     * e.g. `signal` for a file containing biosignal signal, or `unknown` if the modality is not known.
      */
-    type: string
+    modality: string
     /**
      * URL poiting to the study data.
      * Must contain an object URL for the data file, even if study is loaded from local filesystem.
@@ -119,7 +116,7 @@ export type StudyFileContext = {
     format: string | null
     mime: string | null
     name: string
-    type: string
+    modality: string
     url: string
 }
 /**
@@ -128,12 +125,9 @@ export type StudyFileContext = {
 export interface StudyLoader {
     /** File reader associated with this study loader. */
     fileReader: null | FileFormatReader
-    resourceScope: string
-    resourceType: string
-    /** Resource scopes supported by this loader. */
-    supportedScopes: string[]
-    /** Resource types supported by this loader. */
-    supportedTypes: string[]
+    resourceModality: string
+    /** Resource modalities supported by this loader. */
+    supportedModalities: string[]
     /**
      * Use the loaded study to get a resource of the appropriate type.
      * @param idx - Optional array index or ID string of the resource (defaults to last loaded study).
@@ -141,17 +135,11 @@ export interface StudyLoader {
      */
     getResource (idx?: number | string): Promise<DataResource | null>
     /**
-     * Check if this loader supports the given study context.
-     * @param context - Study context.
+     * Check if this loader supports the given study `modality`.
+     * @param modality - Study modality.
      * @returns true/false
      */
-    isSupportedContext (context: string): boolean
-    /**
-     * Check if this loader supports the given study type.
-     * @param type - Full study type (`context:type`) or plain type.
-     * @returns true/false
-     */
-    isSupportedType (type: string): boolean
+    isSupportedModality (modality: string): boolean
     /**
      * Load directory files as part of a single study.
      * @param dir - Directory as FileSystemItem.
@@ -206,14 +194,12 @@ export interface StudyLoader {
 export type StudyLoaderContext = {
     /** Label for the loader (to be displayed in the UI). */
     label: string
-    /** Mode to use (file, folder, study or url). */
-    mode: ReaderMode
     /** The loader itself. */
     loader: StudyLoader
-    /** Study scopes supported by this loader. */
-    scopes: string[]
-    /** Study tyles supported by this loader. */
-    types: string[]
+    /** Study modalities supported by this loader. */
+    modalities: string[]
+    /** Mode to use (file, folder, study or url). */
+    mode: ReaderMode
 }
 /**
  * Context for a study load protocol.

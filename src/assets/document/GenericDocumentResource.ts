@@ -16,8 +16,8 @@ export default abstract class GenericDocumentResource extends GenericResource im
 
     protected _sourceFormat: string
 
-    constructor (name: string, type: string, format: string, source: StudyContext) {
-        super(name, GenericResource.CONTEXTS.DOCUMENT, type, source)
+    constructor (name: string, modality: string, format: string, source: StudyContext) {
+        super(name, modality, source)
         this._sourceFormat = format
     }
 

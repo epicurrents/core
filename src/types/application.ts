@@ -32,16 +32,14 @@ import {
  * The most basic type defining properties that must exist in every asset.
  */
 export interface BaseAsset {
-    /** Application context that this asset belongs to. */
-    context: string
     /** Unique id (generated automatically). */
     id: string
     /** Is this asset selected as active. */
     isActive: boolean
+    /** Specific modality (or type) of the resource. */
+    modality: string
     /* Below fields are given proper descriptions in sub-interfaces */
     name: string
-    /** Specific type (or modality) of the resource. */
-    type: string
     /**
      * Add a listener for an `event` or list of events.
      * @param event - Event or list of events to listen for.
@@ -167,13 +165,6 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
-    /**
-     * Application context of this resource.
-     * @remarks
-     * Context in refers to the general modality of the resource, such as
-     * *biosignal*, *radiology* or *multimedia*.
-     */
-    context: string
     /** Any dependencies of this resource that are not yet ready to use. */
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
@@ -254,11 +245,11 @@ export interface EpicurrentsApp {
      */
     useMemoryManager: boolean
     /**
-     * Add a resource to the active dataset.
+     * Add a `resource` to the active dataset.
      * @param resource - The resource to add.
-     * @param scope - Optional resource scope (defaults to the value of the resource's type property).
+     * @param modality - Override resource modality (optional).
      */
-    addResource (resource: DataResource, scope?: string): void
+    addResource (resource: DataResource, modality?: string): void
     /**
      * Modify the default configuration before the app is launched.
      * After launching the app, use setSettingsValue() instead.
@@ -501,12 +492,12 @@ export interface StateManager extends RuntimeState, BaseAsset {
      */
     addDataset (dataset: MediaDataset, setAsActive?: boolean): void
     /**
-     * Add a new `resource` into the given `scope`.
-     * @param scope - Scope of the new resoure.
+     * Add a new `resource` with the given `modality`.
+     * @param modality - Modality of the new resoure.
      * @param resource - The resource to add.
      * @param setAsActive - Should the new resource be set as active (default false).
      */
-    addResource (scope: string, resource: DataResource, setAsActive?: boolean): void
+    addResource (modality: string, resource: DataResource, setAsActive?: boolean): void
     /**
      * Set the given `resource` as not active.
      * @param resource - Resource to deactivate.

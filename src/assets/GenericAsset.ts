@@ -21,20 +21,6 @@ const SCOPE = "GenericAsset"
 
 export default abstract class GenericAsset implements BaseAsset {
     /**
-     * Available application contexts for resources inheriting GenericAsset.
-     */
-    static CONTEXTS = {
-        BIOSIGNAL: 'biosignal',
-        COMPONENT: 'component',
-        DATASET: 'dataset',
-        DOCUMENT: 'document',
-        LOADER: 'loader',
-        PRESENTATION: 'presentation',
-        SERVICE: 'service',
-        UNKNOWN: 'unknown',
-        UTILITY: 'utility',
-    }
-    /**
      * Core events emitted by this asset (not including property change events).
      */
     static readonly EVENTS = AssetEvents
@@ -58,14 +44,13 @@ export default abstract class GenericAsset implements BaseAsset {
         return errorId
     }
     private static USED_IDS = new Set<string>()
-    protected _context: string
     protected _eventBus: ScopedEventBus
     protected _id: string
     protected _isActive: boolean = false
+    protected _modality: string
     protected _name: string
-    protected _type: string
 
-    constructor (name: string, context: string, type: string) {
+    constructor (name: string, modality: string) {
         // Make sure that reference to the global __EPICURRENTS__ object exists.
         if (typeof window.__EPICURRENTS__ === 'undefined') {
             Log.error(
@@ -76,26 +61,12 @@ export default abstract class GenericAsset implements BaseAsset {
         }
         this._eventBus = window.__EPICURRENTS__?.EVENT_BUS || new EventBus()
         this._id = GenericAsset.CreateUniqueId()
-        this._context = GenericAsset.CONTEXTS.UNKNOWN
-        for (const validContext of Object.values(GenericAsset.CONTEXTS)) {
-            if (validContext === context) {
-                this._context = context
-                break
-            }
-        }
-        this._type = type
+        this._modality = modality
         this._name = name
         // Dispatch asset created event.
         setTimeout(() => this.dispatchEvent(AssetEvents.CREATE), 1)
     }
 
-    get context () {
-        return this._context
-    }
-    set context (value: string) {
-        // Context and type should not actually change after the asset has been created.
-        this._setPropertyValue('context', value)
-    }
     get id () {
         return this._id
     }
@@ -108,6 +79,12 @@ export default abstract class GenericAsset implements BaseAsset {
         this._setPropertyValue('isActive', value)
         this.dispatchEvent(value ? AssetEvents.ACTIVATE : AssetEvents.DEACTIVATE, 'after')
     }
+    get modality () {
+        return this._modality
+    }
+    set modality (value: string) {
+        this._setPropertyValue('modality', value)
+    }
     get name () {
         return this._name
     }
@@ -116,12 +93,6 @@ export default abstract class GenericAsset implements BaseAsset {
             return
         }
         this._setPropertyValue('name', value)
-    }
-    get type () {
-        return this._type
-    }
-    set type (value: string) {
-        this._setPropertyValue('type', value)
     }
 
     ///////////////////////////////////////////////////

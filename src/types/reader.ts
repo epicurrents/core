@@ -134,11 +134,11 @@ export interface FileFormatReader extends BaseAsset {
      */
     readUrl (url: StudyContextFile | string, config?: unknown): Promise<StudyContextFile | null>
     /**
-     * See if the given scope is supported by this reader.
-     * @param scope - Scope to check.
+     * See if the given `modality` is supported by this reader.
+     * @param modality - Modality to check.
      * @return True if supported, false if not.
      */
-    isSupportedContext (scope: string): boolean
+    isSupportedModality (modality: string): boolean
     /**
      * Match the given file name against files supported by this reader.
      * @param fileName - Name of the file to match.

@@ -23,8 +23,8 @@ export default abstract class GenericResource extends GenericAsset implements Da
     protected _source: StudyContext | null = null
     protected _state: ResourceState = 'added'
 
-    constructor (name: string, context: string, type: string, source?: StudyContext) {
-        super(name, context, type)
+    constructor (name: string, modality: string, source?: StudyContext) {
+        super(name, modality)
         if (source) {
             this._source = source
         }

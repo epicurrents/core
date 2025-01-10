@@ -317,7 +317,7 @@ export default class MontageService extends GenericService implements BiosignalM
             new Map<string, unknown>([
                 ['config', this._montage.config],
                 ['montage', this._montage.name],
-                ['namespace', this._montage.type],
+                ['namespace', this._montage.modality],
                 ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS._CLONABLE],
                 ['setupChannels', this._montage.setup.channels],
             ])

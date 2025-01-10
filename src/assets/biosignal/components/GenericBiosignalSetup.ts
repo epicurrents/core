@@ -5,13 +5,13 @@
  * @license    Apache-2.0
  */
 
-import {
-    type BiosignalChannel,
-    type BiosignalChannelTemplate,
-    type BiosignalSetup,
-    type SetupChannel,
+import type {
+    BiosignalChannel,
+    BiosignalChannelTemplate,
+    BiosignalSetup,
+    SetupChannel,
 } from '#types/biosignal'
-import { type ConfigBiosignalSetup } from '#types/config'
+import type { ConfigBiosignalSetup } from '#types/config'
 import { INDEX_NOT_ASSIGNED } from '#util'
 
 export default class GenericBiosignalSetup implements BiosignalSetup {
@@ -71,9 +71,9 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 index: index,
                 label: config?.label || '??',
                 laterality: config?.laterality || '',
+                modality: config?.modality || undefined,
                 name: config?.name || '',
                 samplingRate: config?.samplingRate || 0,
-                type: config?.type || undefined,
                 unit: config?.unit || '?',
             } as SetupChannel
         }
@@ -99,9 +99,9 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                                     polarity: chan.polarity,
                                     label: chan.label,
                                     laterality: chan.laterality,
+                                    modality: chan.modality,
                                     name: chan.name,
                                     samplingRate: recordSignals[i].samplingRate,
-                                    type: chan.type,
                                     unit: chan.unit,
                                 })
                             )
@@ -124,9 +124,9 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                                     polarity: chan.polarity,
                                     label: chan.label,
                                     laterality: chan.laterality,
+                                    modality: chan.modality,
                                     name: chan.name,
                                     samplingRate: recordSignals[i].samplingRate,
-                                    type: chan.type,
                                     unit: chan.unit,
                                 })
                             )
@@ -142,8 +142,8 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                         averaged: chan.averaged,
                         label: chan.label,
                         laterality: chan.laterality,
+                        modality: chan.modality,
                         name: chan.name,
-                        type: chan.type,
                         unit: chan.unit,
                     })
                 )

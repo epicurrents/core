@@ -222,9 +222,11 @@ export const calculateSignalOffsets = (
         }
     }
     // Check if the number of non-meta channels matches the constructed layout.
-    const nSignalChannels = channels.filter((chan) => { return chan.type && chan.type !== 'meta' }).length
+    const nSignalChannels = channels.filter(
+        (chan) => { return (chan.modality && chan.modality !== 'meta' && chan.active !== -1) }
+    ).length
     if (nChannels !== nSignalChannels) {
-        Log.warn("The number of channels does not match config layout!", SCOPE)
+        Log.warn(`The number of channels does not match config layout.`, SCOPE)
     }
     // Calculate total trace height, starting with top and bottom margins.
     let layoutH = 2*requiredConfig.yPadding
@@ -253,7 +255,7 @@ export const calculateSignalOffsets = (
             if (chan === undefined) {
                 Log.warn(
                     `Number of layout channels (${chanIdx + 1}) exceeds the number of channels in the EEG record ` +
-                    `(${channels.length})!`,
+                    `(${channels.length}).`,
                 SCOPE)
                 continue
             }
@@ -264,7 +266,7 @@ export const calculateSignalOffsets = (
             if (!groupSpacing) {
                 yPos -= (1/layoutH)*requiredConfig.channelSpacing
             } else {
-                // Skip the first channel (group spacing has already been applied)
+                // Skip the first channel (group spacing has already been applied).
                 groupSpacing = false
             }
             chan.offset = {
@@ -272,9 +274,9 @@ export const calculateSignalOffsets = (
                 bottom: yPos - 0.5*chanHeight,
                 top: yPos + 0.5*chanHeight,
             }
-            // Check if a meta channel has slipped into the visible layout
-            if ((channels[chanIdx] as MontageChannel).type == 'meta') {
-                Log.warn(`Metadata channel ${chan.label} has been included into visbile layout!`, SCOPE)
+            // Check if a meta channel has slipped into the visible layout.
+            if (chan.modality === 'meta') {
+                Log.warn(`Metadata channel ${chan.label} has been included into visbile layout.`, SCOPE)
             }
         }
     }
@@ -614,7 +616,7 @@ export const getChannelFilters = (
     defaultFilters: BiosignalFilters,
     settings: CommonBiosignalSettings
 ): BiosignalFilters => {
-    const applyDefaults = settings.filterChannelTypes[channel.type]
+    const applyDefaults = settings.filterChannelTypes[channel.modality]
     const highpass = channel.highpassFilter
                      || (applyDefaults?.includes('highpass') ? defaultFilters.highpass : 0) || 0
     const lowpass = channel.lowpassFilter
@@ -844,11 +846,11 @@ export const mapMontageChannels = (
     const getChannel = (props?: BiosignalChannelProperties): MontageChannel => {
         // If visibility is set in config, use it. Otherwise hide if meta channel.
         const visible = props?.visible !== undefined ? props.visible
-                        : props?.type === 'meta' ? false : true
+                        : props?.modality === 'meta' ? false : true
         const newChan = {
             name: props?.name || '--',
             label: props?.label || '',
-            type: (props?.type || ''),
+            modality: props?.modality || '',
             laterality: props?.laterality || '',
             active: typeof props?.active === 'number' ? props.active : NUMERIC_ERROR_VALUE,
             reference: props?.reference || [],
@@ -877,7 +879,7 @@ export const mapMontageChannels = (
                 getChannel({
                     label: chan.label,
                     name: chan.name,
-                    type: chan.type,
+                    modality: chan.modality,
                     laterality: chan.laterality,
                     active: chan.index,
                     samplingRate: chan.samplingRate,
@@ -914,6 +916,7 @@ export const mapMontageChannels = (
             channels.push(
                 getChannel({
                     label: chan.label,
+                    modality: chan.modality,
                     name: chan.name,
                 })
             )
@@ -944,7 +947,7 @@ export const mapMontageChannels = (
                     getChannel({
                         label: chan.label,
                         name: chan.name,
-                        type: chan.type || actChan.type,
+                        modality: chan.modality || actChan.modality,
                         laterality: chan.laterality || actChan.laterality,
                         active: actChan.index,
                         reference: refs,
@@ -962,7 +965,7 @@ export const mapMontageChannels = (
                 getChannel({
                     label: chan.label,
                     name: chan.name,
-                    type: chan.type || actChan.type,
+                    modality: chan.modality || actChan.modality,
                     laterality: chan.laterality || actChan.laterality,
                     active: actChan.index,
                     samplingRate: actChan.samplingRate,
@@ -1121,7 +1124,7 @@ export const shouldDisplayChannel = (
         showMissingChannels: boolean
     }
 ) => {
-    if (!channel || !channel.type || channel.type === 'meta') {
+    if (!channel || !channel.modality || channel.modality === 'meta') {
         return false
     } else if (useRaw) {
         return true

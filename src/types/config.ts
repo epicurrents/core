@@ -239,10 +239,9 @@ export type ConfigStudyContext = {
 export type ConfigStudyLoader = {
     collections?: { [key: string]: StudyContextCollection }
     loader?: string
+    modality?: string
     name?: string
-    scope?: string
     studies?: { [key: string]: unknown }
-    type?: string
 }
 /**
  * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.

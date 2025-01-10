@@ -75,7 +75,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         manager?: MemoryManager,
         config?: ConfigBiosignalMontage,
     ) {
-        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, recording.type)
+        super(name, recording.modality)
         this._label = config?.label || name
         this._recording = recording
         this._setup = setup

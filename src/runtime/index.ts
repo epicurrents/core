@@ -91,7 +91,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
     protected _isInitialized = false
 
     constructor () {
-        super('RuntimeStateManager', GenericAsset.CONTEXTS.UTILITY, GenericAsset.CONTEXTS.UTILITY)
+        super('RuntimeStateManager', 'runtime')
     }
 
     // Returning null for __proto__ is required to make this class compatible with the RuntimeState type.
@@ -141,11 +141,12 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         }
     }
 
-    addResource (scope: string, resource: DataResource, setAsActive = false) {
-        const resourceModule = state.MODULES.get(scope)
+    addResource (modality: string, resource: DataResource, setAsActive = false) {
+        const resourceModule = state.MODULES.get(modality)
         if (!resourceModule) {
             Log.error(
-                `Cound not add resource '${resource.name}' as no loaded resource module matches its type '${scope}'.`,
+                `Cound not add resource '${resource.name}' as no loaded resource module matches its modality ` +
+                `${modality}'.`,
             SCOPE)
             return
         }
@@ -243,7 +244,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         let studyContext = null as StudyContext | null
         loader.loadDataset(folder, async (study) => {
             for (const loader of studyLoaders) {
-                if (loader.isSupportedContext(study.context) && loader.isSupportedType(study.type)) {
+                if (loader.isSupportedModality(study.modality)) {
                     if (study.files.length === 1) {
                         if (study.files[0].file) {
                             if (!studyContext) {

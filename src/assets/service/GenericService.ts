@@ -53,7 +53,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
     protected _worker: Worker | null = null
 
     constructor (name: string, worker?: Worker | MessagePort, shared?: boolean, manager?: MemoryManager) {
-        super(name, GenericAsset.CONTEXTS.LOADER, '')
+        super(name, 'service')
         this._manager = manager || null
         if (worker) {
             if (shared) {

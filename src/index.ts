@@ -185,21 +185,24 @@ export class Epicurrents implements EpicurrentsApp {
         return this.#memoryManager !== null
     }
 
-    addResource (resource: DataResource, scope?: string) {
-        if (!resource.type) {
-            Log.error(`Cannot add a resource without a type.`, SCOPE)
+    addResource (resource: DataResource, modality?: string) {
+        if (!resource.modality) {
+            Log.error(`Cannot add a resource without a modality.`, SCOPE)
             return
         }
-        const finalScope = scope || resource.type
-        if (!this.#runtime.MODULES.get(finalScope)) {
-            Log.error(`Cannot add resource to scope '${finalScope}'; the corresponding module has not been loaded.`, SCOPE)
+        const finalModality = modality || resource.modality
+        if (!this.#runtime.MODULES.get(finalModality)) {
+            Log.error(
+                `Cannot add resource with modality '${finalModality}'; the corresponding module has not been loaded.`,
+                SCOPE
+            )
             return
         }
         if (!this.#runtime.APP.activeDataset) {
             Log.error(`Cannot add resource without an active dataset`, SCOPE)
             return
         }
-        this.#runtime.addResource(finalScope, resource)
+        this.#runtime.addResource(finalModality, resource)
     }
 
     configure (config: { [field: string]: SettingsValue }) {
@@ -240,6 +243,12 @@ export class Epicurrents implements EpicurrentsApp {
                 // TODO: Shared worker cache.
             } else {
                 this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
+                if (!this.#memoryManager.isAvailable) {
+                    // Shared array buffer allocation failed, possibly due to insufficient memory.
+                    Log.warn(`Memory manager initiation failed, defaulting to basic mode.`, 'index')
+                    this.#memoryManager = null
+                    SETTINGS.app.useMemoryManager = false
+                }
             }
         }
         // Make sure that the container element exists.
@@ -256,20 +265,12 @@ export class Epicurrents implements EpicurrentsApp {
         return true
     }
 
-    /*
-     * Load a dataset from the given `folder`.
-     * @param folder - `MixedFileSystemItem` containing the dataset files.
-     * @param name - Optional name for the dataset.
-    loadDataset = async (loader: BaseDataset, folder: FileSystemItem | string[], name?: string, context?: string) => {
-    }
-     */
-
     async loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string) {
         const context = this.#runtime.APP.studyLoaders.get(loader)
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
             // Add an error resource in place of the resource that failed to load.
-            const errorResource = new ErrorResource(name || 'Unknown', 'unknown', 'UNKNOWN', undefined)
+            const errorResource = new ErrorResource(name || 'Unknown', 'error', undefined)
             this.#runtime.addResource('UNKNOWN', errorResource)
             return null
         }
@@ -290,17 +291,16 @@ export class Epicurrents implements EpicurrentsApp {
             // Add an error resource in place of the resource that failed to load.
             const errorResource = new ErrorResource(
                 name || 'Unknown',
-                context.loader.resourceType,
-                context.loader.resourceScope,
+                context.loader.resourceModality,
                 undefined
             )
-            this.#runtime.addResource(context.loader.resourceScope, errorResource)
+            this.#runtime.addResource(context.loader.resourceModality, errorResource)
             return null
         }
         const nextIdx = await context.loader.useStudy(study)
         const resource = await context.loader.getResource(nextIdx)
         if (resource) {
-            this.#runtime.addResource(context.loader.resourceScope, resource)
+            this.#runtime.addResource(context.loader.resourceModality, resource)
             // Start preparing the resource, but return it immediately.
             resource.prepare().then(success => {
                 if (!success) {
@@ -309,8 +309,8 @@ export class Epicurrents implements EpicurrentsApp {
             })
             return resource
         } else {
-            const errorResource = new ErrorResource(study.name, study.type, context.loader.resourceScope, study)
-            this.#runtime.addResource(context.loader.resourceScope, errorResource)
+            const errorResource = new ErrorResource(study.name, study.modality, study)
+            this.#runtime.addResource(context.loader.resourceModality, errorResource)
         }
         return null
     }
@@ -341,8 +341,7 @@ export class Epicurrents implements EpicurrentsApp {
                 label: label,
                 mode: mode,
                 loader: loader,
-                scopes: loader.supportedScopes,
-                types: loader.supportedTypes
+                modalities: loader.supportedModalities
             }
         )
     }

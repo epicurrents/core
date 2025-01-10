@@ -44,7 +44,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _volume: GainNode | null = null
 
     constructor (name: string, data?: ArrayBuffer) {
-        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, 'audio')
+        super(name, 'audio')
         if (data) {
             this.loadFile(data)
         }

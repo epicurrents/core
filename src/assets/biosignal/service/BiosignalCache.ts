@@ -25,7 +25,7 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
      * @param input - Possible signal cache to use for input data.
      */
     constructor (dataDuration: number, input?: SignalDataCache) {
-        super('Biosignal cache', GenericAsset.CONTEXTS.BIOSIGNAL, 'cache')
+        super('Biosignal cache', 'cache')
         this._dataDuration = dataDuration
         if (input) {
             this._input = input

@@ -40,8 +40,6 @@ const SCOPE = 'GenericBiosignalResource'
 
 export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
 
-    static readonly CONTEXT = GenericResource.CONTEXTS.BIOSIGNAL
-
     protected _activeMontage: BiosignalMontage | null = null
     protected _annotations: BiosignalAnnotation[] = []
     protected _cacheProps: SignalDataCache | null = null
@@ -76,9 +74,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _videos: VideoAttachment[] = []
     protected _viewStart: number = 0
 
-    constructor (name: string, type: string, source?: StudyContext) {
-        const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS.modules[type] as CommonBiosignalSettings
-        super(name, GenericBiosignalResource.CONTEXT, type, source)
+    constructor (name: string, modality: string, source?: StudyContext) {
+        const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS.modules[modality] as CommonBiosignalSettings
+        super(name, modality, source)
         // Set default filters.
         this._filterChannelTypes = TYPE_SETTINGS?.filterChannelTypes || []
         this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0
@@ -279,10 +277,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             return
         }
         this._setPropertyValue('totalDuration', value)
-    }
-
-    get type () {
-        return this._type
     }
 
     get url () {

@@ -2,13 +2,13 @@ import { GenericAsset } from '../../src'
 import { BaseAsset } from '../../src/types'
 
 export default class AssetInstance extends GenericAsset implements BaseAsset {
-    constructor (name: string, scope: string, type: string) {
-        super(name, scope, type)
+    constructor (name: string, modality: string) {
+        super(name, modality)
     }
     get testProperty () {
         return null
     }
     set testProperty (value: any) {
-        this.onPropertyUpdate('test-property') // TODO: Deprecated.
+        this.dispatchPropertyChangeEvent('testProperty', value, value)
     }
 }

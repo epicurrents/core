@@ -10,14 +10,13 @@ import { type ConfigStudyContext, type ConfigStudyLoader } from '#types/config'
 import { type FileFormatReader } from '#root/src/types/reader'
 import { type StudyContext } from '#types/study'
 import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
-import GenericBiosignalResource from '#assets/biosignal/GenericBiosignalResource'
 
 //const SCOPE = 'BiosignalStudyLoader'
 
 export default class BiosignalStudyLoader extends GenericStudyLoader {
 
-    constructor (name: string, contexts: string[], types: string[], loader: FileFormatReader) {
-        super(name, contexts, types, loader)
+    constructor (name: string, modalities: string[], loader: FileFormatReader) {
+        super(name, modalities, loader)
     }
 
     async loadFromUrl(fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext):
@@ -26,7 +25,6 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
         if (!study) {
             return null
         }
-        study.context = GenericBiosignalResource.CONTEXT
         return study
     }
 
@@ -51,7 +49,7 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
                     partial: false,
                     range: [],
                     role: 'media',
-                    type: 'video',
+                    modality: 'video',
                     // Video files require a URL to play in the browser.
                     url: studyFile.url,
                 })
@@ -59,8 +57,8 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
                 if (!study.format) {
                     study.format = format
                 }
-                if (!study.type) {
-                    study.type = 'video'
+                if (!study.modality) {
+                    study.modality = 'video'
                 }
                 const startDif = 0
                 const group = 0

@@ -18,6 +18,7 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     protected _priority = 0
     protected _start: number
     protected _text = ''
+    protected _type = 'annotation'
     protected _visible = true
     protected _color?: SettingsColor
     protected _opacity?: number
@@ -29,7 +30,7 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         annoClass?: BiosignalAnnotation['class'], channels?: number[], priority?: number, text?: string,
         visible?: boolean, background?: boolean, color?: SettingsColor, opacity?: number
     ) {
-        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, 'annotation')
+        super(name, 'annotation')
         this._duration = duration
         this._label = label
         this._start = start
@@ -88,6 +89,14 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         this._setPropertyValue('class', value)
     }
 
+    get color () {
+        return this._color
+    }
+    set color (value: SettingsColor | undefined) {
+        this._setPropertyValue('color', value)
+        this.dispatchEvent('appearance-changed')
+    }
+
     get duration () {
         return this._duration
     }
@@ -100,6 +109,14 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set label (value: string) {
         this._setPropertyValue('label', value)
+    }
+
+    get opacity () {
+        return this._opacity
+    }
+    set opacity (value: number | undefined) {
+        this._setPropertyValue('opacity', value)
+        this.dispatchEvent('appearance-changed')
     }
 
     get priority () {
@@ -123,26 +140,17 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         this._setPropertyValue('text', value)
     }
 
+    get type () {
+        return this._type
+    }
+    set type (value: string) {
+        this._setPropertyValue('type', value)
+    }
+
     get visible () {
         return this._visible
     }
     set visible (value: boolean) {
         this._setPropertyValue('visible', value)
-    }
-
-    get color () {
-        return this._color
-    }
-    set color (value: SettingsColor | undefined) {
-        this._setPropertyValue('color', value)
-        this.dispatchEvent('appearance-changed')
-    }
-
-    get opacity () {
-        return this._opacity
-    }
-    set opacity (value: number | undefined) {
-        this._setPropertyValue('opacity', value)
-        this.dispatchEvent('appearance-changed')
     }
 }

@@ -26,10 +26,10 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
      * Create a new dataset with the given properties.
      * @param name - Name of the dataset.
      * @param sortingScheme - Optional sorting scheme for resources in this dataset.
-     * @param type - Optional type for the dataset (defaults to 'dataset').
+     * @param modality - Optional modality for the dataset (defaults to 'dataset').
      */
-    constructor (name: string, sortingScheme?: ResourceSortingScheme, type?: string) {
-        super(name, GenericAsset.CONTEXTS.DATASET, type || '')
+    constructor (name: string, sortingScheme?: ResourceSortingScheme, modality?: string) {
+        super(name, modality || 'dataset')
         this._resourceSorting = {
             order: [],
             scheme: sortingScheme || 'id',
@@ -42,15 +42,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
 
     get credentials () {
         return this._credentials
-    }
-
-    get context () {
-        return this._context
-    }
-    set context (value: string) {
-        if (this._context !== value) {
-            this._setPropertyValue('context', value)
-        }
     }
 
     get resources () {
@@ -79,11 +70,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
                     mapped.set(initial, [r])
                 }
             }
-        } else if (this._resourceSorting.scheme === 'context') {
-            for (const rCtx of this._resourceSorting.order) {
-                mapped.set(rCtx, this._resources.filter(r => r.context === rCtx))
-
-            }
         } else if (this._resourceSorting.scheme === 'id') {
             const sorted = this._resourceSorting.order.length ? [...this._resources].sort(
                                 (a, b) => this._resourceSorting.order.indexOf(a.id)
@@ -94,10 +80,9 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
             for (const r of sorted) {
                 mapped.set(r.id, [r])
             }
-        } else if (this._resourceSorting.scheme === 'type') {
-            for (const rType of this._resourceSorting.order) {
-                mapped.set(rType, this._resources.filter(r => r.type === rType))
-
+        } else if (this._resourceSorting.scheme === 'modality') {
+            for (const rCtx of this._resourceSorting.order) {
+                mapped.set(rCtx, this._resources.filter(r => r.modality === rCtx))
             }
         }
         return mapped
@@ -118,20 +103,10 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
     }
 
-    getResourcesByContext (...contexts: string[]) {
+    getResourcesByModality (...modalities: string[]) {
         const matching = [] as DataResource[]
         for (const resource of this._resources) {
-            if (contexts.includes(resource.context)) {
-                matching.push(resource)
-            }
-        }
-        return matching
-    }
-
-    getResourcesByType (...types: string[]) {
-        const matching = [] as DataResource[]
-        for (const resource of this._resources) {
-            if (types.includes(resource.type)) {
+            if (modalities.includes(resource.modality)) {
                 matching.push(resource)
             }
         }
