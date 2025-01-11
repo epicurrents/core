@@ -1,30 +1,28 @@
 # Epicurrents
 
-A neurophysiological study viewer for analyzing and visualizing neurophysiological data.
+An open-source JavaScript application for analyzing and visualizing neurophysiological signal data.
 
 ## Overview
 
-EpiCurrents is a software tool designed for viewing and analyzing neurophysiological studies. It provides researchers and medical professionals with tools to examine neurophysiological recordings.
+The core module provides the main application class and base classes for different modules.
 
-## Features
+## Contents
 
-- Neurophysiological data visualization
-- Study analysis tools
-- Data format compatibility *(please specify supported formats)*
+- Main application class
+- Base classes for use in modules:
+  * Biosignal study modules
+  * Document modules
+  * File readers
+  * Services
+  * Workers
+- Utility functions
 
 ## Getting Started
 
-### Prerequisites
-
-*(To be implemented)*
-
-### Installation
-
-*(To be implemented)*
-
+*TBA*
 ## Usage
 
-*(To be implemented with examples)*
+*TBA*
 
 ## Contributing
 
@@ -37,8 +35,8 @@ We welcome contributions to Epicurrents! Here's how you can help:
 5. Open a Pull Request
 
 ## License
-
-Copyright 2019-2024 Sampsa Lohi
+```
+Copyright 2019-2025 Sampsa Lohi
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use the files in this repository except in compliance
@@ -51,7 +49,4 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-## Contact
-
-*(To be implemented)*
+```
