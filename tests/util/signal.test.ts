@@ -12,13 +12,18 @@ import { CommonBiosignalSettings } from '../../src/types/config'
 
 const baseChannel: BiosignalChannel = {
     name: 'test',
-    type: 'eeg',
+    modality: 'eeg',
     visible: true,
     samplingRate: 250,
-    active: 1,
     amplification: 0,
     averaged: false,
     displayPolarity: 0,
+    filters: {
+        highpass: null,
+        lowpass: null,
+        notch: null,
+        bandreject: []
+    },
     highpassFilter: null,
     label: '',
     laterality: '',
@@ -30,7 +35,6 @@ const baseChannel: BiosignalChannel = {
         bottom: 0,
         top: 0
     },
-    reference: [],
     sampleCount: 0,
     sensitivity: 0,
     signal: new Float32Array(),
@@ -38,9 +42,18 @@ const baseChannel: BiosignalChannel = {
     addMarkers: function (..._markers: BiosignalChannelMarker[]): void {
         throw new Error('Function not implemented.')
     },
+    setHighpassFilter: function (_value: number | null): void {
+        throw new Error('Function not implemented.')
+    },
+    setLowpassFilter: function (_value: number | null): void {
+        throw new Error('Function not implemented.')
+    },
+    setNotchFilter: function (_value: number | null): void {
+        throw new Error('Function not implemented.')
+    },
     setSignal: function (_signal: Float32Array): void {
         throw new Error('Function not implemented.')
-    }
+    },
 }
 
 const baseSettings: CommonBiosignalSettings = {
@@ -129,7 +142,7 @@ describe('Signal utilities', () => {
 
         it('should return false for null or meta channels', () => {
             expect(shouldDisplayChannel(null, false)).toBe(false)
-            expect(shouldDisplayChannel({ ...baseChannel, type: 'meta' }, false)).toBe(false)
+            expect(shouldDisplayChannel({ ...baseChannel, modality: 'meta' }, false)).toBe(false)
         })
 
         it('should return true for valid channels in raw mode', () => {
@@ -151,27 +164,28 @@ describe('Signal utilities', () => {
 
     describe('getChannelFilters', () => {
         const defaultFilters: BiosignalFilters = {
+            bandreject: [],
             highpass: 1,
             lowpass: 70,
             notch: 50
         }
 
-
         it('should apply correct filters based on channel type', () => {
             const eegChannel: BiosignalChannel = {
                 ...baseChannel,
                 name: 'EEG1',
-                type: 'eeg',
+                modality: 'eeg',
             }
             const ecgChannel: BiosignalChannel = {
                 ...baseChannel,
                 name: 'ECG',
-                type: 'ecg',
+                modality: 'ecg',
             }
             const eegFilters = getChannelFilters(eegChannel, defaultFilters, baseSettings)
             const ecgFilters = getChannelFilters(ecgChannel, defaultFilters, baseSettings)
             expect(eegFilters).toEqual(defaultFilters)
             expect(ecgFilters).toEqual({
+                bandreject: [],
                 highpass: 0,
                 lowpass: 70,
                 notch: 0
@@ -182,7 +196,7 @@ describe('Signal utilities', () => {
             const channelWithCustomFilters: BiosignalChannel = {
                 ...baseChannel,
                 name: 'EEG1',
-                type: 'eeg',
+                modality: 'eeg',
                 samplingRate: 250,
                 highpassFilter: 0.5,
                 lowpassFilter: 100,
@@ -190,6 +204,7 @@ describe('Signal utilities', () => {
             }
             const filters = getChannelFilters(channelWithCustomFilters, defaultFilters, baseSettings)
             expect(filters).toEqual({
+                bandreject: [],
                 highpass: 0.5,
                 lowpass: 100,
                 notch: 60
@@ -199,6 +214,7 @@ describe('Signal utilities', () => {
 
     describe('shouldFilterSignal', () => {
         const defaultFilters: BiosignalFilters = {
+            bandreject: [],
             highpass: 1,
             lowpass: 70,
             notch: 50
@@ -215,7 +231,7 @@ describe('Signal utilities', () => {
             const channel: BiosignalChannel = {
                 ...baseChannel,
                 name: 'EEG1',
-                type: 'eeg',
+                modality: 'eeg',
                 samplingRate: 250,
             }
             expect(shouldFilterSignal(channel, defaultFilters, settings)).toBe(true)
@@ -225,10 +241,11 @@ describe('Signal utilities', () => {
             const channel: BiosignalChannel = {
                 ...baseChannel,
                 name: 'Other',
-                type: 'other',
+                modality: 'other',
                 samplingRate: 250,
             }
             expect(shouldFilterSignal(channel, {
+                bandreject: [],
                 highpass: 0,
                 lowpass: 0,
                 notch: 0

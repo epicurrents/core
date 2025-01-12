@@ -605,6 +605,22 @@ export const floatsAreEqual = (float1: number, float2: number, bits: 16 | 32 | 6
 }
 
 /**
+ * Generate a sine wave singal with the given parameters.
+ * @param frequency - Frequency of the sine wave.
+ * @param amplitude - Maximum amplitude of the sine wave (unitless).
+ * @param samplingRate - Sampling rate of the signal in Hz.
+ * @param duration - Duration of the signal in seconds.
+ * @returns An array of signal data points.
+ */
+export const generateSineWave = (frequency: number, amplitude: number, samplingRate: number, duration: number) => {
+    const signal = [] as number[]
+    for (let i=0; i<Math.round(samplingRate*duration); i++) {
+        signal[i] = amplitude*Math.sin(i*(frequency/samplingRate)*2*Math.PI)
+    }
+    return signal
+}
+
+/**
  * Get the filters to apply to the signal in this `channel`.
  * @param channel - Signal channel.
  * @param defaultFilters - Recording default filters.
@@ -1105,7 +1121,14 @@ export const shouldFilterSignal = (
     defaultFilters: BiosignalFilters,
     settings: CommonBiosignalSettings
 ) => {
-    return Object.values(getChannelFilters(channel, defaultFilters, settings)).some(v => Array.isArray(v) || v > 0)
+    return Object.values(getChannelFilters(channel, defaultFilters, settings)).some(v => {
+        if (Array.isArray(v)) {
+            // There are bandreject filters to apply.
+            return v.length > 0
+        }
+        // There is a highpass, lowpass or notch filter to apply.
+        return v > 0
+    })
 }
 
 /**
