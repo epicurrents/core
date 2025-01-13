@@ -1,14 +1,19 @@
 import {
-    //calculateSignalOffsets,
+    calculateSignalOffsets,
+    combineAllSignalParts,
     combineSignalParts,
     concatTypedNumberArrays,
+    fftAnalysis,
+    filterSignal,
     floatsAreEqual,
     generateSineWave,
     getChannelFilters,
+    interpolateSignalValues,
+    resampleSignal,
     shouldDisplayChannel,
     shouldFilterSignal,
 } from '../../src/util/signal'
-import { BiosignalChannelMarker, type BiosignalChannel, type BiosignalFilters } from '../../src/types/biosignal'
+import { BiosignalChannelMarker, BiosignalChannelProperties, type BiosignalChannel, type BiosignalFilters } from '../../src/types/biosignal'
 import { CommonBiosignalSettings } from '../../src/types/config'
 
 const baseChannel: BiosignalChannel = {
@@ -193,7 +198,7 @@ describe('Signal utilities', () => {
             expect(Array.from(partA.signals[0].data)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
         })
 
-        it('should not combine parts with different sampling rates', () => {
+        it('should not combine parts with different sampling rates in data mode', () => {
             const partA = {
                 start: 0,
                 end: 5,
@@ -211,8 +216,443 @@ describe('Signal utilities', () => {
                 }]
             }
             const combined = combineSignalParts(partA, partB)
+            expect(combined).toBe(false)
+            expect(partA.signals[0].data.length).toBe(5)
+        })
+
+        it('should invalidate signals with different sampling rates in shape mode', () => {
+            const partA = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 5,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([6, 7, 8, 9, 10]),
+                    samplingRate: 2
+                }]
+            }
+            const combined = combineSignalParts(partA, partB, 'shape')
             expect(combined).toBe(true)
             expect(partA.signals[0].data.length).toBe(0)
+        })
+    })
+
+    describe('calculateSignalOffsets', () => {
+        it('should calculate offsets in raw mode with no config', () => {
+            const channels = [
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true }
+            ]
+            calculateSignalOffsets(channels)
+            expect(channels[0].offset).toEqual({
+                baseline: 0.75,
+                bottom: 0.625,
+                top: 0.875
+            })
+            expect(channels[1].offset).toEqual({
+                baseline: 0.5,
+                bottom: 0.375,
+                top: 0.625
+            })
+            expect(channels[2].offset).toEqual({
+                baseline: 0.25,
+                bottom: 0.125,
+                top: 0.375
+            })
+        })
+
+        it('should handle empty channels array', () => {
+            const channels: BiosignalChannelProperties[] = []
+            calculateSignalOffsets(channels)
+            expect(channels).toEqual([])
+        })
+
+        it('should handle single channel', () => {
+            const channels = [{ ...baseChannel, visible: true }]
+            calculateSignalOffsets(channels)
+            expect(channels[0].offset).toEqual({
+                baseline: 0.5,
+                bottom: 0,
+                top: 1
+            })
+        })
+
+        it('should respect channel groups with custom spacing', () => {
+            const channels = [
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true }
+            ]
+            // Equal spacing of all elements.
+            calculateSignalOffsets(channels, {
+                channelSpacing: 1,
+                groupSpacing: 1,
+                isRaw: false,
+                layout: [2, 2],
+                yPadding: 1
+            })
+            // First group.
+            expect(channels[0].offset.baseline).toBeCloseTo(0.8, 4)
+            expect(channels[1].offset.baseline).toBeCloseTo(0.6, 4)
+            // Second group.
+            expect(channels[2].offset.baseline).toBeCloseTo(0.4, 4)
+            expect(channels[3].offset.baseline).toBeCloseTo(0.2, 4)
+            channels.splice(2)
+            // Larger group spacing.
+            calculateSignalOffsets(channels, {
+                channelSpacing: 1,
+                groupSpacing: 2,
+                isRaw: false,
+                layout: [1, 1],
+                yPadding: 1
+            })
+            expect(channels[0].offset.baseline).toBeCloseTo(0.75, 4)
+            expect(channels[1].offset.baseline).toBeCloseTo(0.25, 4)
+        })
+
+        it('should handle channels with metadata', () => {
+            const channels = [
+                { ...baseChannel, visible: true, modality: 'eeg' },
+                { ...baseChannel, visible: true, modality: 'meta' },
+                { ...baseChannel, visible: true, modality: 'eeg' }
+            ]
+            calculateSignalOffsets(channels)
+            expect(channels[0].offset.baseline).toBeCloseTo(0.666667, 3)
+            expect(channels[1].offset.baseline).toStrictEqual(0) // Metadata channel is omitted.
+            expect(channels[2].offset.baseline).toBeCloseTo(0.333333, 3)
+        })
+
+        it('should respect custom y-padding', () => {
+            const channels = [
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true }
+            ]
+            calculateSignalOffsets(channels, {
+                channelSpacing: 1,
+                groupSpacing: 1,
+                isRaw: false,
+                layout: [2],
+                yPadding: 2
+            })
+            // Distance from vieport top/bottom should be twice the distance between channels.
+            expect(channels[0].offset.baseline).toBeCloseTo(0.6, 4)
+            expect(channels[1].offset.baseline).toBeCloseTo(0.4, 4)
+        })
+    })
+
+    describe('combineAllSignalParts', () => {
+        it('should return empty array for no parts', () => {
+            const result = combineAllSignalParts()
+            expect(result).toEqual([])
+        })
+
+        it('should return single part unchanged', () => {
+            const part = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineAllSignalParts(part)
+            expect(result).toEqual([part])
+        })
+
+        it('should combine multiple consecutive parts', () => {
+            const part1 = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const part2 = {
+                start: 5,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([6, 7, 8, 9, 10]),
+                    samplingRate: 1
+                }]
+            }
+            const part3 = {
+                start: 10,
+                end: 15,
+                signals: [{
+                    data: new Float32Array([11, 12, 13, 14, 15]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineAllSignalParts(part1, part2, part3)
+            expect(result.length).toBe(1)
+            expect(result[0].start).toBe(0)
+            expect(result[0].end).toBe(15)
+            expect(Array.from(result[0].signals[0].data)).toEqual([
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ])
+        })
+
+        it('should handle overlapping parts', () => {
+            const part1 = {
+                start: 0,
+                end: 7,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5, 6, 7]),
+                    samplingRate: 1
+                }]
+            }
+            const part2 = {
+                start: 5,
+                end: 12,
+                signals: [{
+                    data: new Float32Array([11, 12, 13, 14, 15, 16, 17]),
+                    samplingRate: 1
+                }]
+            }
+            const part3 = {
+                start: 10,
+                end: 15,
+                signals: [{
+                    data: new Float32Array([21, 22, 23, 24, 25]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineAllSignalParts(part1, part2, part3)
+            expect(result.length).toBe(1)
+            expect(result[0].start).toBe(0)
+            expect(result[0].end).toBe(15)
+        })
+
+        it('should keep non-consecutive parts separate', () => {
+            const part1 = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const part2 = {
+                start: 10,
+                end: 15,
+                signals: [{
+                    data: new Float32Array([6, 7, 8, 9, 10]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineAllSignalParts(part1, part2)
+            expect(result.length).toBe(2)
+            expect(result[0].start).toBe(0)
+            expect(result[0].end).toBe(5)
+            expect(result[1].start).toBe(10)
+            expect(result[1].end).toBe(15)
+        })
+
+        it('should handle parts with different sampling rates', () => {
+            const part1 = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const part2 = {
+                start: 5,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([6, 7, 8, 9, 10]),
+                    samplingRate: 2
+                }]
+            }
+            const result = combineAllSignalParts(part1, part2)
+            expect(result.length).toBe(1)
+            expect(result[0].signals[0].data.length).toBe(0)
+        })
+    })
+
+    describe('combineSignalParts', () => {
+        it('should combine consecutive signal parts', () => {
+            const partA = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 5,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([6, 7, 8, 9, 10]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineSignalParts(partA, partB)
+            expect(result).toBe(true)
+            expect(partA.start).toBe(0)
+            expect(partA.end).toBe(10)
+            expect(Array.from(partA.signals[0].data)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        })
+
+        it('should handle overlapping signal parts', () => {
+            const partA = {
+                start: 0,
+                end: 7,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5, 6, 7]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 5,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([8, 9, 10, 11, 12]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineSignalParts(partA, partB)
+            expect(result).toBe(true)
+            expect(partA.start).toBe(0)
+            expect(partA.end).toBe(10)
+            expect(Array.from(partA.signals[0].data)).toEqual([1, 2, 3, 4, 5, 8, 9, 10, 11, 12])
+        })
+
+        it('should handle contained signal parts', () => {
+            const partA = {
+                start: 0,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 3,
+                end: 6,
+                signals: [{
+                    data: new Float32Array([11, 12, 13]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineSignalParts(partA, partB)
+            expect(result).toBe(true)
+            expect(partA.start).toBe(0)
+            expect(partA.end).toBe(10)
+            expect(Array.from(partA.signals[0].data)).toEqual([1, 2, 3, 11, 12, 13, 7, 8, 9, 10])
+        })
+
+        it('should handle overflowing signal parts', () => {
+            const partA = {
+                start: 3,
+                end: 6,
+                signals: [{
+                    data: new Float32Array([11, 12, 13]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 0,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineSignalParts(partA, partB)
+            expect(result).toBe(true)
+            expect(partA.start).toBe(0)
+            expect(partA.end).toBe(10)
+            expect(Array.from(partA.signals[0].data)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        })
+
+        it('should reject parts with different sampling rates', () => {
+            const partA = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 5,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([6, 7, 8, 9, 10]),
+                    samplingRate: 2
+                }]
+            }
+            const result = combineSignalParts(partA, partB)
+            expect(result).toBe(false)
+            expect(partA.signals[0].data.length).toBe(5)
+        })
+
+        it('should handle empty signals', () => {
+            const partA = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 5,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([6, 7, 8, 9, 10]),
+                    samplingRate: 1
+                }]
+            }
+            // In data mode.
+            const data = combineSignalParts(partA, partB)
+            expect(data).toBe(true)
+            expect(partA.start).toBe(0)
+            expect(partA.end).toBe(10)
+            expect(partA.signals[0].data.length).toBe(5)
+            // In shape mode.
+            partA.start = 0
+            partA.end = 5
+            partA.signals[0].data = new Float32Array([])
+            const shape = combineSignalParts(partA, partB, 'shape')
+            expect(shape).toBe(true)
+            expect(partA.start).toBe(0)
+            expect(partA.end).toBe(10)
+            expect(partA.signals[0].data.length).toBe(0)
+        })
+
+        it('should return false for non-consecutive parts', () => {
+            const partA = {
+                start: 0,
+                end: 5,
+                signals: [{
+                    data: new Float32Array([1, 2, 3, 4, 5]),
+                    samplingRate: 1
+                }]
+            }
+            const partB = {
+                start: 7,
+                end: 10,
+                signals: [{
+                    data: new Float32Array([8, 9, 10]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineSignalParts(partA, partB)
+            expect(result).toBe(false)
+            expect(Array.from(partA.signals[0].data)).toEqual([1, 2, 3, 4, 5])
         })
     })
 
@@ -241,7 +681,193 @@ describe('Signal utilities', () => {
             expect(result).toBe(arr)
         })
     })
-    
+
+    describe('fftAnalysis', () => {
+        it('should handle empty signal', () => {
+            const result = fftAnalysis(new Float32Array([]), 250)
+            expect(result.frequencyBins).toEqual([])
+            expect(result.magnitudes).toEqual([])
+            expect(result.phases).toEqual([])
+            expect(result.psds).toEqual([])
+            expect(result.resolution).toBe(0)
+        })
+
+        it('should handle zero sampling rate', () => {
+            const signal = new Float32Array([1, 2, 3, 4, 5])
+            const result = fftAnalysis(signal, 0)
+            expect(result.frequencyBins).toEqual([])
+            expect(result.magnitudes).toEqual([])
+            expect(result.phases).toEqual([])
+            expect(result.psds).toEqual([])
+            expect(result.resolution).toBe(0)
+        })
+
+        it('should correctly analyze a simple sine wave', () => {
+            const frequency = 10 // 10 Hz.
+            const samplingRate = 1000 // 1000 Hz.
+            const duration = 1 // 1 second.
+            const signal = new Float32Array(generateSineWave(frequency, 1, samplingRate, duration))
+            const result = fftAnalysis(signal, samplingRate)
+            // Find peak frequency.
+            const peakIndex = result.magnitudes.indexOf(Math.max(...result.magnitudes))
+            const peakFrequency = result.frequencyBins[peakIndex]
+            // Check if peak frequency matches input frequency.
+            expect(Math.round(peakFrequency)).toBe(frequency)
+            // Check if resolution is correct (samplingRate/radix).
+            expect(result.resolution).toBeCloseTo(samplingRate/2048, 2) // 2048 is next power of 2 after 2*samplingRate.
+            // Check if frequency bins go up to Nyquist frequency (samplingRate/2).
+            expect(Math.max(...result.frequencyBins)).toBeLessThanOrEqual(samplingRate/2)
+        })
+
+        it('should correctly analyze multiple frequency components', () => {
+            const samplingRate = 1000
+            const duration = 1
+            // Create signal with 10 Hz and 20 Hz components.
+            const signal1 = new Float32Array(generateSineWave(10, 1, samplingRate, duration))
+            const signal2 = new Float32Array(generateSineWave(20, 0.5, samplingRate, duration))
+            // Combine signals.
+            const combinedSignal = new Float32Array(signal1.map((val, idx) => val + signal2[idx]))
+            const result = fftAnalysis(combinedSignal, samplingRate)
+            // Find highest peaks.
+            const sortedMagnitudes = [...result.magnitudes].sort((a, b) => b - a)
+            const peakIndices = sortedMagnitudes.slice(0, 5).map(m => result.magnitudes.indexOf(m))
+            const peakFrequencies = peakIndices.map(i => Math.round(result.frequencyBins[i]))
+            // Check if peaks are at 10 Hz and 20 Hz.
+            expect(peakFrequencies).toContain(10)
+            expect(peakFrequencies).toContain(20)
+            // Check if 20 Hz component has roughly half the magnitude of the 10 Hz component.
+            const peak10Amp = sortedMagnitudes[peakFrequencies.indexOf(10)]
+            const peak20Amp = sortedMagnitudes[peakFrequencies.indexOf(20)]
+            expect(peak20Amp/peak10Amp).toBeCloseTo(0.5, 1)
+        })
+
+        it('should output correct array lengths', () => {
+            const samplingRate = 1000
+            const signal = new Float32Array(generateSineWave(10, 1, samplingRate, 1))
+            const result = fftAnalysis(signal, samplingRate)
+            // All output arrays should have the same length.
+            const length = result.frequencyBins.length
+            expect(result.magnitudes.length).toBe(length)
+            expect(result.phases.length).toBe(length)
+            expect(result.psds.length).toBe(length)
+            // Length should be power of 2 divided by 2 (up to Nyquist frequency).
+            expect(length).toBe(1024) // 2048/2.
+        })
+
+        it('should calculate correct PSD values', () => {
+            const samplingRate = 1000
+            const signal = new Float32Array(generateSineWave(10, 1, samplingRate, 1))
+            const result = fftAnalysis(signal, samplingRate)
+            // Check if PSDs are calculated correctly.
+            result.psds.forEach((psd, i) => {
+                expect(psd).toBeCloseTo((result.magnitudes[i] ** 2) / (2*result.magnitudes.length))
+            })
+        })
+
+        it('should handle short signals', () => {
+            const samplingRate = 1000
+            const shortSignal = new Float32Array(generateSineWave(10, 1, samplingRate, 0.1))
+            const result = fftAnalysis(shortSignal, samplingRate)
+            // Should still produce valid output
+            expect(result.frequencyBins.length).toBeGreaterThan(0)
+            expect(result.magnitudes.length).toBeGreaterThan(0)
+            expect(Math.max(...result.frequencyBins)).toBeLessThanOrEqual(samplingRate/2)
+        })
+    })
+
+    describe('filterSignal', () => {
+        // Test fixtures
+        const sampleRate = 1000
+        const duration = 1
+        const t = Array.from({length: sampleRate * duration}, (_, i) => i / sampleRate)
+        beforeEach(() => {
+            // Reset any test state if needed
+        })
+
+        it('should handle basic lowpass filtering', () => {
+            const signal = new Float32Array(t.map(t => (
+                Math.sin(2 * Math.PI * 10 * t) + // 10 Hz component.
+                0.5 * Math.sin(2 * Math.PI * 100 * t) // 100 Hz noise.
+            )))
+            const lp = 1
+            const filtered = filterSignal(signal, sampleRate, lp, 0, 0)
+            expect(filtered.length).toBe(signal.length)
+            // Verify high frequency attenuation.
+            const maxAmplitude = Math.max(...filtered.map(Math.abs))
+            expect(maxAmplitude).toBeLessThan(1.75)
+        })
+
+        it('should handle basic highpass filtering', () => {
+            const signal = new Float32Array(t.map(t => (
+                Math.sin(2 * Math.PI * 10 * t) + // 10 Hz component.
+                0.5 * Math.sin(2 * Math.PI * 100 * t) // 100 Hz noise.
+            )))
+            const hp = 500
+            const filtered = filterSignal(signal, sampleRate, 0, hp, 0)
+            expect(filtered.length).toBe(signal.length)
+            // Verify high frequency attenuation.
+            const maxAmplitude = Math.max(...filtered.map(Math.abs))
+            expect(maxAmplitude).toBeLessThan(1.5)
+        })
+
+        it('should handle basic band-reject filtering', () => {
+            const duration = 5
+            const signal1 = new Float32Array(generateSineWave(8, 0.5, sampleRate, duration))
+            const signal2 = new Float32Array(generateSineWave(20, 1, sampleRate, duration))
+            const signal3 = new Float32Array(generateSineWave(32, 0.5, sampleRate, duration))
+            // Combine signals.
+            const combinedSignal = new Float32Array(signal1.map((val, idx) => val + signal2[idx] + signal3[idx]))
+            // Find highest peaks.
+            const filtered = filterSignal(combinedSignal, 1000, 0, 0, 20)
+            const fft = fftAnalysis(filtered.slice(1000, 4000), sampleRate)
+            const fftMagnitudes = [...fft.magnitudes].sort((a, b) => b - a)
+            const fftPeaks = fftMagnitudes.slice(0, 5).map(m => fft.magnitudes.indexOf(m))
+            const fftFrequencies = fftPeaks.map(i => fft.frequencyBins[i].toFixed(1))
+            expect(fftFrequencies).not.toContain('20.0')
+        })
+
+        it('should preserve signal length', () => {
+            const signal = new Float32Array(t.map(t => Math.sin(2 * Math.PI * 10 * t)))
+            const b = 0.5
+            const a = 1
+            const filtered = filterSignal(signal, b, a, 0, 0)
+            expect(filtered.length).toBe(signal.length)
+        })
+
+        it('should handle empty signal', () => {
+            const emptySignal = new Float32Array([])
+            const b = 1
+            const a = 1
+            const filtered = filterSignal(emptySignal, b, a, 0, 0)
+            expect(filtered.length).toEqual(0)
+        })
+
+        it('should return the original signal when using invalid coefficients', () => {
+            const signal = new Float32Array([1, 2, 3])
+            expect(filterSignal(signal, 0, 1, 2, 3)).toEqual(signal)
+            expect(filterSignal(signal, 5, 2, 1, 0)).toEqual(signal)
+        })
+
+        it('should preserve DC component', () => {
+            const dc = 2.5
+            const signal = new Float32Array(t.map(() => dc))
+            const b = 0.2
+            const a = 1
+            const filtered = filterSignal(signal, b, a, 0, 0)
+            const mean = filtered.reduce((sum, val) => sum + val, 0) / filtered.length
+            expect(mean).toBeCloseTo(dc, 2)
+        })
+
+        it('should handle impulse response correctly', () => {
+            const impulse = new Float32Array([1.0, ...new Array(99).fill(0)])
+            const b = 1
+            const a = 1
+            const filtered = filterSignal(impulse, b, a, 0, 0)
+            expect(filtered[0]).toBe(1.0)
+            expect(filtered.slice(1).every(x => Math.abs(x) < 1e-10)).toBe(true)
+        })
+    })
+
     describe('floatsAreEqual', () => {
         it('should correctly compare equal floats', () => {
             expect(floatsAreEqual(1.0, 1.0)).toBe(true)
@@ -274,32 +900,32 @@ describe('Signal utilities', () => {
             expect(Math.max(...result)).toBeCloseTo(amplitude, 4)
             expect(Math.min(...result)).toBeCloseTo(-amplitude, 4)
         })
-    
+
         it('should generate zero signal with zero amplitude', () => {
             const result = generateSineWave(1, 0, 100, 1)
             expect(result.every(value => value === 0)).toBe(true)
         })
-    
+
         it('should generate DC signal with zero frequency', () => {
             const amplitude = 1
             const result = generateSineWave(0, amplitude, 100, 1)
             expect(result.every(value => value === 0)).toBe(true)
         })
-    
+
         it('should respect sampling rate changes', () => {
             const wave1 = generateSineWave(1, 1, 100, 1)
             const wave2 = generateSineWave(1, 1, 200, 1)
             expect(wave1.length).toBe(100)
             expect(wave2.length).toBe(200)
         })
-    
+
         it('should respect duration changes', () => {
             const wave1 = generateSineWave(1, 1, 100, 1)
             const wave2 = generateSineWave(1, 1, 100, 2)
             expect(wave1.length).toBe(100)
             expect(wave2.length).toBe(200)
         })
-    
+
         it('should generate correct frequency', () => {
             const frequency = 2 // 2 Hz.
             const samplingRate = 1000 // 1000 Hz.
@@ -368,6 +994,43 @@ describe('Signal utilities', () => {
         })
     })
 
+    describe('interpolateSignalValues', () => {
+        it('should handle empty signal', () => {
+            const result = interpolateSignalValues(new Float32Array(), 0, 0, 1, 1)
+            expect(result.length).toEqual(0)
+        })
+
+        it('should handle single value signal', () => {
+            const result = interpolateSignalValues(new Float32Array([1]), 2, 0, 1, 2)
+            expect(Array.from(result)).toEqual([1, 1])
+        })
+
+        it('should interpolate linearly between two points', () => {
+            const result = interpolateSignalValues(new Float32Array([1, 3, 1]), 4, 0, 2, 4)
+            expect(Array.from(result)).toEqual([1, 2, 3, 2])
+        })
+
+        it('should interpolate with different step sizes', () => {
+            const result = interpolateSignalValues(new Float32Array([1, 3, 1]), 5, 0, 2, 8)
+            expect(Array.from(result)).toEqual([1, 1.5, 2, 2.5, 3])
+        })
+
+        it('should interpolate non-uniformly spaced data', () => {
+            const result = interpolateSignalValues(new Float32Array([1, 4, 9, 4]), 5, 0, 2, 4)
+            expect(Array.from(result)).toEqual([1, 2.5, 4, 6.5, 9])
+        })
+
+        it('should handle negative values', () => {
+            const result = interpolateSignalValues(new Float32Array([-1, -3, -1]), 4, 0, 2, 4)
+            expect(Array.from(result)).toEqual([-1, -2, -3, -2])
+        })
+
+        it('should handle crossing zero', () => {
+            const result = interpolateSignalValues(new Float32Array([-1, 1, -1]), 4, 0, 2, 4)
+            expect(Array.from(result)).toEqual([-1, 0, 1, 0])
+        })
+    })
+
     describe('shouldDisplayChannel', () => {
 
         it('should return false for null or meta channels', () => {
@@ -389,6 +1052,50 @@ describe('Signal utilities', () => {
             const missingChannel = { ...baseChannel, active: -1 }
             expect(shouldDisplayChannel(missingChannel, false)).toBe(false)
             expect(shouldDisplayChannel(missingChannel, false, { showMissingChannels: true, showHiddenChannels: false })).toBe(true)
+        })
+    })
+
+    describe('resampleSignal', () => {
+        it('should handle empty signal', () => {
+            const result = resampleSignal(new Float32Array(), 100)
+            expect(result.length).toBe(0)
+        })
+
+        it('should maintain signal length when source and target rates are equal', () => {
+            const signal = new Float32Array([1, 2, 3, 4, 5])
+            const result = resampleSignal(signal, 5)
+            expect(result).toEqual(signal)
+        })
+
+        it('should correctly downsample signal', () => {
+            const signal = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+            const result = resampleSignal(signal, 6)
+            expect(result.length).toBe(6)
+            expect(result.every((v) => signal.includes(v)))
+        })
+
+        it('should preserve signal characteristics when resampling', () => {
+            const frequency = 10    // 10 Hz
+            const samplingRate = 1000
+            const duration = 1
+            const signal = new Float32Array(generateSineWave(frequency, 1, samplingRate, duration))
+            const resampled = resampleSignal(signal, samplingRate/2)
+            // Check frequency content remains similar
+            const originalFFT = fftAnalysis(signal, samplingRate)
+            const resampledFFT = fftAnalysis(resampled, samplingRate/2)
+            const findPeakFreq = (fft: any) => {
+                const peakIdx = fft.magnitudes.indexOf(Math.max(...fft.magnitudes))
+                return Math.round(fft.frequencyBins[peakIdx])
+            }
+            expect(findPeakFreq(originalFFT)).toBe(findPeakFreq(resampledFFT))
+        })
+
+        it('should preserve DC offset', () => {
+            const dc = 2.5
+            const signal = new Float32Array([2.5, 2.5, 2.5, 2.5])
+            const result = resampleSignal(signal, 8)
+            const mean = result.reduce((sum, val) => sum + val) / result.length
+            expect(mean).toBeCloseTo(dc, 4)
         })
     })
 
