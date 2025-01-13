@@ -706,7 +706,7 @@ describe('Signal utilities', () => {
             const frequency = 10 // 10 Hz.
             const samplingRate = 1000 // 1000 Hz.
             const duration = 1 // 1 second.
-            const signal = new Float32Array(generateSineWave(frequency, 1, samplingRate, duration))
+            const signal = new Float32Array(generateSineWave(samplingRate, duration, [frequency, 1]))
             const result = fftAnalysis(signal, samplingRate)
             // Find peak frequency.
             const peakIndex = result.magnitudes.indexOf(Math.max(...result.magnitudes))
@@ -723,8 +723,8 @@ describe('Signal utilities', () => {
             const samplingRate = 1000
             const duration = 1
             // Create signal with 10 Hz and 20 Hz components.
-            const signal1 = new Float32Array(generateSineWave(10, 1, samplingRate, duration))
-            const signal2 = new Float32Array(generateSineWave(20, 0.5, samplingRate, duration))
+            const signal1 = new Float32Array(generateSineWave(samplingRate, duration, [10, 1]))
+            const signal2 = new Float32Array(generateSineWave(samplingRate, duration, [20, 0.5]))
             // Combine signals.
             const combinedSignal = new Float32Array(signal1.map((val, idx) => val + signal2[idx]))
             const result = fftAnalysis(combinedSignal, samplingRate)
@@ -743,7 +743,7 @@ describe('Signal utilities', () => {
 
         it('should output correct array lengths', () => {
             const samplingRate = 1000
-            const signal = new Float32Array(generateSineWave(10, 1, samplingRate, 1))
+            const signal = new Float32Array(generateSineWave(samplingRate, 1, [10, 1]))
             const result = fftAnalysis(signal, samplingRate)
             // All output arrays should have the same length.
             const length = result.frequencyBins.length
@@ -756,7 +756,7 @@ describe('Signal utilities', () => {
 
         it('should calculate correct PSD values', () => {
             const samplingRate = 1000
-            const signal = new Float32Array(generateSineWave(10, 1, samplingRate, 1))
+            const signal = new Float32Array(generateSineWave(samplingRate, 1, [10, 1]))
             const result = fftAnalysis(signal, samplingRate)
             // Check if PSDs are calculated correctly.
             result.psds.forEach((psd, i) => {
@@ -766,7 +766,7 @@ describe('Signal utilities', () => {
 
         it('should handle short signals', () => {
             const samplingRate = 1000
-            const shortSignal = new Float32Array(generateSineWave(10, 1, samplingRate, 0.1))
+            const shortSignal = new Float32Array(generateSineWave(samplingRate, 0.1, [10, 1]))
             const result = fftAnalysis(shortSignal, samplingRate)
             // Should still produce valid output
             expect(result.frequencyBins.length).toBeGreaterThan(0)
@@ -812,11 +812,9 @@ describe('Signal utilities', () => {
 
         it('should handle basic band-reject filtering', () => {
             const duration = 5
-            const signal1 = new Float32Array(generateSineWave(8, 0.5, sampleRate, duration))
-            const signal2 = new Float32Array(generateSineWave(20, 1, sampleRate, duration))
-            const signal3 = new Float32Array(generateSineWave(32, 0.5, sampleRate, duration))
-            // Combine signals.
-            const combinedSignal = new Float32Array(signal1.map((val, idx) => val + signal2[idx] + signal3[idx]))
+            const combinedSignal = new Float32Array(
+                generateSineWave(sampleRate, duration, [8, 0.5], [20, 1], [32, 0.5])
+            )
             // Find highest peaks.
             const filtered = filterSignal(combinedSignal, 1000, 0, 0, 20)
             const fft = fftAnalysis(filtered.slice(1000, 4000), sampleRate)
@@ -895,33 +893,33 @@ describe('Signal utilities', () => {
             const amplitude = 1
             const samplingRate = 100 // 100 Hz.
             const duration = 1 // 1 second.
-            const result = generateSineWave(frequency, amplitude, samplingRate, duration)
+            const result = generateSineWave(samplingRate, duration, [frequency, amplitude])
             expect(result.length).toBe(100) // samplingRate * duration.
             expect(Math.max(...result)).toBeCloseTo(amplitude, 4)
             expect(Math.min(...result)).toBeCloseTo(-amplitude, 4)
         })
 
         it('should generate zero signal with zero amplitude', () => {
-            const result = generateSineWave(1, 0, 100, 1)
+            const result = generateSineWave(100, 1, [1, 0])
             expect(result.every(value => value === 0)).toBe(true)
         })
 
         it('should generate DC signal with zero frequency', () => {
             const amplitude = 1
-            const result = generateSineWave(0, amplitude, 100, 1)
+            const result = generateSineWave(100, 1, [0, amplitude])
             expect(result.every(value => value === 0)).toBe(true)
         })
 
         it('should respect sampling rate changes', () => {
-            const wave1 = generateSineWave(1, 1, 100, 1)
-            const wave2 = generateSineWave(1, 1, 200, 1)
+            const wave1 = generateSineWave(100, 1, [1, 1])
+            const wave2 = generateSineWave(200, 1, [1, 1])
             expect(wave1.length).toBe(100)
             expect(wave2.length).toBe(200)
         })
 
         it('should respect duration changes', () => {
-            const wave1 = generateSineWave(1, 1, 100, 1)
-            const wave2 = generateSineWave(1, 1, 100, 2)
+            const wave1 = generateSineWave(100, 1, [1, 1])
+            const wave2 = generateSineWave(100, 2, [1, 1])
             expect(wave1.length).toBe(100)
             expect(wave2.length).toBe(200)
         })
@@ -930,7 +928,7 @@ describe('Signal utilities', () => {
             const frequency = 2 // 2 Hz.
             const samplingRate = 1000 // 1000 Hz.
             const duration = 1 // 1 second.
-            const result = generateSineWave(frequency, 1, samplingRate, duration)
+            const result = generateSineWave(samplingRate, duration, [frequency, 1])
             // For a sine wave, number of zero crossings in a direction should match the frequency.
             // For the negative to positive direction the signal starts from and ends with the crossing, so we will
             // use the positive to negative direction for the count.
@@ -1078,7 +1076,7 @@ describe('Signal utilities', () => {
             const frequency = 10    // 10 Hz
             const samplingRate = 1000
             const duration = 1
-            const signal = new Float32Array(generateSineWave(frequency, 1, samplingRate, duration))
+            const signal = new Float32Array(generateSineWave(samplingRate, duration, [frequency, 1]))
             const resampled = resampleSignal(signal, samplingRate/2)
             // Check frequency content remains similar
             const originalFFT = fftAnalysis(signal, samplingRate)

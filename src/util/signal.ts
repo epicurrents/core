@@ -661,17 +661,18 @@ export const floatsAreEqual = (float1: number, float2: number, bits: 16 | 32 | 6
 }
 
 /**
- * Generate a sine wave singal with the given parameters.
- * @param frequency - Frequency of the sine wave.
- * @param amplitude - Maximum amplitude of the sine wave (unitless).
+ * Generate a compound sine wave singal with the given parameters.
  * @param samplingRate - Sampling rate of the signal in Hz.
  * @param duration - Duration of the signal in seconds.
+ * @param components - List of waveform components as [`frequency`, `amplitude`].
  * @returns An array of signal data points.
  */
-export const generateSineWave = (frequency: number, amplitude: number, samplingRate: number, duration: number) => {
-    const signal = [] as number[]
-    for (let i=0; i<Math.round(samplingRate*duration); i++) {
-        signal[i] = amplitude*Math.sin(i*(frequency/samplingRate)*2*Math.PI)
+export const generateSineWave = (samplingRate: number, duration: number, ...components: [number, number][]) => {
+    const signal = new Array(Math.floor(samplingRate*duration)).fill(0)
+    for (const [frequency, amplitude] of components) {
+        for (let i=0; i<signal.length; i++) {
+            signal[i] += amplitude*Math.sin(i*(frequency/samplingRate)*2*Math.PI)
+        }
     }
     return signal
 }
