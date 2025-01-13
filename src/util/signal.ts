@@ -568,7 +568,8 @@ export const filterSignal = (
         // Parameters take from
         // https://www.mathworks.com/help/dsp/ref/iirnotch.html
         const f0 = nf/(fs/2)
-        const bw = f0/35
+        const Qfactor = 10 // Higher Q-factor makes the filter more narrow.
+        const bw = f0/Qfactor
         //const fc = (lp-hp)/2 + hp
         const stopFilterCoeffs = iirCalculator.bandstop({
             order: 6,
