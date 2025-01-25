@@ -16,11 +16,6 @@ declare module 'codecutils' {
     }
 }
 
-declare module 'd3-interpolate' {
-    function interpolateNumber (a: number, b: number): (c: number) => number
-    export { interpolateNumber }
-}
-
 declare module 'fili' {
     const Fili: any
     export default Fili

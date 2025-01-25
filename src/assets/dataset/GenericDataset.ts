@@ -12,7 +12,7 @@ import {
     type ResourceSortingInstructions,
     type ResourceSortingScheme
 } from '#types/dataset'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import GenericAsset from '../GenericAsset'
 import { deepClone } from '#util'
 
@@ -26,10 +26,10 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
      * Create a new dataset with the given properties.
      * @param name - Name of the dataset.
      * @param sortingScheme - Optional sorting scheme for resources in this dataset.
-     * @param type - Optional type for the dataset (defaults to 'dataset').
+     * @param modality - Optional modality for the dataset (defaults to 'dataset').
      */
-    constructor (name: string, sortingScheme?: ResourceSortingScheme, type?: string) {
-        super(name, GenericAsset.CONTEXTS.DATASET, type || '')
+    constructor (name: string, sortingScheme?: ResourceSortingScheme, modality?: string) {
+        super(name, modality || 'dataset')
         this._resourceSorting = {
             order: [],
             scheme: sortingScheme || 'id',
@@ -44,23 +44,11 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
         return this._credentials
     }
 
-    get context () {
-        return this._context
-    }
-    set context (value: string) {
-        if (this._context !== value) {
-            const oldVal = this._context
-            this._setPropertyValue('context', value)
-            this.onPropertyUpdate('scope', value, oldVal) // TODO: Deprecated.
-        }
-    }
-
     get resources () {
         return this._resources
     }
     set resources (value: DataResource[]) {
         this._setPropertyValue('resources', value)
-        this.onPropertyUpdate('resources') // TODO: Deprecated.
     }
 
     get resourceSorting () {
@@ -82,11 +70,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
                     mapped.set(initial, [r])
                 }
             }
-        } else if (this._resourceSorting.scheme === 'context') {
-            for (const rCtx of this._resourceSorting.order) {
-                mapped.set(rCtx, this._resources.filter(r => r.context === rCtx))
-
-            }
         } else if (this._resourceSorting.scheme === 'id') {
             const sorted = this._resourceSorting.order.length ? [...this._resources].sort(
                                 (a, b) => this._resourceSorting.order.indexOf(a.id)
@@ -97,10 +80,9 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
             for (const r of sorted) {
                 mapped.set(r.id, [r])
             }
-        } else if (this._resourceSorting.scheme === 'type') {
-            for (const rType of this._resourceSorting.order) {
-                mapped.set(rType, this._resources.filter(r => r.type === rType))
-
+        } else if (this._resourceSorting.scheme === 'modality') {
+            for (const rCtx of this._resourceSorting.order) {
+                mapped.set(rCtx, this._resources.filter(r => r.modality === rCtx))
             }
         }
         return mapped
@@ -118,24 +100,13 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
         if (this._resourceSorting.scheme === 'id') {
             this._resourceSorting.order.push(resource.id)
         }
-        this.onPropertyUpdate('resources') // TODO: Deprecated.
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
     }
 
-    getResourcesByContext (...contexts: string[]) {
+    getResourcesByModality (...modalities: string[]) {
         const matching = [] as DataResource[]
         for (const resource of this._resources) {
-            if (contexts.includes(resource.context)) {
-                matching.push(resource)
-            }
-        }
-        return matching
-    }
-
-    getResourcesByType (...types: string[]) {
-        const matching = [] as DataResource[]
-        for (const resource of this._resources) {
-            if (types.includes(resource.type)) {
+            if (modalities.includes(resource.modality)) {
                 matching.push(resource)
             }
         }
@@ -158,7 +129,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
             this._resourceSorting.order.splice(this._resourceSorting.order.indexOf(removed.id), 1)
         }
         Log.debug(`Removed ${removed.name} from dataset resources.`, SCOPE)
-        this.onPropertyUpdate('resources') // TODO: Deprecated.
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
         // Unload the removed resource.
         removed.unload()
@@ -170,12 +140,10 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
             username: username,
             password: password,
         })
-        this.onPropertyUpdate('credentials') // TODO: Deprecated.
     }
 
     setResourceSorting (value: ResourceSortingInstructions) {
         this._setPropertyValue('resourceSorting', value)
-        this.onPropertyUpdate('resources') // TODO: Deprecated.
     }
 
     setResourceSortingOrder (value: string[]) {
@@ -186,7 +154,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
         const prevState = deepClone(this.resourceSorting)
         this._resourceSorting.order = value
         this.dispatchPropertyChangeEvent('resourceSorting', this.resourceSorting, prevState)
-        this.onPropertyUpdate('resources') // TODO: Deprecated.
     }
 
     setResourceSortingScheme (scheme: ResourceSortingScheme) {
@@ -198,7 +165,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
         this._resourceSorting.scheme = scheme
         this._resourceSorting.order = []
         this.dispatchPropertyChangeEvent('resourceSorting', this.resourceSorting, prevState)
-        this.onPropertyUpdate('resources') // TODO: Deprecated.
     }
 
     async unload () {

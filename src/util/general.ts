@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 /**
  * Deep clone an object including any nested object properties. This method uses JSON to perform the cloning, so the

@@ -38,17 +38,11 @@ export interface BaseDataset extends BaseAsset {
      */
     addResource (resource: DataResource): void
     /**
-     * Get all resources in the given context(s).
+     * Get all resources in the given modalit(y/ies).
      * Returned resources are ordered according to the `resourceSorting` property.
-     * @param contexts - The context(s) to include.
+     * @param contexts - The modalit(y/ies) to include.
      */
-    getResourcesByContext (...contexts: string[]): DataResource[]
-    /**
-     * Get all resources with the given type(s).
-     * Returned resources are ordered according to the `resourceSorting` property.
-     * @param types - The type(s) to include.
-     */
-    getResourcesByType (...types: string[]): DataResource[]
+    getResourcesByModality (...modality: string[]): DataResource[]
     /**
      * Remove the given resource from this dataset, returning it.
      * Removal will **not** automatically unload or destroy the resource.
@@ -128,11 +122,9 @@ export type ResourceSortingInstructions = {
 /**
  * The scheme adding to which the resources are sorted.
  * - `alphabetical`- Sorting follows the alphabetical order of resource names.
- * - `context` - Resources are primarily sorted according to their `context` in the order property
- *               and secondarily by the order in which they were inserted into the dataset.
  * - `id` - Resources are sorted in the order of their `id`s in the `order` property.
- * - `type` - Resources are sorted primarily by order of `type` names in the `order` property
- *            and secondarily by the order in which they were inserted into the dataset.
+ * - `modality` - Resources are sorted primarily in the order of `modality` values in the `order` property
+ *                and secondarily by the order in which they were inserted into the dataset.
  */
-export type ResourceSortingScheme = 'alphabetical' | 'context' | 'id' | 'type'
+export type ResourceSortingScheme = 'alphabetical' | 'id' | 'modality'
 

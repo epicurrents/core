@@ -5,25 +5,26 @@
  * @license    Apache-2.0
  */
 
-import {
-    type BiosignalMontage,
-    type BiosignalMontageService,
-    type GetSignalsResponse,
-    type MontageChannel,
-    type SetupMutexResponse,
-    type SetupSharedWorkerResponse,
-    type SetFiltersResponse,
-    type SetupCacheResponse,
-    type SignalDataCache,
-    type SignalDataGapMap,
+import type {
+    BiosignalChannelFilters,
+    BiosignalMontage,
+    BiosignalMontageService,
+    GetSignalsResponse,
+    MontageChannel,
+    SetupMutexResponse,
+    SetupSharedWorkerResponse,
+    SetFiltersResponse,
+    SetupCacheResponse,
+    SignalDataCache,
+    SignalDataGapMap,
 } from '#types/biosignal'
-import { type ConfigChannelFilter } from '#types/config'
-import {
-    type MemoryManager,
-    type WorkerResponse,
-    type SetupWorkerResponse,
+import type { ConfigChannelFilter } from '#types/config'
+import type {
+    MemoryManager,
+    WorkerResponse,
+    SetupWorkerResponse,
 } from '#types/service'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import BiosignalMutex from './BiosignalMutex'
 import GenericService from '#assets/service/GenericService'
 import { MutexExportProperties } from 'asymmetric-io-mutex'
@@ -208,10 +209,11 @@ export default class MontageService extends GenericService implements BiosignalM
         // This can happen when changing filters on multiple channels at the same time.
         const channelFilters = this._montage.channels.map(c => {
             return {
+                bandreject: [...c?.filters.bandreject],
                 highpass: c?.highpassFilter,
                 lowpass: c?.lowpassFilter,
                 notch: c?.notchFilter,
-            }
+            } as BiosignalChannelFilters
         })
         const filters = this._commissionWorker(
             'set-filters',
@@ -315,7 +317,7 @@ export default class MontageService extends GenericService implements BiosignalM
             new Map<string, unknown>([
                 ['config', this._montage.config],
                 ['montage', this._montage.name],
-                ['namespace', this._montage.type],
+                ['namespace', this._montage.modality],
                 ['settings', window.__EPICURRENTS__.RUNTIME?.SETTINGS._CLONABLE],
                 ['setupChannels', this._montage.setup.channels],
             ])

@@ -8,7 +8,7 @@
  */
 
 import { type WorkerMessage } from '#types'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 const SCOPE = 'ServiceWorkerSubstitute'
 

@@ -16,7 +16,7 @@ import {
     type WorkerMessage,
     type WorkerResponse,
 } from '#types/service'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { nullPromise, safeObjectFrom } from '#util/general'
 
@@ -42,6 +42,7 @@ export default class ServiceMemoryManager implements MemoryManager {
         resolve: () => void,
         rn: number,
     } | null = null
+    protected _isAvailable = false
     /**
      * The loaders managed by this memory managed.
      * The only reference to these manageds can only be through this
@@ -63,7 +64,9 @@ export default class ServiceMemoryManager implements MemoryManager {
         try {
             //  This will fail if the browser doesn't have enough memory available to it.
             this._buffer = new SharedArrayBuffer(bufferSize + 4)
+            this._isAvailable = true
         } catch (e) {
+            Log.error(`Failed to allocate a shared array buffer for memory management.`, SCOPE, e as Error)
             this._buffer = new SharedArrayBuffer(4)
         }
         this._masterLock = new Int32Array(this._buffer).subarray(
@@ -103,6 +106,10 @@ export default class ServiceMemoryManager implements MemoryManager {
 
     get freeMemory () {
         return this.bufferSize - this.memoryUsed
+    }
+
+    get isAvailable () {
+        return this._isAvailable
     }
 
     get services () {

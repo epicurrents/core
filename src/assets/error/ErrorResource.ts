@@ -19,8 +19,8 @@ import GenericResource from '#assets/GenericResource'
 export default class ErrorResource extends GenericResource implements DataResource {
     protected _reason: string = 'Unknown error'
 
-    constructor (name: string, scope: string, type: string, source?: StudyContext) {
-        super(name, scope, type, source)
+    constructor (name: string, modality: string, source?: StudyContext) {
+        super(name,  modality, source)
         this.state = 'error'
     }
 
@@ -29,7 +29,6 @@ export default class ErrorResource extends GenericResource implements DataResour
     }
     set reason (value: string) {
         this._setPropertyValue('reason', value)
-        this.onPropertyUpdate('reason') // TODO: Deprecated.
     }
 
     ///////////////////////////////////////////////////

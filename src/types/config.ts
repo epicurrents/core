@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { PropertyUpdateHandler } from './application'
+import { PropertyChangeHandler } from './application'
 import {
     BiosignalAnnotation,
     BiosignalChannelTemplate,
@@ -71,7 +71,7 @@ export interface AppSettings {
      * onPropertyUpdate('high.level.field.grand.child') // Triggers handler (child field updated).
      * onPropertyUpdate('high.level') // Does not trigger update.
      */
-    addPropertyUpdateHandler (field: string, handler: PropertyUpdateHandler, caller?: string): void
+    addPropertyUpdateHandler (field: string, handler: PropertyChangeHandler, caller?: string): void
     /**
      * Get the value stored at the given settings `field`.
      * @param field - Name of the settings field.
@@ -117,7 +117,7 @@ export interface AppSettings {
      * removePropertyUpdateHandler('high.level', handler) // Handler is removed (parent field match).
      * removePropertyUpdateHandler('high.level.field.grand.child', handler) // Not removed (child field match).
      */
-    removePropertyUpdateHandler (field: string, handler: PropertyUpdateHandler): void
+    removePropertyUpdateHandler (field: string, handler: PropertyChangeHandler): void
     /**
      * Set a new `value` the the given settings `field`.
      * @param field - Name of the settings field.
@@ -239,10 +239,9 @@ export type ConfigStudyContext = {
 export type ConfigStudyLoader = {
     collections?: { [key: string]: StudyContextCollection }
     loader?: string
+    modality?: string
     name?: string
-    scope?: string
     studies?: { [key: string]: unknown }
-    type?: string
 }
 /**
  * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.

@@ -15,24 +15,17 @@ import {
     type StudyLoader,
     type UseStudyResponse,
 } from '#types/study'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import ServiceMemoryManager from '#assets/service/ServiceMemoryManager'
 
 export const studyContextTemplate = () => {
     return {
         data: null,
-        files: [] as {
-            file: File | null,
-            format: string | null,
-            mime: string | null,
-            type: string,
-            url :string,
-        }[],
+        files: [],
         format: '',
         meta: {},
+        modality: 'unknown',
         name: '',
-        context: '',
-        type: '',
         version: '1.0'
     } as StudyContext
 }
@@ -45,8 +38,7 @@ export default class GenericStudyLoader implements StudyLoader {
     protected _name: string
     protected _resources: DataResource[] = []
     protected _study: StudyContext | null = null
-    protected _supportedScopes: string[]
-    protected _supportedTypes: string[]
+    protected _supportedModalities: string[]
     /**
      * Create a new study loader.
      * @param name - Name of the loader.
@@ -57,14 +49,12 @@ export default class GenericStudyLoader implements StudyLoader {
      */
     constructor (
         name: string,
-        scopes: string[],
-        types: string[],
+        modalities: string[],
         loader?: FileFormatReader,
         memoryManager?: ServiceMemoryManager
     ) {
         this._name = name
-        this._supportedScopes = scopes
-        this._supportedTypes = types
+        this._supportedModalities = modalities
         if (loader) {
             this.registerFileReader(loader)
             loader.studyLoader = this
@@ -82,10 +72,7 @@ export default class GenericStudyLoader implements StudyLoader {
         if (config.loader && config.loader !== this._name) {
             return false
         }
-        if (config.scope && !this.isSupportedContext(config.scope)) {
-            return false
-        }
-        if (config.type && !this.isSupportedType(config.type)) {
+        if (config.modality && !this.isSupportedModality(config.modality)) {
             return false
         }
         return true
@@ -95,22 +82,13 @@ export default class GenericStudyLoader implements StudyLoader {
         return this._fileReader
     }
 
-    get resourceScope () {
-        // Override this in the child loader.
-        return 'UNKNOWN'
-    }
-
-    get resourceType () {
+    get resourceModality () {
         // Override this in the child loader.
         return 'unknown'
     }
 
-    get supportedScopes () {
-        return this._supportedScopes
-    }
-
-    get supportedTypes () {
-        return this._supportedTypes
+    get supportedModalities () {
+        return this._supportedModalities
     }
 
     async getResource (idx: number | string = -1): Promise<DataResource | null> {
@@ -136,32 +114,10 @@ export default class GenericStudyLoader implements StudyLoader {
         return null
     }
 
-    isSupportedContext (scope: string): boolean {
-        for (const supported of this._supportedScopes) {
-            if (supported === scope) {
+    isSupportedModality (modality: string): boolean {
+        for (const supported of this._supportedModalities) {
+            if (supported === modality) {
                 return true
-            }
-        }
-        return false
-    }
-
-    isSupportedType (type: string): boolean {
-        const typeParams = type.split(':')
-        if (typeParams.length === 2) {
-            for (const context of this._supportedScopes) {
-                if (context === typeParams[0]) {
-                    for (const supported of this._supportedTypes) {
-                        if (supported === typeParams[1]) {
-                            return true
-                        }
-                    }
-                }
-            }
-        } else if (typeParams.length === 1) {
-            for (const supported of this._supportedTypes) {
-                if (supported === type) {
-                    return true
-                }
             }
         }
         return false
@@ -207,7 +163,7 @@ export default class GenericStudyLoader implements StudyLoader {
                         partial: false,
                         range: [],
                         role: 'data',
-                        type: '',
+                        modality: '',
                         url: dirFile.url as string,
                     })
                 }
@@ -227,8 +183,8 @@ export default class GenericStudyLoader implements StudyLoader {
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.scope && !this._fileReader.isSupportedContext(config.scope)) {
-            Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
+        if (config.modality && !this._fileReader.isSupportedModality(config.modality)) {
+            Log.error(`Current file loader does not support modality ${config.modality}.`, SCOPE)
             return null
         }
         if (!study) {
@@ -395,8 +351,8 @@ export default class GenericStudyLoader implements StudyLoader {
         if (!this._canLoadResource(config)) {
             return null
         }
-        if (config.scope && !this._fileReader.isSupportedContext(config.scope)) {
-            Log.error(`Current file loader does not support context ${config.scope}.`, SCOPE)
+        if (config.modality && !this._fileReader.isSupportedModality(config.modality)) {
+            Log.error(`Current file loader does not support modality ${config.modality}.`, SCOPE)
             return null
         }
         if (!study) {

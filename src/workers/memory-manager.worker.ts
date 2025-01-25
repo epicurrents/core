@@ -7,7 +7,7 @@
 
 import { type MemoryManagerWorkerCommission, type WorkerMessage } from '#types/service'
 import IOMutex from 'asymmetric-io-mutex'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { validateCommissionProps } from '../util'
 import { BaseWorker } from './base.worker'
 

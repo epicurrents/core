@@ -7,7 +7,7 @@
 
 import GenericAsset from '#assets/GenericAsset'
 import { type AudioRecording } from '#types/media'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 const SCOPE = 'BiosignalAudio'
 
@@ -44,7 +44,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _volume: GainNode | null = null
 
     constructor (name: string, data?: ArrayBuffer) {
-        super(name, GenericAsset.CONTEXTS.BIOSIGNAL, 'audio')
+        super(name, 'audio')
         if (data) {
             this.loadFile(data)
         }

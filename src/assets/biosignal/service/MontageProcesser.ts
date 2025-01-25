@@ -19,28 +19,26 @@ import {
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
 import { SignalFileReader } from '#assets/reader'
-import {
-    type BiosignalFilters,
-    type BiosignalSetup,
-    type MontageChannel,
-    type SetupChannel,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
-    type SignalPart,
+import type {
+    BiosignalFilters,
+    BiosignalSetup,
+    MontageChannel,
+    SetupChannel,
+    SignalDataCache,
+    SignalDataGap,
+    SignalDataGapMap,
+    SignalPart,
 } from '#types/biosignal'
-import {
-    type CommonBiosignalSettings,
-    type ConfigChannelFilter,
-    type ConfigMapChannels,
+import type {
+    CommonBiosignalSettings,
+    ConfigChannelFilter,
+    ConfigMapChannels,
 } from '#types/config'
-import { type SignalDataReader } from '#types/reader'
-import {
-    type SignalCachePart,
-} from '#types/service'
+import type { SignalDataReader } from '#types/reader'
+import type { SignalCachePart } from '#types/service'
 
-import { Log } from 'scoped-ts-log'
-import { type MutexExportProperties } from 'asymmetric-io-mutex'
+import { Log } from 'scoped-event-log'
+import type { MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = "MontageProcesser"
 
@@ -105,27 +103,39 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             Log.error("Cannot return signal part, signal cache has not been set up yet.", SCOPE)
             return false
         }
-        const cacheStart = this._recordingTimeToCacheTime(Math.max(0, start))
-        const cacheEnd = this._recordingTimeToCacheTime(Math.min(end, this._totalRecordingLength))
-        // Check that cache has the part that we need.
+        // Check the limits of the signal data cache.
         const inputRangeStart = await this._cache.inputRangeStart
         const inputRangeEnd = await this._cache.inputRangeEnd
-        if (
-            inputRangeStart === null || cacheStart < inputRangeStart ||
-            inputRangeEnd === null || (cacheEnd > inputRangeEnd && inputRangeEnd < this._totalDataLength)
-        ) {
+        if (inputRangeStart === null || inputRangeEnd === null) {
             // TODO: Signal that the required part must be loaded by the file loader first.
             Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
             return false
         }
+        // Clamp range to actual cached bounds.
+        const cacheStart = Math.max(
+            0,
+            inputRangeStart,
+            this._recordingTimeToCacheTime(start)
+        )
+        const cacheEnd = Math.min(
+            this._recordingTimeToCacheTime(
+                Math.min(end, this._totalRecordingLength)
+            ),
+            inputRangeEnd
+        )
         const relStart = cacheStart - inputRangeStart
         const relEnd = cacheEnd - inputRangeStart
-        const derivedSignals = [] as SignalPart[]
+        /** This holds the derived signals. */
+        const derived = {
+            start: cacheStart,
+            end: cacheEnd,
+            signals: [] as SignalPart[],
+        } as SignalCachePart
         // Only calculate averages once.
         const avgMap = [] as number[]
         // Filter channels, if needed.
         const channels = (config?.include?.length || config?.exclude?.length)
-                        ? [] as MontageChannel[] : this._channels
+                       ? [] as MontageChannel[] : this._channels
         // Prioritize include -> only process those channels.
         if (config?.include?.length) {
             for (const c of config.include) {
@@ -149,19 +159,20 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         for (let i=0; i<channels.length; i++) {
             const chan = channels[i]
             const sigProps = {
-                data: new Float32Array(),
+                // @ts-ignore Prepare for TypeScript 5.7+.
+                data: new Float32Array() as Float32Array<ArrayBufferLike>,
                 samplingRate: chan.samplingRate
             }
             // Remove missing and inactive channels.
             if (!shouldDisplayChannel(chan, false, this._settings)) {
-                derivedSignals.push(sigProps)
+                derived.signals.push(sigProps)
                 continue
             }
             // Check if whole range is just data gap.
             for (const gap of dataGaps) {
                 const gapStartRecTime = this._cacheTimeToRecordingTime(gap.start)
                 if (gapStartRecTime <= start && gapStartRecTime + gap.duration >= end) {
-                    derivedSignals.push(sigProps)
+                    derived.signals.push(sigProps)
                     continue channel_loop
                 }
             }
@@ -262,7 +273,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             }
             if (shouldFilterSignal(chan, this._filters, this._settings)) {
                 // Add possible data gaps.
-                let gapped = data
+                // @ts-ignore Prepare for TypeScript 5.7+.
+                let gapped = data as Float32Array<ArrayBufferLike>
                 let lastGapEnd = 0
                 const sigParts = [] as Float32Array[]
                 for (const gap of gapIndices) {
@@ -297,15 +309,11 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             } else {
                 sigProps.data = data
             }
-            derivedSignals.push(sigProps)
+            derived.signals.push(sigProps)
         }
         if (cachePart) {
             // Finally, assign the signals to out montage mutex.
-            await this._cache.insertSignals({
-                start: cacheStart,
-                end: cacheEnd,
-                signals: derivedSignals
-            })
+            await this._cache.insertSignals(derived)
             const updated = await this.getSignalUpdatedRange()
             postMessage({
                 action: 'cache-signals',
@@ -313,7 +321,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             })
             return true
         } else {
-            return derivedSignals as SignalCachePart['signals']
+            return derived
         }
     }
 
@@ -343,14 +351,8 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         const updated = this._settings.montages.preCache && await this.getSignalUpdatedRange()
         if (!updated || updated.start === NUMERIC_ERROR_VALUE ||  updated.start > range[0] || updated.end < range[1]) {
             // Retrieve missing signals (result channels will be filtered according to include/exclude).
-            const signals = await this.calculateSignalsForPart(range[0], range[1], false, config)
-            if (signals) {
-                requestedSigs = {
-                    start: this._recordingTimeToCacheTime(Math.max(0, range[0])),
-                    end: this._recordingTimeToCacheTime(Math.min(range[1], this._totalRecordingLength)),
-                    signals: signals as SignalCachePart['signals']
-                }
-            } else {
+            requestedSigs = (await this.calculateSignalsForPart(range[0], range[1], false, config)) as SignalCachePart
+            if (!requestedSigs) {
                 Log.error(`Cound not cache requested signal range ${range[0]} - ${range[1]}.`, SCOPE)
                 return null
             }
@@ -529,7 +531,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         for (const gap of dataGaps) {
             this._dataGaps.set(gap.start, gap.duration)
         }
-        this._fallbackCache = new BiosignalCache(cache)
+        this._fallbackCache = new BiosignalCache(dataDuration, cache)
     }
 
     /**

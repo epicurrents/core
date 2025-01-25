@@ -17,12 +17,11 @@ import {
 import { CommonBiosignalSettings, type ConfigChannelLayout } from '../types/config'
 import { type SignalCachePart } from '#types/service'
 import { type TypedNumberArray, type TypedNumberArrayConstructor } from '#types/util'
-import * as d3 from 'd3-interpolate'
 import Fili from 'fili'
-import { PRECISION as FLOAT16_PRECISION } from '@stdlib/constants-float16'
-import { PRECISION as FLOAT32_PRECISION } from '@stdlib/constants-float32'
-import { PRECISION as FLOAT64_PRECISION } from '@stdlib/constants-float64'
-import { Log } from 'scoped-ts-log'
+import { EPS as FLOAT16_EPS } from '@stdlib/constants-float16'
+import { EPS as FLOAT32_EPS } from '@stdlib/constants-float32'
+import { EPS as FLOAT64_EPS } from '@stdlib/constants-float64'
+import { Log } from 'scoped-event-log'
 //import { BiosignalMutex } from '#assets/biosignal'
 import { LTTB } from 'downsample'
 import { NUMERIC_ERROR_VALUE } from './constants'
@@ -176,7 +175,9 @@ export const calculateSignalOffsets = (
         // Remove channels that are not displayed.
         channels = channels.filter(chan => shouldDisplayChannel(chan, true))
         const layoutH = channels.length + 1
-        const chanHeight = 1/channels.length
+        // Single channel can take up all the space but multiple channels cannot cannot without overlapping
+        // (if they are placed at equidistantly from each other and viewport top/bottom).
+        const chanHeight = 1/(channels.length > 1 ? layoutH : 1)
         let i = 0
         for (const chan of channels) {
             const baseline = 1.0 - ((i + 1)/layoutH)
@@ -223,9 +224,11 @@ export const calculateSignalOffsets = (
         }
     }
     // Check if the number of non-meta channels matches the constructed layout.
-    const nSignalChannels = channels.filter((chan) => { return chan.type && chan.type !== 'meta' }).length
+    const nSignalChannels = channels.filter(
+        (chan) => { return (chan.modality && chan.modality !== 'meta' && chan.active !== -1) }
+    ).length
     if (nChannels !== nSignalChannels) {
-        Log.warn("The number of channels does not match config layout!", SCOPE)
+        Log.warn(`The number of channels does not match config layout.`, SCOPE)
     }
     // Calculate total trace height, starting with top and bottom margins.
     let layoutH = 2*requiredConfig.yPadding
@@ -254,7 +257,7 @@ export const calculateSignalOffsets = (
             if (chan === undefined) {
                 Log.warn(
                     `Number of layout channels (${chanIdx + 1}) exceeds the number of channels in the EEG record ` +
-                    `(${channels.length})!`,
+                    `(${channels.length}).`,
                 SCOPE)
                 continue
             }
@@ -265,7 +268,7 @@ export const calculateSignalOffsets = (
             if (!groupSpacing) {
                 yPos -= (1/layoutH)*requiredConfig.channelSpacing
             } else {
-                // Skip the first channel (group spacing has already been applied)
+                // Skip the first channel (group spacing has already been applied).
                 groupSpacing = false
             }
             chan.offset = {
@@ -273,27 +276,25 @@ export const calculateSignalOffsets = (
                 bottom: yPos - 0.5*chanHeight,
                 top: yPos + 0.5*chanHeight,
             }
-            // Check if a meta channel has slipped into the visible layout
-            if ((channels[chanIdx] as MontageChannel).type == 'meta') {
-                Log.warn(`Metadata channel ${chan.label} has been included into visbile layout!`, SCOPE)
+            // Check if a meta channel has slipped into the visible layout.
+            if (chan.modality === 'meta') {
+                Log.warn(`Metadata channel ${chan.label} has been included into visbile layout.`, SCOPE)
             }
         }
     }
 }
 
 /**
- * Combine the given signal parts into as few as possible parts.
+ * Combine the given signal parts into as few as possible parts. This method will prioritize combining the parts and
+ * will invalidate data on channels that have incompatible sampling rates.
  * @param signalParts - A list of any compatible signal parts.
  * @returns combined parts as an array
  */
 export const combineAllSignalParts = (...signalParts: SignalCachePart[]): SignalCachePart[] => {
     for (let i=0; i<signalParts.length; i++) {
-        for (let j=0; j<signalParts.length; j++) {
-            if (i === j) {
-                continue
-            }
-            if (combineSignalParts(signalParts[i], signalParts[j])) {
-                // Remove the combined part
+        for (let j=i+1; j<signalParts.length; j++) {
+            if (combineSignalParts(signalParts[i], signalParts[j], 'shape')) {
+                // Remove the combined part.
                 signalParts.splice(j, 1)
                 j--
             }
@@ -303,80 +304,131 @@ export const combineAllSignalParts = (...signalParts: SignalCachePart[]): Signal
 }
 
 /**
- * See if two signal parts can be combined into one and combine them if so.
- * @param partA first part to compare against
- * @param partB new part to combine into the first part
- * @returns true if combined, false if not
+ * See if two signal parts can be combined into one and combine them if so. The latter part has priority on overlapping
+ * samples (will replace samples from first part).
+ *
+ * This method has two modes of operation that can be set with the `prioritize` parameter:
+ * - `data`: The two parts will only be combined if they are consecutive and all signals have the same sampling rates.
+ *           In this mode the user can be confident that no signal data is lost.
+ * - `shape`: The two parts will be combined if they are consecutive, even if some or all of the signals have different
+ *            sampling rates. In this case, the signal will be set to an empty array. In this mode the user can be
+ *            confident that the combined part always have the expected shape (e.g. for displaying).
+ * @param partA First part to compare against.
+ * @param partB New part to combine into the first part.
+ * @returns True if combined, false if not.
  */
-export const combineSignalParts = (partA: SignalCachePart, partB: SignalCachePart) => {
-    if (partA.start <= partB.start && partA.end >= partB.end) {
-        // partA contains partB: we can just ignore partB
-        return true
-    } else if (partA.start > partB.start && partA.end < partB.end) {
-        // partB contains partA: replace partA with partB
+export const combineSignalParts = (
+    partA: SignalCachePart,
+    partB: SignalCachePart,
+    prioritize = 'data' as 'data' | 'shape'
+) => {
+    // Check that parts are consecutive or overlapping.
+    if (
+        (partA.start < partB.start && partA.end < partB.start) ||
+        (partA.start > partB.start && partA.start > partB.end )
+    ) {
+        Log.debug(`Cannot combine non-consecutive signal parts.`, SCOPE)
+        return false
+    }
+    // Check if one of the ranges is empty.
+    if (partA.start === partA.end && partB.start !== partB.end) {
         partA.start = partB.start
         partA.end = partB.end
         partA.signals = partB.signals
         return true
-    } else {
-        // This should only return one part for now, but I think I may change this in the future
-        const notCachedParts = partsNotCached(partB, partA)
-        for (const newPart of notCachedParts) {
-            // Check if parts are consecutive
-            if (partA.start === newPart.end || partA.end === newPart.start) {
-                for (let i=0; i<partA.signals.length; i++) {
-                    // Empty signals in an already cached part with non-empty length should be skipped (see below)
-                    if (!partA.signals[i].data.length && partA.end !== partA.start) {
-                        continue
-                    }
-                    if (partA.signals[i].samplingRate !== newPart.signals[i].samplingRate) {
-                        Log.error(
-                            `Cannot combine signals with different sampling rates ` +
-                            `(${newPart.signals[i].samplingRate} != ${partA.signals[i].samplingRate}).`,
-                        SCOPE)
-                        // Replace the signal data with an empty array, since it is no longer valid
-                        partA.signals[i].data = new Float32Array()
-                        continue
-                    }
-                    if (partA.signals[i].data.length || newPart.signals[i].data.length) {
-                        if (partA.end === newPart.start) {
-                            // New part extends partA at the end
-                            partA.signals[i].data = concatTypedNumberArrays(
-                                partA.signals[i].data.slice(
-                                    0,
-                                    Math.floor((newPart.start - partA.start)*partA.signals[i].samplingRate)
-                                ),
-                                newPart.signals[i].data
-                            )
-                        } else {
-                            // New part extends partA at the start
-                            partA.signals[i].data = concatTypedNumberArrays(
-                                newPart.signals[i].data,
-                                partA.signals[i].data.slice(
-                                    Math.floor((partA.start - newPart.start)*partA.signals[i].samplingRate)
-                                )
-                            )
-                        }
-                    }
-                }
-                // Adjust start or end point accordingly
-                if (partA.end === newPart.start) {
-                    partA.end = newPart.end
-                } else {
-                    partA.start = newPart.start
-                }
-                return true
+    } else if (partB.start === partB.end) {
+        return true
+    }
+    // Check that the two parts have the same number of signals.
+    if (partA.signals.length !== partB.signals.length) {
+        Log.debug(
+            `Cannot combine signal parts with different number of signals ` +
+            `(${partA.signals.length} != ${partB.signals.length}).`,
+        SCOPE)
+        return false
+    }
+    // If mode is data, check that signals within the parts have the same sampling rates.
+    if (prioritize === 'data' &&
+        partA.signals.some((signal, idx) => signal.samplingRate !== partB.signals[idx].samplingRate)
+    ) {
+        Log.debug(
+            `Cannot combine signal parts with different sampling rates ` +
+            `(${partA.signals.map((s) => s.samplingRate).join(', ')} != ` +
+            `${partB.signals.map((s) => s.samplingRate).join(', ')}).`,
+        SCOPE)
+        return false
+    }
+    // Simple cases of one part containing the other.
+    if (partB.start >= partA.start && partB.end <= partA.end) {
+        // partA contains partB: replace partA samples with partB samples.
+        for (let i=0; i<partA.signals.length; i++) {
+            partA.signals[i].data.set(
+                partB.signals[i].data,
+                Math.round((partB.start - partA.start)*partA.signals[i].samplingRate)
+            )
+        }
+        return true
+    }
+    if (partA.start >= partB.start && partA.end <= partB.end) {
+        // partB contains partA: replace partA with partB.
+        partA.start = partB.start
+        partA.end = partB.end
+        partA.signals = partB.signals
+        return true
+    }
+    // Combine the parts.
+    for (let i=0; i<partA.signals.length; i++) {
+        // Signals with missing samples should be discarded in shape mode.
+        if (prioritize === 'shape' && (
+            !partA.signals[i].data.length && partA.signals[i].samplingRate && partA.end !== partA.start ||
+            !partB.signals[i].data.length && partB.signals[i].samplingRate && partB.end !== partB.start
+        )) {
+            Log.debug(`Signal at index ${i} has missing data.`, SCOPE)
+            partA.signals[i].data = new Float32Array()
+            continue
+        }
+        if (partA.signals[i].samplingRate !== partB.signals[i].samplingRate) {
+            Log.error(
+                `Cannot combine signals with different sampling rates ` +
+                `(${partB.signals[i].samplingRate} != ${partA.signals[i].samplingRate}).`,
+            SCOPE)
+            // Replace the signal data with an empty array, since it is no longer valid.
+            // An empty signal is easier to identify visually for debugging purposes, but this could also
+            // return false.
+            partA.signals[i].data = new Float32Array()
+            continue
+        }
+        if (partA.signals[i].data.length || partB.signals[i].data.length) {
+            if (partA.start <= partB.start && partA.end >= partB.end) {
+                // partA contains partB: insert partB.
+                partA.signals[i].data.set(
+                    partB.signals[i].data,
+                    Math.floor((partB.start - partA.start)*partA.signals[i].samplingRate)
+                )
+            } else if (partA.end >= partB.start) {
+                // New part extends partA at the end.
+                partA.signals[i].data = concatTypedNumberArrays(
+                    partA.signals[i].data.slice(
+                        0,
+                        Math.floor((partB.start - partA.start)*partA.signals[i].samplingRate)
+                    ),
+                    partB.signals[i].data
+                )
             } else {
-                // Explain failure to combine parts.
-                Log.debug(
-                    `Cannot combine non-consecutive signal parts; ` +
-                    `neither first part end equals second part start (${partA.end} != ${partB.start})) ` +
-                    `nor second part end equals first part start (${partB.end} != ${partA.start}).`,
-                SCOPE)
+                // New part extends partA at the start.
+                partA.signals[i].data = concatTypedNumberArrays(
+                    partB.signals[i].data,
+                    partA.signals[i].data.slice(
+                        Math.floor((partA.start - partB.start)*partA.signals[i].samplingRate)
+                    )
+                )
             }
         }
     }
-    return false
+    // Adjust start or end point accordingly.
+    partA.start = Math.min(partA.start, partB.start)
+    partA.end = Math.max(partA.end, partB.end)
+    return true
 }
 
 /**
@@ -504,16 +556,26 @@ export const fftAnalysis = (signal: Float32Array, samplingRate: number): FftAnal
 }
 
 /**
- * Apply bandpass/highpass/lowpass and/or notch filters to the given signal.
- * @param signal the signal to filter
- * @param fs sampling frequency of the signal
- * @param hp high-pass threshold
- * @param lp low-pass threshold
- * @param nf notch filter frequency
- * @returns filtered signal as Float32Array
+ * Apply bandpass/highpass/lowpass and/or notch filters to the given `signal`.
+ * @param signal - The signal to filter.
+ * @param fs - Sampling frequency of the signal.
+ * @param hp - High-pass threshold.
+ * @param lp - Low-pass threshold.
+ * @param nf - Notch filter frequency.
+ * @returns The filtered signal as Float32Array.
  */
-export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: number, nf: number) => {
-    // Fili returns NaNs if lp as over half the sampling rate, so consider that the maximum.
+export const filterSignal = (
+    signal: Float32Array,
+    fs: number,
+    hp: number,
+    lp: number,
+    nf: number
+): Float32Array => {
+    // Check basic requirements for filtering.
+    if (!fs || !signal.length) {
+        return signal
+    }
+    // Fili returns NaNs if lp is over half the sampling rate, so consider that the maximum.
     lp = Math.min(lp, fs/2)
     // Can have either bandpass, highpass or lowpass filter.
     // The highpass and lowpass filters give identical results to SciPy Butterworth filter,
@@ -530,36 +592,39 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
             BW: bw,
         })
     */
-    if (hp) {
-        const hpFilterCoeffs = iirCalculator.highpass({
-            // Fili order is actually twice the "traditional" order value, as it
-            // instructs how many biquad filters to cascade (and each Fili biquad
-            // corresponds to two steps of order in SciPy Butterworth filter).
-            // The order is moreover doubled when using a forward-backward filter.
-            order: 2,
-            characteristic: 'butterworth',
-            Fs: fs,
-            Fc: hp,
-        })
-        const hpFilter = new Fili.IirFilter(hpFilterCoeffs)
-        signal = hpFilter.filtfilt(signal)
-    }
-    if (lp) {
-        const lpFilterCoeffs = iirCalculator.lowpass({
-            order: 2,
-            characteristic: 'butterworth',
-            Fs: fs,
-            Fc: lp,
-        })
-        const lpFilter = new Fili.IirFilter(lpFilterCoeffs)
-        signal = lpFilter.filtfilt(signal)
+    if (lp && hp && lp <= hp) {
+        Log.debug(`Low-pass threshold must be higher than high-pass threshold, ignoring band-pass.`, SCOPE)
+    } else  {
+        if (hp) {
+            const hpFilterCoeffs = iirCalculator.highpass({
+                // Fili order is actually twice the "traditional" order value, as it
+                // instructs how many biquad filters to cascade (and each Fili biquad
+                // corresponds to two steps of order in SciPy Butterworth filter).
+                // The order is moreover doubled when using a forward-backward filter.
+                order: 2,
+                characteristic: 'butterworth',
+                Fs: fs,
+                Fc: hp,
+            })
+            const hpFilter = new Fili.IirFilter(hpFilterCoeffs)
+            signal = hpFilter.filtfilt(signal)
+        }
+        if (lp && (!hp || lp > hp)) {
+            const lpFilterCoeffs = iirCalculator.lowpass({
+                order: 2,
+                characteristic: 'butterworth',
+                Fs: fs,
+                Fc: lp,
+            })
+            const lpFilter = new Fili.IirFilter(lpFilterCoeffs)
+            signal = lpFilter.filtfilt(signal)
+        }
     }
     // TODO: Ability to apply more than one notch filter?
     if (nf) {
-        // Parameters take from
-        // https://www.mathworks.com/help/dsp/ref/iirnotch.html
         const f0 = nf/(fs/2)
-        const bw = f0/35
+        const Qfactor = 10 // Higher Q-factor makes the filter more narrow.
+        const bw = f0/Qfactor
         //const fc = (lp-hp)/2 + hp
         const stopFilterCoeffs = iirCalculator.bandstop({
             order: 6,
@@ -571,7 +636,7 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
         const stopFilter = new Fili.IirFilter(stopFilterCoeffs)
         signal = stopFilter.filtfilt(signal)
     }
-    // Convert into a Float32Array
+    // Convert into a Float32Array.
     signal = new Float32Array(signal)
     return signal
 }
@@ -583,16 +648,33 @@ export const filterSignal = (signal: Float32Array, fs: number, hp: number, lp: n
  * @param bits - Float bits (either `16`, `32` or default `64`).
  * @returns True/false.
  */
-export const floatsAreEqual = (float1: number, float2: number, bits = 64 as 16 | 32 | 64) => {
+export const floatsAreEqual = (float1: number, float2: number, bits: 16 | 32 | 64 = 64) => {
     if (float1 === float2 || (!float1 && !float2)) {
         return true
     }
-    const sigPrecision = bits === 16 ? FLOAT16_PRECISION
-                       : bits === 32 ? FLOAT32_PRECISION
-                       : FLOAT64_PRECISION
-    const val1Rounded = Math.round(float1*Math.pow(10, sigPrecision - Math.floor(Math.log10(float1))))
-    const val2Rounded = Math.round(float2*Math.pow(10, sigPrecision - Math.floor(Math.log10(float2))))
-    return val1Rounded - val2Rounded === 0
+    const sigEps = bits === 16 ? FLOAT16_EPS
+                 : bits === 32 ? FLOAT32_EPS
+                 : FLOAT64_EPS
+    const exp1 = Math.max(1, 10**Math.floor(Math.log10(float1)))
+    const exp2 = Math.max(1, 10**Math.floor(Math.log10(float2)))
+    return Math.abs(float1/exp1 - float2/exp2) < sigEps
+}
+
+/**
+ * Generate a compound sine wave singal with the given parameters.
+ * @param samplingRate - Sampling rate of the signal in Hz.
+ * @param duration - Duration of the signal in seconds.
+ * @param components - List of waveform components as [`frequency`, `amplitude`].
+ * @returns An array of signal data points.
+ */
+export const generateSineWave = (samplingRate: number, duration: number, ...components: [number, number][]) => {
+    const signal = new Array(Math.floor(samplingRate*duration)).fill(0)
+    for (const [frequency, amplitude] of components) {
+        for (let i=0; i<signal.length; i++) {
+            signal[i] += amplitude*Math.sin(i*(frequency/samplingRate)*2*Math.PI)
+        }
+    }
+    return signal
 }
 
 /**
@@ -607,7 +689,7 @@ export const getChannelFilters = (
     defaultFilters: BiosignalFilters,
     settings: CommonBiosignalSettings
 ): BiosignalFilters => {
-    const applyDefaults = settings.filterChannelTypes[channel.type]
+    const applyDefaults = settings.filterChannelTypes[channel.modality]
     const highpass = channel.highpassFilter
                      || (applyDefaults?.includes('highpass') ? defaultFilters.highpass : 0) || 0
     const lowpass = channel.lowpassFilter
@@ -615,6 +697,7 @@ export const getChannelFilters = (
     const notch = channel.notchFilter
                   || (applyDefaults?.includes('notch') ? defaultFilters.notch : 0) || 0
     return {
+        bandreject: [],
         highpass: highpass,
         lowpass: lowpass,
         notch: notch
@@ -755,7 +838,13 @@ export const getIncludedChannels = <T extends Array<unknown>>(
  *      targetSR = 10
  * )
  */
-export const interpolateSignalValues = (signal: Float32Array, targetLen: number, start: number, sigSR: number, targetSR: number) => {
+export const interpolateSignalValues = (
+    signal: Float32Array,
+    targetLen: number,
+    start: number,
+    sigSR: number,
+    targetSR: number
+)=> {
     // Cannot interpolate from fewer than 2 values, so in that case just fill the array with the same value
     if (signal.length === 0) {
         const sig = new Float32Array(targetLen)
@@ -766,16 +855,17 @@ export const interpolateSignalValues = (signal: Float32Array, targetLen: number,
         sig.fill(signal[0])
         return sig
     }
+    const interpolate = (a: number, b: number, v: number) => {
+        return a*(1 - v) + b*v
+    }
     const interpolatedSig = [] as number[]
     let floor = Math.floor(start)
-    let interpolate = d3.interpolateNumber(signal[floor], signal[floor + 1])
     const srFactor = sigSR/targetSR
     for (let i=0; i<targetLen; i++) {
         const pos = start + i*srFactor
         if (Math.floor(pos) !== floor && signal.length > Math.floor(pos) + 1) {
             // New interpolation bounds
             floor = Math.floor(pos)
-            interpolate = d3.interpolateNumber(signal[floor], signal[floor + 1])
             interpolatedSig.push(signal[floor])
             continue
         }
@@ -783,7 +873,7 @@ export const interpolateSignalValues = (signal: Float32Array, targetLen: number,
             // Both bounds are same or we're past the last datapoint
             interpolatedSig.push(signal[floor])
         } else {
-            interpolatedSig.push(interpolate(pos%1))
+            interpolatedSig.push(interpolate(signal[floor], signal[floor + 1], pos%1))
         }
     }
     return new Float32Array(interpolatedSig)
@@ -829,11 +919,11 @@ export const mapMontageChannels = (
     const getChannel = (props?: BiosignalChannelProperties): MontageChannel => {
         // If visibility is set in config, use it. Otherwise hide if meta channel.
         const visible = props?.visible !== undefined ? props.visible
-                        : props?.type === 'meta' ? false : true
+                        : props?.modality === 'meta' ? false : true
         const newChan = {
             name: props?.name || '--',
             label: props?.label || '',
-            type: (props?.type || ''),
+            modality: props?.modality || '',
             laterality: props?.laterality || '',
             active: typeof props?.active === 'number' ? props.active : NUMERIC_ERROR_VALUE,
             reference: props?.reference || [],
@@ -862,7 +952,7 @@ export const mapMontageChannels = (
                 getChannel({
                     label: chan.label,
                     name: chan.name,
-                    type: chan.type,
+                    modality: chan.modality,
                     laterality: chan.laterality,
                     active: chan.index,
                     samplingRate: chan.samplingRate,
@@ -899,6 +989,7 @@ export const mapMontageChannels = (
             channels.push(
                 getChannel({
                     label: chan.label,
+                    modality: chan.modality,
                     name: chan.name,
                 })
             )
@@ -929,7 +1020,7 @@ export const mapMontageChannels = (
                     getChannel({
                         label: chan.label,
                         name: chan.name,
-                        type: chan.type || actChan.type,
+                        modality: chan.modality || actChan.modality,
                         laterality: chan.laterality || actChan.laterality,
                         active: actChan.index,
                         reference: refs,
@@ -947,7 +1038,7 @@ export const mapMontageChannels = (
                 getChannel({
                     label: chan.label,
                     name: chan.name,
-                    type: chan.type || actChan.type,
+                    modality: chan.modality || actChan.modality,
                     laterality: chan.laterality || actChan.laterality,
                     active: actChan.index,
                     samplingRate: actChan.samplingRate,
@@ -988,8 +1079,8 @@ export const mapSignalsToSamplingRates = (signals: Float32Array[], channels: Bio
 }
 
 /**
- * Check which part of the range in a given signal cache part is not already covered by
- * the given set of already cached parts.
+ * Check which part of the range in a given signal cache part is not already covered by the given set of already cached
+ * signal parts.
  * This method does not check the already cached parts for overlap.
  * @param partToCheck part to check the not cached range of
  * @param cachedParts already cached signal parts
@@ -1056,6 +1147,8 @@ export const partsNotCached = (partToCheck: SignalCachePart, ...cachedParts: Sig
 
 /**
  * Resample a given signal to target length. Utilizes the Largest-Triangle-Three-Buckets algorithm.
+ *
+ * **Note**: This method can currently only downsample signals.
  * @param signal - Original signal to resample.
  * @param targetLen - Desired length (number of samples) for the signal; must be less than original signal length.
  * @returns Float32Array with the original signal resampled to target length.
@@ -1063,6 +1156,7 @@ export const partsNotCached = (partToCheck: SignalCachePart, ...cachedParts: Sig
 export const resampleSignal = (signal: Float32Array, targetLen: number) => {
     if (targetLen > signal.length) {
         Log.error(`Cannot resample to a higher sampling rate.`, SCOPE)
+        return signal
     }
     let i = 0
     const data = [] as { x: number, y: number}[]
@@ -1087,7 +1181,14 @@ export const shouldFilterSignal = (
     defaultFilters: BiosignalFilters,
     settings: CommonBiosignalSettings
 ) => {
-    return Object.values(getChannelFilters(channel, defaultFilters, settings)).some(v => Array.isArray(v) || v > 0)
+    return Object.values(getChannelFilters(channel, defaultFilters, settings)).some(v => {
+        if (Array.isArray(v)) {
+            // There are bandreject filters to apply.
+            return v.length > 0
+        }
+        // There is a highpass, lowpass or notch filter to apply.
+        return v > 0
+    })
 }
 
 /**
@@ -1106,13 +1207,13 @@ export const shouldDisplayChannel = (
         showMissingChannels: boolean
     }
 ) => {
-    if (!channel || !channel.type || channel.type === 'meta') {
+    if (!channel || !channel.modality || channel.modality === 'meta') {
         return false
     } else if (useRaw) {
         return true
-    } else if ((channel as MontageChannel).active === NUMERIC_ERROR_VALUE && (config && !config.showMissingChannels)) {
+    } else if (channel.active === NUMERIC_ERROR_VALUE && !config?.showMissingChannels) {
         return false
-    } else if (!(channel as MontageChannel).visible && (config && !config.showHiddenChannels)) {
+    } else if (!channel.visible && !config?.showHiddenChannels) {
         return false
     }
     return true

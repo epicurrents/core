@@ -6,7 +6,7 @@
  */
 
 import { type FileSystemItem, type FileSystemItemType } from '#root/src/types/reader'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import FileSystemFile from './FileSystemFile'
 
 const SCOPE = 'FileSystemDirectory'

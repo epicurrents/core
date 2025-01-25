@@ -6,55 +6,55 @@
  * @license    Apache-2.0
  */
 
-import {
-    type AnnotationTemplate,
-    type BiosignalAnnotation,
-    type BiosignalChannel,
-    type BiosignalCursor,
-    type BiosignalDataService,
-    type BiosignalFilterType,
-    type BiosignalMontage,
-    type BiosignalResource,
-    type BiosignalSetup,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
-    type SignalPart,
-    type VideoAttachment
-} from '#types/biosignal'
-import { type CommonBiosignalSettings, type ConfigChannelFilter } from '#types/config'
-import {
-    type MemoryManager,
-    type SignalCachePart,
-    type SignalCacheResponse,
-} from '#types/service'
-import { type StudyContext } from '#types/study'
-import { nullPromise } from '#util/general'
 import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
+import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
-import Log from 'scoped-ts-log'
-import { type MutexExportProperties } from 'asymmetric-io-mutex'
+import type {
+    BiosignalFilters,
+    AnnotationTemplate,
+    BiosignalAnnotation,
+    BiosignalCursor,
+    BiosignalDataService,
+    BiosignalFilterType,
+    BiosignalMontage,
+    BiosignalResource,
+    BiosignalSetup,
+    SignalDataCache,
+    SignalDataGap,
+    SignalDataGapMap,
+    SignalPart,
+    SourceChannel,
+    VideoAttachment
+} from '#types/biosignal'
+import type { CommonBiosignalSettings, ConfigChannelFilter } from '#types/config'
+import type {
+    MemoryManager,
+    SignalCachePart,
+    SignalCacheResponse,
+} from '#types/service'
+import type { StudyContext } from '#types/study'
+import Log from 'scoped-event-log'
+import type { MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericBiosignalResource'
 
 export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
 
-    static readonly CONTEXT = GenericResource.CONTEXTS.BIOSIGNAL
-
     protected _activeMontage: BiosignalMontage | null = null
     protected _annotations: BiosignalAnnotation[] = []
     protected _cacheProps: SignalDataCache | null = null
-    protected _channels: BiosignalChannel[] = []
+    protected _channels: SourceChannel[] = []
     protected _cursors: BiosignalCursor[] = []
     protected _dataDuration: number = 0
     protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _displayViewStart: number = 0
     protected _filterChannelTypes = {} as { [type: string]: BiosignalFilterType[] }
     protected _filters = {
+        bandreject: [],
         highpass: 0,
         lowpass: 0,
         notch: 0,
-    }
+    } as BiosignalFilters
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
@@ -74,9 +74,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _videos: VideoAttachment[] = []
     protected _viewStart: number = 0
 
-    constructor (name: string, type: string, source?: StudyContext) {
-        const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS.modules[type] as CommonBiosignalSettings
-        super(name, GenericBiosignalResource.CONTEXT, type, source)
+    constructor (name: string, modality: string, source?: StudyContext) {
+        const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS.modules[modality] as CommonBiosignalSettings
+        super(name, modality, source)
         // Set default filters.
         this._filterChannelTypes = TYPE_SETTINGS?.filterChannelTypes || []
         this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0
@@ -100,7 +100,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         // Sort the annotations in ascending order according to start time.
         value.sort((a, b) => a.start - b.start)
         this._setPropertyValue('annotations', value)
-        this.onPropertyUpdate('annotations', value) // TODO: Deprecated.
     }
 
     get channels () {
@@ -119,9 +118,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._dataDuration
     }
     set dataDuration (value :number) {
-        const oldVal = this._dataDuration
         this._setPropertyValue('dataDuration', value)
-        this.onPropertyUpdate('data-duration', value, oldVal) // TODO: Deprecated.
     }
 
     get dataGaps (): SignalDataGap[] {
@@ -150,9 +147,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._displayViewStart
     }
     set displayViewStart (value: number) {
-        const oldVal = this._displayViewStart
         this._setPropertyValue('displayViewStart', value)
-        this.onPropertyUpdate('display-view-start', value, oldVal) // TODO: Deprecated.
     }
 
     get filterChannelTypes () {
@@ -160,7 +155,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     get filters () {
-        return this._filters
+        return { ...this._filters }
     }
 
     get hasVideo () {
@@ -190,7 +185,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
     set montages (value: BiosignalMontage[]) {
         this._setPropertyValue('montages', value)
-        this.onPropertyUpdate('montages') // TODO: Deprecated.
     }
 
     get name () {
@@ -212,9 +206,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot set sample count to ${value}; value must be zero or greater.`, SCOPE)
             return
         }
-        const oldVal = this._sampleCount
         this._setPropertyValue('sampleCount', value)
-        this.onPropertyUpdate('sample-count', value, oldVal) // TODO: Deprecated.
     }
 
     get samplingRate () {
@@ -225,9 +217,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot set sampling rate to ${value}; value must be greater than zero.`, SCOPE)
             return
         }
-        const oldVal = this._samplingRate
         this._setPropertyValue('samplingRate', value)
-        this.onPropertyUpdate('sampling-rate', value, oldVal) // TODO: Deprecated.
     }
 
     get sensitivity () {
@@ -238,18 +228,14 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot set sensitivity to ${value}; value must be greater than zero.`, SCOPE)
             return
         }
-        const oldVal = this._sensitivity
         this._setPropertyValue('sensitivity', value)
-        this.onPropertyUpdate('sensitivity', value, oldVal) // TODO: Deprecated.
     }
 
     get setup () {
         return this._setup
     }
     set setup (value: BiosignalSetup | null) {
-        const oldVal = this._setup
         this._setPropertyValue('setup', value)
-        this.onPropertyUpdate('setup', value, oldVal) // TODO: Deprecated.
     }
 
     get signalCacheStatus () {
@@ -261,9 +247,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                       `(array with length of ${value.length} given).`, SCOPE)
             return
         }
-        const oldVal = [...this._signalCacheStatus]
         this._setPropertyValue('signalCacheStatus', value)
-        this.onPropertyUpdate('signal-cache-status', value, oldVal) // TODO: Deprecated.
     }
 
     get startTime () {
@@ -274,9 +258,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._timebase
     }
     set timebase (value: number) {
-        const oldVal = this._timebase
         this._setPropertyValue('timebase', value)
-        this.onPropertyUpdate('timebase', value, oldVal) // TODO: Deprecated.
     }
 
     get timebaseUnit () {
@@ -294,13 +276,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot set total duration to ${value}; value must be zero or greater.`, SCOPE)
             return
         }
-        const oldVal = this._totalDuration
         this._setPropertyValue('totalDuration', value)
-        this.onPropertyUpdate('total-duration', value, oldVal) // TODO: Deprecated.
-    }
-
-    get type () {
-        return this._type
     }
 
     get url () {
@@ -312,7 +288,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
     set videos (value: VideoAttachment[]) {
         this._setPropertyValue('videos', value)
-        this.onPropertyUpdate('videos', value) // TODO: Deprecated.
     }
 
     get viewStart () {
@@ -322,9 +297,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (value < 0) {
             value = 0
         }
-        const oldVal = this._viewStart
         this._setPropertyValue('viewStart', value)
-        this.onPropertyUpdate('view-start', value, oldVal) // TODO: Deprecated.
     }
 
     get visibleChannels () {
@@ -366,7 +339,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (anyChange) {
             this._annotations.sort((a, b) => a.start - b.start)
             this.dispatchPropertyChangeEvent('annotations', this.annotations, prevState)
-            this.onPropertyUpdate('annotations') // TODO: Deprecated.
         }
     }
 
@@ -384,7 +356,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     addDataGaps (gaps: SignalDataGapMap) {
         let anyChange = false
-        const prevState = [...this.dataGaps]
+        const prevState = this.dataGaps
         for (const gap of gaps) {
             if (this._dataGaps.get(gap[0]) !== gap[1]) {
                 this._dataGaps.set(gap[0], gap[1])
@@ -397,7 +369,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 montage.setDataGaps(gaps)
             }
             this.dispatchPropertyChangeEvent('dataGaps', this.dataGaps, prevState)
-            this.onPropertyUpdate('data-gaps') // TODO: Deprecated.
         }
     }
 
@@ -559,13 +530,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.signalCacheStatus = [0, 0]
     }
 
-    removeAllPropertyUpdateHandlers () {
-        for (const chan of this._channels) {
-            chan.removeAllPropertyUpdateHandlers()
-        }
-        super.removeAllPropertyUpdateHandlers()
-    }
-
     removeAnnotations (...annos: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[] {
         const prevState = [...this._annotations]
         const deleted = [] as BiosignalAnnotation[]
@@ -588,20 +552,19 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 }
             }
         }
-        this.onPropertyUpdate('annotations') // TODO: Deprecated.
         this.dispatchPropertyChangeEvent('annotations', this.annotations, prevState)
         return deleted
     }
 
     async setActiveMontage (montage: number | string | null) {
-        this._activeMontage?.removeAllPropertyUpdateHandlers()
+        const prevMontage = this.activeMontage
+        prevMontage?.removeAllEventListeners()
         if (montage === null) {
             // Use raw signals.
             if (this._activeMontage) {
                 this._activeMontage.stopCachingSignals()
             }
             this._setPropertyValue('activeMontage', null)
-            this.onPropertyUpdate('active-montage') // TODO: Deprecated.
             return
         }
         if (typeof montage === 'string') {
@@ -621,22 +584,19 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 this._activeMontage?.stopCachingSignals()
                 this._setPropertyValue('activeMontage', this._montages[montage as number])
                 // Relay channel updates to the resource listeners.
-                this._activeMontage?.addPropertyUpdateHandler('channels', () => {
-                    this.activeMontage?.updateFilters()
-                    this.onPropertyUpdate('channels') // TODO: Deprecated.
-                })
+                this._activeMontage?.onPropertyChange('channels', () => {
+                    this.dispatchPropertyChangeEvent('channels', this.channels, this.channels)
+                }, this.id)
                 // Update filter settings in case they have changed since this montage was created/active.
                 await this._activeMontage?.updateFilters()
-                this.onPropertyUpdate('active-montage') // TODO: Deprecated.
+                this.dispatchPropertyChangeEvent('activeMontage', this.activeMontage, prevMontage) // TODO: Deprecated.
             }
         }
     }
 
     setDataGaps (gaps: SignalDataGapMap) {
-        const prevState = [...this.dataGaps]
-        const oldVal = new Map(this._dataGaps)
+        const prevState = this.dataGaps
         this._dataGaps = gaps
-        this.onPropertyUpdate('data-gaps', gaps, oldVal) // TODO: Deprecated.
         // Set updated data gaps in montages.
         for (const montage of this._montages) {
             montage.setDataGaps(gaps)
@@ -651,10 +611,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     setHighpassFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
-        } else if (value < 0 || value === this._filters.highpass) {
+        } else if (value < 0) {
+            Log.error(`Highpass filter value must be zero or greater, ${value} was given.`, SCOPE)
+            return
+        } else if (value === this._filters.highpass) {
             return
         }
-        const oldVal = this._filters.highpass
+        const prevState = { ...this.filters }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             this._activeMontage.setHighpassFilter(value, target)
@@ -663,23 +626,25 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 // TODO: Actually check for the type and only alter those channels.
                 if (!target) {
                     this._filters.highpass = value
+                    this._activeMontage?.updateFilters()
                 }
             } else if (this._activeMontage) {
                 this._activeMontage.setHighpassFilter(value, target)
             }
         }
-        this._activeMontage?.updateFilters()
-        this.onPropertyUpdate('highpass-filter') // TODO: Deprecated.
-        this.dispatchPropertyChangeEvent('filters', this._filters.highpass, oldVal)
+        this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
     }
 
     setLowpassFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
-        } else if (value < 0 || value === this._filters.lowpass) {
+        } else if (value < 0) {
+            Log.error(`Lowpass filter value must be zero or greater, ${value} was given.`, SCOPE)
+            return
+        } else if (value === this._filters.lowpass) {
             return
         }
-        const oldVal = this._filters.lowpass
+        const prevState = { ...this.filters }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             this._activeMontage.setLowpassFilter(value, target)
@@ -687,14 +652,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.lowpass = value
+                    this._activeMontage?.updateFilters()
                 }
             } else if (this._activeMontage) {
                 this._activeMontage.setLowpassFilter(value, target)
             }
         }
-        this._activeMontage?.updateFilters()
-        this.onPropertyUpdate('lowpass-filter') // TODO: Deprecated.
-        this.dispatchPropertyChangeEvent('filters', this._filters.lowpass, oldVal)
+        this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
     }
 
     setMemoryManager (manager: MemoryManager | null) {
@@ -704,10 +668,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     setNotchFilter (value: number | null, target?: string | number, scope: string = 'recording') {
         if (value === null) {
             value = 0
-        } else if (value < 0 || value === this._filters.notch) {
+        } else if (value < 0) {
+            Log.error(`Notch filter value must be zero or greater, ${value} was given.`, SCOPE)
+            return
+        } else if (value === this._filters.notch) {
             return
         }
-        const oldVal = this._filters.notch
+        const prevState = { ...this.filters }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             this._activeMontage.setNotchFilter(value, target)
@@ -715,14 +682,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             if (scope === 'recording') {
                 if (!target) {
                     this._filters.notch = value
+                    this._activeMontage?.updateFilters()
                 }
             } else if (this._activeMontage) {
                 this._activeMontage.setNotchFilter(value, target)
             }
         }
-        this._activeMontage?.updateFilters()
-        this.onPropertyUpdate('notch-filter') // TODO: Deprecated.
-        this.dispatchPropertyChangeEvent('filters', this._filters.notch, oldVal)
+        this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
     }
 
     async setupCache () {
@@ -730,7 +696,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot setup cache before service has been set.`, SCOPE)
             return null
         }
-        const result = await this._service.setupCache()
+        const result = await this._service.setupCache(this._dataDuration)
         if (result) {
             this._cacheProps = result as SignalDataCache
         }

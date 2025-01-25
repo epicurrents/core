@@ -32,16 +32,14 @@ import {
  * The most basic type defining properties that must exist in every asset.
  */
 export interface BaseAsset {
-    /** Application context that this asset belongs to. */
-    context: string
     /** Unique id (generated automatically). */
     id: string
     /** Is this asset selected as active. */
     isActive: boolean
+    /** Specific modality (or type) of the resource. */
+    modality: string
     /* Below fields are given proper descriptions in sub-interfaces */
     name: string
-    /** Specific type (or modality) of the resource. */
-    type: string
     /**
      * Add a listener for an `event` or list of events.
      * @param event - Event or list of events to listen for.
@@ -56,19 +54,11 @@ export interface BaseAsset {
         phase?: ScopedEventPhase
     ): void
     /**
-     * Add and update handler for the given `property` or properties.
-     * @param property - Name of the property or array of property names (in kebab-case).
-     * @param handler - Handler to fire when the property changes.
-     * @param caller - Optional ID for the caller.
-     * @param singleEvent - Should the handler be removed after the first time this event occurs (default false).
-     * @todo TO BE DEPRECATED
+     * Ideally, this method should take care of releasing any resources the asset has reserved.
+     * It should be called starting from the last inheriting class and calling the super's `destroy` once all the
+     * necessary preparations have been made.
      */
-    addPropertyUpdateHandler (
-        property: string | string[],
-        handler: PropertyUpdateHandler,
-        caller?: string,
-        singleEvent?: boolean
-    ): void
+    destroy (): Promise<void>
     /**
      * Dispatch an `event`.
      * @param event - Name of the event.
@@ -140,29 +130,10 @@ export interface BaseAsset {
         phase?: ScopedEventPhase,
     ): void
     /**
-     * Fire all property update handlers attached to the given property.
-     * @param property - Property that was updated.
-     * @param newValue - Optional new value of the property to pass to the handler.
-     * @param oldValue - Optional previous value of the property to pass to the handler.
-     * @todo TO BE DEPRECATED
-     */
-    onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown): void
-    /**
-     * Remove all event listeners, optinally limited to a specific `subscriber`.
+     * Remove all event listeners from this asset, optionally limited to the given `subscriber`.
      * @param subscriber - Name of the subscriber (optional).
      */
     removeAllEventListeners (subscriber?: string): void
-    /**
-     * Remove all property update handlers from this asset.
-     * @todo TO BE DEPRECATED
-     */
-    removeAllPropertyUpdateHandlers (): void
-    /**
-     * Remove all property update handlers registered for the given `caller`.
-     * @param caller - ID of the caller.
-     * @todo TO BE DEPRECATED
-     */
-    removeAllPropertyUpdateHandlersFor (caller: string): void
     /**
      * Remove the listener for the given `event`(s).
      * @param event - Event or list of events to match.
@@ -176,13 +147,6 @@ export interface BaseAsset {
         subscriber: string,
         phase?: ScopedEventPhase
     ): void
-    /**
-     * Remove an update handler from the given `property` or properties.
-     * @param property - Name of the property or array of peroperty names (in kebab-case).
-     * @param handler - Handler to remove.
-     * @todo TO BE DEPRECATED
-     */
-    removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
     /**
      * Alias for `addEventListener`.
      */
@@ -201,13 +165,6 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
-    /**
-     * Application context of this resource.
-     * @remarks
-     * Context in refers to the general modality of the resource, such as
-     * *biosignal*, *radiology* or *multimedia*.
-     */
-    context: string
     /** Any dependencies of this resource that are not yet ready to use. */
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
@@ -288,11 +245,11 @@ export interface EpicurrentsApp {
      */
     useMemoryManager: boolean
     /**
-     * Add a resource to the active dataset.
+     * Add a `resource` to the active dataset.
      * @param resource - The resource to add.
-     * @param scope - Optional resource scope (defaults to the value of the resource's type property).
+     * @param modality - Override resource modality (optional).
      */
-    addResource (resource: DataResource, scope?: string): void
+    addResource (resource: DataResource, modality?: string): void
     /**
      * Modify the default configuration before the app is launched.
      * After launching the app, use setSettingsValue() instead.
@@ -447,8 +404,10 @@ export type InterfaceResourceModuleContext = {
 export type NullProtoObject = {
     __proto__: null
 }
+/**
+ * A handler for asset property change events.
+ */
 export type PropertyChangeHandler = <T>(newValue?: T, oldValue?: T) => unknown
-export type PropertyUpdateHandler = (newValue?: unknown, oldValue?: unknown) => unknown
 /**
  * Module containing the required runtime and settings properties for a given resource type.
  */
@@ -525,7 +484,7 @@ export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
  * In addition to the actual modules, it also includes shorthands for
  * core APP properties and methods for altering MODULES and SERVICES.
  */
-export interface StateManager extends RuntimeState {
+export interface StateManager extends RuntimeState, BaseAsset {
     /**
      * Add a new dataset to the list of datasets.
      * @param dataset - New dataset to add.
@@ -533,19 +492,12 @@ export interface StateManager extends RuntimeState {
      */
     addDataset (dataset: MediaDataset, setAsActive?: boolean): void
     /**
-     * Add and update handler for the given `property`.
-     * @param property - Name of the property/properties (in kebab-case).
-     * @param handler - Handler to fire when the property changes.
-     * @param caller - Optional ID for the caller.
-     */
-    addPropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler, caller?: string): void
-    /**
-     * Add a new `resource` into the given `scope`.
-     * @param scope - Scope of the new resoure.
+     * Add a new `resource` with the given `modality`.
+     * @param modality - Modality of the new resoure.
      * @param resource - The resource to add.
      * @param setAsActive - Should the new resource be set as active (default false).
      */
-    addResource (scope: string, resource: DataResource, setAsActive?: boolean): void
+    addResource (modality: string, resource: DataResource, setAsActive?: boolean): void
     /**
      * Set the given `resource` as not active.
      * @param resource - Resource to deactivate.
@@ -574,23 +526,12 @@ export interface StateManager extends RuntimeState {
      * @param studyLoaders - Set of study loaders for the studies in the dataset.
      * @param config - Additional configuration (TODO: Config definitions).
      */
-    loadDatasetFolder (folder: FileSystemItem, loader: DatasetLoader, studyLoaders: StudyLoader[], config?: unknown):
-    Promise<MediaDataset>
-    /**
-     * Remove all property update handlers from this asset.
-     */
-    removeAllPropertyUpdateHandlers (): void
-    /**
-     * Remove all property update handlers registered for the given `caller`.
-     * @param caller - ID of the caller.
-     */
-    removeAllPropertyUpdateHandlersFor (caller: string): void
-    /**
-     * Remove an update handler from the given `property`.
-     * @param property - Name of the property/properties (in kebab-case).
-     * @param handler - Handler to remove.
-     */
-    removePropertyUpdateHandler (property: string | string[], handler: PropertyUpdateHandler): void
+    loadDatasetFolder (
+        folder: FileSystemItem,
+        loader: DatasetLoader,
+        studyLoaders: StudyLoader[],
+        config?: unknown
+    ): Promise<MediaDataset>
     /**
      * Remove the given `resource` from available resources.
      * @param resource - The resource to remove (either resources array index, resource id or resource object).

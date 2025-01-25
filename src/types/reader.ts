@@ -134,11 +134,11 @@ export interface FileFormatReader extends BaseAsset {
      */
     readUrl (url: StudyContextFile | string, config?: unknown): Promise<StudyContextFile | null>
     /**
-     * See if the given scope is supported by this reader.
-     * @param scope - Scope to check.
+     * See if the given `modality` is supported by this reader.
+     * @param modality - Modality to check.
      * @return True if supported, false if not.
      */
-    isSupportedContext (scope: string): boolean
+    isSupportedModality (modality: string): boolean
     /**
      * Match the given file name against files supported by this reader.
      * @param fileName - Name of the file to match.
@@ -260,9 +260,10 @@ export interface SignalDataProcesser {
     setDataGaps (dataGaps: SignalDataGapMap): void
     /**
      * Initialize a new, plain reader cache.
+     * @param dataDuration - Duration of the signal data in seconds, if known.
      * @returns Created cache on success, null on failure.
      */
-    setupCache (): SignalDataCache | null
+    setupCache (dataDuration?: number): SignalDataCache | null
     /**
      * Set up a simple signal cache as the data source for this montage.
      * @param cache - The data cache to use.
@@ -301,7 +302,7 @@ export interface SignalDataProcesser {
         dataGaps?: SignalDataGap[]
     ): Promise<MutexExportProperties|null>
     /**
-     * Set up a shared worker as the source for signal data loading.
+     * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
      * @param input - Message port from the input worker.
      * @param dataDuration - Duration of actual signal data in seconds.
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.

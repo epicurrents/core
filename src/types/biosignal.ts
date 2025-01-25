@@ -112,15 +112,19 @@ export interface BiosignalAnnotation extends BaseAsset {
 /**
  * Common base for all biosignal channel types.
  */
-export interface BiosignalChannel extends BaseAsset {
-    /** Index of the active source channel. */
-    active: number
+export interface BiosignalChannel {
     /** Channel base amplification, mostly used if the channel has a different unit value (e.g. mV instead of uV). */
     amplification: number
-    /** Is this channel average referenced. */
+    /** Is the signal on this channel referenced to an average. */
     averaged: boolean
     /** Display polarity of the signal on this channel. */
     displayPolarity: SignalPolarity
+    /**
+     * Individual filters in Hz to override the resource's general filter.
+     * Null means that the channel uses the resource's filter value for that type.
+     * Zero means that the filter is disabled.
+     */
+    filters: BiosignalChannelFilters
     /** Possible individual high-pass filter in Hz. If null, use default from recording. */
     highpassFilter: number | null
     /** Descriptive name for this channel (displayed to the user). */
@@ -131,6 +135,8 @@ export interface BiosignalChannel extends BaseAsset {
     lowpassFilter: number | null
     /** Markers at specific points of the channel data. */
     markers: BiosignalChannelMarker[]
+    /** Modality of the signal held in this channel. */
+    modality: string
     /** Identifying name for this channel. */
     name: string
     /** Possible individual notch filter in Hz. If null, use default from recording. */
@@ -145,8 +151,6 @@ export interface BiosignalChannel extends BaseAsset {
     originalSampleCount?: number
     /** Original sampling rate of the signal before interpolation/subsampling. */
     originalSamplingRate?: number
-    /** Indices of the source reference channels. */
-    reference: number[]
     /** Total count of samples. */
     sampleCount: number
     /** Sampling rate as samples/second. */
@@ -165,10 +169,38 @@ export interface BiosignalChannel extends BaseAsset {
      */
     addMarkers (...markers: BiosignalChannelMarker[]): void
     /**
+     * Set a highpass filter value to override the resource's general filter (or null to use it).
+     * @param value - New value for the filter (in Hz).
+     */
+    setHighpassFilter (value: number | null): void
+    /**
+     * Set a lowpass filter value to override the resource's general filter (or null to use it).
+     * @param value - New value for the filter (in Hz).
+     */
+    setLowpassFilter (value: number | null): void
+    /**
+     * Set a notch filter value to override the resource's general filter (or null to use it).
+     * @param value - New value for the filter (in Hz).
+     */
+    setNotchFilter (value: number | null): void
+    /**
      * Replace this channel's signal data with the given array of data points.
      * @param signal - Signal data.
      */
     setSignal (signal: Float32Array): void
+}
+/**
+ * Filters for a single biosignal channel. Null means the channel uses the resource's filter value for that type.
+ */
+export type BiosignalChannelFilters = {
+    /** Null for resource filter value, zero to disable. */
+    highpass: number | null
+    /** Null for resource filter value, zero to disable. */
+    lowpass: number | null
+    /** Null for resource filter value, zero to disable. */
+    notch: number | null
+    /** List of possible additional band-reject filters as `[low limit, high limit]`. */
+    bandreject: [number, number][]
 }
 /**
  * A marker containing a certain value at certain position of the channel signal.
@@ -202,25 +234,47 @@ export type BiosignalChannelMarker = {
  * Basic properties of the biosignal channel entity to be used when loading configurations from JSON.
  */
 export type BiosignalChannelProperties = {
+    /** Index of the active channel. */
     active?: number
+    /** 
+     * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
+     * Should only be used in special cases.
+     */
     amplification?: number
+    /** Is the signal on this channel average referenced. */
     averaged?: boolean
+    /** Polarity of the signal on this channel. */
     displayPolarity?: -1 | 0 | 1
+    /** ? */
     height?: number
+    /** Channel label displayed in the UI. */
     label?: string
-    laterality?: string
+    /** Laterality of the signal. */
+    laterality?: BiosignalLaterality
+    /** Modality of the signal on this channel. */
+    modality?: string
+    /** Unique name for this signal (not shown in the UI). */
     name?: string
+    /** Predefined signal offsets as a fraction of the viewport height. */
     offset?: {
+        /** Baseline (or zero-line) position. */
         baseline: number
+        /** Signal bottom edge position. */
         bottom: number
+        /** Signal top edge position. */
         top: number
     }
+    /** List of reference channel indices. */
     reference?: number[]
+    /** Number of samples in this signal. */
     sampleCount?: number
+    /** Sampling rate of the signal. */
     samplingRate?: number
+    /** Initial sensititivty of the signal. */
     sensitivity?: number
-    type?: string
+    /** Physical unit identifier (such as `uV`). */
     unit?: string,
+    /** Should this channel be visible to the user. */
     visible?: boolean
 }
 /**
@@ -231,16 +285,19 @@ export type BiosignalChannelTemplate = {
     label: string
     /** Laterality of the recorded signal. */
     laterality: BiosignalLaterality
+    /** Channel signal modality. */
+    modality: string
     /**
      * Unique name for the channel (not visible to the user). A direct match between source file channel name
      * and this name is attempted first, before trying to match by `pattern (optional)`.
      */
     name: string
-    /** Channel signal type. */
-    type: string
     /** Physical unit of the channel signal. */
     unit: string
-    /** Multiplier applied to the signal "behind the scenes", should only be used in special cases (default 1). */
+    /** 
+     * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
+     * Should only be used in special cases.
+     */
     amplification?: number
     /** Does this channel contain an already averaged signal (default false). */
     averaged?: boolean
@@ -254,8 +311,8 @@ export type BiosignalChannelTemplate = {
 
 export type BiosignalConfig = {
     formatHeader?: SafeObject
+    modality?: string
     sensitivity?: number
-    type?: string
 }
 /**
  * A cursor spanning the whole height or width of the viewport.
@@ -330,18 +387,23 @@ export interface BiosignalDataService extends AssetService {
     ): Promise<SetupStudyResponse>
     /**
      * Setup a simple signal data cache.
+     * @param dataDuration - Duration of signal data in the recording in seconds.
+     * @returns A promise that resolves with the created cache if successful, null otherwise.
      */
-    setupCache (): Promise<SignalDataCache|null>
+    setupCache (dataDuration: number): Promise<SignalDataCache|null>
 }
 /**
  * Filter types for biosignal resources.
  */
 export type BiosignalFilters = {
+    /** List of additional band-reject filters as `[low limit, high limit]`. */
+    bandreject: [number, number][]
+    /** High-pass filter in Hz, zero to disable. */
     highpass: number
+    /** Low-pass filter in Hz, zero to disable. */
     lowpass: number
+    /** Notch filter in Hz, zero to disable. */
     notch: number
-    /** List of possible additional band-reject filters. */
-    bandreject?: number[][]
 }
 /**
  * Types of default filters that can be applied to biosignals.
@@ -357,12 +419,12 @@ export interface BiosignalHeaderRecord {
     dataDuration: number
     /** List of data gaps in the recording as <startTime, length> in seconds. */
     dataGaps: SignalDataGapMap
-    /** Number of data records in the recording. */
-    dataRecordCount: number
-    /** Duration of a single data record in seconds. */
-    dataRecordDuration: number
-    /** The total size of a single data record in bytes. */
-    dataRecordSize: number
+    /** Number of data units in the recording. */
+    dataUnitCount: number
+    /** Duration of a single data unit in seconds. */
+    dataUnitDuration: number
+    /** The total size of a single data unit in bytes. */
+    dataUnitSize: number
     /** Is the data in this recording discontinuous. */
     discontinuous: boolean
     /** Total recording duration including gaps. */
@@ -381,9 +443,9 @@ export interface BiosignalHeaderRecord {
     serializable: {
         annotations: string[]
         dataGaps: number[][]
-        dataRecordCount: number
-        dataRecordDuration: number
-        dataRecordSize: number
+        dataUnitCount: number
+        dataUnitDuration: number
+        dataUnitSize: number
         discontinuous: boolean
         fileType: string
         patientId: string
@@ -480,7 +542,7 @@ export interface BiosignalMontage extends BaseAsset {
      * Highlights for montage signal segments.
      * `key` is the id of the source of the highlights.
      */
-    highlights: Map<string, HighlightContext>
+    highlights: { [key: string]: HighlightContext }
     /** Descriptive name for this montage. */
     label: string
     /** Unique, identifying name for this montage. */
@@ -536,8 +598,9 @@ export interface BiosignalMontage extends BaseAsset {
      * Map the channels that have been loaded into the setup of this montage.
      * Mapping will match the source signals and derivations into proper montage channels.
      * @param config - Optional configuration (TODO: config definitions).
+     * @returns Mapped channels as an array.
      */
-    mapChannels (config?: unknown): void
+    mapChannels (config?: unknown): MontageChannel[]
     /**
      * Release the buffers reserved for this montage's signal data.
      * @param config - Optional configuration (TODO: config definitions).
@@ -767,7 +830,7 @@ export interface BiosignalResource extends DataResource {
     /** List of annotations. */
     annotations: BiosignalAnnotation[]
     /** List of channels as recorded. */
-    channels: BiosignalChannel[]
+    channels: SourceChannel[]
     /** Cursors for marking points in time on the plot. */
     cursors: BiosignalCursor[]
     /**
@@ -821,7 +884,7 @@ export interface BiosignalResource extends DataResource {
     /** Position of the left edge of the UI viewport (in seconds). */
     viewStart: number
     /** This resource's currently visible channels (primarily montage channels if a montage is active). */
-    visibleChannels: BiosignalChannel[]
+    visibleChannels: (MontageChannel | SourceChannel)[]
     /**
      * Add a set of new annotations to this recording.
      * @param annotations - New annotations.
@@ -1017,7 +1080,7 @@ export type GetSignalsResponse = {
 /**
  * A single channel in an biosignal montage configuration.
  */
-export interface MontageChannel extends BiosignalChannel {
+export interface MontageChannel extends BiosignalChannel, BaseAsset {
     /** Index of the active channel. */
     active: number
     /** Does this channel use a common average reference. */
@@ -1113,22 +1176,26 @@ export type SetFiltersResponse = {
     updated: boolean
 }
 /**
- * Configuration for a single signal channel in BiosignalSetup.
- */
-export interface SetupChannel extends BiosignalChannel {
-    /** Set to true if the raw signal uses average reference, so it is not applied twice. */
-    averaged: boolean
-    /** Index of the matched raw signal. */
-    index: number
-    /** Non-default polarity of this channel's signal. */
-    polarity?: SignalPolarity
-}
-/**
  * Response sent after setting up a signal cache.
  */
 export type SetupCacheResponse = {
     success: boolean
     cacheProperties?: SignalDataCache
+}
+/**
+ * Configuration for a single signal channel in BiosignalSetup.
+ */
+export interface SetupChannel extends BiosignalChannelTemplate {
+    /** Index of the active channel. */
+    active: number
+    /** Set to true if the raw signal uses average reference, so it is not applied twice. */
+    averaged: boolean
+    /** Non-default polarity of this channel's signal. */
+    displayPolarity: SignalPolarity
+    /** Index of the matched raw signal. */
+    index: number
+    /** Set of reference channel indices; multiple channels will be averaged. */
+    reference: number[]
 }
 /**
  * Reponse that contains the created mutex export properties in `cacheProperties`, if `success` is true.
@@ -1188,6 +1255,15 @@ export type SignalPart = {
 export type SignalPolarity = -1 | 0 | 1
 /** Start and end of a signal range. */
 export type SignalRange = { start: number, end: number }
+/**
+ * A signal channel containing one raw source signal.
+ */
+export interface SourceChannel extends BiosignalChannel, BaseAsset {
+    /** Is the recorded source signal on this channel referenced to an average signal. */
+    averaged: boolean
+    /** Index of this channel. */
+    index: number
+}
 /**
  * Video attachment synchronized to biosignal data.
  */

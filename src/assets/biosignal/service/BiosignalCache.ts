@@ -7,12 +7,13 @@
 
 import { combineSignalParts } from '#util'
 import { type SignalCachePart, type SignalDataCache } from '#types'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
 
 const SCOPE = 'BiosignalCache'
 
 export default class BiosignalCache extends GenericAsset implements SignalDataCache {
+    protected _dataDuration: number
     protected _input: SignalDataCache | null = null
     protected _signalCache: SignalCachePart = {
         start: 0,
@@ -23,8 +24,9 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
      * Create a new instance of BiosignalCache with optional input cache.
      * @param input - Possible signal cache to use for input data.
      */
-    constructor (input?: SignalDataCache) {
-        super('Biosignal cache', GenericAsset.CONTEXTS.BIOSIGNAL, 'cache')
+    constructor (dataDuration: number, input?: SignalDataCache) {
+        super('Biosignal cache', 'cache')
+        this._dataDuration = dataDuration
         if (input) {
             this._input = input
         }
@@ -47,10 +49,10 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
     }
 
     get outputRangeEnd () {
-        return this._signalCache.end
+        return this._dataDuration
     }
     get outputRangeStart () {
-        return this._signalCache.start
+        return 0
     }
     get outputSignalSamplingRates () {
         return this._signalCache.signals.map(s => s.samplingRate)
@@ -65,7 +67,7 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
     }
 
     asCachePart (): SignalCachePart {
-        return this._signalCache
+        return { ...this._signalCache }
     }
 
     async insertSignals(signalPart: SignalCachePart) {
@@ -74,7 +76,7 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
             if (this._signalCache.signals.length) {
                 this.releaseBuffers()
             }
-            this._signalCache = signalPart
+            this._signalCache = { ...signalPart }
         } else if (!combineSignalParts(this._signalCache, signalPart)) {
             Log.error(`Failed to add new singal part to cache.`, SCOPE)
         }

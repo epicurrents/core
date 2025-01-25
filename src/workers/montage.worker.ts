@@ -17,7 +17,7 @@ import { type CommonBiosignalSettings } from '#types/config'
 import { type WorkerMessage } from '#types/service'
 import MontageProcesser from '#assets/biosignal/service/MontageProcesser'
 import { validateCommissionProps } from '#util'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { BaseWorker } from './base.worker'
 
 const SCOPE = "MontageWorker"
@@ -167,7 +167,7 @@ export class MontageWorker extends BaseWorker {
             someUpdated = true
         }
         if (data.channels && data.channels.length === this._montage.channels.length) {
-            const channels = data.channels as { highpass: number, lowpass: number, notch: number }[]
+            const channels = data.channels as BiosignalFilters[]
             for (let i=0; i<channels.length; i++) {
                 const chan = channels[i]
                 if (chan.highpass !== this._montage.channels[i].highpassFilter) {

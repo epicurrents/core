@@ -161,6 +161,8 @@ export interface MemoryManager {
     bufferSize: number
     /** The amount of memory (in 32-bit units) not yet allocated. */
     freeMemory: number
+    /** Is the manager available for memory allocation. */
+    isAvailable: boolean
     /**The amount of memory (in 32-bit units) allocated to services.*/
     memoryUsed: number
     /** All the services managed by this manager. */

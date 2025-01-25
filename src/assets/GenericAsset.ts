@@ -7,7 +7,7 @@
  */
 
 import EventBus from '#events/EventBus'
-import { Log } from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { AssetEvents } from '#events/EventTypes'
 import { type BaseAsset, type PropertyChangeHandler } from '#types/application'
 import { type EventWithPayload, type PropertyChangeEvent } from '#types/event'
@@ -21,50 +21,36 @@ const SCOPE = "GenericAsset"
 
 export default abstract class GenericAsset implements BaseAsset {
     /**
-     * Available application contexts for resources inheriting GenericAsset.
+     * Core events emitted by this asset (not including property change events).
      */
-    static CONTEXTS = {
-        BIOSIGNAL: 'biosignal',
-        COMPONENT: 'component',
-        DATASET: 'dataset',
-        DOCUMENT: 'document',
-        LOADER: 'loader',
-        PRESENTATION: 'presentation',
-        SERVICE: 'service',
-        UNKNOWN: 'unknown',
-        UTILITY: 'utility',
-    }
+    static readonly EVENTS = AssetEvents
+    /**
+     * Create an identifier that is unique among the identifiers created with this method.
+     * @returns Unique identifier as a string.
+     */
     static CreateUniqueId () {
         let retries = 100
         while (retries > 0) {
-            const id = Math.random().toString(36).substring(2, 10)
-            if (!GenericAsset.USED_IDS.includes(id)) {
-                GenericAsset.USED_IDS.push(id)
+            const id = (Date.now() + Math.random()).toString(36)
+            if (!GenericAsset.USED_IDS.has(id)) {
+                GenericAsset.USED_IDS.add(id)
                 return id
             }
             retries--
         }
-        Log.error(`Reached retry limit while creating unique ID.`, SCOPE)
-        const errorId = `id-error-${GenericAsset.USED_IDS.length}`
-        GenericAsset.USED_IDS.push(errorId)
+        Log.warn(`Reached retry limit while creating a unique ID.`, SCOPE)
+        const errorId = `id-error-${GenericAsset.USED_IDS.size}`
+        GenericAsset.USED_IDS.add(errorId)
         return errorId
     }
-    private static USED_IDS: string[] = []
-    protected _context: string
+    private static USED_IDS = new Set<string>()
     protected _eventBus: ScopedEventBus
     protected _id: string
     protected _isActive: boolean = false
+    protected _modality: string
     protected _name: string
-    protected _propertyUpdateHandlers: {
-        caller: string | null
-        handler: (newValue?: unknown, oldValue?: unknown) => unknown
-        pattern: RegExp
-        property: string
-        single: boolean
-    }[] = []
-    protected _type: string
 
-    constructor (name: string, context: string, type: string) {
+    constructor (name: string, modality: string) {
         // Make sure that reference to the global __EPICURRENTS__ object exists.
         if (typeof window.__EPICURRENTS__ === 'undefined') {
             Log.error(
@@ -75,24 +61,12 @@ export default abstract class GenericAsset implements BaseAsset {
         }
         this._eventBus = window.__EPICURRENTS__?.EVENT_BUS || new EventBus()
         this._id = GenericAsset.CreateUniqueId()
-        this._context = GenericAsset.CONTEXTS.UNKNOWN
-        for (const validContext of Object.values(GenericAsset.CONTEXTS)) {
-            if (validContext === context) {
-                this._context = context
-                break
-            }
-        }
-        this._type = type
+        this._modality = modality
         this._name = name
+        // Dispatch asset created event.
+        setTimeout(() => this.dispatchEvent(AssetEvents.CREATE), 1)
     }
 
-    get context () {
-        return this._context
-    }
-    set context (value: string) {
-        this._setPropertyValue('context', value)
-        this.onPropertyUpdate('scope') // TODO: Deprecated.
-    }
     get id () {
         return this._id
     }
@@ -100,8 +74,16 @@ export default abstract class GenericAsset implements BaseAsset {
         return this._isActive
     }
     set isActive (value: boolean) {
-        this._setPropertyValue('isActive', value, value ? AssetEvents.ACTIVATE : AssetEvents.DEACTIVATE)
-        this.onPropertyUpdate('is-active') // TODO: Deprecated.
+        // Dispatch an additional primitive event type on asset activation/deactivation.
+        this.dispatchEvent(value ? AssetEvents.ACTIVATE : AssetEvents.DEACTIVATE, 'before')
+        this._setPropertyValue('isActive', value)
+        this.dispatchEvent(value ? AssetEvents.ACTIVATE : AssetEvents.DEACTIVATE, 'after')
+    }
+    get modality () {
+        return this._modality
+    }
+    set modality (value: string) {
+        this._setPropertyValue('modality', value)
     }
     get name () {
         return this._name
@@ -110,14 +92,7 @@ export default abstract class GenericAsset implements BaseAsset {
         if (!value) {
             return
         }
-        this._setPropertyValue('name', value, AssetEvents.RENAME)
-    }
-    get type () {
-        return this._type
-    }
-    set type (value: string) {
-        this._setPropertyValue('type', value)
-        this.onPropertyUpdate('type') // TODO: Deprecated.
+        this._setPropertyValue('name', value)
     }
 
     ///////////////////////////////////////////////////
@@ -173,35 +148,8 @@ export default abstract class GenericAsset implements BaseAsset {
         this._eventBus.addScopedEventListener(event, callback, subscriber, this.id, phase)
     }
 
-    addPropertyUpdateHandler (
-        property: string | string[],
-        handler: (newValue?: unknown, oldValue?: unknown) => unknown,
-        caller?: string,
-        singleEvent = false,
-    ) {
-        property = Array.isArray(property) ? property : [property] // Simplify method.
-        for (const update of this._propertyUpdateHandlers) {
-            // Don't add the same handler twice.
-            for (let i=0; i<property.length; i++) {
-                if (property[i] === update.property && handler === update.handler) {
-                    property.splice(i, 1)
-                    i--
-                }
-            }
-        }
-        if (!property.length) {
-            return
-        }
-        for (const prop of property) {
-            this._propertyUpdateHandlers.push({
-                caller: caller || null,
-                handler: handler,
-                pattern: new RegExp(`^${property}$`, 'i'),
-                property: prop,
-                single: singleEvent,
-            })
-        }
-        Log.debug(`Added a handler(s) for ${property}.`, SCOPE)
+    async destroy () {
+        this.dispatchEvent(GenericAsset.EVENTS.DESTROY)
     }
 
     dispatchEvent (event: string, phase: ScopedEventPhase = 'after', detail?: { [key: string]: unknown }) {
@@ -251,36 +199,11 @@ export default abstract class GenericAsset implements BaseAsset {
         }
     }
 
-    onPropertyUpdate (property: string, newValue?: unknown, oldValue?: unknown) {
-        for (let i=0; i<this._propertyUpdateHandlers.length; i++) {
-            const update = this._propertyUpdateHandlers[i]
-            if (update.property === property || property.match(update.pattern)) {
-                Log.debug(`Executing ${property} handler${update.caller ? ' for ' + update.caller : ''}.`, SCOPE)
-                update.handler(newValue, oldValue)
-                if (update.single) {
-                    this._propertyUpdateHandlers.splice(i, 1)
-                    i--
-                }
-            }
-        }
-    }
-
-    removeAllEventListeners (subscriber: string) {
-        return this._eventBus.removeAllScopedEventListeners(subscriber, this.id)
-    }
-
-    removeAllPropertyUpdateHandlers () {
-        Log.debug(`Removing all ${this._propertyUpdateHandlers.splice(0).length} property update handlers.`, SCOPE)
-    }
-
-    removeAllPropertyUpdateHandlersFor (caller: string) {
-        for (let i=0; i<this._propertyUpdateHandlers.length; i++) {
-            const update = this._propertyUpdateHandlers[i]
-            if (caller === update.caller) {
-                this._propertyUpdateHandlers.splice(i, 1)
-                i--
-                Log.debug(`Removed ${update.property} handler for ${caller}.`, SCOPE)
-            }
+    removeAllEventListeners (subscriber?: string) {
+        if (subscriber) {
+            this._eventBus.removeAllScopedEventListeners(subscriber, this.id)
+        } else {
+            this._eventBus.removeScope(this.id)
         }
     }
 
@@ -291,22 +214,6 @@ export default abstract class GenericAsset implements BaseAsset {
         phase?: ScopedEventPhase
     ) {
         return this._eventBus.removeScopedEventListener(event, callback, subscriber, this.id, phase)
-    }
-
-    removePropertyUpdateHandler (property: string | string[], handler: () => unknown) {
-        property = Array.isArray(property) ? property : [property] // Simplify method.
-        prop_loop:
-        for (let i=0; i<property.length; i++) {
-            const prop = property[i]
-            for (let j=0; j<this._propertyUpdateHandlers.length; j++) {
-                const update = this._propertyUpdateHandlers[j]
-                if (prop === update.property && handler === update.handler) {
-                    this._propertyUpdateHandlers.splice(j, 1)
-                    Log.debug(`Removed ${prop} handler${update.caller ? ' for '+ update.caller : ''}.`, SCOPE)
-                    continue prop_loop
-                }
-            }
-        }
     }
 
     subscribe (

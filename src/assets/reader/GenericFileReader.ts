@@ -58,10 +58,10 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         'efbbbf': 'text/plain',
     }
      */
-    protected _contexts: string[]
+    protected _fileTypes: AssociatedFileType[]
     protected _matchPatterns: RegExp[] = []
     protected _memoryManager: MemoryManager | null  = null
-    protected _fileTypes: AssociatedFileType[]
+    protected _modalities: string[]
     protected _name: string
     protected _onlyAcceptedTypes: boolean
     protected _study: StudyContext = studyContextTemplate()
@@ -70,13 +70,13 @@ export default abstract class GenericFileReader extends GenericAsset implements 
 
     constructor (
         name: string,
-        contexts: string[],
+        modalities: string[],
         fileTypes: AssociatedFileType[],
         namePatterns = [] as string[],
         onlyAcceptedTypes = false
     ) {
-        super(name, GenericAsset.CONTEXTS.LOADER, "unknown")
-        this._contexts = contexts
+        super(name, 'unknown')
+        this._modalities = modalities
         this._fileTypes = fileTypes
         this._name = name
         for (const pattern of namePatterns) {
@@ -117,13 +117,8 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         }
     }*/
 
-    isSupportedContext (scope: string) {
-        for (const supportedScope of this._contexts) {
-            if (supportedScope === scope) {
-                return true
-            }
-        }
-        return false
+    isSupportedModality (modality: string) {
+        return this._modalities.includes(modality)
     }
 
     async readFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
@@ -134,7 +129,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
             file: source,
             format: null,
             mime: null,
-            type: 'file',
+            modality: 'unknown',
             url: URL.createObjectURL(source as File),
         } as StudyContextFile
     }
@@ -147,7 +142,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
             file: null,
             format: null,
             mime: null,
-            type: 'file',
+            modality: 'unknown',
             url: source as string,
         } as StudyContextFile
     }
@@ -161,7 +156,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         for (const fileType of this._fileTypes) {
             for (const extensions of Object.values(fileType.accept)) {
                 for (const ext of extensions) {
-                    if (fileName.endsWith(ext)) {
+                    if (fileName.toLowerCase().endsWith(ext.toLowerCase())) {
                         return true
                     }
                 }
