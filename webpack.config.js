@@ -1,5 +1,4 @@
 const path = require('path')
-const TerserPlugin = require('terser-webpack-plugin')
 require('dotenv').config()
 
 const ASSET_PATH = process.env.ASSET_PATH || '/epicurrents/'
@@ -20,9 +19,6 @@ module.exports = {
     },
     optimization: {
         minimize: true,
-        minimizer: [
-            new TerserPlugin(),
-        ],
         splitChunks: false,
     },
     output: {
@@ -46,6 +42,6 @@ module.exports = {
             '#types': path.resolve(__dirname, 'src', 'types'),
             '#util': path.resolve(__dirname, 'src', 'util'),
         },
-        symlinks: false
+        symlinks: true
     },
 }

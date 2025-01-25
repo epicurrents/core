@@ -81,20 +81,20 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         if (props.data) {
             for (const array of props.data.arrays) {
                 if (typeof array.constructor !== 'string') {
-                    // @ts-expect-error: We need to resort to this hack to transfer the properties between threads.
+                    // @_ts-expect-error: We need to resort to this hack to transfer the properties between threads.
                     array.constructor = array.constructor.name
                 }
             }
             for (const field of props.data.fields) {
                 if (typeof field.constructor !== 'string') {
-                    // @ts-expect-error: Transfer property between threads.
+                    // @_ts-expect-error: Transfer property between threads.
                     field.constructor = field.constructor.name
                 }
             }
         }
         for (const field of props.meta.fields) {
             if (typeof field.constructor !== 'string') {
-                // @ts-expect-error: Transfer property between threads.
+                // @_ts-expect-error: Transfer property between threads.
                 field.constructor = field.constructor.name
             }
         }
@@ -173,16 +173,16 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             // Reverse the constructor to string conversion in propertiesForCoupling.
             if (coupledProps.data) {
                 for (const array of coupledProps.data.arrays) {
-                    // @ts-expect-error: Transfer property between threads.
+                    // @_ts-expect-error: Transfer property between threads.
                     array.constructor = nameToConstr(array.constructor)
                 }
                 for (const field of coupledProps.data.fields) {
-                    // @ts-expect-error: Transfer property between threads.
+                    // @_ts-expect-error: Transfer property between threads.
                     field.constructor = nameToConstr(field.constructor)
                 }
             }
             for (const field of coupledProps.meta.fields) {
-                // @ts-expect-error: Transfer property between threads.
+                // @_ts-expect-error: Transfer property between threads.
                 field.constructor = nameToConstr(field.constructor)
             }
         }
