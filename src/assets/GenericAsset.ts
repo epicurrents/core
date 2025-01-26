@@ -9,12 +9,12 @@
 import EventBus from '#events/EventBus'
 import { Log } from 'scoped-event-log'
 import { AssetEvents } from '#events/EventTypes'
-import { type BaseAsset, type PropertyChangeHandler } from '#types/application'
-import { type EventWithPayload, type PropertyChangeEvent } from '#types/event'
-import {
-    type ScopedEventBus,
-    type ScopedEventCallback,
-    type ScopedEventPhase,
+import type { BaseAsset, PropertyChangeHandler } from '#types/application'
+import type { EventWithPayload, PropertyChangeEvent } from '#types/event'
+import type {
+    ScopedEventBus,
+    ScopedEventCallback,
+    ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
 
 const SCOPE = "GenericAsset"
@@ -178,7 +178,7 @@ export default abstract class GenericAsset implements BaseAsset {
         return this.dispatchEvent(event || `property-change:${property.toString()}`, phase, detail)
     }
 
-    getEventHooks (event: string, subscriber: string) {
+    getEventHooks (event: string, subscriber: string): ReturnType<ScopedEventBus['getEventHooks']> {
         return this._eventBus.getEventHooks(event, subscriber, this.id)
     }
 
@@ -221,7 +221,7 @@ export default abstract class GenericAsset implements BaseAsset {
         callback: ScopedEventCallback,
         subscriber: string,
         phase: ScopedEventPhase = 'after'
-    ) {
+    ): ReturnType<ScopedEventBus['subscribe']> {
         return this._eventBus.subscribe(event, callback, subscriber, this.id, phase)
     }
 

@@ -11,6 +11,7 @@ import {
     type ArrayBufferArray,
     type MutexExportProperties,
     type MutexMetaField,
+    type MutexScope,
 } from 'asymmetric-io-mutex'
 import { concatTypedNumberArrays, floatsAreEqual } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
@@ -80,20 +81,20 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         if (props.data) {
             for (const array of props.data.arrays) {
                 if (typeof array.constructor !== 'string') {
-                    // @ts-expect-error: We need to resort to this hack to transfer the properties between threads.
+                    // @_ts-expect-error: We need to resort to this hack to transfer the properties between threads.
                     array.constructor = array.constructor.name
                 }
             }
             for (const field of props.data.fields) {
                 if (typeof field.constructor !== 'string') {
-                    // @ts-expect-error: Transfer property between threads.
+                    // @_ts-expect-error: Transfer property between threads.
                     field.constructor = field.constructor.name
                 }
             }
         }
         for (const field of props.meta.fields) {
             if (typeof field.constructor !== 'string') {
-                // @ts-expect-error: Transfer property between threads.
+                // @_ts-expect-error: Transfer property between threads.
                 field.constructor = field.constructor.name
             }
         }
@@ -172,16 +173,16 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             // Reverse the constructor to string conversion in propertiesForCoupling.
             if (coupledProps.data) {
                 for (const array of coupledProps.data.arrays) {
-                    // @ts-expect-error: Transfer property between threads.
+                    // @_ts-expect-error: Transfer property between threads.
                     array.constructor = nameToConstr(array.constructor)
                 }
                 for (const field of coupledProps.data.fields) {
-                    // @ts-expect-error: Transfer property between threads.
+                    // @_ts-expect-error: Transfer property between threads.
                     field.constructor = nameToConstr(field.constructor)
                 }
             }
             for (const field of coupledProps.meta.fields) {
-                // @ts-expect-error: Transfer property between threads.
+                // @_ts-expect-error: Transfer property between threads.
                 field.constructor = nameToConstr(field.constructor)
             }
         }
@@ -468,7 +469,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the amount of memory (in seconds of signal range) allocated to the signal data.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected async _getRangeAllocated (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    protected async _getRangeAllocated (scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT):
     Promise<MutexMetaField | null> {
         const range = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const range = this._getMetaFieldProperties(scope, BiosignalMutex.RANGE_ALLOCATED_NAME)
@@ -484,7 +485,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get a meta field object holding the range end (in seconds) reserved to the signals.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected async _getRangeEnd (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    protected async _getRangeEnd (scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT):
     Promise<MutexMetaField | null> {
         const range = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const range = this._getMetaFieldProperties(scope, BiosignalMutex.RANGE_END_NAME)
@@ -500,7 +501,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the range start (in seconds) reserved to the signals.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected async _getRangeStart (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    protected async _getRangeStart (scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT):
     Promise<MutexMetaField | null> {
         const range = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const range = this._getMetaFieldProperties(scope, BiosignalMutex.RANGE_START_NAME)
@@ -516,7 +517,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the properties of the signal data arrays.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected async _getSignalProperties (scope = IOMutex.MUTEX_SCOPE.OUTPUT):
+    protected async _getSignalProperties (scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT):
     Promise<MutexMetaField[] | null> {
         let dataFields: typeof this._inputDataFields | null = null
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
@@ -531,7 +532,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get up-to-date signal data.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected _getSignals = async (scope = IOMutex.MUTEX_SCOPE.OUTPUT) => {
+    protected _getSignals = async (scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT) => {
         const sigs = [] as Float32Array[]
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, async () => {
             const dataViews = scope === IOMutex.MUTEX_SCOPE.INPUT
@@ -565,7 +566,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * Get the entire data arrays holding both signal properties and data.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
-    protected async _getSingalViews (scope = IOMutex.MUTEX_SCOPE.OUTPUT) {
+    protected async _getSingalViews (scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT) {
         let dataViews: Float32Array[] | null = null
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
             dataViews = scope === IOMutex.MUTEX_SCOPE.INPUT
@@ -581,7 +582,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      * @returns Sampling rate or 0 on error.
      */
-    protected _signalSamplingRate = async (index: number, scope = IOMutex.MUTEX_SCOPE.OUTPUT): Promise<number> => {
+    protected _signalSamplingRate = async (index: number, scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT): Promise<number> => {
         const samplingRate = await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
             const signalViews = scope === IOMutex.MUTEX_SCOPE.INPUT
                                           ? this._inputDataViews
@@ -602,7 +603,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      * @returns Range as [start, end] or empty array on error.
      */
-    protected _signalUpdatedRange = async (index: number, scope = IOMutex.MUTEX_SCOPE.OUTPUT): Promise<Float32Array[]> => {
+    protected _signalUpdatedRange = async (index: number, scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT): Promise<Float32Array[]> => {
         const range = [] as Float32Array[]
         await this.executeWithLock(scope, IOMutex.OPERATION_MODE.READ, () => {
             const signalViews = scope === IOMutex.MUTEX_SCOPE.INPUT
