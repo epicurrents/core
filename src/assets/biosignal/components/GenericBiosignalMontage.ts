@@ -187,6 +187,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
     }
 
+    async cacheSignals (..._ranges: [number, number][]) {
+
+    }
+
     async getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
         // Check if we have the requested signals in cache.
         const derivedSignals = {
@@ -429,10 +433,6 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     async setupLoaderWithSharedWorker (port: MessagePort) {
         return this._service.setupMontageWithSharedWorker(port)
-    }
-
-    startCachingSignals () {
-
     }
 
     stopCachingSignals () {

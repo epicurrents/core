@@ -16,6 +16,7 @@ import {
     type SignalDataGapMap,
 } from '#types/biosignal'
 import {
+    CacheSignalsResponse,
     type MemoryManager,
     type SetupStudyResponse,
     type SignalCacheResponse,
@@ -71,12 +72,12 @@ export default abstract class GenericBiosignalService extends GenericService imp
     /**
      * Start the process of caching raw signals from the preset URL.
      */
-    async cacheSignalsFromUrl (): Promise<SignalCacheResponse> {
+    async cacheSignalsFromUrl (): Promise<CacheSignalsResponse> {
         if (!(await this._isStudyReady())) {
-            return null
+            return false
         }
         const commission = this._commissionWorker('cache-signals-from-url')
-        return commission.promise as Promise<SignalCacheResponse>
+        return commission.promise as Promise<CacheSignalsResponse>
     }
 
     async getSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
@@ -129,7 +130,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
             } else {
                 Log.error(`Caching signals from URL failed.`, SCOPE)
             }
-            commission.resolve(data.success)
+            commission.resolve(data.success as CacheSignalsResponse)
             return true
         } else if (data.action === 'get-signals') {
             if (!data.success) {

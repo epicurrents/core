@@ -22,6 +22,7 @@ import {
 import { HighlightContext, SignalHighlight } from './plot'
 import {
     AssetService,
+    CacheSignalsResponse,
     MemoryManager,
     MessageHandled,
     SetupStudyResponse,
@@ -236,7 +237,7 @@ export type BiosignalChannelMarker = {
 export type BiosignalChannelProperties = {
     /** Index of the active channel. */
     active?: number
-    /** 
+    /**
      * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
      * Should only be used in special cases.
      */
@@ -294,7 +295,7 @@ export type BiosignalChannelTemplate = {
     name: string
     /** Physical unit of the channel signal. */
     unit: string
-    /** 
+    /**
      * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
      * Should only be used in special cases.
      */
@@ -357,7 +358,7 @@ export interface BiosignalDataService extends AssetService {
     /**
      * Start the process of caching raw signals from the preset URL.
      */
-    cacheSignalsFromUrl (): Promise<SignalCacheResponse>
+    cacheSignalsFromUrl (): Promise<CacheSignalsResponse>
     /**
     * Load montage signals within the given range.
     * @param range - Range in seconds [start (included), end (excluded)]
@@ -570,10 +571,17 @@ export interface BiosignalMontage extends BaseAsset {
      */
     addHighlights (ctxName: string, ...highlights: SignalHighlight[]): void
     /**
+     * Start the process of caching signals from the source.
+     * @param ranges - Ranges to cache in seconds `[start, end]` (defaults to whole recording).
+     * @remarks
+     * Montages are calculated in real time so this is not yet implemented.
+     */
+    cacheSignals (...ranges: [number, number][]): Promise<void>
+    /**
     * Get derived montage channel signals for the given range.
     * @param range - Range of the given signals in seconds.
     * @param config - Optional configuration (TODO: config definitions).
-     * @return Promise with the requested signal as the first member of the signals array.
+    * @return Promise with the requested signal as the first member of the signals array.
     *
     * @remarks
     * Montages are not tied to any certain file, so once the montage has been initiated data from any file
@@ -698,12 +706,6 @@ export interface BiosignalMontage extends BaseAsset {
      * @returns Promise that resolves with the property `success` of the setup process.
      */
     setupLoaderWithSharedWorker (port: MessagePort) : Promise<SetupSharedWorkerResponse>
-    /**
-     * Start the process of caching signals from the source.
-     * @remarks
-     * Montages are calculated in real time so this is not yet implemented.
-     */
-    startCachingSignals (): void
     /**
      * Stop the process of cahing signals from the source.
      * If a singal part (that was being loaded) is returned after this method is called, it will be discarded.
@@ -906,6 +908,12 @@ export interface BiosignalResource extends DataResource {
      */
     addDataGaps (gaps: SignalDataGapMap): void
     /**
+     * Start the process of caching signals from the saved URL.
+     * @param ranges - Optional ranges to cache in seconds `[start, end]` (NYI, defaults to the whole recording).
+     * @returns Promise that resolves when signal caching is complete, true if process was successful and false if not.
+     */
+    cacheSignals (...ranges: [number, number][]): Promise<boolean>
+    /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
      * @param config - Optional config (TODO: Config definitions).
@@ -975,15 +983,17 @@ export interface BiosignalResource extends DataResource {
      * @param value - Filter frequency in Hz.
      * @param target - Channel index or type (default primary channel type).
      * @param scope - Scope of the change: `recording` (default) or `montage`.
+     * @returns Promise that resolves when the filter is set in montage worker.
      */
-    setHighpassFilter (value: number | null, target?: number | string, scope?: string): void
+    setHighpassFilter (value: number | null, target?: number | string, scope?: string): Promise<void>
     /**
      * Set low-pass filter for the given channel(s).
      * @param value - Filter frequency in Hz.
      * @param target - Channel index or type (default primary channel type).
      * @param scope - Scope of the change: `recording` (default) or `montage`.
+     * @returns Promise that resolves when the filter is set in montage worker.
      */
-    setLowpassFilter (value: number | null, target?: number | string, scope?: string): void
+    setLowpassFilter (value: number | null, target?: number | string, scope?: string): Promise<void>
     /**
      * Set the memory manager used by this resource.
      * @param manager - Memory manager or null to unset.
@@ -994,8 +1004,9 @@ export interface BiosignalResource extends DataResource {
      * @param value - Filter frequency in Hz.
      * @param target - Channel index or type (default primary channel type).
      * @param scope - Scope of the change: `recording` (default) or `montage`.
+     * @returns Promise that resolves when the filter is set in montage worker.
      */
-    setNotchFilter (value: number | null, target?: number | string, scope?: string): void
+    setNotchFilter (value: number | null, target?: number | string, scope?: string): Promise<void>
     /**
      * Setu up a signal data cache for input signals.
      * @returns A promise resolving with the created signal data cache or null on error.
@@ -1006,10 +1017,6 @@ export interface BiosignalResource extends DataResource {
      * @returns A promise resolving with clonable mutex properties if success, null on failure.
      */
     setupMutex (): Promise<MutexExportProperties | null>
-    /**
-     * Start the process of caching signals from the saved URL.
-     */
-    startCachingSignals (): void
 }
 /**
  * Application scopes for biosignal resource types.

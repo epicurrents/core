@@ -102,6 +102,8 @@ export interface AssetService extends BaseAsset {
      */
     unload (): Promise<void>
 }
+/** Whether caching the requested signals was successful or not. */
+export type CacheSignalsResponse = boolean
 /**
  * Map of all commissions waiting to be fulfilled.
  */
