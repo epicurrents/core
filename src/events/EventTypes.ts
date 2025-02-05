@@ -76,6 +76,13 @@ export type ResourcePropertyEvent = AssetPropertyEvent & {
     [ResourcePropertyEvents.STATE]: PropertyChangeEvent<string>
 }
 /**
+ * Names of (non-property) events emitted by biosignal resources.
+ */
+export enum BiosignalResourceEvents {
+    /** Reader has completed caching signals from the data source. */
+    SIGNAL_CACHING_COMPLETE = 'signal-caching-complete',
+}
+/**
  * Names of property change events emitted by the biosignal resource class (in addition to resource events).
  */
 export enum BiosignalPropertyEvents {
@@ -99,6 +106,8 @@ export enum BiosignalPropertyEvents {
  * Property change events emitted by the biosignal resource class.
  */
 export type BiosignalPropertyEvent = ResourcePropertyEvent & {
+    /** Reader has completed caching signals from the data source. */
+    [BiosignalResourceEvents.SIGNAL_CACHING_COMPLETE]: BroadcastStateEvent
     [BiosignalPropertyEvents.ANNOTATIONS]: PropertyChangeEvent<BiosignalAnnotation[]>
     [BiosignalPropertyEvents.DATA_DURATION]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.DISPLAY_VIEW_START]: PropertyChangeEvent<number>
