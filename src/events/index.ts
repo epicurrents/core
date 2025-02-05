@@ -2,6 +2,8 @@ import EventBus from './EventBus'
 import {
     AssetEvents,
     AssetPropertyEvents,
+    BiosignalPropertyEvents,
+    BiosignalResourceEvents,
     DatasetEvents,
     type AssetEvent,
     type AssetPropertyEvent,
@@ -16,7 +18,9 @@ export {
     AssetEvents,
     AssetPropertyEvent,
     AssetPropertyEvents,
+    BiosignalPropertyEvents,
     BiosignalPropertyEvent,
+    BiosignalResourceEvents,
     BiosignalResourceEvent,
     DatasetEvent,
     DatasetEvents,
