@@ -83,7 +83,24 @@ export {
     StudyCollection,
     studyContextTemplate,
 }
-
+import {
+    type AssetEvent,
+    type AssetPropertyEvent,
+    type BiosignalPropertyEvent,
+    type BiosignalResourceEvent,
+    type DatasetEvent,
+    EventBus,
+    type ResourcePropertyEvent,
+} from '#events'
+export {
+    AssetEvent,
+    AssetPropertyEvent,
+    BiosignalPropertyEvent,
+    BiosignalResourceEvent,
+    DatasetEvent,
+    EventBus,
+    ResourcePropertyEvent,
+}
 import SETTINGS from './config/Settings'
 export {
     SETTINGS,
@@ -104,28 +121,23 @@ import RuntimeStateManager from './runtime'
 export {
     RuntimeStateManager,
 }
+import type {
+    AssetService,
+    DataResource,
+    EpicurrentsApp,
+    FileSystemItem,
+    InterfaceModule,
+    InterfaceModuleConstructor,
+    ReaderMode,
+    MediaDataset,
+    ResourceModule,
+    SettingsValue,
+    StudyLoader,
+} from './types'
 import * as util from './util'
 export { util }
 
-//////////////////////////////////////////////////////////////////
-//                            TYPES                             //
-//////////////////////////////////////////////////////////////////
-
 import { Log } from 'scoped-event-log'
-import { EventBus } from '#events'
-import {
-    type AssetService,
-    type DataResource,
-    type EpicurrentsApp,
-    type FileSystemItem,
-    type InterfaceModule,
-    type InterfaceModuleConstructor,
-    type ReaderMode,
-    type MediaDataset,
-    type ResourceModule,
-    type SettingsValue,
-    type StudyLoader,
-} from './types'
 
 const SCOPE = 'index'
 
