@@ -1028,11 +1028,11 @@ export type BiosignalScope = 'eeg'
 export interface BiosignalSetup {
     /** Channel configuration for each matched raw signal. */
     channels: SetupChannel[]
-    /** Unique ID for this setup. */
-    id: string
     /** Channels that should have been present, but were not found. */
     missingChannels: SetupChannel[]
-    /** Descriptive name for this setup. */
+    /** Descriptive label for this setup. */
+    label: string
+    /** Unique name for this setup. */
     name: string
     /** Raw signals that could not be matched to any channel in the setup. */
     unmatchedSignals: SetupChannel[]

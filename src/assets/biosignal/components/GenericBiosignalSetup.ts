@@ -15,15 +15,15 @@ import type { ConfigBiosignalSetup } from '#types/config'
 import { INDEX_NOT_ASSIGNED } from '#util'
 
 export default class GenericBiosignalSetup implements BiosignalSetup {
-    protected _id: string
+    protected _label: string
     protected _name: string
     protected _channels: SetupChannel[] = []
     protected _missing: SetupChannel[] = []
     protected _unmatched: SetupChannel[] = []
 
-    constructor (id: string, channels?: BiosignalChannel[], config?: ConfigBiosignalSetup) {
-        this._id = id
-        this._name = id
+    constructor (name: string, channels?: BiosignalChannel[], config?: ConfigBiosignalSetup) {
+        this._name = name
+        this._label = config?.label || name
         if (channels && config) {
             this.loadConfig(channels, config)
         }
@@ -35,8 +35,11 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
     set channels (channels: SetupChannel[]) {
         this._channels = channels
     }
-    get id () {
-        return this._id
+    get label () {
+        return this._label
+    }
+    set label (label: string) {
+        this._label = label
     }
     get missingChannels () {
         return this._missing
@@ -46,9 +49,6 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
     }
     get name () {
         return this._name
-    }
-    set name (name: string) {
-        this._name = name
     }
     get unmatchedSignals () {
         return this._unmatched
