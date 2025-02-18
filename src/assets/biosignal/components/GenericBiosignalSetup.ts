@@ -77,8 +77,6 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 unit: config?.unit || '?',
             } as SetupChannel
         }
-        // Use config name if present.
-        this._name = config.label || this._name
         // Don't rematch already matched signals.
         const matchedSigs = [] as number[]
         // Try to match config channels to record signals.
