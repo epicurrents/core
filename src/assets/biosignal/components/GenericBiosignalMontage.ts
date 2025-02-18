@@ -72,8 +72,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         name: string,
         recording: BiosignalResource,
         setup: BiosignalSetup,
-        manager?: MemoryManager,
         template?: BiosignalMontageTemplate,
+        manager?: MemoryManager,
         config?: ConfigBiosignalMontage,
     ) {
         super(name, recording.modality)
