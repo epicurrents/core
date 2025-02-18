@@ -73,6 +73,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         recording: BiosignalResource,
         setup: BiosignalSetup,
         manager?: MemoryManager,
+        template?: BiosignalMontageTemplate,
         config?: ConfigBiosignalMontage,
     ) {
         super(name, recording.modality)
@@ -80,6 +81,9 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         this._recording = recording
         this._setup = setup
         this._service = new MontageService(this, manager)
+        if (template) {
+            this.setupChannels(template)
+        }
     }
     get cacheStatus ()  {
         return this._cachedSignals
