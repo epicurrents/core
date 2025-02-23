@@ -453,6 +453,12 @@ export type RuntimeResourceModule = {
         short: string
     }
     /**
+     * Apply the given configuration to the module.
+     * @param config - Configuration to apply.
+     * @returns Promise that resolves once the configuration has been applied.
+     */
+    applyConfiguration: (config: RuntimeResourceModuleConfig) => Promise<void>
+    /**
      * Set the given property to its new value, notifying watchers.
      * @param property - Name of the property on kebab-case.
      * @param value - The new value for the property.
@@ -462,7 +468,16 @@ export type RuntimeResourceModule = {
      */
     setPropertyValue (property: string, value: unknown, resource?: DataResource, state?: StateManager): unknown
 }
-
+/**
+ * Setup properties for runtime modules.
+ */
+export type RuntimeResourceModuleConfig = {
+    /** Override the module name properties. */
+    moduleName?: {
+        full?: string
+        short?: string
+    },
+}
 /**
  * The main runtime state of the application.
  */

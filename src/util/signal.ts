@@ -906,10 +906,10 @@ export const mapMontageChannels = (
     config?: {
         channels: SetupChannel[]
         channelSpacing: number
+        electrodes: string[]
         groupSpacing: number
         isRaw: boolean
         layout: number[]
-        names: string[]
         yPadding: number
     }
 ): MontageChannel[] => {
@@ -968,7 +968,7 @@ export const mapMontageChannels = (
     const channelMap: { [name: string]: SetupChannel | null } = {}
     // First map names to correct channel indices.
     name_loop:
-    for (const lbl of config.names) {
+    for (const lbl of config.electrodes) {
         for (const sChan of setup.channels) {
             if (lbl === sChan.name) {
                 if (lbl.includes('__proto__')) {

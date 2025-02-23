@@ -804,6 +804,10 @@ export type BiosignalMontageTemplate = {
      */
     description: string | string[]
     /**
+     * Electrode derivations required by this template (as active or reference in the channels array).
+     */
+    electrodes: string[]
+    /**
      * Descriptive label for this montage.
      */
     label: string
@@ -815,9 +819,9 @@ export type BiosignalMontageTemplate = {
      */
     layout: number[]
     /**
-     * Channel names present in this template (as active or reference in the channels array).
+     * Unique identifying name for this montage.
      */
-    names: string[]
+    name: string
     /**
      * Reference channel properties.
      */

@@ -199,8 +199,12 @@ export type ConfigBiosignalMontage = {
 }
 // Method config properties.
 export type ConfigBiosignalSetup = {
+    /** Channel templates for raw channel properties. */
     channels: BiosignalChannelTemplate[]
+    /** Descriptive label for this montage. */
     label: string
+    /** Unique name used for matching this setup. */
+    name: string
 }
 export type ConfigChannelFilter  = {
     exclude?: number[]
@@ -227,10 +231,10 @@ export type ConfigDatasetLoader = {
 export type ConfigMapChannels = {
     channels: SetupChannel[]
     channelSpacing: number
+    electrodes: string[]
     groupSpacing: number
     isRaw: boolean
     layout: number[]
-    names: string[]
     yPadding: number
 }
 export type ConfigStudyContext = {
