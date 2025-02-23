@@ -122,6 +122,7 @@ export {
     RuntimeStateManager,
 }
 import type {
+    ApplicationConfig,
     AssetService,
     DataResource,
     EpicurrentsApp,
@@ -133,8 +134,8 @@ import type {
     ResourceModule,
     SettingsValue,
     StudyLoader,
-} from './types'
-import * as util from './util'
+} from '#types'
+import * as util from '#util'
 export { util }
 
 import { Log } from 'scoped-event-log'
@@ -240,11 +241,7 @@ export class Epicurrents implements EpicurrentsApp {
         return this.#runtime.getWorkerOverride(name)
     }
 
-    async launch (
-        containerId: string = '',
-        appId: string = `epicurrents`,
-        locale: string = 'en'
-    ): Promise<boolean> {
+    async launch (config?: ApplicationConfig): Promise<boolean> {
         if (!this.#interfaceConstructor) {
             Log.error(`Cannot launch app before an interface has been registered.`, 'index')
             return false
@@ -266,9 +263,8 @@ export class Epicurrents implements EpicurrentsApp {
         // Make sure that the container element exists.
         // Prepend a hyphed to the container id, otherwise just use 'epicv'.
         // Using the literal 'epicv' in the selector is to avoid invalid selector errors.
-        containerId = containerId.length ? `-${containerId}` : ''
         const modules = Array.from(this.#runtime.MODULES.keys())
-        this.#interface = new this.#interfaceConstructor(this, this.#runtime, containerId, appId, locale, modules)
+        this.#interface = new this.#interfaceConstructor(this, this.#runtime, modules, config)
         const interfaceSuccess = await this.#interface.awaitReady()
         if (!interfaceSuccess) {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)

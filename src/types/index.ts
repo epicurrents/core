@@ -3,6 +3,7 @@
 /////////////////////////////////////////////////
 
 import type {
+    ApplicationConfig,
     BaseAsset,
     DataResource,
     EpicurrentsApp,
@@ -22,6 +23,7 @@ import type {
     StateManager,
 } from './application'
 export {
+    ApplicationConfig,
     BaseAsset,
     DataResource,
     EpicurrentsApp,

@@ -27,7 +27,39 @@ import {
     ScopedEventHooks,
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
-
+/**
+ * Configuration properties for the main application.
+ */
+export type ApplicationConfig = {
+    /**
+     * Id of the application instance to launch. Multiple instance support is not yet implemented so setting this
+     * option has no practical effect.
+     */
+    appId?: string
+    /**
+     * Path from which to load additional application assets, e.g. local settings.
+     * Defaults to the same folder as the application file if left blank.
+     */
+    assetPath?: string
+    /**
+     * Id of the container that will house the application. Defaults to "epicurrents" if left blank.
+     */
+    containerId?: string
+    /**
+     * Locale to start the application in (two letter locale code, e.g. 'en').
+     */
+    locale?: string
+    /**
+     * Log priority required for message to be printed into the console.
+     * Possible values (from least to most important):
+     * DEBUG, INFO, WARN, ERROR
+     */
+    logThreshold?: "WARN" | "DEBUG" | "INFO" | "ERROR" | "DISABLE"
+    /**
+     * Should SharedArrayBuffers (if available) be used to manage memory.
+     */
+    useSAB?: boolean
+}
 /**
  * The most basic type defining properties that must exist in every asset.
  */
@@ -274,12 +306,10 @@ export interface EpicurrentsApp {
     getWorkerOverride (name: string): Worker | null
     /**
      * Launch a viewer app in the given container div.
-     * @param containerId - Id of the container div element.
-     * @param appId - Optional id for the app.
-     * @param locale - Optional primary locale code string.
+     * @param config - Optional application configuration.
      * @returns True if successful, false if not.
      */
-    launch (containerId?: string, appId?: string, locale?: string): Promise<boolean>
+    launch (config?: ApplicationConfig): Promise<boolean>
     /**
      * Load a study from the given file, folder or URL.
      * @param loader - Name of the loader to use for loading the study.
@@ -366,10 +396,8 @@ export interface InterfaceModuleConstructor {
     new (
         epicvApp: EpicurrentsApp,
         runtime?: StateManager,
-        containerId?: string,
-        appId?: string,
-        locale?: string,
         modules?: string[],
+        config?: ApplicationConfig,
     ): InterfaceModule
 }
 /**
