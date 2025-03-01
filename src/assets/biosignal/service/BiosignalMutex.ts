@@ -798,6 +798,12 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 if (updatedRangeEnd === BiosignalMutex.EMPTY_FIELD || updatedRangeEnd < endPos) {
                     this.setDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_END_NAME, endPos, [i])
                 }
+                Log.debug(
+                    `Inserted signal new data for signal ${i} into the buffer, `
+                    + `new data range is ${dataView[BiosignalMutex.SIGNAL_UPDATED_START_POS]} - `
+                    + `${dataView[BiosignalMutex.SIGNAL_UPDATED_END_POS]}.`,
+                    SCOPE
+                )
             }
         })
     }
