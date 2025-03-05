@@ -65,7 +65,10 @@ export default class SharedWorkerCache extends GenericService implements SignalD
             resolve: (value?: unknown) => void,
             reject: (reason?: string | undefined) => void
         } | undefined,
-        overwriteRequest?: boolean
+        options?: {
+            overwriteRequest?: boolean
+            transfer?: Transferable[]
+        }
     ): WorkerCommission {
         return super._commissionWorker(
             action,
@@ -74,7 +77,7 @@ export default class SharedWorkerCache extends GenericService implements SignalD
                         ['caller', this.id]
                     ]),
             callbacks,
-            overwriteRequest
+            options
         )
     }
 

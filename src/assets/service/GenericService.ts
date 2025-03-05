@@ -5,17 +5,18 @@
  * @license    Apache-2.0
  */
 
-import {
-    type ActionWatcher,
-    type AssetService,
-    type CommissionMap,
-    type CommissionPromise,
-    type MemoryManager,
-    type RequestMemoryResponse,
-    type SetupWorkerResponse,
-    type WorkerCommission,
-    type WorkerMessage,
-    type WorkerResponse,
+import type {
+    ActionWatcher,
+    AssetService,
+    CommissionMap,
+    CommissionPromise,
+    CommissionWorkerOptions,
+    MemoryManager,
+    RequestMemoryResponse,
+    SetupWorkerResponse,
+    WorkerCommission,
+    WorkerMessage,
+    WorkerResponse,
 } from '#types/service'
 import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
@@ -118,7 +119,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
         action: string,
         props?: Map<string, unknown>,
         callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason?: string) => void) },
-        overwriteRequest = false
+        options?: CommissionWorkerOptions
     ): WorkerCommission {
         if (!this._worker) {
             callbacks?.reject(`Worker has not been set up.`)
@@ -152,7 +153,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             this._commissions, action,
             new Map<number, CommissionPromise>()
         ) as CommissionMap
-        if (overwriteRequest) {
+        if (options?.overwriteRequest) {
             // Remove references to any previous requests
             commMap.clear()
         }
@@ -161,7 +162,12 @@ export default abstract class GenericService extends GenericAsset implements Ass
             reject: commission.reject,
             resolve: commission.resolve,
         })
-        this._worker.postMessage(msgData)
+        if (options?.transferList) {
+            // Transferable objects must be added as individual properties.
+            this._worker.postMessage({ ...msgData, ...options.transferList }, options.transferList)
+        } else {
+            this._worker.postMessage(msgData)
+        }
         return {
             promise: returnPromise,
             reject: commission.reject,

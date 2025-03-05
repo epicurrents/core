@@ -93,7 +93,7 @@ export default class MontageService extends GenericService implements BiosignalM
                 ['montage', this.name],
             ]),
             undefined,
-            config?.overwriteRequest === true ? true : false
+            { overwriteRequest: config?.overwriteRequest }
         )
         return signals.promise as Promise<GetSignalsResponse>
     }

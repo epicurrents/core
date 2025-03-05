@@ -119,6 +119,15 @@ export type CommissionPromise = {
     /** Callback for an unexpected error. */
     reject: (reason?: string) => void
 }
+/**
+ * Additional options for the worker commission.
+ */
+export type CommissionWorkerOptions = {
+    /** Overwrite any previous request of the same type that is still being processed. */
+    overwriteRequest?: boolean
+    /** List of trasferable objects to send to the worker (instead of cloning). */
+    transferList?: Transferable[]
+}
 /** Returned value is `true` if requested amount of memory was freed, `false` otherwise. */
 export type FreeMemoryResponse = boolean
 /**
