@@ -37,7 +37,7 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._setPropertyValue('dependenciesMissing', value)
     }
     get dependenciesReady () {
-        return this._dependenciesMissing
+        return this._dependenciesReady
     }
     set dependenciesReady (value: string[]) {
         this._setPropertyValue('dependenciesReady', value)
