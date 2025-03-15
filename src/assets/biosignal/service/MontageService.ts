@@ -84,6 +84,12 @@ export default class MontageService extends GenericService implements BiosignalM
         })
     }
 
+    destroy () {
+        this._montage = null as unknown as BiosignalMontage
+        this._mutex = null
+        super.destroy()
+    }
+
     async getSignals (range: number[], config?: ConfigChannelFilter & { overwriteRequest?: boolean }) {
         const signals = this._commissionWorker(
             'get-signals',

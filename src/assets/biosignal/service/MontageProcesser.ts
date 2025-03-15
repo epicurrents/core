@@ -325,6 +325,14 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         }
     }
 
+    async destroy () {
+        this._channels.length = 0
+        this._dataGaps.clear()
+        this._mutex = null
+        this._setup = null
+        await super.destroy()
+    }
+
     /**
      * Get signals for the given part.
      * @param range - Range in seconds as [start (included), end (excluded)].

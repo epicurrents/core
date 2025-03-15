@@ -5,9 +5,38 @@
  * @license    Apache-2.0
  */
 
-import { BroadcastStateEvent, EventWithPayload, PropertyChangeEvent } from '#types/event'
-import { BaseAsset, BiosignalAnnotation, BiosignalMontage, DataResource, VideoAttachment } from '#types'
+import type {
+    BaseDataset,
+    BiosignalAnnotation,
+    BiosignalMontage,
+    DataResource,
+    VideoAttachment,
+} from '#types'
+import type {
+    BroadcastStateEvent,
+    EventWithPayload,
+    PropertyChangeEvent,
+} from '#types/event'
 
+/**
+ * Application events.
+ */
+export enum ApplicationEvents {
+    /** Application configuration was changed. */
+    CONFIG_CHANGED = 'config-changed',
+    /** The application has been initialized. */
+    INITIALIZED = 'initialized',
+    /** A new dataset is marked active. */
+    SET_ACTIVE_DATASET = 'set-active-dataset',
+}
+/**
+ * Events emitted by the application class.
+ */
+export type ApplicationEvent = {
+    [ApplicationEvents.CONFIG_CHANGED]: BroadcastStateEvent
+    [ApplicationEvents.INITIALIZED]: BroadcastStateEvent
+    [ApplicationEvents.SET_ACTIVE_DATASET]: EventWithPayload<BaseDataset>
+}
 /**
  * Names of events emitted by all assets.
  */
@@ -43,8 +72,8 @@ export type AssetPropertyEvent = {
  * Events emitted by datasets.
  */
 export enum DatasetEvents {
-    /** An item has been added to the dataset. */
-    ADD_ITEM = 'add-item',
+    /** A data resource has been added to the dataset. */
+    ADD_RESOURCE = 'add-resource',
     /** The given resource within this dataset has been set as active. */
     SET_ACTIVE_RESOURCE = 'set-active-resource',
 }
@@ -52,7 +81,7 @@ export enum DatasetEvents {
  * Events emitted by the dataset class (in addition to the asset events).
  */
 export type DatasetEvent = {
-    [DatasetEvents.ADD_ITEM]: EventWithPayload<BaseAsset>
+    [DatasetEvents.ADD_RESOURCE]: EventWithPayload<DataResource>
     [DatasetEvents.SET_ACTIVE_RESOURCE]: EventWithPayload<DataResource>
 }
 /**

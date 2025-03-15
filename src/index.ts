@@ -84,6 +84,7 @@ export {
     studyContextTemplate,
 }
 import {
+    ApplicationEvents,
     type AssetEvent,
     type AssetPropertyEvent,
     type BiosignalPropertyEvent,
@@ -223,10 +224,12 @@ export class Epicurrents implements EpicurrentsApp {
             Log.warn(`Cannot alter default configuration after app launch. Use the setSettingsValue method instead.`, SCOPE)
             return
         }
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.CONFIG_CHANGED, 'application', 'before')
         for (const [field, value] of Object.entries(config)) {
             Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
             SETTINGS.setFieldValue(field, value)
         }
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.CONFIG_CHANGED, 'application', 'after')
     }
 
     createDataset (name?: string, setAsActive?: boolean) {
@@ -242,6 +245,7 @@ export class Epicurrents implements EpicurrentsApp {
     }
 
     async launch (config?: ApplicationConfig): Promise<boolean> {
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZED, 'application', 'before')
         if (!this.#interfaceConstructor) {
             Log.error(`Cannot launch app before an interface has been registered.`, 'index')
             return false
@@ -270,6 +274,7 @@ export class Epicurrents implements EpicurrentsApp {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
             return false
         }
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZED, 'application', 'after')
         return true
     }
 

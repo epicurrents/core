@@ -85,6 +85,13 @@ export default class SharedWorkerCache extends GenericService implements SignalD
         return this._signalCache
     }
 
+    destroy () {
+        this.releaseBuffers()
+        this._signalSamplingRates.length = 0
+        this._signalUpdatedRanges.length = 0
+        super.destroy()
+    }
+
     handleWorkerMessage (message: MessageEvent) {
         const data = message.data
         // Only react to messages addressed to us.
@@ -122,6 +129,6 @@ export default class SharedWorkerCache extends GenericService implements SignalD
     releaseBuffers() {
         this._signalCache.start = 0
         this._signalCache.end = 0
-        this._signalCache.signals.splice(0)
+        this._signalCache.signals = []
     }
 }

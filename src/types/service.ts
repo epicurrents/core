@@ -343,6 +343,10 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      */
     clearSignals(): void
     /**
+     * Destroy the mutex, releasing all allocated memory (alias for `releaseBuffers`).
+     */
+    destroy (): void
+    /**
      * Initialize the signal buffers. Possible signal data contained in the SignalCachePart is ignored
      * here and must be passed again with insertSignals to be saved.
      * @param cacheProps - an object containing the signal cache properties.

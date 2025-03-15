@@ -360,6 +360,13 @@ export interface BiosignalDataService extends AssetService {
      */
     cacheSignalsFromUrl (): Promise<CacheSignalsResponse>
     /**
+     * Destroy the service and release all resources.
+     * @remarks
+     * This method irrevocably removes the reference to the resource it was serving and should only be called when the
+     * service is no longer needed.
+     */
+    destroy (): void
+    /**
     * Load montage signals within the given range.
     * @param range - Range in seconds [start (included), end (excluded)]
     * @param config - Optional configuration (TODO: Config definitions).
@@ -918,6 +925,11 @@ export interface BiosignalResource extends DataResource {
      */
     cacheSignals (...ranges: [number, number][]): Promise<boolean>
     /**
+     * Destroy this resource and all resources depending on it.
+     * @returns Promise that resolves when the resource is destroyed.
+     */
+    destroy (): void | Promise<void>
+    /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
      * @param config - Optional config (TODO: Config definitions).
@@ -1236,6 +1248,11 @@ export interface SignalDataCache {
      */
     outputSignalUpdatedRanges: { start: number, end: number }[]
     asCachePart (): SignalCachePart
+    /**
+     * Destroy the cache and release all resources.
+     * @param dispatchEvent - Should a destroy event be dispatched. Set to false if the method is called from a child class and the event has already been dispatched.
+     */
+    destroy (dispatchEvent?: boolean): void
     insertSignals (signalPart: SignalCachePart): Promise<void>
     invalidateOutputSignals (): void
     releaseBuffers (): void

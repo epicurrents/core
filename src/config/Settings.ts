@@ -310,7 +310,10 @@ const _settings = {
         // Is it even possible to reach this point?
         Log.error(`Could not change settings field '${field}'; the field was not found.`, SCOPE)
         return false
-    }
+    },
+    unregisterModule (name: string) {
+        _modules.delete(name)
+    },
 } as AppSettings
 
 const SETTINGS = new Proxy(

@@ -118,6 +118,10 @@ export interface FileFormatReader extends BaseAsset {
     /** The study loader instance that this file reader serves. */
     studyLoader: StudyLoader | null
     /**
+     * Destroy the file reader and release all resources.
+     */
+    destroy (): void
+    /**
      * Get the appropriate worker for this file type.
      * @param sab - Use SharedArrayBuffer implementation.
      * @returns Worker or null
@@ -336,6 +340,11 @@ export interface SignalDataReader extends SignalDataProcesser {
      * @param startFrom - Optional starting point of the loading process in seconds of file duration.
      */
     cacheFile (file: File, startFrom?: number): Promise<void>
+    /**
+     * Destroy the reader and release all resources.
+     * @returns Promise that resolves when the reader has been destroyed.
+     */
+    destroy (): void | Promise<void>
     /**
      * Read and cache the entire file from the given URL.
      * @param url - Optional URL of the file (defaults to cached URL).

@@ -65,6 +65,12 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         super.addResource(resource)
     }
 
+    destroy (): Promise<void> {
+        this._source = null
+        this._state = 'destroyed'
+        return super.destroy()
+    }
+
     getMainProperties(): Map<string, { [key: string]: string | number } | null> {
         return new Map<string, { [key: string]: string | number } | null>([
             [

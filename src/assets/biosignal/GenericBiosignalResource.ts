@@ -383,6 +383,30 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return false
     }
 
+    async destroy (): Promise<void> {
+        this._activeMontage?.removeAllEventListeners()
+        this._activeMontage = null
+        this._annotations.length = 0
+        this._cacheProps = null
+        this._channels.length = 0
+        this._cursors.length = 0
+        this._dataGaps.clear()
+        this._filterChannelTypes = {}
+        this._filters.bandreject.length = 0
+        this._memoryManager = null
+        this._montages.forEach(m => m.removeAllEventListeners())
+        this._montages.length = 0
+        this._mutexProps = null
+        this._recordMontage = null
+        await this.releaseBuffers()
+        this._service?.destroy()
+        this._service = null
+        this._setup = null
+        this._signalCacheStatus.length = 0
+        this._videos.length = 0
+        super.destroy()
+    }
+
     getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
         if (!this._activeMontage) {
             return this.getAllRawSignals(range, config)

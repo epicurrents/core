@@ -35,8 +35,14 @@ export interface BaseDataset extends BaseAsset {
     /**
      * Add a new resource into this dataset.
      * @param resource - The resource to add.
+     * @emits `add-resource` with the new resource as payload.
      */
     addResource (resource: DataResource): void
+    /**
+     * Destroy the dataset and all its resources.
+     * @emits `destroy` with the dataset as payload.
+     */
+    destroy (): void | Promise<void>
     /**
      * Get all resources in the given modalit(y/ies).
      * Returned resources are ordered according to the `resourceSorting` property.
@@ -48,6 +54,7 @@ export interface BaseDataset extends BaseAsset {
      * Removal will **not** automatically unload or destroy the resource.
      * @param resource - Either the resource object *or* the ID of the resource *or* its index within the resource array (in adding order).
      * @returns The removed resource or null on failure.
+     * @emits `remove-resource` with the removed resource as payload.
      */
     removeResource (resource: DataResource | string | number): DataResource | null
     /**
@@ -127,4 +134,3 @@ export type ResourceSortingInstructions = {
  *                and secondarily by the order in which they were inserted into the dataset.
  */
 export type ResourceSortingScheme = 'alphabetical' | 'id' | 'modality'
-

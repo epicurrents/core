@@ -125,6 +125,11 @@ export interface AppSettings {
      * @returns true if a field value was changed, false otherwise.
      */
     setFieldValue (field: string, value: SettingsValue): boolean
+    /**
+     * Unregister a module's settings from the main settings object.
+     * @param name - Unique name of the module.
+     */
+    unregisterModule (name: string): void
 }
 /**
  * Common settings for all modules.

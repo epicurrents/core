@@ -104,6 +104,16 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         this._setPropertyValue('studyLoader', value)
     }
 
+    destroy () {
+        this._fileTypes.length = 0
+        this._matchPatterns.length = 0
+        this._memoryManager = null
+        this._modalities.length = 0
+        this._name = ''
+        this._studyLoader = null
+        this._workerOverride.clear()
+        super.destroy()
+    }
 
     getFileTypeWorker (): Worker | null {
         return null

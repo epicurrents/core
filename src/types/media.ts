@@ -42,6 +42,11 @@ export interface AudioRecording extends BaseAsset {
      */
     addPlayStartedCallback (callback: (() => unknown)): void
     /**
+     * Destroy this recording and release all resources.
+     * @param dispatchEvent - Should the destroy `before` event be dispatched (default true). Set to false if calling from a child class and the event has already been dispatched.
+     */
+    destroy (dispatchEvent?: boolean): void
+    /**
      * Load the buffer set to the `buffer` property.
      * @returns Promise that resolves when loading is complete.
      */

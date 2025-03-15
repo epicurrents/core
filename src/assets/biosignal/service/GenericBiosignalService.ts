@@ -80,6 +80,14 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return commission.promise as Promise<CacheSignalsResponse>
     }
 
+    destroy (): void {
+        // Clear the recording reference.
+        this._recording = null as unknown as BiosignalResource
+        this._setupWorker = null
+        this._signalBufferStart = INDEX_NOT_ASSIGNED
+        super.destroy()
+    }
+
     async getSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
         if (!(await this._isStudyReady())) {
             return null

@@ -663,6 +663,10 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         })
     }
 
+    destroy () {
+        this.releaseBuffers()
+    }
+
     async initSignalBuffers (
         cacheProps: SignalCachePart,
         dataLength: number,

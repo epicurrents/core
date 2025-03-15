@@ -78,6 +78,16 @@ export default abstract class GenericResource extends GenericAsset implements Da
         }
     }
 
+    destroy () {
+        this._dependenciesMissing.length = 0
+        this._dependenciesReady.length = 0
+        this._errorReason = ''
+        this._loaded = false
+        this._source = null
+        super.destroy()
+        this.state = 'destroyed'
+    }
+
     getMainProperties () {
         // Override this in a child class.
         return new Map()

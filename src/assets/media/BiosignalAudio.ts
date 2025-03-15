@@ -125,6 +125,21 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._playStartedCallbacks.push(callback)
     }
 
+    destroy (dispatchEvent = true) {
+        if (dispatchEvent) {
+            this.dispatchEvent(BiosignalAudio.EVENTS.DESTROY, 'before')
+        }
+        this.stop()
+        this._audio = null
+        this._buffer = null
+        this._compressor = null
+        this._data.length = 0
+        this._signals.length = 0
+        this._source = null
+        this._volume = null
+        super.destroy()
+    }
+
     async loadBuffer () {
         if (!this._data) {
             return

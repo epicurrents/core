@@ -383,6 +383,17 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return waiter
     }
 
+    destroy () {
+        this._commissions.clear()
+        this._waiters.clear()
+        this._actionWatchers.length = 0
+        this._manager = null
+        this._memoryRange = null
+        this._port = null
+        this._worker = null
+        super.destroy()
+    }
+
     removeActionWatcher (handler: ActionWatcher['handler']) {
         for (let i=0; i<this._actionWatchers.length; i++) {
             if (this._actionWatchers[i].handler === handler) {
