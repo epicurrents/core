@@ -195,6 +195,8 @@ export type CommonBiosignalSettings = {
     showHiddenChannels: boolean
     /** Show channels that are missing from the source file on the EEG trace. */
     showMissingChannels: boolean
+    /** Should the resource be automatically unloaded from memory when it is closed. */
+    unloadOnClose: boolean
 }
 export type ConfigBiosignalMontage = {
     /** Descriptive name for this montage (overrides possible default name). */
