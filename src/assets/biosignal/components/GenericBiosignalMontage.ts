@@ -144,6 +144,9 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     get setup () {
         return this._setup
     }
+    get serviceId () {
+        return this._service.id
+    }
     get visibleChannels () {
         return this._channels.filter(c => shouldDisplayChannel(c, false))
     }
@@ -279,8 +282,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return mapMontageChannels(this._setup, config)
     }
 
-    async releaseBuffers () {
-        await this._service?.unload()
+    async releaseBuffers (config: { removeFromManager?: boolean } = {}) {
+        await this._service?.unload(config?.removeFromManager)
     }
 
     removeAllHighlights () {
@@ -427,15 +430,15 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         this._service.setupWorker()
     }
 
-    async setupLoaderWithCache (cache: SignalDataCache) {
+    async setupServiceWithCache (cache: SignalDataCache) {
         return this._service.setupMontageWithCache(cache)
     }
 
-    async setupLoaderWithInputMutex (inputProps: MutexExportProperties) {
+    async setupServiceWithInputMutex (inputProps: MutexExportProperties) {
         return this._service.setupMontageWithInputMutex(inputProps)
     }
 
-    async setupLoaderWithSharedWorker (port: MessagePort) {
+    async setupServiceWithSharedWorker (port: MessagePort) {
         return this._service.setupMontageWithSharedWorker(port)
     }
 

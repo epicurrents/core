@@ -24,14 +24,9 @@ export default class ServiceWorkerSubstitute {
     constructor () {
     }
 
-    /**
-     * Decommission this substitute worker.
-     */
-    decommission () {
-        this._eventListeners = []
-        this.onerror = null
-        this.onmessage = null
-        this.onmessageerror = null
+    dispatchEvent (_event: Event) {
+        Log.warn(`dispatchEvent is not implemented service worker replacement.`, SCOPE)
+        return false
     }
 
     postMessage (message: WorkerMessage['data']) {
@@ -80,7 +75,7 @@ export default class ServiceWorkerSubstitute {
         })
     }
     terminate () {
-        this.decommission()
+        this.shutdown()
     }
     addEventListener <K extends keyof WorkerEventMap>(
         type: K,
@@ -114,8 +109,13 @@ export default class ServiceWorkerSubstitute {
             }
         }
     }
-    dispatchEvent (_event: Event) {
-        Log.warn(`dispatchEvent is not implemented service worker replacement.`, SCOPE)
-        return false
+    /**
+     * Shut down this substitute worker.
+     */
+    shutdown () {
+        this._eventListeners.length = 0
+        this.onerror = null
+        this.onmessage = null
+        this.onmessageerror = null
     }
 }

@@ -166,10 +166,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._id
     }
 
-    get loader () {
-        return this._service
-    }
-
     get maxSampleCount () {
         return Math.max(0, ...this._channels.filter(chan => shouldDisplayChannel(chan, true))
                                             .map(chan => chan.sampleCount)
@@ -231,6 +227,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             return
         }
         this._setPropertyValue('sensitivity', value)
+    }
+
+    get service () {
+        return this._service
     }
 
     get setup () {
@@ -554,14 +554,16 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async releaseBuffers () {
-        Log.info(`Releasing data buffers in ${this.name}.`, SCOPE)
-        await Promise.all(this._montages.map(m => m.releaseBuffers()))
-        Log.info(`Montage buffers released.`, SCOPE)
-        this._montages.splice(0)
-        this._montages = []
-        await this.loader?.unload()
-        Log.info(`Signal loader buffers released.`, SCOPE)
-        this.signalCacheStatus.splice(0)
+        Log.debug(`Releasing data buffers in ${this.name}.`, SCOPE)
+        await Promise.all(this._montages.map(m => m.releaseBuffers({ removeFromManager: false})))
+        Log.debug(`Montage buffers released.`, SCOPE)
+        await this._service?.unload(false)
+        // Now remove all buffer ranges from the manager in one call.
+        const ids = this._montages.map(m => m.serviceId)
+        if (this._service) {
+            ids.push(this._service.id)
+        }
+        await this._memoryManager?.release(...ids)
         this.signalCacheStatus = [0, 0]
     }
 

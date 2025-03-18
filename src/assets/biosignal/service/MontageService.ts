@@ -56,7 +56,6 @@ export default class MontageService extends GenericService implements BiosignalM
             ),
             { type: 'module'}
         )
-        Log.registerWorker(worker)
         super(SCOPE, worker, false, manager)
         this._montage = montage
         this._worker?.addEventListener('message', this.handleMessage.bind(this))
@@ -84,10 +83,10 @@ export default class MontageService extends GenericService implements BiosignalM
         })
     }
 
-    destroy () {
+    async destroy () {
         this._montage = null as unknown as BiosignalMontage
         this._mutex = null
-        super.destroy()
+        await super.destroy()
     }
 
     async getSignals (range: number[], config?: ConfigChannelFilter & { overwriteRequest?: boolean }) {

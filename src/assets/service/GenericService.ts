@@ -63,6 +63,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             } else {
                 // Only Worker has the onerror property.
                 this._worker = worker as Worker
+                Log.registerWorker(this._worker)
             }
         }
     }
@@ -232,23 +233,13 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
                 this._notifyWaiters('setup-cache', data.success)
                 return true
-            } else if (
-                message.data.action === 'release-cache' ||
-                message.data.action === 'shutdown'
-            ) {
-                const decommission = this._commissions.get('decommission')
-                if (decommission && message.data.success === true) {
+            } else if (message.data.action === 'release-cache' || message.data.action === 'shutdown') {
+                if (commission && data.success) {
                     const prevState = this.memoryConsumption
                     this._memoryRange = null
                     this.dispatchPropertyChangeEvent('memoryConsumption', this.memoryConsumption, prevState)
-                    decommission.get(0)?.resolve()
-                    if (message.data.action === 'shutdown') {
-                        const prevState = this.isReady
-                        this._worker?.terminate()
-                        this._worker = null
-                        this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
-                    }
                 }
+                commission.resolve(data.success)
                 return true
             } else if (message.data.success === true) {
                 commission.resolve(message.data.result)
@@ -383,14 +374,14 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return waiter
     }
 
-    destroy () {
+    async destroy () {
+        await this.shutdown()
         this._commissions.clear()
         this._waiters.clear()
         this._actionWatchers.length = 0
         this._manager = null
         this._memoryRange = null
         this._port = null
-        this._worker = null
         super.destroy()
     }
 
@@ -497,30 +488,36 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return commission.promise as Promise<SetupWorkerResponse>
     }
 
-    shutdown () {
+    async shutdown () {
         if (!window.__EPICURRENTS__?.RUNTIME) {
             Log.error(`Reference to application runtime was not found.`, SCOPE)
             return Promise.reject()
         }
+        const prevState = this.isReady
         window.__EPICURRENTS__.RUNTIME?.SETTINGS.removeAllPropertyUpdateHandlersFor(this._name)
         const response = this._commissionWorker('shutdown')
-        // Shutdown doesn't need a request number
-        const shutdown = getOrSetValue(
-            this._commissions, 'shutdown',
-            new Map<number, CommissionPromise>()
-        )
-        shutdown.set(0, response)
-        return response.promise as Promise<void>
+        if (await response.promise) {
+            this._commissions.clear()
+            this._waiters.clear()
+            this._actionWatchers.length = 0
+            this._manager = null
+            this._memoryRange = null
+            this._port = null
+            this._worker?.terminate()
+            this._worker = null
+            this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+        }
     }
 
-    unload () {
-        const response = this._commissionWorker('release-cache')
-        // Decommission doesn't need a request number
-        const decommission = getOrSetValue(
-            this._commissions, 'decommission',
-            new Map<number, WorkerCommission>()
-        )
-        decommission.set(0, response)
-        return response.promise as Promise<void>
+    async unload (releaseFromManager = true) {
+        const prevState = this.isReady
+        const commission = this._commissionWorker('release-cache')
+        await commission.promise
+        if (this._manager && releaseFromManager) {
+            this._manager.release(this)
+        }
+        this._isWorkerSetup = false
+        this._isCacheSetup = false
+        this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
     }
 }

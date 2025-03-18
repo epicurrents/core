@@ -512,8 +512,9 @@ export default abstract class SignalFileReader implements SignalDataReader {
     async releaseCache () {
         for (const proc of this._cacheProcesses) {
             proc.continue = false
+            proc.signals.length = 0
         }
-        this._cacheProcesses.splice(0)
+        this._cacheProcesses.length = 0
         this._cache?.releaseBuffers()
         if (this._mutex) {
             this._isMutexReady = false
@@ -521,6 +522,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         } else if (this._fallbackCache) {
             this._fallbackCache = null
         }
+        Log.debug(`Signal cache released.`, SCOPE)
     }
 
     setDataGaps (dataGaps: SignalDataGapMap) {

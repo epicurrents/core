@@ -6,18 +6,16 @@
  */
 
 import { type MemoryManagerWorkerCommission, type WorkerMessage } from '#types/service'
-import IOMutex from 'asymmetric-io-mutex'
 import { Log } from 'scoped-event-log'
 import { validateCommissionProps } from '../util'
 import { BaseWorker } from './base.worker'
 
 const SCOPE = 'MemoryManagerWorker'
-const WAIT_TIMEOUT = 5000
 
 export class MemoryManagerWorker extends BaseWorker {
     protected _buffer = null as SharedArrayBuffer | null
     protected _view = null as Int32Array | null
-    
+
     constructor () {
         super()
         this.extendActionMap([
@@ -45,26 +43,6 @@ export class MemoryManagerWorker extends BaseWorker {
         if (!rearrange.length) {
             Log.error('release-and-rearrange did not contain any elements to rearrange.', SCOPE)
             return false
-        }
-        // Wait that each of the arrays to rearrange to be unlocked.
-        for (const toRetain of rearrange) {
-            let keepWaiting = true
-            while (keepWaiting) {
-                // Lock byte is at the start of the array.
-                const prevValue = Atomics.load(this._view, toRetain.range[0])
-                if (prevValue === IOMutex.UNLOCKED_VALUE) {
-                    keepWaiting = false
-                    break
-                }
-                // Else, keep waiting for the lock to release.
-                if (Atomics.wait(this._view, toRetain.range[0], prevValue, WAIT_TIMEOUT) === 'timed-out') {
-                    Log.error(
-                        'Timed out when waiting for a memory buffer to unlock for release-and-rearrange.',
-                    SCOPE)
-                    Atomics.exchange(this._view, 0, 0) // Release lock.
-                    return false
-                }
-            }
         }
         // Check for and remove possible empty or invalid ranges.
         for (let i=0; i<remove.length; i++) {

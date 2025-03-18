@@ -17,6 +17,7 @@ import {
     ConfigChannelFilter,
     ConfigChannelLayout,
     ConfigMapChannels,
+    ConfigReleaseBuffers,
     SettingsColor,
 } from './config'
 import { HighlightContext, SignalHighlight } from './plot'
@@ -559,6 +560,8 @@ export interface BiosignalMontage extends BaseAsset {
     recording: BiosignalResource
     /** Label of the (possible) common reference electrode/signal. */
     referenceLabel: string
+    /** ID of the service of this montage. */
+    serviceId: string
     setup: BiosignalSetup
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
@@ -620,7 +623,7 @@ export interface BiosignalMontage extends BaseAsset {
      * Release the buffers reserved for this montage's signal data.
      * @param config - Optional configuration (TODO: config definitions).
      */
-    releaseBuffers (config?: unknown): Promise<void>
+    releaseBuffers (config?: ConfigReleaseBuffers): Promise<void>
     /**
      * Remove all highlights from all contexts in this montage.
      */
@@ -696,23 +699,23 @@ export interface BiosignalMontage extends BaseAsset {
      */
     setupChannels (config: BiosignalMontageTemplate): void
     /**
-     * Set up a data loader using a signal data cache as input for the loader.
+     * Set up a data service using a signal data cache as input for the service.
      * @param cache - The source data cache to use as input.
      * @returns Promise holding the created cache if successful.
      */
-    setupLoaderWithCache (cache: SignalDataCache) : Promise<SetupCacheResponse>
+    setupServiceWithCache (cache: SignalDataCache) : Promise<SetupCacheResponse>
     /**
-     * Set up a data loader using a data source mutex output properties as input for the loader.
+     * Set up a data service using a data source mutex output properties as input for the service.
      * @param inputProps - The source mutex export properties to use as input.
      * @returns Promise holding the export properties of the created montage mutex (if setup was successful).
      */
-    setupLoaderWithInputMutex (inputProps: MutexExportProperties) : Promise<SetupMutexResponse>
+    setupServiceWithInputMutex (inputProps: MutexExportProperties) : Promise<SetupMutexResponse>
     /**
-     * Set up a data loader using a shared worker holding the cached signals.
+     * Set up a data service using a shared worker holding the cached signals.
      * @param port - The cache worker's message port.
      * @returns Promise that resolves with the property `success` of the setup process.
      */
-    setupLoaderWithSharedWorker (port: MessagePort) : Promise<SetupSharedWorkerResponse>
+    setupServiceWithSharedWorker (port: MessagePort) : Promise<SetupSharedWorkerResponse>
     /**
      * Stop the process of cahing signals from the source.
      * If a singal part (that was being loaded) is returned after this method is called, it will be discarded.

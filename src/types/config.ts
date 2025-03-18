@@ -242,6 +242,10 @@ export type ConfigMapChannels = {
     layout: number[]
     yPadding: number
 }
+export type ConfigReleaseBuffers = {
+    /** Should the reserved buffer ranges be removed from the memory manager as well. */
+    removeFromManager: boolean
+}
 export type ConfigStudyContext = {
     name?: string
 }

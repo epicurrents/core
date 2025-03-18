@@ -85,11 +85,11 @@ export default class SharedWorkerCache extends GenericService implements SignalD
         return this._signalCache
     }
 
-    destroy () {
+    async destroy () {
         this.releaseBuffers()
         this._signalSamplingRates.length = 0
         this._signalUpdatedRanges.length = 0
-        super.destroy()
+        await super.destroy()
     }
 
     handleWorkerMessage (message: MessageEvent) {

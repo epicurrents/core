@@ -213,6 +213,7 @@ export interface BaseAsset {
      * - `loading`: Resource data is being loaded from the source.
      * - `loaded`: Data has been loaded, but resource is not yet initialized.
      * - `ready`: Resource is initialized and ready for use.
+     * - `destroyed`: Resource has been unloaded and is no longer available.
      * - `error`: There was a loading error.
      */
     state: ResourceState

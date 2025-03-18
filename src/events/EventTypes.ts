@@ -108,6 +108,8 @@ export type ResourcePropertyEvent = AssetPropertyEvent & {
  * Names of (non-property) events emitted by biosignal resources.
  */
 export enum BiosignalResourceEvents {
+    /** Signal data buffers are cleared and the memory reserved for them released. */
+    RELEASE_BUFFERS = 'release-buffers',
     /** Reader has completed caching signals from the data source. */
     SIGNAL_CACHING_COMPLETE = 'signal-caching-complete',
 }

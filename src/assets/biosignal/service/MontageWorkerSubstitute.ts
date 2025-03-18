@@ -37,14 +37,6 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
         const action = message.action
         Log.debug(`Received message with action ${action}.`, SCOPE)
         switch (action) {
-            case 'decommission': {
-                this._montage?.releaseCache()
-                this._montage = null
-                super.decommission()
-                Log.debug(`Worker decommissioned.`, SCOPE)
-                this.returnSuccess(message)
-                break
-            }
             case 'get-signals': {
                 const data = validateCommissionProps(
                     message as WorkerMessage['data'] & { range: number[] },
@@ -61,17 +53,16 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     const config = message.config as ConfigChannelFilter | undefined
                     const sigs = await this._montage?.getSignals(data.range, config) as SignalCacheResponse
                     if (sigs) {
-                        this.returnSuccess({
+                        return this.returnSuccess({
                             ...message,
                             ...sigs
                         } as WorkerMessage['data'] & GetSignalsResponse)
                     } else {
-                        this.returnFailure(message)
+                        return this.returnFailure(message)
                     }
                 } catch (e) {
-                    this.returnFailure(message, e as string)
+                    return this.returnFailure(message, e as string)
                 }
-                break
             }
             case 'map-channels': {
                 const data = validateCommissionProps(
@@ -88,14 +79,12 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 const config = data.config as ConfigMapChannels
                 this._montage?.mapChannels(config)
                 Log.debug(`Channel mapping complete.`, SCOPE)
-                this.returnSuccess(message)
-                break
+                return this.returnSuccess(message)
             }
             case 'release-cache': {
                 await this._montage?.releaseCache()
                 Log.debug(`Cache released.`, SCOPE)
-                this.returnSuccess(message)
-                break
+                return this.returnSuccess(message)
             }
             case 'set-data-gaps': {
                 const data = validateCommissionProps(
@@ -117,8 +106,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 }
                 this._montage?.setDataGaps(newGaps)
                 Log.debug(`New data gaps set.`, SCOPE)
-                this.returnSuccess(message)
-                break
+                return this.returnSuccess(message)
             }
             case 'set-filters': {
                 const data = validateCommissionProps(
@@ -165,11 +153,10 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     }
                 }
                 Log.debug(`Filters updated.`, SCOPE)
-                this.returnSuccess({
+                return this.returnSuccess({
                     ...message,
                     updated: someUpdated,
                 } as WorkerMessage['data'] & SetFiltersResponse)
-                break
             }
             case 'setup-cache': {
                 const data = validateCommissionProps(
@@ -196,11 +183,10 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                                      )
                 if (setupSuccess) {
                     Log.debug(`Cache setup complete.`, SCOPE)
-                    this.returnSuccess(message)
+                    return this.returnSuccess(message)
                 } else {
-                    this.returnFailure(message)
+                    return this.returnFailure(message)
                 }
-                break
             }
             case 'setup-worker': {
                 if (!window.__EPICURRENTS__?.RUNTIME) {
@@ -234,13 +220,19 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 this._montage = new MontageProcesser(MOD_SETTINGS)
                 this._montage.setupChannels(data.montage, data.config, data.setupChannels)
                 Log.debug(`Worker setup complete.`, SCOPE)
-                this.returnSuccess(message)
-                break
+                return this.returnSuccess(message)
+            }
+            case 'shutdown':
+            case 'decommission': {
+                this._montage?.releaseCache()
+                this._montage = null
+                super.shutdown()
+                Log.debug(`Worker decommissioned.`, SCOPE)
+                return this.returnSuccess(message)
             }
             case 'update-settings': {
                 // No need to update settings.
-                this.returnSuccess(message)
-                break
+                return this.returnSuccess(message)
             }
             default: {
                 super.postMessage(message)
