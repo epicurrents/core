@@ -8,7 +8,7 @@
 
 import EventBus from '#events/EventBus'
 import { Log } from 'scoped-event-log'
-import { AssetEvents } from '#events/EventTypes'
+import { AssetEvents } from '#events'
 import type { BaseAsset, PropertyChangeHandler } from '#types/application'
 import type { EventWithPayload, PropertyChangeEvent } from '#types/event'
 import type {
@@ -105,7 +105,7 @@ export default abstract class GenericAsset implements BaseAsset {
      * @param newValue - New value for the property.
      * @param event - Optional event name to override the dispatched default property change event.
      */
-    protected _setPropertyValue (property: keyof this, newValue: unknown, event?: string) {
+    protected async _setPropertyValue (property: keyof this, newValue: unknown, event?: string) {
         if (typeof property !== 'string') {
             // Only string type property keys are supported.
             return
@@ -121,7 +121,7 @@ export default abstract class GenericAsset implements BaseAsset {
             return
         }
         if (Array.isArray(this[protectedKey]) && Array.isArray(value)) {
-            if (!this.dispatchPropertyChangeEvent(property, value, this[protectedKey], 'before', event)) {
+            if (!(await this.dispatchPropertyChangeEvent(property, value, this[protectedKey], 'before', event))) {
                 Log.debug(`Setting new value for property '${property}' was prevented.`, SCOPE)
                 return
             }
@@ -130,7 +130,7 @@ export default abstract class GenericAsset implements BaseAsset {
             this.dispatchPropertyChangeEvent(property, value, prevValue, 'after', event)
         } else {
             const prevValue = this[protectedKey]
-            if (!this.dispatchPropertyChangeEvent(property, value, prevValue, 'before', event)) {
+            if (!(await this.dispatchPropertyChangeEvent(property, value, prevValue, 'before', event))) {
                 Log.debug(`Setting new value for property '${property}' was prevented.`, SCOPE)
                 return
             }
@@ -155,18 +155,18 @@ export default abstract class GenericAsset implements BaseAsset {
         this.dispatchEvent(GenericAsset.EVENTS.DESTROY)
     }
 
-    dispatchEvent (event: string, phase: ScopedEventPhase = 'after', detail?: { [key: string]: unknown }) {
+    async dispatchEvent (event: string, phase: ScopedEventPhase = 'after', detail?: { [key: string]: unknown }) {
         return this._eventBus.dispatchScopedEvent(event, this.id, phase, Object.assign({ origin: this }, detail))
     }
 
-    dispatchPayloadEvent<T> (event: string, payload: T, phase: ScopedEventPhase = 'after') {
+    async dispatchPayloadEvent<T> (event: string, payload: T, phase: ScopedEventPhase = 'after') {
         const detail = {
             payload: payload,
         } as EventWithPayload<T>['detail']
         return this.dispatchEvent(event, phase, detail)
     }
 
-    dispatchPropertyChangeEvent<T> (
+    async dispatchPropertyChangeEvent<T> (
         property: keyof this,
         newValue: T,
         oldValue: T,
