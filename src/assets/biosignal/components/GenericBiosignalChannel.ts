@@ -248,9 +248,9 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         if (this.#triggerValueTimeout) {
             window.clearTimeout(this.#triggerValueTimeout)
         }
-        this.#triggerValueTimeout = window.setTimeout(() => {
+        this.#triggerValueTimeout = window.setTimeout(async () => {
             const prevValue = this._triggerValue
-            if (this.dispatchPropertyChangeEvent('triggerValue', value, prevValue, 'before')) {
+            if (await this.dispatchPropertyChangeEvent('triggerValue', value, prevValue, 'before')) {
                 this._triggerValue = value
                 this._triggerCache.clear()
                 this.findTriggerPoints()
