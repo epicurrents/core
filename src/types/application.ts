@@ -98,7 +98,7 @@ export interface BaseAsset {
      * @param detail - Optional `CustomEvent` details.
      * @returns False if the event default was prevented, true otherwise.
      */
-    dispatchEvent (event: string, phase?: ScopedEventPhase, detail?: { [key: string]: unknown }): Promise<boolean>
+    dispatchEvent (event: string, phase?: ScopedEventPhase, detail?: { [key: string]: unknown }): boolean
     /**
      * Dispatch an event that carries some data as payload.
      *
@@ -108,7 +108,7 @@ export interface BaseAsset {
      * @param phase - Phase of the event (optional, default 'after').
      * @returns False if the event default was prevented, true otherwise.
      */
-    dispatchPayloadEvent<T> (event: string, payload: T, phase?: ScopedEventPhase): Promise<boolean>
+    dispatchPayloadEvent<T> (event: string, payload: T, phase?: ScopedEventPhase): boolean
     /**
      * Dispatch an event to signal a change in the value of a property.
      *
@@ -126,7 +126,7 @@ export interface BaseAsset {
         oldValue: T,
         phase?: ScopedEventPhase,
         event?: string
-    ): Promise<boolean>
+    ): boolean
     /**
      * Get methods for adding listeners to the `before` and `after` phases of a specific `event`.
      * The `unsubscribe` method returned alongside the hooks can be used to unsubscribe from both phases.
