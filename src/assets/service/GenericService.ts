@@ -500,6 +500,8 @@ export default abstract class GenericService extends GenericAsset implements Ass
             this._commissions.clear()
             this._waiters.clear()
             this._actionWatchers.length = 0
+            this._isCacheSetup = false
+            this._isWorkerSetup = false
             this._manager = null
             this._memoryRange = null
             this._port = null
@@ -516,7 +518,6 @@ export default abstract class GenericService extends GenericAsset implements Ass
         if (this._manager && releaseFromManager) {
             this._manager.release(this)
         }
-        this._isWorkerSetup = false
         this._isCacheSetup = false
         this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
     }

@@ -6,6 +6,7 @@
  * @license    Apache-2.0
  */
 
+import { ResourceEvents } from '#events'
 import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
 import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
@@ -761,7 +762,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return result
     }
 
-    unload () {
-        return this.releaseBuffers()
+    async unload () {
+        this.dispatchEvent(ResourceEvents.UNLOAD, 'before')
+        await this.releaseBuffers()
+        this.dispatchEvent(ResourceEvents.UNLOAD, 'after')
     }
 }

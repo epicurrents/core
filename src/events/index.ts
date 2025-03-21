@@ -6,12 +6,15 @@ import {
     BiosignalPropertyEvents,
     BiosignalResourceEvents,
     DatasetEvents,
+    ResourceEvents,
+    ResourcePropertyEvents,
     type ApplicationEvent,
     type AssetEvent,
     type AssetPropertyEvent,
     type BiosignalResourceEvent,
     type BiosignalPropertyEvent,
     type DatasetEvent,
+    type ResourceEvent,
     type ResourcePropertyEvent,
 } from './EventTypes'
 
@@ -29,5 +32,8 @@ export {
     DatasetEvent,
     DatasetEvents,
     EventBus,
+    ResourceEvent,
+    ResourceEvents,
     ResourcePropertyEvent,
+    ResourcePropertyEvents,
 }

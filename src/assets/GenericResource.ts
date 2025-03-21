@@ -7,8 +7,8 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { type DataResource, type ResourceState } from '#types/application'
-import { type StudyContext } from '#types/study'
+import type { DataResource, ResourceState } from '#types/application'
+import type { StudyContext } from '#types/study'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'GenericResource'
@@ -124,6 +124,5 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     async unload () {
         // Override this in a child class.
-        return Promise.resolve()
     }
 }
