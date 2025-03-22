@@ -126,6 +126,9 @@ const _settings = {
         _userDefinable: {
         },
         dataChunkSize: 5*MB_BYTES,
+        get isSabUsed () {
+            return this.useMemoryManager && typeof SharedArrayBuffer !== 'undefined'
+        },
         logThreshold: 'WARN',
         maxDirectLoadSize: 10*MB_BYTES,
         maxLoadCacheSize: 1000*MB_BYTES,

@@ -27,6 +27,11 @@ export interface AppSettings {
          * data record.
          */
         dataChunkSize: number
+        /**
+         * Is SharedArrayBuffer used to manage resource memory. Readonly property, requires `useMemoryManager` to be
+         * `true` and the browser to support `SharedArrayBuffer`.
+         */
+        readonly isSabUsed: boolean
         /** Messages ≥ this level will be logged. */
         logThreshold: "DEBUG" | "INFO" | "WARN" | "ERROR" | "DISABLE"
         /** Load files of this size directly. */
