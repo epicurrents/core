@@ -471,6 +471,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             new Map<string, unknown>([
                 ['buffer', this._manager.buffer],
                 ['range', this._memoryRange],
+                ['useMemoryManager', true],
             ])
         )
         const initResult = await commission.promise as MutexExportProperties | null

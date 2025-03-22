@@ -80,7 +80,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         this._label = config?.label || name
         this._recording = recording
         this._setup = setup
-        this._service = new MontageService(this, manager)
+        this._service = new MontageService(this, manager, config?.overrideWorker)
         if (template) {
             this.setupChannels(template)
         }

@@ -5,6 +5,8 @@
  * @license    Apache-2.0
  */
 
+import BiosignalMutex from './BiosignalMutex'
+import MontageWorkerSubstitute from './MontageWorkerSubstitute'
 import type {
     BiosignalChannelFilters,
     BiosignalMontage,
@@ -25,7 +27,6 @@ import type {
     SetupWorkerResponse,
 } from '#types/service'
 import { Log } from 'scoped-event-log'
-import BiosignalMutex from './BiosignalMutex'
 import GenericService from '#assets/service/GenericService'
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { mapSignalsToSamplingRates } from '#util/signal'
@@ -43,19 +44,30 @@ export default class MontageService extends GenericService implements BiosignalM
         return this._montage.name
     }
 
-    constructor (montage: BiosignalMontage, manager?: MemoryManager) {
+    /**
+     * Create a new montage service to handle relaying commission to and from the montage worker.
+     * @param montage - The montage that uses this service.
+     * @param manager - Possible memory manager for the service.
+     * @param overrideWorker - Possible worker override name (`substitute` is reserved for the worker substitute).
+     */
+    constructor (montage: BiosignalMontage, manager?: MemoryManager, overrideWorker?: string) {
         if (!window.__EPICURRENTS__?.RUNTIME) {
             Log.error(`Reference to application runtime was not found.`, SCOPE)
         }
-        const overrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get('montage')
-        const worker = overrideWorker ? overrideWorker() : new Worker(
-            new URL(
-                /* webpackChunkName: 'montage.worker' */
-                `../../../workers/montage.worker`,
-                import.meta.url
-            ),
-            { type: 'module'}
-        )
+        let worker: Worker | undefined
+        if (manager && overrideWorker !== 'substitute') {
+            const getOverrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get(overrideWorker || 'montage')
+            worker = getOverrideWorker ? getOverrideWorker() : new Worker(
+                new URL(
+                    /* webpackChunkName: 'montage.worker' */
+                    `../../../workers/montage.worker`,
+                    import.meta.url
+                ),
+                { type: 'module'}
+            )
+        } else {
+            worker = new MontageWorkerSubstitute()
+        }
         super(SCOPE, worker, false, manager)
         this._montage = montage
         this._worker?.addEventListener('message', this.handleMessage.bind(this))

@@ -216,7 +216,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 }
                 const MOD_SETTINGS = window
                                      .__EPICURRENTS__.RUNTIME?.SETTINGS
-                                     .modules[data.namespace] as CommonBiosignalSettings
+                                     .modules[data.namespace] as unknown as CommonBiosignalSettings
                 this._montage = new MontageProcesser(MOD_SETTINGS)
                 this._montage.setupChannels(data.montage, data.config, data.setupChannels)
                 Log.debug(`Worker setup complete.`, SCOPE)

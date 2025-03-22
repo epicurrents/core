@@ -5,13 +5,13 @@
  * @license    Apache-2.0
  */
 
-import {
-    type AppSettings,
-    type BaseModuleSettings,
-    type ClonableAppSettings,
-    type ClonableModuleSettings,
-    type PropertyChangeHandler,
-    type SettingsValue,
+import type {
+    AppSettings,
+    BaseModuleSettings,
+    ClonableAppSettings,
+    ClonableModuleSettings,
+    PropertyChangeHandler,
+    SettingsValue,
 } from '#types'
 import { MB_BYTES } from '#util/constants'
 import { hexToSettingsColor, rgbaToSettingsColor } from '#util/conversions'
@@ -33,30 +33,21 @@ const _propertyUpdateHandlers = [] as {
  * @returns SETTINGS with only clonable, non-proxied properties.
  */
 const clonableSettings = () => {
-    /** Names of root level properties that are recursed into serializable objects. */
-    const clonableFields = ['app', 'services']
     // Remove the private _userDefinable (it also can't be cloned).
     const outSettings = {
         app: {},
         modules: {},
-        services: {},
     } as {
-        app: BaseModuleSettings
+        app: AppSettings['app']
         modules: ClonableModuleSettings
-        services: BaseModuleSettings
     }
-    for (const key of clonableFields) {
-        if (!_settings[key as keyof AppSettings]) {
-            continue
+    const app = {} as Record<keyof AppSettings['app'], SettingsValue>
+    for (const [field, value] of Object.entries(_settings.app) as [keyof AppSettings['app'], SettingsValue][]) {
+        if (!field.startsWith('_') && typeof value !== "function") {
+            app[field] = value
         }
-        const clonable = {} as BaseModuleSettings
-        for (const [field, value] of Object.entries(_settings[key as keyof AppSettings] as object)) {
-            if (!field.startsWith('_') && typeof value !== "function") {
-                clonable[field as keyof BaseModuleSettings] = value
-            }
-        }
-        outSettings[key as keyof typeof outSettings] = clonable
     }
+    outSettings.app = app as AppSettings['app']
     // Modules.
     for (const [key, mod] of _modules) {
         const clonable = {} as ClonableModuleSettings
@@ -177,9 +168,14 @@ const _settings = {
     getFieldValue (field: string, depth?: number) {
         // Traverse field's "path" to target property
         const fPath = field.split('.')
+        const modSettings = _modules.get(fPath[0])
+        if (modSettings && fPath.length > 1) {
+            // Remove the module identifier from the path.
+            fPath.shift()
+        }
         // This is incredibly difficult to type, maybe one day I'll get it right...
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const configFields = [SETTINGS] as any[]
+        const configFields = modSettings ? [modSettings] : [SETTINGS] as any[]
         let i = 0
         for (const f of fPath) {
             const nextField = configFields[i][f as keyof typeof configFields]
@@ -264,8 +260,13 @@ const _settings = {
         }
         // Traverse field's "path" to target property.
         const fPath = field.split('.')
+        const modSettings = _modules.get(fPath[0])
+        if (modSettings && fPath.length > 1) {
+            // Remove the module identifier from the path.
+            fPath.shift()
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const settingsField = [SETTINGS] as any[]
+        const settingsField = modSettings ? [modSettings] : [SETTINGS] as any[]
         let i = 0
         for (const f of fPath) {
             if (i === fPath.length - 1) {

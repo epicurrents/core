@@ -76,7 +76,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _viewStart: number = 0
 
     constructor (name: string, modality: string, source?: StudyContext) {
-        const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS.modules[modality] as CommonBiosignalSettings
+        const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS
+                                    .modules[modality] as unknown as CommonBiosignalSettings
         super(name, modality, source)
         // Set default filters.
         this._filterChannelTypes = TYPE_SETTINGS?.filterChannelTypes || []
@@ -748,11 +749,11 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         const result = await this._service.setupMutex().then(response => {
             if (response) {
-                Log.debug(`Cache for raw signal data initiated.`, SCOPE)
+                Log.debug(`Mutex cache for raw signal data initiated.`, SCOPE)
                 this._mutexProps = response
                 return response
             } else {
-                Log.error(`Cache initialization failed.`, SCOPE)
+                Log.error(`Mutex cache initialization failed.`, SCOPE)
                 return null
             }
         }).catch((e: unknown) => {

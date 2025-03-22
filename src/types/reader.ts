@@ -123,10 +123,10 @@ export interface FileFormatReader extends BaseAsset {
     destroy (): void
     /**
      * Get the appropriate worker for this file type.
-     * @param sab - Use SharedArrayBuffer implementation.
+     * @param override - Possible override to use.
      * @returns Worker or null
      */
-    getFileTypeWorker (sab?: boolean): Worker | null
+    getFileTypeWorker (override?: string): Worker | null
     /**
      * Read a local file from the filesystem.
      * @param file - The `File` to load.

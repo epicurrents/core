@@ -27,11 +27,6 @@ export interface AppSettings {
          * data record.
          */
         dataChunkSize: number
-        /**
-         * Is SharedArrayBuffer used to manage resource memory. Readonly property, requires `useMemoryManager` to be
-         * `true` and the browser to support `SharedArrayBuffer`.
-         */
-        readonly isSabUsed: boolean
         /** Messages ≥ this level will be logged. */
         logThreshold: "DEBUG" | "INFO" | "WARN" | "ERROR" | "DISABLE"
         /** Load files of this size directly. */
@@ -43,8 +38,6 @@ export interface AppSettings {
          * float array, only half this amount of EDF signal data can be loaded.
          */
         maxLoadCacheSize: number
-        /** Should a centralized manager be used to control memory available to services. */
-        useMemoryManager: boolean
     }
     interface: unknown
     /**
@@ -54,7 +47,7 @@ export interface AppSettings {
     /**
      * List of available services and should they be initialized or not.
      */
-    services: BaseModuleSettings & {
+    services: {
         /**
          * ONNX machine learning model service.
          * NOTE: Since there is no single all-encompassing ONNX service, setting this to true has no effect (yet).
@@ -145,12 +138,17 @@ export type BaseModuleSettings = {
      * Key is the name of the setting and value is the constructor of the allowed value type.
      */
     _userDefinable?: { [field: string]: SettingsValueConstructor }
+    /** Should a centralized manager be used to control memory available to resources. */
+    useMemoryManager: boolean
 }
 /**
  * Core app settings with the non-serializable properties removed.
  */
-export type ClonableAppSettings = Pick<AppSettings, "app" | "modules" | "services">
-export type ClonableModuleSettings = { [key: string]: unknown }
+export type ClonableAppSettings = Pick<AppSettings, "app" | "modules">
+export type ClonableModuleSettings = {
+    [key: string]: unknown
+    useMemoryManager: boolean
+}
 /**
  * Settings common to all biosignal type resources.
  */
@@ -206,6 +204,8 @@ export type CommonBiosignalSettings = {
 export type ConfigBiosignalMontage = {
     /** Descriptive name for this montage (overrides possible default name). */
     label?: string
+    /** Name of a override worker to use for ontage processing. */
+    overrideWorker?: string
     /** Skip setups in parent classes (setup must be performed in the final extending class). */
     skipSetup?: true
 }

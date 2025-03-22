@@ -15,8 +15,8 @@ import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
 
 export default class BiosignalStudyLoader extends GenericStudyLoader {
 
-    constructor (name: string, modalities: string[], loader: FileFormatReader) {
-        super(name, modalities, loader)
+    constructor (name: string, modalities: string[], reader: FileFormatReader) {
+        super(name, modalities, reader)
     }
 
     async loadFromUrl(fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext):
