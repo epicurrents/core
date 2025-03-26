@@ -123,7 +123,7 @@ const _settings = {
         logThreshold: 'WARN',
         maxDirectLoadSize: 10*MB_BYTES,
         maxLoadCacheSize: 1000*MB_BYTES,
-        useMemoryManager: true,
+        useMemoryManager: false,
     },
     interface: null,
     modules: {},

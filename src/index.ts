@@ -227,7 +227,7 @@ export class Epicurrents implements EpicurrentsApp {
         this.#eventBus.dispatchScopedEvent(ApplicationEvents.CONFIG_CHANGED, 'application', 'before')
         for (const [field, value] of Object.entries(config)) {
             Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
-            SETTINGS.setFieldValue(field, value)
+            this.#runtime.SETTINGS.setFieldValue(field, value)
         }
         this.#eventBus.dispatchScopedEvent(ApplicationEvents.CONFIG_CHANGED, 'application', 'after')
     }
