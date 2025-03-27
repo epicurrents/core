@@ -688,7 +688,11 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         // Initialize the buffer.
         this.initialize(buffer, bufferStart)
         Log.debug(`Initializing signal buffers for ${cacheProps.signals.length} signals.`, SCOPE)
-        this.setDataArrays(cacheProps.signals.map(s => { return { constructor: Float32Array, length: s.samplingRate*dataLength }}))
+        this.setDataArrays(
+            cacheProps.signals.map(s => {
+                return { constructor: Float32Array, length: Math.floor(s.samplingRate*dataLength) }
+            })
+        )
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, () => {
             // Set meta values (we can use the same write lock to reduce operations).
             this._setOutputMetaFieldValue(BiosignalMutex.RANGE_ALLOCATED_NAME, dataLength)
