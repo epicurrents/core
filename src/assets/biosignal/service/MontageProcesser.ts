@@ -590,7 +590,12 @@ export default class MontageProcesser extends SignalFileReader implements Signal
                 undefined,
                 input
             )
-        await this._mutex.initSignalBuffers(cacheProps, dataDuration, input.buffer, bufferStart)
+        await this._mutex.initSignalBuffers(
+            cacheProps,
+            this._settings.montages.preCache ? dataDuration : 0, // Montage precaching is not implemented yet.
+            input.buffer,
+            bufferStart
+        )
         this._isMutexReady = true
         return this._mutex.propertiesForCoupling
     }
