@@ -527,6 +527,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             Log.error(`Montage cache is already set up.`, SCOPE)
             return
         }
+        Log.debug(`Setting up basic cache.`, SCOPE)
         this._totalDataLength = dataDuration
         // Some calculations require data unit count, consider each second as a data unit in montages.
         this._dataUnitCount = dataDuration
@@ -540,6 +541,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             this._dataGaps.set(gap.start, gap.duration)
         }
         this._fallbackCache = new BiosignalCache(dataDuration, cache)
+        Log.debug(`Basic cache setup complete.`, SCOPE)
     }
 
     /**
@@ -561,6 +563,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         if (!input.buffer) {
             return null
         }
+        Log.debug(`Setting up mutex cache with input mutex.`, SCOPE)
         // Construct a SignalCachePart to initialize the mutex.
         const cacheProps = {
             start: 0,
@@ -597,6 +600,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             bufferStart
         )
         this._isMutexReady = true
+        Log.debug(`Mutex cache setup complete.`, SCOPE)
         return this._mutex.propertiesForCoupling
     }
 
@@ -606,6 +610,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
         recordingDuration: number,
         dataGaps = [] as SignalDataGap[]
     ) {
+        Log.debug(`Setting up shared worker cache.`, SCOPE)
         // Construct a SignalCachePart to initialize the mutex.
         const cacheProps = {
             start: 0,
@@ -631,6 +636,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
             this._dataGaps.set(gap.start, gap.duration)
         }
         this._fallbackCache = new SharedWorkerCache(input, postMessage)
+        Log.debug(`Shared worker cache setup complete.`, SCOPE)
         return true
     }
 }
