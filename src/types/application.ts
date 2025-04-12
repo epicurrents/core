@@ -32,23 +32,10 @@ import {
  */
 export type ApplicationConfig = {
     /**
-     * Id of the application instance to launch. Multiple instance support is not yet implemented so setting this
-     * option has no practical effect.
-     */
-    appId?: string
-    /**
      * Path from which to load additional application assets, e.g. local settings.
      * Defaults to the same folder as the application file if left blank.
      */
     assetPath?: string
-    /**
-     * Id of the container that will house the application. Defaults to "epicurrents" if left blank.
-     */
-    containerId?: string
-    /**
-     * Locale to start the application in (two letter locale code, e.g. 'en').
-     */
-    locale?: string
     /**
      * Log priority required for message to be printed into the console.
      * Possible values (from least to most important):
