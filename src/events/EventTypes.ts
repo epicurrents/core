@@ -27,7 +27,7 @@ export enum ApplicationEvents {
     /** Application configuration was changed. */
     CONFIG_CHANGED = 'config-changed',
     /** The application has been initialized. */
-    INITIALIZED = 'initialized',
+    INITIALIZE = 'initialize',
     /** A new dataset is marked active. */
     SET_ACTIVE_DATASET = 'set-active-dataset',
 }
@@ -38,7 +38,7 @@ export type ApplicationEvent = {
     /** Application configuration is changed. */
     [ApplicationEvents.CONFIG_CHANGED]: BroadcastStateEvent
     /** The application is initialized. */
-    [ApplicationEvents.INITIALIZED]: BroadcastStateEvent
+    [ApplicationEvents.INITIALIZE]: BroadcastStateEvent
     /** A new dataset is marked active. */
     [ApplicationEvents.SET_ACTIVE_DATASET]: EventWithPayload<BaseDataset>
 }

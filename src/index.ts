@@ -245,7 +245,7 @@ export class Epicurrents implements EpicurrentsApp {
     }
 
     async launch (config?: ApplicationConfig): Promise<boolean> {
-        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZED, 'application', 'before')
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZE, 'application', 'before')
         if (!this.#interfaceConstructor) {
             Log.error(`Cannot launch app before an interface has been registered.`, 'index')
             return false
@@ -274,7 +274,7 @@ export class Epicurrents implements EpicurrentsApp {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
             return false
         }
-        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZED, 'application', 'after')
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZE, 'application', 'after')
         return true
     }
 
