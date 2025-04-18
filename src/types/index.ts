@@ -424,11 +424,13 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    Entries,
     Modify,
     TypedNumberArray,
     TypedNumberArrayConstructor,
 } from './util'
 export {
+    Entries,
     Modify,
     TypedNumberArray,
     TypedNumberArrayConstructor,
