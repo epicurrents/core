@@ -19,6 +19,7 @@ import {
 import {
     GenericDataset,
     MixedMediaDataset,
+    WebDAVConnector,
 } from './dataset'
 import {
     GenericDocumentResource,
@@ -82,6 +83,7 @@ export {
     SignalFileReader,
     StudyCollection,
     studyContextTemplate,
+    WebDAVConnector,
 }
 import GenericAsset from './GenericAsset'
 import GenericResource from './GenericResource'

@@ -8,7 +8,6 @@
 import { type DataResource } from '#types/application'
 import {
     type BaseDataset,
-    type DatasetCredentials,
     type ResourceSortingInstructions,
     type ResourceSortingScheme
 } from '#types/dataset'
@@ -19,7 +18,6 @@ import { deepClone } from '#util'
 const SCOPE = 'GenericDataset'
 
 export default abstract class GenericDataset extends GenericAsset implements BaseDataset {
-    protected _credentials: null | DatasetCredentials = null
     protected _resources: DataResource[] = []
     protected _resourceSorting: ResourceSortingInstructions
     /**
@@ -38,10 +36,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
 
     get activeResources () {
         return this._resources.filter(r => r.isActive)
-    }
-
-    get credentials () {
-        return this._credentials
     }
 
     get resources () {
@@ -109,7 +103,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
 
     async destroy () {
         await this.unload()
-        this._credentials = null
         super.destroy()
     }
 
@@ -146,13 +139,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
         // Unload the removed resource.
         removed.unload()
         return removed
-    }
-
-    setCredentials (username: string, password: string) {
-        this._setPropertyValue('credentials', {
-            username: username,
-            password: password,
-        })
     }
 
     setResourceSorting (value: ResourceSortingInstructions) {

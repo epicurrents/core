@@ -198,12 +198,24 @@ export {
 }
 
 /////////////////////////////////////////////////
+//                 CONNECTOR                   //
+/////////////////////////////////////////////////
+
+import type {
+    ConnectorCredentials,
+    DatasourceConnector,
+} from './connector'
+export {
+    ConnectorCredentials,
+    DatasourceConnector,
+}
+
+/////////////////////////////////////////////////
 //                  DATASET                    //
 /////////////////////////////////////////////////
 
 import type {
     BaseDataset,
-    DatasetCredentials,
     DatasetLoader,
     MediaDataset,
     ResourceSortingInstructions,
@@ -211,7 +223,6 @@ import type {
 } from './dataset'
 export {
     BaseDataset,
-    DatasetCredentials,
     DatasetLoader,
     MediaDataset,
     ResourceSortingInstructions,

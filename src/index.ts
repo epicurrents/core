@@ -45,6 +45,7 @@ import {
     SignalFileReader,
     StudyCollection,
     studyContextTemplate,
+    WebDAVConnector,
 } from './assets'
 export {
     BiosignalAudio,
@@ -82,6 +83,7 @@ export {
     SignalFileReader,
     StudyCollection,
     studyContextTemplate,
+    WebDAVConnector,
 }
 import {
     ApplicationEvents,

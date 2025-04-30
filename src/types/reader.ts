@@ -192,6 +192,10 @@ export interface FileSystemItem {
     type: FileSystemItemType
     /** Possible file object (if this is a file). */
     file?: File
+    /** Possible file mime type. */
+    mime?: string
+    /** Possible file size in bytes. */
+    size?: number
     /** Possible url to the file object (if this is a file). */
     url?: string
 }
