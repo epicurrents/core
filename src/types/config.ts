@@ -194,6 +194,11 @@ export type CommonBiosignalSettings = {
         /** Should montage signals be pre-cached into a biosignal mutex. */
         preCache: boolean
     }
+    /** Scale to apply to a signal's amplitude as an exponent of 10. */
+    scale: {
+        availableValues: number[]
+        default: number
+    }
     /** Show channels that tha have been marked hidden on the EEG trace. */
     showHiddenChannels: boolean
     /** Show channels that are missing from the source file on the EEG trace. */

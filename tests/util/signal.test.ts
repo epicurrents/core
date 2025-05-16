@@ -21,7 +21,7 @@ const baseChannel: BiosignalChannel = {
     modality: 'eeg',
     visible: true,
     samplingRate: 250,
-    amplification: 0,
+    scale: 0,
     averaged: false,
     displayPolarity: 0,
     filters: {

@@ -115,8 +115,6 @@ export interface BiosignalAnnotation extends BaseAsset {
  * Common base for all biosignal channel types.
  */
 export interface BiosignalChannel {
-    /** Channel base amplification, mostly used if the channel has a different unit value (e.g. mV instead of uV). */
-    amplification: number
     /** Is the signal on this channel referenced to an average. */
     averaged: boolean
     /** Display polarity of the signal on this channel. */
@@ -157,6 +155,11 @@ export interface BiosignalChannel {
     sampleCount: number
     /** Sampling rate as samples/second. */
     samplingRate: number
+    /**
+     * Channel base scale as an exponent of 10, mostly used if the channel has a different unit value (e.g. mV instead
+     * of uV) to scale the signal by the recording default sensitivity.
+     */
+    scale: number
     /** Individual signal sensitivity as a multiplier. */
     sensitivity: number
     /** The computed channel signal. */
@@ -238,11 +241,6 @@ export type BiosignalChannelMarker = {
 export type BiosignalChannelProperties = {
     /** Index of the active channel. */
     active?: number
-    /**
-     * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
-     * Should only be used in special cases.
-     */
-    amplification?: number
     /** Is the signal on this channel average referenced. */
     averaged?: boolean
     /** Polarity of the signal on this channel. */
@@ -272,7 +270,14 @@ export type BiosignalChannelProperties = {
     sampleCount?: number
     /** Sampling rate of the signal. */
     samplingRate?: number
-    /** Initial sensititivty of the signal. */
+    /**
+     * Multiplier applied to the signal amplitude as a ten's exponent (default 0). This can be used to scale the signal
+     * of very small or very amplitude values on the screen while still using the recording main sensitivity.
+     * @remarks
+     * This can take any value, but only has options for whole digits in the UI.
+     */
+    scale?: number
+    /** Initial sensitivity of the signal. */
     sensitivity?: number
     /** Physical unit identifier (such as `uV`). */
     unit?: string,
@@ -296,11 +301,6 @@ export type BiosignalChannelTemplate = {
     name: string
     /** Physical unit of the channel signal. */
     unit: string
-    /**
-     * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
-     * Should only be used in special cases.
-     */
-    amplification?: number
     /** Does this channel contain an already averaged signal (default false). */
     averaged?: boolean
     /** A reg-exp pattern to match signals in the source file to this channel. */
@@ -309,6 +309,13 @@ export type BiosignalChannelTemplate = {
     polarity?: SignalPolarity
     /** Sampling rate of the signal, if already known. */
     samplingRate?: number
+    /**
+     * Multiplier applied to the signal amplitude as a ten's exponent (default 0). This can be used to scale the signal
+     * of very small or very amplitude values on the screen while still using the recording main sensitivity.
+     * @remarks
+     * This can take any value, but only has options for whole digits in the UI.
+     */
+    scale?: number
 }
 
 export type BiosignalConfig = {
@@ -375,7 +382,7 @@ export interface BiosignalDataService extends AssetService {
     */
     getSignals (range: number[], config?: unknown): void
     /**
-     * Attemp to handle a message from the service's worker.
+     * Attempt to handle a message from the service's worker.
      * @param message - Message from a worker.
      * @returns true if handled, false otherwise.
      * @remarks

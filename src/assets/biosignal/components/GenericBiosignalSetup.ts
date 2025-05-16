@@ -65,7 +65,6 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
         // Helper method for producing a prototype channel.
         const getChannel = (index: number, config?: Partial<BiosignalChannelTemplate>) => {
             return {
-                amplification: config?.amplification || 1,
                 averaged: config?.averaged || false,
                 displayPolarity: config?.polarity || 0,
                 index: index,
@@ -74,6 +73,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 modality: config?.modality || undefined,
                 name: config?.name || '',
                 samplingRate: config?.samplingRate || 0,
+                scale: config?.scale || 0,
                 unit: config?.unit || '?',
             } as SetupChannel
         }
@@ -96,7 +96,6 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                         if (chan.name === recordSignals[i].name) {
                             this._channels.push(
                                 getChannel(i, {
-                                    amplification: chan.amplification,
                                     averaged: chan.averaged,
                                     polarity: chan.polarity,
                                     label: chan.label,
@@ -104,6 +103,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                                     modality: chan.modality,
                                     name: chan.name,
                                     samplingRate: recordSignals[i].samplingRate,
+                                    scale: chan.scale,
                                     unit: chan.unit,
                                 })
                             )
@@ -121,7 +121,6 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                         if (recordSignals[i].name.match(new RegExp(chan.pattern, 'i')) !== null) {
                             this._channels.push(
                                 getChannel(i, {
-                                    amplification: chan.amplification,
                                     averaged: chan.averaged,
                                     polarity: chan.polarity,
                                     label: chan.label,
@@ -129,6 +128,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                                     modality: chan.modality,
                                     name: chan.name,
                                     samplingRate: recordSignals[i].samplingRate,
+                                    scale: chan.scale,
                                     unit: chan.unit,
                                 })
                             )
@@ -140,12 +140,12 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 // Channel is missing from recording.
                 this._missing.push(
                     getChannel(INDEX_NOT_ASSIGNED, {
-                        amplification: chan.amplification,
                         averaged: chan.averaged,
                         label: chan.label,
                         laterality: chan.laterality,
                         modality: chan.modality,
                         name: chan.name,
+                        scale: chan.scale,
                         unit: chan.unit,
                     })
                 )
