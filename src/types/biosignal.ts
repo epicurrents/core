@@ -39,34 +39,62 @@ import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-m
  * Object template to use when constructing a biosignal annotation.
  */
 export type AnnotationTemplate = {
-    /** Author of this annotation. */
-    annotator: BiosignalAnnotation['annotator']
-    /** Should this annotation be shown in the background. */
-    background: BiosignalAnnotation['background']
-    /** List of channel numbers, empty for a general type annotation. */
-    channels: BiosignalAnnotation['channels']
-    /** Annotation class.
-     * - `activation` is any activation procedure meant to modify the EEG.
-     * - `comment` is free from commentary, may be unrelated to the recording itself.
+     /** List of channel numbers, empty for a general annotation. */
+    channels: number[]
+    /**
+     * Annotation class. The default general purpose classes are:
+     * - `activation` is any activation procedure that may have an effect on the EEG.
+     * - `comment` is free-from commentary, may be unrelated to the recording itself.
      * - `event` describes something taking place during the recording at that exact moment.
      * - `technical` describes any technical data/events regarding the recording, such as impedance readings, calibration, input montage switches etc.
+     * - `trigger` is a special event used as a reference for measuring effects (e.g. a stimulus).
+     *
+     * In addition, there are special classes for educational purposes. These have a priority of 0 and must be
+     * individually displayed/hidden.
+     * - `answer` is a *quiz* answer, which may be related to a question.
+     * - `example` is an example of a feature, finding, technique etc.
+     * - `question` is a *quiz* question, which may have answers.
      */
     class: BiosignalAnnotation['class']
     /** Duration of the annotation, in seconds (zero for instant annotation). */
     duration: BiosignalAnnotation['duration']
     /** Text label for the annotation (visible on the interface and annotation list). */
     label: BiosignalAnnotation['label']
-    /** Priority of this annotation (lower number has higher priority). */
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default annotation classes are:
+     * - `activation` = 300
+     * - `comment` = 200
+     * - `event` = 400
+     * - `technical` = 100
+     */
     priority: BiosignalAnnotation['priority']
-    /** Annotation starting position, in seconds. */
+    /** Annotation starting time, in seconds after the recording start. */
     start: BiosignalAnnotation['start']
-    /** Additional commentary regarding the annotation. */
-    text: BiosignalAnnotation['text']
-    /** Color override for the annotation. */
+    /** Author of this annotation. */
+    annotator?: BiosignalAnnotation['annotator']
+    /** Should this annotation be placed in the background (behind the traces). */
+    background?: BiosignalAnnotation['background']
+    /** Color override for the annotation type's default color. */
     color?: BiosignalAnnotation['color']
-    /** Additional opacity multiplier for the highlight. */
+    /**
+     * Unique identifier for matching educational annotations (for programmatically altering their visibility etc.).
+     *
+     * @remarks
+     * Cannot use `id` for this as it is automatically generated.
+     */
+    name?: BiosignalAnnotation['name']
+    /** Additional opacity multiplier for the annotation opacity set in the `color` property. */
     opacity?: BiosignalAnnotation['opacity']
-    /** Optional visibility property (annotations are visible by default). */
+    /** Additional commentary regarding the annotation. */
+    text?: BiosignalAnnotation['text']
+    /** Identifier for a pre-set annotation type. */
+    type?: BiosignalAnnotation['type']
+    /**
+     * Is this annotation visible (default true).
+     * Should be set to false for any educational annotation types that should not be immediately visible when the
+     * recording is opened (such as quiz answers).
+     */
     visible?: BiosignalAnnotation['visible']
 }
 /**
@@ -79,18 +107,33 @@ export interface BiosignalAnnotation extends BaseAsset {
     background: boolean
     /** List of channel numbers, empty for a general type annotation. */
     channels: number[]
-    /** Annotation class.
-     * - `activation` is any activation procedure meant to modify the EEG.
-     * - `comment` is free from commentary, may be unrelated to the recording itself.
+    /**
+     * Annotation class. The default general purpose classes are:
+     * - `activation` is any activation procedure that may have an effect on the EEG.
+     * - `comment` is free-from commentary, may be unrelated to the recording itself.
      * - `event` describes something taking place during the recording at that exact moment.
      * - `technical` describes any technical data/events regarding the recording, such as impedance readings, calibration, input montage switches etc.
+     * - `trigger` is a special event used as a reference for measuring effects (e.g. a stimulus).
+     *
+     * In addition, there are special classes for educational purposes. These have a priority of 0 and must be
+     * individually displayed/hidden.
+     * - `answer` is a *quiz* answer, which may be related to a question.
+     * - `example` is an example of a feature, finding, technique etc.
+     * - `question` is a *quiz* question, which may have answers.
      */
-    class: "activation" | "comment" | "event" | "technical"
+    class: "activation" | "answer" | "comment" | "event" | "example" | "question" | "technical" | "trigger"
     /** Duration of the annotation, in seconds (zero for instant annotation). */
     duration: number
     /** Text label for the annotation (visible on the interface and annotation list). */
     label: string
-    /** Priority of this annotation (lower number has higher priority). */
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default annotation classes are:
+     * - `activation` = 300
+     * - `comment` = 200
+     * - `event` = 400
+     * - `technical` = 100
+     */
     priority: number
     /** Annotation starting position, in seconds. */
     start: number
@@ -101,7 +144,7 @@ export interface BiosignalAnnotation extends BaseAsset {
     /** Is this annotation visible. */
     visible: boolean
     /**
-     * Color override for the annotation.
+     * Color override for the annotation type's default color.
      * Changing this property triggers an additional event `appearance-changed`.
      */
     color?: SettingsColor
