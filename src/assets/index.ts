@@ -17,9 +17,11 @@ import {
     SharedWorkerCache,
 } from './biosignal'
 import {
+    WebDAVConnector,
+} from './connector'
+import {
     GenericDataset,
     MixedMediaDataset,
-    WebDAVConnector,
 } from './dataset'
 import {
     GenericDocumentResource,
