@@ -575,6 +575,7 @@ export type BiosignalHeaderSignal = {
     sampleCount: number
     samplingRate: number
     sensitivity: number
+    transducer: string
     type: string
 }
 /** Laterality as **d** = right / **s** = left / **z** = center / unknown. */
