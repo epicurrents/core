@@ -568,15 +568,24 @@ export interface BiosignalHeaderRecord {
  * Signal properties expected to be present in a biosignal file header.
  */
 export type BiosignalHeaderSignal = {
+    /** Displayed label of this signal. */
     label: string
+    /** Signal data modality (such as 'eeg'). */
+    modality: string
+    /** Unique identifying name for this signal (used for signal mapping). */
     name: string
+    /** Name of the physical unit of the recorded signal in ASCII characters. */
     physicalUnit: string
+    /** Possible prefiltering applied to the recorded signal. */
     prefiltering: BiosignalFilters
+    /** Total number of samples in this signal. */
     sampleCount: number
+    /** Signal sampling rate in Hz. */
     samplingRate: number
+    /** Custom sensitivity to apply when displaying this signal in `physicalUnit`/cm. */
     sensitivity: number
-    transducer: string
-    type: string
+    /** Type of the sensor used when recording this signal. */
+    sensor: string
 }
 /** Laterality as **d** = right / **s** = left / **z** = center / unknown. */
 export type BiosignalLaterality = "d" | "s" | "z" | ""
