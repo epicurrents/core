@@ -208,6 +208,9 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     get scale () {
         return this._scale
     }
+    set scale (value: number) {
+        this._setPropertyValue('scale', value)
+    }
 
     get sensitivity () {
         return this._sensitivity
