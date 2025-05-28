@@ -15,7 +15,6 @@ import { Log } from 'scoped-event-log'
 const SCOPE = 'WebGlPlotTrace'
 
 export default class WebGlPlotTrace implements WebGlTrace {
-    protected _amplification = 1
     protected _buffer = 0 as WebGLBuffer
     protected _color: WebGlCompatibleColor
     protected _coordinates = 0
@@ -26,15 +25,16 @@ export default class WebGlPlotTrace implements WebGlTrace {
     protected _render = true
     protected _samplesPerPx: number
     protected _samplingRate: number
+    protected _scale = 0
     protected _sensitivity: number
     protected _xyPairs: Float32Array = new Float32Array()
 
 
-    get amplification () {
-        return this._amplification
+    get scale () {
+        return this._scale
     }
-    set amplification (value: number) {
-        this._amplification = value
+    set scale (value: number) {
+        this._scale = value
     }
     get buffer () {
         return this._buffer
@@ -88,7 +88,7 @@ export default class WebGlPlotTrace implements WebGlTrace {
         samplesPerPx: number,
         downsampleFactor: number,
         polarity: 1 | -1,
-        amplification: number,
+        scale: number,
         offset: number,
     ) {
         this._color = color
@@ -99,7 +99,7 @@ export default class WebGlPlotTrace implements WebGlTrace {
         this._samplesPerPx = samplesPerPx
         this._samplingRate = samplingRate
         this._sensitivity = sensitivity
-        this._amplification = amplification
+        this._scale = scale
         this._xyPairs = new Float32Array(2*Math.floor(length))
         this.initData()
     }

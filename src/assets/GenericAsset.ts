@@ -52,14 +52,18 @@ export default abstract class GenericAsset implements BaseAsset {
 
     constructor (name: string, modality: string) {
         // Make sure that reference to the global __EPICURRENTS__ object exists.
-        if (typeof window.__EPICURRENTS__ === 'undefined') {
+        if (typeof window === 'undefined') {
+            Log.error(`Tried to create an asset outside of a browser environment.`, SCOPE)
+        } else if (typeof window.__EPICURRENTS__ === 'undefined') {
             Log.error(
                 `Reference to global __EPICURRENTS__ object was not found. ` +
                 `Main application instance must be created before creating assets.`,
                 SCOPE
             )
+        } else {
+            this._eventBus = window.__EPICURRENTS__.EVENT_BUS || new EventBus()
         }
-        this._eventBus = window.__EPICURRENTS__?.EVENT_BUS || new EventBus()
+        this._eventBus ??= new EventBus()
         this._id = GenericAsset.CreateUniqueId()
         this._modality = modality
         this._name = name
@@ -148,7 +152,10 @@ export default abstract class GenericAsset implements BaseAsset {
         this._eventBus.addScopedEventListener(event, callback, subscriber, this.id, phase)
     }
 
-    async destroy () {
+    destroy () {
+        this.removeAllEventListeners()
+        this._eventBus = null as unknown as ScopedEventBus
+        this._isActive = false
         this.dispatchEvent(GenericAsset.EVENTS.DESTROY)
     }
 

@@ -59,6 +59,8 @@ export default abstract class GenericFileReader extends GenericAsset implements 
     }
      */
     protected _fileTypes: AssociatedFileType[]
+    /** A substitute processer to use in environments where workers cannot be used. */
+    protected _getWorkerSubstitute: (() => Worker | null) = () => null
     protected _matchPatterns: RegExp[] = []
     protected _memoryManager: MemoryManager | null  = null
     protected _modalities: string[]
@@ -66,7 +68,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
     protected _onlyAcceptedTypes: boolean
     protected _study: StudyContext = studyContextTemplate()
     protected _studyLoader: StudyLoader | null = null
-    protected _workerOverride = new Map<string, (() => Worker)|null>()
+    protected _workerOverrides = new Map<string, (() => Worker)|null>()
 
     constructor (
         name: string,
@@ -104,6 +106,16 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         this._setPropertyValue('studyLoader', value)
     }
 
+    destroy () {
+        this._fileTypes.length = 0
+        this._matchPatterns.length = 0
+        this._memoryManager = null
+        this._modalities.length = 0
+        this._name = ''
+        this._studyLoader = null
+        this._workerOverrides.clear()
+        super.destroy()
+    }
 
     getFileTypeWorker (): Worker | null {
         return null
@@ -176,6 +188,6 @@ export default abstract class GenericFileReader extends GenericAsset implements 
     }
 
     setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
-        this._workerOverride.set(name, getWorker)
+        this._workerOverrides.set(name, getWorker)
     }
 }

@@ -3,6 +3,7 @@
 /////////////////////////////////////////////////
 
 import type {
+    ApplicationConfig,
     BaseAsset,
     DataResource,
     EpicurrentsApp,
@@ -16,11 +17,13 @@ import type {
     ResourceState,
     RuntimeAppModule,
     RuntimeResourceModule,
+    RuntimeResourceModuleConfig,
     RuntimeState,
     SafeObject,
     StateManager,
 } from './application'
 export {
+    ApplicationConfig,
     BaseAsset,
     DataResource,
     EpicurrentsApp,
@@ -34,6 +37,7 @@ export {
     ResourceState,
     RuntimeAppModule,
     RuntimeResourceModule,
+    RuntimeResourceModuleConfig,
     RuntimeState,
     SafeObject,
     StateManager,
@@ -194,12 +198,24 @@ export {
 }
 
 /////////////////////////////////////////////////
+//                 CONNECTOR                   //
+/////////////////////////////////////////////////
+
+import type {
+    ConnectorCredentials,
+    DatasourceConnector,
+} from './connector'
+export {
+    ConnectorCredentials,
+    DatasourceConnector,
+}
+
+/////////////////////////////////////////////////
 //                  DATASET                    //
 /////////////////////////////////////////////////
 
 import type {
     BaseDataset,
-    DatasetCredentials,
     DatasetLoader,
     MediaDataset,
     ResourceSortingInstructions,
@@ -207,7 +223,6 @@ import type {
 } from './dataset'
 export {
     BaseDataset,
-    DatasetCredentials,
     DatasetLoader,
     MediaDataset,
     ResourceSortingInstructions,
@@ -334,8 +349,10 @@ import type {
     ActionWatcher,
     AllocateMemoryResponse,
     AssetService,
+    CacheSignalsResponse,
     CommissionMap,
     CommissionPromise,
+    CommissionWorkerOptions,
     FreeMemoryResponse,
     ManagedService,
     MemoryManager,
@@ -360,8 +377,10 @@ export {
     ActionWatcher,
     AllocateMemoryResponse,
     AssetService,
+    CacheSignalsResponse,
     CommissionMap,
     CommissionPromise,
+    CommissionWorkerOptions,
     FreeMemoryResponse,
     ManagedService,
     MemoryManager,
@@ -416,11 +435,13 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    Entries,
     Modify,
     TypedNumberArray,
     TypedNumberArrayConstructor,
 } from './util'
 export {
+    Entries,
     Modify,
     TypedNumberArray,
     TypedNumberArrayConstructor,

@@ -24,6 +24,11 @@ export default class ServiceWorkerSubstitute {
     constructor () {
     }
 
+    dispatchEvent (_event: Event) {
+        Log.warn(`dispatchEvent is not implemented service worker replacement.`, SCOPE)
+        return false
+    }
+
     postMessage (message: WorkerMessage['data']) {
         if (!message?.action) {
             return
@@ -34,6 +39,18 @@ export default class ServiceWorkerSubstitute {
             action: action,
             success: false,
             rn: message.rn,
+        })
+    }
+    /**
+     * Return a failure message.
+     * @param message - Message data properties, including `action` and `rn` from the incoming message.
+     * @param reason - Optional reason for the failure.
+     */
+    returnFailure (message: WorkerMessage['data'], reason?: string) {
+        this.returnMessage({
+            ...message,
+            reason,
+            success: false,
         })
     }
     returnMessage (message: WorkerMessage['data']) {
@@ -47,8 +64,18 @@ export default class ServiceWorkerSubstitute {
             this.onmessage({ data: message })
         }
     }
+    /**
+     * Return a success message.
+     * @param message - Message data properties, including `action` and `rn` from the incoming message.
+     */
+    returnSuccess (message: WorkerMessage['data']) {
+        this.returnMessage({
+            ...message,
+            success: true,
+        })
+    }
     terminate () {
-        Log.warn(`terminate is not implemented in service worker replacement.`, SCOPE)
+        this.shutdown()
     }
     addEventListener <K extends keyof WorkerEventMap>(
         type: K,
@@ -82,8 +109,13 @@ export default class ServiceWorkerSubstitute {
             }
         }
     }
-    dispatchEvent (_event: Event) {
-        Log.warn(`dispatchEvent is not implemented service worker replacement.`, SCOPE)
-        return false
+    /**
+     * Shut down this substitute worker.
+     */
+    shutdown () {
+        this._eventListeners.length = 0
+        this.onerror = null
+        this.onmessage = null
+        this.onmessageerror = null
     }
 }

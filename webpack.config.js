@@ -42,6 +42,6 @@ module.exports = {
             '#types': path.resolve(__dirname, 'src', 'types'),
             '#util': path.resolve(__dirname, 'src', 'util'),
         },
-        symlinks: false
+        symlinks: true
     },
 }

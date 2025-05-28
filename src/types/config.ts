@@ -38,8 +38,6 @@ export interface AppSettings {
          * float array, only half this amount of EDF signal data can be loaded.
          */
         maxLoadCacheSize: number
-        /** Should a centralized manager be used to control memory available to services. */
-        useMemoryManager: boolean
     }
     interface: unknown
     /**
@@ -49,7 +47,7 @@ export interface AppSettings {
     /**
      * List of available services and should they be initialized or not.
      */
-    services: BaseModuleSettings & {
+    services: {
         /**
          * ONNX machine learning model service.
          * NOTE: Since there is no single all-encompassing ONNX service, setting this to true has no effect (yet).
@@ -125,6 +123,11 @@ export interface AppSettings {
      * @returns true if a field value was changed, false otherwise.
      */
     setFieldValue (field: string, value: SettingsValue): boolean
+    /**
+     * Unregister a module's settings from the main settings object.
+     * @param name - Unique name of the module.
+     */
+    unregisterModule (name: string): void
 }
 /**
  * Common settings for all modules.
@@ -135,12 +138,17 @@ export type BaseModuleSettings = {
      * Key is the name of the setting and value is the constructor of the allowed value type.
      */
     _userDefinable?: { [field: string]: SettingsValueConstructor }
+    /** Should a centralized manager be used to control memory available to resources. */
+    useMemoryManager: boolean
 }
 /**
  * Core app settings with the non-serializable properties removed.
  */
-export type ClonableAppSettings = Pick<AppSettings, "app" | "modules" | "services">
-export type ClonableModuleSettings = { [key: string]: unknown }
+export type ClonableAppSettings = Pick<AppSettings, "app" | "modules">
+export type ClonableModuleSettings = {
+    [key: string]: unknown
+    useMemoryManager: boolean
+}
 /**
  * Settings common to all biosignal type resources.
  */
@@ -186,21 +194,34 @@ export type CommonBiosignalSettings = {
         /** Should montage signals be pre-cached into a biosignal mutex. */
         preCache: boolean
     }
+    /** Scale to apply to a signal's amplitude as an exponent of 10. */
+    scale: {
+        availableValues: number[]
+        default: number
+    }
     /** Show channels that tha have been marked hidden on the EEG trace. */
     showHiddenChannels: boolean
     /** Show channels that are missing from the source file on the EEG trace. */
     showMissingChannels: boolean
+    /** Should the resource be automatically unloaded from memory when it is closed. */
+    unloadOnClose: boolean
 }
 export type ConfigBiosignalMontage = {
     /** Descriptive name for this montage (overrides possible default name). */
     label?: string
+    /** Name of a override worker to use for ontage processing. */
+    overrideWorker?: string
     /** Skip setups in parent classes (setup must be performed in the final extending class). */
     skipSetup?: true
 }
 // Method config properties.
 export type ConfigBiosignalSetup = {
+    /** Channel templates for raw channel properties. */
     channels: BiosignalChannelTemplate[]
+    /** Descriptive label for this montage. */
     label: string
+    /** Unique name used for matching this setup. */
+    name: string
 }
 export type ConfigChannelFilter  = {
     exclude?: number[]
@@ -227,11 +248,15 @@ export type ConfigDatasetLoader = {
 export type ConfigMapChannels = {
     channels: SetupChannel[]
     channelSpacing: number
+    electrodes: string[]
     groupSpacing: number
     isRaw: boolean
     layout: number[]
-    names: string[]
     yPadding: number
+}
+export type ConfigReleaseBuffers = {
+    /** Should the reserved buffer ranges be removed from the memory manager as well. */
+    removeFromManager: boolean
 }
 export type ConfigStudyContext = {
     name?: string

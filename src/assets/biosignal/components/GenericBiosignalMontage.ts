@@ -72,6 +72,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         name: string,
         recording: BiosignalResource,
         setup: BiosignalSetup,
+        template?: BiosignalMontageTemplate,
         manager?: MemoryManager,
         config?: ConfigBiosignalMontage,
     ) {
@@ -79,7 +80,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         this._label = config?.label || name
         this._recording = recording
         this._setup = setup
-        this._service = new MontageService(this, manager)
+        this._service = new MontageService(this, manager, config?.overrideWorker)
+        if (template) {
+            this.setupChannels(template)
+        }
     }
     get cacheStatus ()  {
         return this._cachedSignals
@@ -140,6 +144,9 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     get setup () {
         return this._setup
     }
+    get serviceId () {
+        return this._service.id
+    }
     get visibleChannels () {
         return this._channels.filter(c => shouldDisplayChannel(c, false))
     }
@@ -185,6 +192,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             context.highlights.sort((a, b) => a.start - b.start)
             this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
         }
+    }
+
+    async cacheSignals (..._ranges: [number, number][]) {
+
     }
 
     async getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
@@ -271,8 +282,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return mapMontageChannels(this._setup, config)
     }
 
-    async releaseBuffers () {
-        await this._service?.unload()
+    async releaseBuffers (config: { removeFromManager?: boolean } = {}) {
+        await this._service?.unload(config?.removeFromManager)
     }
 
     removeAllHighlights () {
@@ -419,20 +430,16 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         this._service.setupWorker()
     }
 
-    async setupLoaderWithCache (cache: SignalDataCache) {
+    async setupServiceWithCache (cache: SignalDataCache) {
         return this._service.setupMontageWithCache(cache)
     }
 
-    async setupLoaderWithInputMutex (inputProps: MutexExportProperties) {
+    async setupServiceWithInputMutex (inputProps: MutexExportProperties) {
         return this._service.setupMontageWithInputMutex(inputProps)
     }
 
-    async setupLoaderWithSharedWorker (port: MessagePort) {
+    async setupServiceWithSharedWorker (port: MessagePort) {
         return this._service.setupMontageWithSharedWorker(port)
-    }
-
-    startCachingSignals () {
-
     }
 
     stopCachingSignals () {

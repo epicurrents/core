@@ -15,8 +15,6 @@ import { StudyContext } from './study'
 export interface BaseDataset extends BaseAsset {
     /** List of dataset resources that have been marked active. */
     activeResources: BaseAsset[]
-    /** Credentials nneded to access the dataset source. */
-    credentials: null | DatasetCredentials
     /** Array of resources in this dataset. */
     resources: DataResource[]
     /** Sorting scheme used to order the resources in `resources` array. */
@@ -35,8 +33,14 @@ export interface BaseDataset extends BaseAsset {
     /**
      * Add a new resource into this dataset.
      * @param resource - The resource to add.
+     * @emits `add-resource` with the new resource as payload.
      */
     addResource (resource: DataResource): void
+    /**
+     * Destroy the dataset and all its resources.
+     * @emits `destroy` with the dataset as payload.
+     */
+    destroy (): void | Promise<void>
     /**
      * Get all resources in the given modalit(y/ies).
      * Returned resources are ordered according to the `resourceSorting` property.
@@ -48,15 +52,9 @@ export interface BaseDataset extends BaseAsset {
      * Removal will **not** automatically unload or destroy the resource.
      * @param resource - Either the resource object *or* the ID of the resource *or* its index within the resource array (in adding order).
      * @returns The removed resource or null on failure.
+     * @emits `remove-resource` with the removed resource as payload.
      */
     removeResource (resource: DataResource | string | number): DataResource | null
-    /**
-     * Set credentials to use when loading data from the dataset resources.
-     * *Not yet implemented*.
-     * @param username - Username to use for authentication.
-     * @param password - Password to use for authentication.
-     */
-    setCredentials (username: string, password: string): void
     /**
      * Set instructions for resource sorting when retrieving them via the `resources` property or one of the getters.
      * @param sorting - new sorting instructions.
@@ -79,13 +77,6 @@ export interface BaseDataset extends BaseAsset {
      * Unload and remove all the resources registered to this dataset.
      */
     unload (): Promise<void>
-}
-/**
- * Credentials for authenticating to a data server.
- */
-export type DatasetCredentials = {
-    password: string
-    username: string
 }
 /**
  * A special loader type for loading the various studies within a dataset.
@@ -127,4 +118,3 @@ export type ResourceSortingInstructions = {
  *                and secondarily by the order in which they were inserted into the dataset.
  */
 export type ResourceSortingScheme = 'alphabetical' | 'id' | 'modality'
-

@@ -27,7 +27,26 @@ import {
     ScopedEventHooks,
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
-
+/**
+ * Configuration properties for the main application.
+ */
+export type ApplicationConfig = {
+    /**
+     * Path from which to load additional application assets, e.g. local settings.
+     * Defaults to the same folder as the application file if left blank.
+     */
+    assetPath?: string
+    /**
+     * Log priority required for message to be printed into the console.
+     * Possible values (from least to most important):
+     * DEBUG, INFO, WARN, ERROR
+     */
+    logThreshold?: "WARN" | "DEBUG" | "INFO" | "ERROR" | "DISABLE"
+    /**
+     * Should SharedArrayBuffers (if available) be used to manage memory.
+     */
+    useSAB?: boolean
+}
 /**
  * The most basic type defining properties that must exist in every asset.
  */
@@ -58,7 +77,7 @@ export interface BaseAsset {
      * It should be called starting from the last inheriting class and calling the super's `destroy` once all the
      * necessary preparations have been made.
      */
-    destroy (): Promise<void>
+    destroy (): void | Promise<void>
     /**
      * Dispatch an `event`.
      * @param event - Name of the event.
@@ -181,6 +200,7 @@ export interface BaseAsset {
      * - `loading`: Resource data is being loaded from the source.
      * - `loaded`: Data has been loaded, but resource is not yet initialized.
      * - `ready`: Resource is initialized and ready for use.
+     * - `destroyed`: Resource has been unloaded and is no longer available.
      * - `error`: There was a loading error.
      */
     state: ResourceState
@@ -189,6 +209,10 @@ export interface BaseAsset {
      * @param dependencies - Dependency or dependencies to add.
      */
     addDependencies (...dependencies: string[]): void
+    /**
+     * Destroy this resource removing references to any child objects.
+     */
+    destroy (): void | Promise<void>
     /**
      * Remove `dependencies` from the list of missing dependencies for this resource.
      * @param dependencies - Dependency or dependencies to remove.
@@ -274,12 +298,10 @@ export interface EpicurrentsApp {
     getWorkerOverride (name: string): Worker | null
     /**
      * Launch a viewer app in the given container div.
-     * @param containerId - Id of the container div element.
-     * @param appId - Optional id for the app.
-     * @param locale - Optional primary locale code string.
+     * @param config - Optional application configuration.
      * @returns True if successful, false if not.
      */
-    launch (containerId?: string, appId?: string, locale?: string): Promise<boolean>
+    launch (config?: ApplicationConfig): Promise<boolean>
     /**
      * Load a study from the given file, folder or URL.
      * @param loader - Name of the loader to use for loading the study.
@@ -366,10 +388,8 @@ export interface InterfaceModuleConstructor {
     new (
         epicvApp: EpicurrentsApp,
         runtime?: StateManager,
-        containerId?: string,
-        appId?: string,
-        locale?: string,
         modules?: string[],
+        config?: ApplicationConfig,
     ): InterfaceModule
 }
 /**
@@ -421,9 +441,10 @@ export type ResourceModule = {
  * - `loading`: Resource data is being loaded from the source.
  * - `loaded`: Data has been loaded, but resource is not yet initialized.
  * - `ready`: Resource is initialized and ready for use.
-     * - `error`: There was a loading error.
+ * - `destroyed`: Resource has been unloaded and is no longer available.
+ * - `error`: There was a loading error.
  */
-export type ResourceState = 'added' | 'loading' | 'loaded' | 'ready' | 'error'
+export type ResourceState = 'added' | 'destroyed' | 'error' | 'loaded' | 'loading' | 'ready'
 /**
  * This is the main application runtime module, which has a unique structure.
  */
@@ -453,6 +474,12 @@ export type RuntimeResourceModule = {
         short: string
     }
     /**
+     * Apply the given configuration to the module.
+     * @param config - Configuration to apply.
+     * @returns Promise that resolves once the configuration has been applied.
+     */
+    applyConfiguration: (config: RuntimeResourceModuleConfig) => Promise<void>
+    /**
      * Set the given property to its new value, notifying watchers.
      * @param property - Name of the property on kebab-case.
      * @param value - The new value for the property.
@@ -462,7 +489,16 @@ export type RuntimeResourceModule = {
      */
     setPropertyValue (property: string, value: unknown, resource?: DataResource, state?: StateManager): unknown
 }
-
+/**
+ * Setup properties for runtime modules.
+ */
+export type RuntimeResourceModuleConfig = {
+    /** Override the module name properties. */
+    moduleName?: {
+        full?: string
+        short?: string
+    },
+}
 /**
  * The main runtime state of the application.
  */
@@ -489,6 +525,7 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * Add a new dataset to the list of datasets.
      * @param dataset - New dataset to add.
      * @param setAsActive - Optionally set the new dataset as active (default false).
+     * @emits `add-dataset` with the new dataset as payload.
      */
     addDataset (dataset: MediaDataset, setAsActive?: boolean): void
     /**
@@ -496,11 +533,13 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * @param modality - Modality of the new resoure.
      * @param resource - The resource to add.
      * @param setAsActive - Should the new resource be set as active (default false).
+     * @emits `add-resource` with the new resource as payload.
      */
     addResource (modality: string, resource: DataResource, setAsActive?: boolean): void
     /**
      * Set the given `resource` as not active.
      * @param resource - Resource to deactivate.
+     * @emits `deactivate-resource` with the resource as payload.
      */
     deactivateResource (resource: DataResource): void
     /**
@@ -517,6 +556,7 @@ export interface StateManager extends RuntimeState, BaseAsset {
     /**
      * Initialize the app runtime instance.
      * @param initValues - Optional values as an object of { field: value } pairs (eg. { appId: 'app', SETTINGS: { 'eeg.trace.margin.top': 10 } })
+     * @emits `initialize`.
      */
     init (initValues?: { [module: string]: unknown }): void
     /**
@@ -525,6 +565,8 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * @param loader - Loader to use for the dataset.
      * @param studyLoaders - Set of study loaders for the studies in the dataset.
      * @param config - Additional configuration (TODO: Config definitions).
+     * @returns Promise with the loaded dataset.
+     * @emits `load-dataset` with the folder (in the `before` phase) or loaded dataset (in the `after` phase) as payload.
      */
     loadDatasetFolder (
         folder: FileSystemItem,
@@ -536,20 +578,29 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * Remove the given `resource` from available resources.
      * @param resource - The resource to remove (either resources array index, resource id or resource object).
      * @param dataset - Resource dataset if not the currently active set.
+     * @emits `remove-resource` with the removed resource as payload.
      */
     removeResource (resource: DataResource | string | number, dataset?: MediaDataset): void
     /**
      * Set the given dataset as active.
-     * @param dataset - New active dataset.
+     * @param dataset - New active dataset or null to unset currently active dataset.
+     * @emits `set-active-dataset` with the new dataset as payload.
      */
     setActiveDataset (dataset: MediaDataset | null): void
     /**
      * Set the given resource active.
-     * @param resource - Resource to set as active.
+     * @param resource - New resource to set as active or null to deactivate currently active resource.
      * @param deactivateOthers - Deactivate other active resources before activating this (default true). This method can also be used to deactivate other resources while only leaving the given `resource` active.
-     * @returns
+     * @emits `set-active-resource` with the new resource as payload.
      */
     setActiveResource (resource: DataResource | null, deactivateOthers?: boolean): void
+    /**
+     * Set a module to the given `name`. Null value will remove the module.
+     * @param name - Name of the module.
+     * @param module - New value for the module.
+     * @emits `set-module` with the module as payload.
+     */
+    setModule (name: string, module: ResourceModule | null): void
     /**
      * Set the value of a property in one of the loaded modules.
      * @param module - Name of the module.
@@ -558,9 +609,10 @@ export interface StateManager extends RuntimeState, BaseAsset {
      */
     setModulePropertyValue (module: string, property: string, value: unknown): void
     /**
-     * Set a service to the given `name`.
+     * Set a service to the given `name`. Null value will remove the service.
      * @param name - Name of the service.
      * @param service - New value for the service.
+     * @emits `set-service` with the service as payload.
      */
     setService (name: string, service: AssetService | null): void
     /**

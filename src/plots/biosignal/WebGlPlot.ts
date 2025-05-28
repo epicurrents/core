@@ -172,8 +172,9 @@ export default class WebGlPlot implements BiosignalPlot {
             }
             // Set up matrix.
             const uScale = this._context.getUniformLocation(this._program, 'uScale')
+            const scale = 10**line.scale
             // WebGL native canvas scale is from -1 to 1 = 2.
-            const ampScale = 2/(this.heightInSensRefUnits*line.sensitivity/line.amplification)
+            const ampScale = 2*scale/(this.heightInSensRefUnits*line.sensitivity)
             this._context.uniformMatrix2fv(
                 uScale,
                 false,

@@ -98,10 +98,13 @@ export interface AssetService extends BaseAsset {
     shutdown (): Promise<void>
     /**
      * Unload the asset, releasing any allocated memory.
+     * @param releaseFromManager - Should the asset be removed from the memory manager as well (default true).
      * @return Promise that fulfills when unloading is complete.
      */
-    unload (): Promise<void>
+    unload (releaseFromManager?: boolean): Promise<void>
 }
+/** Whether caching the requested signals was successful or not. */
+export type CacheSignalsResponse = boolean
 /**
  * Map of all commissions waiting to be fulfilled.
  */
@@ -116,6 +119,15 @@ export type CommissionPromise = {
     resolve: (value?: unknown) => unknown
     /** Callback for an unexpected error. */
     reject: (reason?: string) => void
+}
+/**
+ * Additional options for the worker commission.
+ */
+export type CommissionWorkerOptions = {
+    /** Overwrite any previous request of the same type that is still being processed. */
+    overwriteRequest?: boolean
+    /** List of trasferable objects to send to the worker (instead of cloning). */
+    transferList?: Transferable[]
 }
 /** Returned value is `true` if requested amount of memory was freed, `false` otherwise. */
 export type FreeMemoryResponse = boolean
@@ -188,14 +200,16 @@ export interface MemoryManager {
     getService (id: string): AssetService | null
     /**
      * Remove the given loader, releasing its memory in the process.
-     * @param service - Either the service to remove or its id.
+     * @param services - Either the services to remove or their id's.
+     * @return Promise that resolves after the memory has been released, returning true on success.
      */
-    release (service: AssetService | string): void
+    release (...services: (AssetService | string)[]): Promise<ReleaseAssetResponse>
     /**
      * Remove the given ranges from the manager's buffer.
+     * @param unloadServices - Should the services using the given ranges be unloaded and removed.
      * @param ranges - Array of ranges to remove as [start, end].
      */
-    removeFromBuffer (...ranges: number[][]): Promise<void>
+    removeFromBuffer (removeServices: boolean, ...ranges: number[][]): Promise<void>
     /**
      * Update the last used manager.
      * @param manager - New last used manager.
@@ -331,6 +345,10 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      * Public methods can only access the output signals.
      */
     clearSignals(): void
+    /**
+     * Destroy the mutex, releasing all allocated memory (alias for `releaseBuffers`).
+     */
+    destroy (): void
     /**
      * Initialize the signal buffers. Possible signal data contained in the SignalCachePart is ignored
      * here and must be passed again with insertSignals to be saved.

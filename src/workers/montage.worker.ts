@@ -44,7 +44,7 @@ export class MontageWorker extends BaseWorker {
         super()
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -75,7 +75,7 @@ export class MontageWorker extends BaseWorker {
         }
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -92,10 +92,10 @@ export class MontageWorker extends BaseWorker {
         }
         this._montage?.mapChannels(data.config)
         Log.debug(`Channel mapping complete.`, SCOPE)
-        return this._success(msgData)        
+        return this._success(msgData)
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -105,7 +105,7 @@ export class MontageWorker extends BaseWorker {
         return this._success(msgData)
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -129,7 +129,7 @@ export class MontageWorker extends BaseWorker {
         return this._success(msgData)
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -188,7 +188,7 @@ export class MontageWorker extends BaseWorker {
         return this._success(msgData, { updated: someUpdated } as SetFiltersResponse)
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -218,7 +218,7 @@ export class MontageWorker extends BaseWorker {
         }
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -251,7 +251,7 @@ export class MontageWorker extends BaseWorker {
         }
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -270,7 +270,7 @@ export class MontageWorker extends BaseWorker {
             return this._failure(msgData)
         }
         this._namespace = data.namespace as string
-        const settings = data.settings.modules[this._namespace] as CommonBiosignalSettings
+        const settings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
         this._montage = new MontageProcesser(settings)
         this._montage.setupChannels(data.montage, data.config, data.setupChannels)
         this._name = data.montage
@@ -278,7 +278,7 @@ export class MontageWorker extends BaseWorker {
         return this._success(msgData)
     }
     /**
-     * 
+     *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
      */
@@ -292,7 +292,7 @@ export class MontageWorker extends BaseWorker {
         }
         if (this._namespace && this._montage) {
             // Only update settings after initial setup.
-            this._montage.settings = data.settings.modules[this._namespace] as CommonBiosignalSettings
+            this._montage.settings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
         }
         Log.debug(`Settings updated in worker.`, SCOPE)
         return this._success(msgData)

@@ -20,7 +20,6 @@ import GenericAsset from '#assets/GenericAsset'
 const SCOPE = "GenericBiosignalChannel"
 
 export default abstract class GenericBiosignalChannel extends GenericAsset implements BiosignalChannel {
-    protected _amplification: number
     protected _averaged: boolean
     protected _cursors = {
         horizontal: [] as BiosignalCursor[],
@@ -41,6 +40,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     protected _originalSamplingRate?: number
     protected _sampleCount: number = 0
     protected _samplingRate: number = 0
+    protected _scale: number
     protected _sensitivity: number
     protected _signal: Float32Array = new Float32Array() // Placeholder until the signal has been computed
     protected _triggerCache = new Map<number, number[]>()
@@ -67,7 +67,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         this._laterality = extraProperties.laterality || ''
         this._visible = visible
         this._unit = unit
-        this._amplification = extraProperties.amplification !== undefined ? extraProperties.amplification : 1
+        this._scale = extraProperties.scale !== undefined ? extraProperties.scale : 0
         this._offset = typeof extraProperties.offset === 'number'
             // A channel with only baseline set will take up the whole plot space
             ? {
@@ -108,10 +108,6 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         if (extraProperties.sampleCount) {
             this._sampleCount = extraProperties.sampleCount
         }
-    }
-
-    get amplification () {
-        return this._amplification
     }
 
     get averaged () {
@@ -209,6 +205,10 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         return this._samplingRate
     }
 
+    get scale () {
+        return this._scale
+    }
+
     get sensitivity () {
         return this._sensitivity
     }
@@ -248,9 +248,9 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         if (this.#triggerValueTimeout) {
             window.clearTimeout(this.#triggerValueTimeout)
         }
-        this.#triggerValueTimeout = window.setTimeout(() => {
+        this.#triggerValueTimeout = window.setTimeout(async () => {
             const prevValue = this._triggerValue
-            if (this.dispatchPropertyChangeEvent('triggerValue', value, prevValue, 'before')) {
+            if (await this.dispatchPropertyChangeEvent('triggerValue', value, prevValue, 'before')) {
                 this._triggerValue = value
                 this._triggerCache.clear()
                 this.findTriggerPoints()

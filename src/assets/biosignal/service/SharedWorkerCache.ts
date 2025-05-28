@@ -65,7 +65,10 @@ export default class SharedWorkerCache extends GenericService implements SignalD
             resolve: (value?: unknown) => void,
             reject: (reason?: string | undefined) => void
         } | undefined,
-        overwriteRequest?: boolean
+        options?: {
+            overwriteRequest?: boolean
+            transfer?: Transferable[]
+        }
     ): WorkerCommission {
         return super._commissionWorker(
             action,
@@ -74,12 +77,19 @@ export default class SharedWorkerCache extends GenericService implements SignalD
                         ['caller', this.id]
                     ]),
             callbacks,
-            overwriteRequest
+            options
         )
     }
 
     asCachePart(): SignalCachePart {
         return this._signalCache
+    }
+
+    async destroy () {
+        this.releaseBuffers()
+        this._signalSamplingRates.length = 0
+        this._signalUpdatedRanges.length = 0
+        await super.destroy()
     }
 
     handleWorkerMessage (message: MessageEvent) {
@@ -119,6 +129,6 @@ export default class SharedWorkerCache extends GenericService implements SignalD
     releaseBuffers() {
         this._signalCache.start = 0
         this._signalCache.end = 0
-        this._signalCache.signals.splice(0)
+        this._signalCache.signals = []
     }
 }

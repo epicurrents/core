@@ -402,6 +402,17 @@ export default abstract class SignalFileReader implements SignalDataReader {
         this._dataGaps = new Map([...this._dataGaps.entries()].sort((a, b) => a[0] - b[0]))
     }
 
+    async destroy () {
+        await this.releaseCache()
+        this._annotations.clear()
+        this._dataGaps.clear()
+        this._dataBlocks.length = 0
+        this._fallbackCache = null
+        this._file = null
+        this._mutex = null
+        this._url = ''
+    }
+
     getAnnotations (range?: number[]) {
         const [start, end] = range && range.length === 2
                              ? [range[0], Math.min(range[1], this._totalRecordingLength)]
@@ -501,8 +512,9 @@ export default abstract class SignalFileReader implements SignalDataReader {
     async releaseCache () {
         for (const proc of this._cacheProcesses) {
             proc.continue = false
+            proc.signals.length = 0
         }
-        this._cacheProcesses.splice(0)
+        this._cacheProcesses.length = 0
         this._cache?.releaseBuffers()
         if (this._mutex) {
             this._isMutexReady = false
@@ -510,6 +522,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         } else if (this._fallbackCache) {
             this._fallbackCache = null
         }
+        Log.debug(`Signal cache released.`, SCOPE)
     }
 
     setDataGaps (dataGaps: SignalDataGapMap) {

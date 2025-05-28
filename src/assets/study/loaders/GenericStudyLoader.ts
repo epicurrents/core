@@ -44,20 +44,20 @@ export default class GenericStudyLoader implements StudyLoader {
      * @param name - Name of the loader.
      * @param scopes - Array of supported study scopes.
      * @param types - Array of supported study types.
-     * @param loader - Optional file loader to use when loading studies. Can also be set with `registerFileReader`.
+     * @param reader - Optional file reader to use when loading studies. Can also be set with `registerFileReader`.
      * @param memoryManager - Optional memory manager to use with this loader.
      */
     constructor (
         name: string,
         modalities: string[],
-        loader?: FileFormatReader,
+        reader?: FileFormatReader,
         memoryManager?: ServiceMemoryManager
     ) {
         this._name = name
         this._supportedModalities = modalities
-        if (loader) {
-            this.registerFileReader(loader)
-            loader.studyLoader = this
+        if (reader) {
+            this.registerFileReader(reader)
+            reader.studyLoader = this
         }
         if (memoryManager) {
             this.registerMemoryManager(memoryManager)

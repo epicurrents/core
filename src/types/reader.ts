@@ -64,7 +64,7 @@ export type ConfigReadSignals = {
         label?: string
         name?: string
         samplingRate?: number
-        type?: string
+        modality?: string
     }[]
 }
 
@@ -118,11 +118,15 @@ export interface FileFormatReader extends BaseAsset {
     /** The study loader instance that this file reader serves. */
     studyLoader: StudyLoader | null
     /**
+     * Destroy the file reader and release all resources.
+     */
+    destroy (): void
+    /**
      * Get the appropriate worker for this file type.
-     * @param sab - Use SharedArrayBuffer implementation.
+     * @param override - Possible override to use.
      * @returns Worker or null
      */
-    getFileTypeWorker (sab?: boolean): Worker | null
+    getFileTypeWorker (override?: string): Worker | null
     /**
      * Read a local file from the filesystem.
      * @param file - The `File` to load.
@@ -188,6 +192,10 @@ export interface FileSystemItem {
     type: FileSystemItemType
     /** Possible file object (if this is a file). */
     file?: File
+    /** Possible file mime type. */
+    mime?: string
+    /** Possible file size in bytes. */
+    size?: number
     /** Possible url to the file object (if this is a file). */
     url?: string
 }
@@ -336,6 +344,11 @@ export interface SignalDataReader extends SignalDataProcesser {
      * @param startFrom - Optional starting point of the loading process in seconds of file duration.
      */
     cacheFile (file: File, startFrom?: number): Promise<void>
+    /**
+     * Destroy the reader and release all resources.
+     * @returns Promise that resolves when the reader has been destroyed.
+     */
+    destroy (): void | Promise<void>
     /**
      * Read and cache the entire file from the given URL.
      * @param url - Optional URL of the file (defaults to cached URL).

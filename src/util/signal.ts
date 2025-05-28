@@ -906,10 +906,10 @@ export const mapMontageChannels = (
     config?: {
         channels: SetupChannel[]
         channelSpacing: number
+        electrodes: string[]
         groupSpacing: number
         isRaw: boolean
         layout: number[]
-        names: string[]
         yPadding: number
     }
 ): MontageChannel[] => {
@@ -930,7 +930,7 @@ export const mapMontageChannels = (
             averaged: props?.averaged || false,
             samplingRate: props?.samplingRate || 0,
             sampleCount: props?.sampleCount || 0,
-            amplification: props?.amplification || 1,
+            scale: props?.scale || 0,
             sensitivity: props?.sensitivity || 0,
             displayPolarity: props?.displayPolarity || 0,
             offset: props?.offset || 0.5,
@@ -956,7 +956,7 @@ export const mapMontageChannels = (
                     laterality: chan.laterality,
                     active: chan.index,
                     samplingRate: chan.samplingRate,
-                    amplification: chan.amplification,
+                    scale: chan.scale,
                     displayPolarity: chan.displayPolarity,
                     unit: chan.unit,
                 })
@@ -968,7 +968,7 @@ export const mapMontageChannels = (
     const channelMap: { [name: string]: SetupChannel | null } = {}
     // First map names to correct channel indices.
     name_loop:
-    for (const lbl of config.names) {
+    for (const lbl of config.electrodes) {
         for (const sChan of setup.channels) {
             if (lbl === sChan.name) {
                 if (lbl.includes('__proto__')) {
@@ -1026,7 +1026,7 @@ export const mapMontageChannels = (
                         reference: refs,
                         averaged: chan.averaged,
                         samplingRate: actChan.samplingRate,
-                        amplification: actChan.amplification,
+                        scale: actChan.scale,
                         displayPolarity: chan.polarity || actChan.displayPolarity,
                         unit: chan.unit || actChan.unit,
                     })
@@ -1042,7 +1042,7 @@ export const mapMontageChannels = (
                     laterality: chan.laterality || actChan.laterality,
                     active: actChan.index,
                     samplingRate: actChan.samplingRate,
-                    amplification: actChan.amplification,
+                    scale: actChan.scale,
                     displayPolarity: chan.polarity || actChan.displayPolarity,
                     unit: chan.unit || actChan.unit,
                 })

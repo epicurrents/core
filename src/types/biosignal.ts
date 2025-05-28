@@ -17,11 +17,13 @@ import {
     ConfigChannelFilter,
     ConfigChannelLayout,
     ConfigMapChannels,
+    ConfigReleaseBuffers,
     SettingsColor,
 } from './config'
 import { HighlightContext, SignalHighlight } from './plot'
 import {
     AssetService,
+    CacheSignalsResponse,
     MemoryManager,
     MessageHandled,
     SetupStudyResponse,
@@ -37,34 +39,62 @@ import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-m
  * Object template to use when constructing a biosignal annotation.
  */
 export type AnnotationTemplate = {
-    /** Author of this annotation. */
-    annotator: BiosignalAnnotation['annotator']
-    /** Should this annotation be shown in the background. */
-    background: BiosignalAnnotation['background']
-    /** List of channel numbers, empty for a general type annotation. */
-    channels: BiosignalAnnotation['channels']
-    /** Annotation class.
-     * - `activation` is any activation procedure meant to modify the EEG.
-     * - `comment` is free from commentary, may be unrelated to the recording itself.
+     /** List of channel numbers, empty for a general annotation. */
+    channels: number[]
+    /**
+     * Annotation class. The default general purpose classes are:
+     * - `activation` is any activation procedure that may have an effect on the EEG.
+     * - `comment` is free-from commentary, may be unrelated to the recording itself.
      * - `event` describes something taking place during the recording at that exact moment.
      * - `technical` describes any technical data/events regarding the recording, such as impedance readings, calibration, input montage switches etc.
+     * - `trigger` is a special event used as a reference for measuring effects (e.g. a stimulus).
+     *
+     * In addition, there are special classes for educational purposes. These have a priority of 0 and must be
+     * individually displayed/hidden.
+     * - `answer` is a *quiz* answer, which may be related to a question.
+     * - `example` is an example of a feature, finding, technique etc.
+     * - `question` is a *quiz* question, which may have answers.
      */
     class: BiosignalAnnotation['class']
     /** Duration of the annotation, in seconds (zero for instant annotation). */
     duration: BiosignalAnnotation['duration']
     /** Text label for the annotation (visible on the interface and annotation list). */
     label: BiosignalAnnotation['label']
-    /** Priority of this annotation (lower number has higher priority). */
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default annotation classes are:
+     * - `activation` = 300
+     * - `comment` = 200
+     * - `event` = 400
+     * - `technical` = 100
+     */
     priority: BiosignalAnnotation['priority']
-    /** Annotation starting position, in seconds. */
+    /** Annotation starting time, in seconds after the recording start. */
     start: BiosignalAnnotation['start']
-    /** Additional commentary regarding the annotation. */
-    text: BiosignalAnnotation['text']
-    /** Color override for the annotation. */
+    /** Author of this annotation. */
+    annotator?: BiosignalAnnotation['annotator']
+    /** Should this annotation be placed in the background (behind the traces). */
+    background?: BiosignalAnnotation['background']
+    /** Color override for the annotation type's default color. */
     color?: BiosignalAnnotation['color']
-    /** Additional opacity multiplier for the highlight. */
+    /**
+     * Unique identifier for matching educational annotations (for programmatically altering their visibility etc.).
+     *
+     * @remarks
+     * Cannot use `id` for this as it is automatically generated.
+     */
+    name?: BiosignalAnnotation['name']
+    /** Additional opacity multiplier for the annotation opacity set in the `color` property. */
     opacity?: BiosignalAnnotation['opacity']
-    /** Optional visibility property (annotations are visible by default). */
+    /** Additional commentary regarding the annotation. */
+    text?: BiosignalAnnotation['text']
+    /** Identifier for a pre-set annotation type. */
+    type?: BiosignalAnnotation['type']
+    /**
+     * Is this annotation visible (default true).
+     * Should be set to false for any educational annotation types that should not be immediately visible when the
+     * recording is opened (such as quiz answers).
+     */
     visible?: BiosignalAnnotation['visible']
 }
 /**
@@ -77,18 +107,33 @@ export interface BiosignalAnnotation extends BaseAsset {
     background: boolean
     /** List of channel numbers, empty for a general type annotation. */
     channels: number[]
-    /** Annotation class.
-     * - `activation` is any activation procedure meant to modify the EEG.
-     * - `comment` is free from commentary, may be unrelated to the recording itself.
+    /**
+     * Annotation class. The default general purpose classes are:
+     * - `activation` is any activation procedure that may have an effect on the EEG.
+     * - `comment` is free-from commentary, may be unrelated to the recording itself.
      * - `event` describes something taking place during the recording at that exact moment.
      * - `technical` describes any technical data/events regarding the recording, such as impedance readings, calibration, input montage switches etc.
+     * - `trigger` is a special event used as a reference for measuring effects (e.g. a stimulus).
+     *
+     * In addition, there are special classes for educational purposes. These have a priority of 0 and must be
+     * individually displayed/hidden.
+     * - `answer` is a *quiz* answer, which may be related to a question.
+     * - `example` is an example of a feature, finding, technique etc.
+     * - `question` is a *quiz* question, which may have answers.
      */
-    class: "activation" | "comment" | "event" | "technical"
+    class: "activation" | "answer" | "comment" | "event" | "example" | "question" | "technical" | "trigger"
     /** Duration of the annotation, in seconds (zero for instant annotation). */
     duration: number
     /** Text label for the annotation (visible on the interface and annotation list). */
     label: string
-    /** Priority of this annotation (lower number has higher priority). */
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default annotation classes are:
+     * - `activation` = 300
+     * - `comment` = 200
+     * - `event` = 400
+     * - `technical` = 100
+     */
     priority: number
     /** Annotation starting position, in seconds. */
     start: number
@@ -99,7 +144,7 @@ export interface BiosignalAnnotation extends BaseAsset {
     /** Is this annotation visible. */
     visible: boolean
     /**
-     * Color override for the annotation.
+     * Color override for the annotation type's default color.
      * Changing this property triggers an additional event `appearance-changed`.
      */
     color?: SettingsColor
@@ -113,8 +158,6 @@ export interface BiosignalAnnotation extends BaseAsset {
  * Common base for all biosignal channel types.
  */
 export interface BiosignalChannel {
-    /** Channel base amplification, mostly used if the channel has a different unit value (e.g. mV instead of uV). */
-    amplification: number
     /** Is the signal on this channel referenced to an average. */
     averaged: boolean
     /** Display polarity of the signal on this channel. */
@@ -155,6 +198,11 @@ export interface BiosignalChannel {
     sampleCount: number
     /** Sampling rate as samples/second. */
     samplingRate: number
+    /**
+     * Channel base scale as an exponent of 10, mostly used if the channel has a different unit value (e.g. mV instead
+     * of uV) to scale the signal by the recording default sensitivity.
+     */
+    scale: number
     /** Individual signal sensitivity as a multiplier. */
     sensitivity: number
     /** The computed channel signal. */
@@ -236,11 +284,6 @@ export type BiosignalChannelMarker = {
 export type BiosignalChannelProperties = {
     /** Index of the active channel. */
     active?: number
-    /** 
-     * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
-     * Should only be used in special cases.
-     */
-    amplification?: number
     /** Is the signal on this channel average referenced. */
     averaged?: boolean
     /** Polarity of the signal on this channel. */
@@ -270,7 +313,14 @@ export type BiosignalChannelProperties = {
     sampleCount?: number
     /** Sampling rate of the signal. */
     samplingRate?: number
-    /** Initial sensititivty of the signal. */
+    /**
+     * Multiplier applied to the signal amplitude as a ten's exponent (default 0). This can be used to scale the signal
+     * of very small or very amplitude values on the screen while still using the recording main sensitivity.
+     * @remarks
+     * This can take any value, but only has options for whole digits in the UI.
+     */
+    scale?: number
+    /** Initial sensitivity of the signal. */
     sensitivity?: number
     /** Physical unit identifier (such as `uV`). */
     unit?: string,
@@ -294,11 +344,6 @@ export type BiosignalChannelTemplate = {
     name: string
     /** Physical unit of the channel signal. */
     unit: string
-    /** 
-     * Multiplier applied to the signal amplitude "behind the scenes" (default 1).
-     * Should only be used in special cases.
-     */
-    amplification?: number
     /** Does this channel contain an already averaged signal (default false). */
     averaged?: boolean
     /** A reg-exp pattern to match signals in the source file to this channel. */
@@ -307,6 +352,13 @@ export type BiosignalChannelTemplate = {
     polarity?: SignalPolarity
     /** Sampling rate of the signal, if already known. */
     samplingRate?: number
+    /**
+     * Multiplier applied to the signal amplitude as a ten's exponent (default 0). This can be used to scale the signal
+     * of very small or very amplitude values on the screen while still using the recording main sensitivity.
+     * @remarks
+     * This can take any value, but only has options for whole digits in the UI.
+     */
+    scale?: number
 }
 
 export type BiosignalConfig = {
@@ -357,7 +409,14 @@ export interface BiosignalDataService extends AssetService {
     /**
      * Start the process of caching raw signals from the preset URL.
      */
-    cacheSignalsFromUrl (): Promise<SignalCacheResponse>
+    cacheSignalsFromUrl (): Promise<CacheSignalsResponse>
+    /**
+     * Destroy the service and release all resources.
+     * @remarks
+     * This method irrevocably removes the reference to the resource it was serving and should only be called when the
+     * service is no longer needed.
+     */
+    destroy (): void
     /**
     * Load montage signals within the given range.
     * @param range - Range in seconds [start (included), end (excluded)]
@@ -366,7 +425,7 @@ export interface BiosignalDataService extends AssetService {
     */
     getSignals (range: number[], config?: unknown): void
     /**
-     * Attemp to handle a message from the service's worker.
+     * Attempt to handle a message from the service's worker.
      * @param message - Message from a worker.
      * @returns true if handled, false otherwise.
      * @remarks
@@ -509,14 +568,24 @@ export interface BiosignalHeaderRecord {
  * Signal properties expected to be present in a biosignal file header.
  */
 export type BiosignalHeaderSignal = {
+    /** Displayed label of this signal. */
     label: string
+    /** Signal data modality (such as 'eeg'). */
+    modality: string
+    /** Unique identifying name for this signal (used for signal mapping). */
     name: string
+    /** Name of the physical unit of the recorded signal in ASCII characters. */
     physicalUnit: string
+    /** Possible prefiltering applied to the recorded signal. */
     prefiltering: BiosignalFilters
+    /** Total number of samples in this signal. */
     sampleCount: number
+    /** Signal sampling rate in Hz. */
     samplingRate: number
+    /** Custom sensitivity to apply when displaying this signal in `physicalUnit`/cm. */
     sensitivity: number
-    type: string
+    /** Type of the sensor used when recording this signal. */
+    sensor: string
 }
 /** Laterality as **d** = right / **s** = left / **z** = center / unknown. */
 export type BiosignalLaterality = "d" | "s" | "z" | ""
@@ -551,6 +620,8 @@ export interface BiosignalMontage extends BaseAsset {
     recording: BiosignalResource
     /** Label of the (possible) common reference electrode/signal. */
     referenceLabel: string
+    /** ID of the service of this montage. */
+    serviceId: string
     setup: BiosignalSetup
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
@@ -570,10 +641,17 @@ export interface BiosignalMontage extends BaseAsset {
      */
     addHighlights (ctxName: string, ...highlights: SignalHighlight[]): void
     /**
+     * Start the process of caching signals from the source.
+     * @param ranges - Ranges to cache in seconds `[start, end]` (defaults to whole recording).
+     * @remarks
+     * Montages are calculated in real time so this is not yet implemented.
+     */
+    cacheSignals (...ranges: [number, number][]): Promise<void>
+    /**
     * Get derived montage channel signals for the given range.
     * @param range - Range of the given signals in seconds.
     * @param config - Optional configuration (TODO: config definitions).
-     * @return Promise with the requested signal as the first member of the signals array.
+    * @return Promise with the requested signal as the first member of the signals array.
     *
     * @remarks
     * Montages are not tied to any certain file, so once the montage has been initiated data from any file
@@ -605,7 +683,7 @@ export interface BiosignalMontage extends BaseAsset {
      * Release the buffers reserved for this montage's signal data.
      * @param config - Optional configuration (TODO: config definitions).
      */
-    releaseBuffers (config?: unknown): Promise<void>
+    releaseBuffers (config?: ConfigReleaseBuffers): Promise<void>
     /**
      * Remove all highlights from all contexts in this montage.
      */
@@ -681,29 +759,23 @@ export interface BiosignalMontage extends BaseAsset {
      */
     setupChannels (config: BiosignalMontageTemplate): void
     /**
-     * Set up a data loader using a signal data cache as input for the loader.
+     * Set up a data service using a signal data cache as input for the service.
      * @param cache - The source data cache to use as input.
      * @returns Promise holding the created cache if successful.
      */
-    setupLoaderWithCache (cache: SignalDataCache) : Promise<SetupCacheResponse>
+    setupServiceWithCache (cache: SignalDataCache) : Promise<SetupCacheResponse>
     /**
-     * Set up a data loader using a data source mutex output properties as input for the loader.
+     * Set up a data service using a data source mutex output properties as input for the service.
      * @param inputProps - The source mutex export properties to use as input.
      * @returns Promise holding the export properties of the created montage mutex (if setup was successful).
      */
-    setupLoaderWithInputMutex (inputProps: MutexExportProperties) : Promise<SetupMutexResponse>
+    setupServiceWithInputMutex (inputProps: MutexExportProperties) : Promise<SetupMutexResponse>
     /**
-     * Set up a data loader using a shared worker holding the cached signals.
+     * Set up a data service using a shared worker holding the cached signals.
      * @param port - The cache worker's message port.
      * @returns Promise that resolves with the property `success` of the setup process.
      */
-    setupLoaderWithSharedWorker (port: MessagePort) : Promise<SetupSharedWorkerResponse>
-    /**
-     * Start the process of caching signals from the source.
-     * @remarks
-     * Montages are calculated in real time so this is not yet implemented.
-     */
-    startCachingSignals (): void
+    setupServiceWithSharedWorker (port: MessagePort) : Promise<SetupSharedWorkerResponse>
     /**
      * Stop the process of cahing signals from the source.
      * If a singal part (that was being loaded) is returned after this method is called, it will be discarded.
@@ -802,6 +874,10 @@ export type BiosignalMontageTemplate = {
      */
     description: string | string[]
     /**
+     * Electrode derivations required by this template (as active or reference in the channels array).
+     */
+    electrodes: string[]
+    /**
      * Descriptive label for this montage.
      */
     label: string
@@ -813,9 +889,9 @@ export type BiosignalMontageTemplate = {
      */
     layout: number[]
     /**
-     * Channel names present in this template (as active or reference in the channels array).
+     * Unique identifying name for this montage.
      */
-    names: string[]
+    name: string
     /**
      * Reference channel properties.
      */
@@ -906,6 +982,17 @@ export interface BiosignalResource extends DataResource {
      */
     addDataGaps (gaps: SignalDataGapMap): void
     /**
+     * Start the process of caching signals from the saved URL.
+     * @param ranges - Optional ranges to cache in seconds `[start, end]` (NYI, defaults to the whole recording).
+     * @returns Promise that resolves when signal caching is complete, true if process was successful and false if not.
+     */
+    cacheSignals (...ranges: [number, number][]): Promise<boolean>
+    /**
+     * Destroy this resource and all resources depending on it.
+     * @returns Promise that resolves when the resource is destroyed.
+     */
+    destroy (): void | Promise<void>
+    /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
      * @param config - Optional config (TODO: Config definitions).
@@ -975,15 +1062,17 @@ export interface BiosignalResource extends DataResource {
      * @param value - Filter frequency in Hz.
      * @param target - Channel index or type (default primary channel type).
      * @param scope - Scope of the change: `recording` (default) or `montage`.
+     * @returns Promise that resolves when the filter is set in montage worker.
      */
-    setHighpassFilter (value: number | null, target?: number | string, scope?: string): void
+    setHighpassFilter (value: number | null, target?: number | string, scope?: string): Promise<void>
     /**
      * Set low-pass filter for the given channel(s).
      * @param value - Filter frequency in Hz.
      * @param target - Channel index or type (default primary channel type).
      * @param scope - Scope of the change: `recording` (default) or `montage`.
+     * @returns Promise that resolves when the filter is set in montage worker.
      */
-    setLowpassFilter (value: number | null, target?: number | string, scope?: string): void
+    setLowpassFilter (value: number | null, target?: number | string, scope?: string): Promise<void>
     /**
      * Set the memory manager used by this resource.
      * @param manager - Memory manager or null to unset.
@@ -994,8 +1083,9 @@ export interface BiosignalResource extends DataResource {
      * @param value - Filter frequency in Hz.
      * @param target - Channel index or type (default primary channel type).
      * @param scope - Scope of the change: `recording` (default) or `montage`.
+     * @returns Promise that resolves when the filter is set in montage worker.
      */
-    setNotchFilter (value: number | null, target?: number | string, scope?: string): void
+    setNotchFilter (value: number | null, target?: number | string, scope?: string): Promise<void>
     /**
      * Setu up a signal data cache for input signals.
      * @returns A promise resolving with the created signal data cache or null on error.
@@ -1006,10 +1096,6 @@ export interface BiosignalResource extends DataResource {
      * @returns A promise resolving with clonable mutex properties if success, null on failure.
      */
     setupMutex (): Promise<MutexExportProperties | null>
-    /**
-     * Start the process of caching signals from the saved URL.
-     */
-    startCachingSignals (): void
 }
 /**
  * Application scopes for biosignal resource types.
@@ -1021,11 +1107,11 @@ export type BiosignalScope = 'eeg'
 export interface BiosignalSetup {
     /** Channel configuration for each matched raw signal. */
     channels: SetupChannel[]
-    /** Unique ID for this setup. */
-    id: string
     /** Channels that should have been present, but were not found. */
     missingChannels: SetupChannel[]
-    /** Descriptive name for this setup. */
+    /** Descriptive label for this setup. */
+    label: string
+    /** Unique name for this setup. */
     name: string
     /** Raw signals that could not be matched to any channel in the setup. */
     unmatchedSignals: SetupChannel[]
@@ -1225,6 +1311,11 @@ export interface SignalDataCache {
      */
     outputSignalUpdatedRanges: { start: number, end: number }[]
     asCachePart (): SignalCachePart
+    /**
+     * Destroy the cache and release all resources.
+     * @param dispatchEvent - Should a destroy event be dispatched. Set to false if the method is called from a child class and the event has already been dispatched.
+     */
+    destroy (dispatchEvent?: boolean): void
     insertSignals (signalPart: SignalCachePart): Promise<void>
     invalidateOutputSignals (): void
     releaseBuffers (): void

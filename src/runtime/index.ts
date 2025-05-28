@@ -80,6 +80,8 @@ export const state: RuntimeState = {
  * Events dispatched by this asset, in addition to property update events:
  * @emits `add-dataset` - A new dataset has been added.
  * @emits `add-resource` - A new resource has been added to the active dataset.
+ * @emits `initialize` - The manager has been initialized.
+ * @emits `load-dataset-folder` - A new dataset has been loaded from a folder.
  * @emits `remove-resource` - A resource is removed from a dataset.
  * @emits `set-active-dataset` - A new dataset (or no dataset) is set active.
  * @emits `set-active-resource` - A new resource (or no resource) is set active.
@@ -134,11 +136,12 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
     }
 
     addDataset (dataset: MediaDataset, setAsActive = false) {
+        this.dispatchPayloadEvent('add-dateset', dataset, 'before')
         state.APP.datasets.push(dataset)
-        this.dispatchPayloadEvent('add-dateset', dataset)
         if (setAsActive) {
             this.setActiveDataset(dataset)
         }
+        this.dispatchPayloadEvent('add-dateset', dataset)
     }
 
     addResource (modality: string, resource: DataResource, setAsActive = false) {
@@ -172,6 +175,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
                 return
             }
         }
+        this.dispatchPayloadEvent('add-resource', resource, 'before')
         activeSet.resources.push(resource)
         this.dispatchPayloadEvent('add-resource', resource)
         if (setAsActive) {
@@ -184,6 +188,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             Log.debug(`Reasource to deactivate was not active to begin with.`, SCOPE)
             return
         }
+        this.dispatchPayloadEvent('set-active-resource', null, 'before')
         resource.isActive = false
         this.dispatchPayloadEvent('set-active-resource', null)
     }
@@ -198,6 +203,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
     }
 
     init (initValues: { [module: string]: unknown } = {}) {
+        this.dispatchEvent('initialize', 'before')
         // FIRST set logging threshold, so all possible messages are seen
         Log.setPrintThreshold(SETTINGS.app.logThreshold)
         // Apply possible initial values
@@ -232,6 +238,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             }
         }
         this.isInitialized = true
+        this.dispatchEvent('initialize', 'after')
     }
 
     async loadDatasetFolder (
@@ -240,6 +247,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         studyLoaders: StudyLoader[],
         config?: ConfigDatasetLoader
     ) {
+        this.dispatchEvent('load-dataset', 'before')
         const newSet = new MixedMediaDataset(config?.name || folder.name)
         let studyContext = null as StudyContext | null
         loader.loadDataset(folder, async (study) => {
@@ -259,6 +267,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             }
         })
         this.addDataset(newSet)
+        this.dispatchPayloadEvent('load-dataset', newSet, 'after')
         return newSet
     }
 
@@ -268,11 +277,13 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             Log.error(`Could not remove resource: no dataset is active or defined.`, SCOPE)
             return
         }
+        this.dispatchPayloadEvent('remove-resource', resource, 'before')
         activeSet.removeResource(resource)
         this.dispatchPayloadEvent('remove-resource', resource)
     }
 
     setActiveDataset (dataset: MediaDataset | null) {
+        this.dispatchPayloadEvent('set-active-dataset', dataset, 'before')
         const prevActive = state.APP.activeDataset
         if (prevActive) {
             prevActive.isActive = false
@@ -290,6 +301,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             Log.warn(`Could not set active resource, no dataset is active.`, SCOPE)
             return
         }
+        this.dispatchPayloadEvent('set-active-resource', resource, 'before')
         if (resource) {
             if (deactivateOthers) {
                 for (const res of activeSet.resources.values()) {
@@ -309,9 +321,15 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchPayloadEvent('set-active-resource', resource)
     }
 
-    setModule (name: string, module: ResourceModule) {
-        this.MODULES.set(name, module.runtime)
-        this.SETTINGS.registerModule(name, module.settings)
+    setModule (name: string, module: ResourceModule | null) {
+        this.dispatchPayloadEvent('set-module', { name, module }, 'before')
+        if (!module) {
+            this.MODULES.delete(name)
+            this.SETTINGS.unregisterModule(name)
+        } else {
+            this.MODULES.set(name, module.runtime)
+            this.SETTINGS.registerModule(name, module.settings)
+        }
         this.dispatchPayloadEvent('set-module', { name, module })
     }
 
@@ -324,8 +342,13 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         }
     }
 
-    setService (name: string, service: AssetService) {
-        state.SERVICES.set(name, service)
+    setService (name: string, service: AssetService | null) {
+        this.dispatchPayloadEvent('set-service', { name, service }, 'before')
+        if (!service) {
+            state.SERVICES.delete(name)
+        } else {
+            state.SERVICES.set(name, service)
+        }
         this.dispatchPayloadEvent('set-service', { name, service })
     }
 

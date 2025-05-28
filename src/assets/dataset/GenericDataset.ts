@@ -8,7 +8,6 @@
 import { type DataResource } from '#types/application'
 import {
     type BaseDataset,
-    type DatasetCredentials,
     type ResourceSortingInstructions,
     type ResourceSortingScheme
 } from '#types/dataset'
@@ -19,7 +18,6 @@ import { deepClone } from '#util'
 const SCOPE = 'GenericDataset'
 
 export default abstract class GenericDataset extends GenericAsset implements BaseDataset {
-    protected _credentials: null | DatasetCredentials = null
     protected _resources: DataResource[] = []
     protected _resourceSorting: ResourceSortingInstructions
     /**
@@ -38,10 +36,6 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
 
     get activeResources () {
         return this._resources.filter(r => r.isActive)
-    }
-
-    get credentials () {
-        return this._credentials
     }
 
     get resources () {
@@ -95,12 +89,21 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
                 return
             }
         }
+        this.dispatchPayloadEvent('add-resource', resource, 'before')
         const prevState = [...this.resources]
         this._resources.push(resource)
         if (this._resourceSorting.scheme === 'id') {
             this._resourceSorting.order.push(resource.id)
         }
+        this.dispatchPayloadEvent('add-resource', resource, 'after')
+        Log.debug(`Added ${resource.name} to dataset resources.`, SCOPE)
+        // Also dispatch a property change event.
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
+    }
+
+    async destroy () {
+        await this.unload()
+        super.destroy()
     }
 
     getResourcesByModality (...modalities: string[]) {
@@ -123,23 +126,19 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
             Log.error(`Could not remove given resource from dataset: ther resource was not found.`, SCOPE)
             return null
         }
+        this.dispatchPayloadEvent('remove-resource', this._resources[resourceIdx], 'before')
         const prevState = [...this.resources]
         const removed = this._resources.splice(resourceIdx, 1)[0]
         if (this._resourceSorting.scheme === 'id') {
             this._resourceSorting.order.splice(this._resourceSorting.order.indexOf(removed.id), 1)
         }
+        this.dispatchPayloadEvent('remove-resource', removed, 'after')
         Log.debug(`Removed ${removed.name} from dataset resources.`, SCOPE)
+        // Also dispatch a property change event.
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
         // Unload the removed resource.
         removed.unload()
         return removed
-    }
-
-    setCredentials (username: string, password: string) {
-        this._setPropertyValue('credentials', {
-            username: username,
-            password: password,
-        })
     }
 
     setResourceSorting (value: ResourceSortingInstructions) {
@@ -162,6 +161,7 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
             return
         }
         const prevState = deepClone(this.resourceSorting)
+        this.dispatchPropertyChangeEvent('resourceSorting', this.resourceSorting, prevState, 'before')
         this._resourceSorting.scheme = scheme
         this._resourceSorting.order = []
         this.dispatchPropertyChangeEvent('resourceSorting', this.resourceSorting, prevState)
@@ -170,7 +170,7 @@ export default abstract class GenericDataset extends GenericAsset implements Bas
     async unload () {
         for (let i=0; i<this._resources.length;) {
             const removed = this.removeResource(0)
-            await removed?.unload()
+            await removed?.destroy()
         }
         Log.debug(`Dataset ${this._name} and associated resources unloaded.`, SCOPE)
     }

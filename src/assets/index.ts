@@ -17,6 +17,9 @@ import {
     SharedWorkerCache,
 } from './biosignal'
 import {
+    WebDAVConnector,
+} from './connector'
+import {
     GenericDataset,
     MixedMediaDataset,
 } from './dataset'
@@ -82,6 +85,7 @@ export {
     SignalFileReader,
     StudyCollection,
     studyContextTemplate,
+    WebDAVConnector,
 }
 import GenericAsset from './GenericAsset'
 import GenericResource from './GenericResource'

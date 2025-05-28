@@ -1,10 +1,11 @@
 /**
- * Loader memory managed.
+ * Loader memory manager.
  * @package    epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
  */
 
+import GenericService from './GenericService'
 import {
     type AllocateMemoryResponse,
     type AssetService,
@@ -12,32 +13,19 @@ import {
     type ManagedService,
     type MemoryManager,
     type ReleaseAssetResponse,
-    type WorkerCommission,
-    type WorkerMessage,
     type WorkerResponse,
 } from '#types/service'
 import { Log } from 'scoped-event-log'
-import { NUMERIC_ERROR_VALUE } from '#util/constants'
-import { nullPromise, safeObjectFrom } from '#util/general'
 
 const SCOPE = 'ServiceMemoryManager'
 
-export default class ServiceMemoryManager implements MemoryManager {
+export default class ServiceMemoryManager extends GenericService implements MemoryManager {
     private static MASTER_LOCK_POS = 0
     private static BUFFER_START_POS = 1
     /**
      * The total memory buffer available to this application.
      */
     protected _buffer: SharedArrayBuffer
-    protected _commissions = {
-        'release-and-rearrange': null,
-    } as {
-        [action: string]: {
-            rn: number,
-            resolve: (value?: unknown) => unknown,
-            reject?: (reason: string) => void
-        } | null
-    }
     protected _decommissionWorker: {
         resolve: () => void,
         rn: number,
@@ -51,16 +39,25 @@ export default class ServiceMemoryManager implements MemoryManager {
     protected _managed = new Map<string, ManagedService>()
     protected _masterLock: Int32Array
     protected _requestNum = 0
-    /**
-     * Worker assigned to execute atomic operations on the memory buffer.
-     */
-    protected _worker: Worker
 
     /**
      * Create an instance of ServiceMemoryManager with the given buffer size.
      * @param bufferSize - The total size of the buffer in bytes; from this on, sizes are always in 32-bit units.
      */
     constructor (bufferSize: number) {
+        if (!window.__EPICURRENTS__?.RUNTIME) {
+            Log.error(`Reference to main runtime was not found.`, SCOPE)
+        }
+        const overrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get('memory-manager')
+        const worker = overrideWorker ? overrideWorker() : new Worker(
+            new URL(
+                /* webpackChunkName: 'memory-manager.worker' */
+                `../../workers/memory-manager.worker`,
+                import.meta.url
+            ),
+            { type: 'module'}
+        )
+        super(SCOPE, worker)
         try {
             //  This will fail if the browser doesn't have enough memory available to it.
             this._buffer = new SharedArrayBuffer(bufferSize + 4)
@@ -73,23 +70,10 @@ export default class ServiceMemoryManager implements MemoryManager {
             ServiceMemoryManager.MASTER_LOCK_POS,
             ServiceMemoryManager.BUFFER_START_POS
         )
-        if (!window.__EPICURRENTS__?.RUNTIME) {
-            Log.error(`Reference to main runtime was not found.`, SCOPE)
-        }
-        const overrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get('memory-manager')
-        this._worker = overrideWorker ? overrideWorker() : new Worker(
-            new URL(
-                /* webpackChunkName: 'memory-manager.worker' */
-                `../../workers/memory-manager.worker`,
-                import.meta.url
-            ),
-            { type: 'module'}
-        )
-        Log.registerWorker(this._worker)
-        this._worker.addEventListener('message', this._handleMessage.bind(this))
+        worker.addEventListener('message', this.handleMessage.bind(this))
         // Free memory will be 0 if buffer allocation fails.
         if (this.freeMemory) {
-            this._worker.postMessage({
+            worker.postMessage({
                 action: 'set-buffer',
                 buffer: this._buffer,
             })
@@ -128,82 +112,31 @@ export default class ServiceMemoryManager implements MemoryManager {
         return totalUsed/4
     }
 
-    /**
-     * Commission the worker to perform an action.
-     * @param action - Name of the action to perform.
-     * @param props - Additional properties to inject into the message (optional).
-     * @param callbacks - Optional custom callbacks for resolving (and possibly rejecting) the action.
-     */
-    protected _commissionWorker (
-        action: string,
-        props?: Map<string, unknown>,
-        callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason: string) => void) },
-    ): WorkerCommission {
-        if (!this._worker) {
-            callbacks?.reject(`Worker has not been set up.`)
-            return {
-                promise: nullPromise,
-                reject: () => {},
-                resolve: () => {},
-                rn: NUMERIC_ERROR_VALUE,
-            }
+    async handleMessage (message: WorkerResponse) {
+        const data = message?.data
+        if (!data) {
+            return false
         }
-        const commission = callbacks ? callbacks : {
-            // These will be overridden.
-            reject: () => {},
-            resolve: () => {},
+        if (data.action === 'set-buffer') {
+            return true
         }
-        // Use custom callbacks if they have been given.
-        const returnPromise = new Promise<unknown>((resolve, reject) => {
-            commission.resolve = resolve
-            commission.reject = reject
-        })
-        const requestNum = this._requestNum++
-        const msgData = safeObjectFrom({
-            action: action,
-            rn: requestNum
-        }) as WorkerMessage["data"]
-        if (props) {
-            for (const [key, value] of props)  {
-                msgData[key] = value
-            }
-        }
-        this._worker.postMessage(msgData)
-        return {
-            promise: returnPromise,
-            reject: commission.reject,
-            resolve: commission.resolve,
-            rn: requestNum
-        }
-    }
-
-    protected _handleMessage (message: WorkerResponse) {
-        const action = message?.data?.action
-        if (!action || action === 'set-buffer') {
-            return
-        }
-        if (action === 'log') {
-            Log.add(message.data.level as keyof typeof Log.LEVELS, message.data.message as string, SCOPE)
-            return
-        }
-        const commission = this._commissions[action]
+        const commission = this._getCommissionForMessage(message)
         if (!commission) {
-            Log.error(`Received a message from the worker, but no commission matched the action '${action}'.`, SCOPE)
-            return
+            return false
         }
-        if (message.data.rn !== commission.rn) {
-            Log.debug(`Ignoring a response from the worker with outdated request number '${message.data.rn}'.`, SCOPE)
-            return
-        }
-        if (message.data.success) {
-            commission.resolve(message.data.result)
-        } else {
-            if (commission.reject) {
-                commission.reject(message.data.reason || '')
+        if (data.action === 'release-and-rearrange') {
+            if (data.success) {
+                commission.resolve(data.result)
             } else {
-                commission.resolve(null)
+                commission.reject(data.error as string)
             }
+            return true
         }
+        if (await super._handleWorkerCommission(message)) {
+            return true
+        }
+        Log.warn(`Message with action ${data.action} was not handled.`, SCOPE)
+        return false
     }
 
     async allocate (amount: number, service: AssetService): Promise<AllocateMemoryResponse> {
@@ -246,7 +179,7 @@ export default class ServiceMemoryManager implements MemoryManager {
             return null
         }
         // Find the end of the allocated buffer range from remaining managed services.
-        let endIndex = 0
+        let endIndex = ServiceMemoryManager.BUFFER_START_POS
         for (const managed of this._managed.values()) {
             if (managed.bufferRange[1] > endIndex) {
                 endIndex = managed.bufferRange[1]
@@ -279,15 +212,12 @@ export default class ServiceMemoryManager implements MemoryManager {
                 totalFreed += nextToDrop.bufferRange[1] - nextToDrop.bufferRange[0]
                 if (totalFreed >= amount) {
                     // Rearrange buffer and report success.
-                    this.removeFromBuffer(...rangesFreed)
+                    this.removeFromBuffer(true, ...rangesFreed)
                     return true
                 }
             }
         }
-        // Rearrange buffer and report failure to free the requested space.
-        if (rangesFreed.length) {
-            this.removeFromBuffer(...rangesFreed)
-        }
+        // Report failure to free the requested space.
         return false
     }
 
@@ -295,26 +225,27 @@ export default class ServiceMemoryManager implements MemoryManager {
         return (this._managed.get(id)?.service || null)
     }
 
-    async release (service: string | AssetService): Promise<ReleaseAssetResponse> {
-        if (typeof service === 'string') {
-            const managed = this._managed.get(service)
+    async release (...services: (string | AssetService)[]): Promise<ReleaseAssetResponse> {
+        const serviceIds = [] as string[]
+        const bufferRanges = [] as number[][]
+        for (const service of services) {
+            const id = typeof service === 'string' ? service : service.id
+            const managed = this._managed.get(id)
             if (!managed) {
                 Log.error(`Could not release asset; no service with given id was found.`, SCOPE)
-                return false
+                continue
             }
-            await this.removeFromBuffer(managed.bufferRange)
-        } else {
-            const managed = this._managed.get(service.id)
-            if (!managed) {
-                Log.error(`Could not release loader; the given loader was not among managed loaders.`, SCOPE)
-                return false
-            }
-            await this.removeFromBuffer(managed.bufferRange)
+            serviceIds.push(id)
+            bufferRanges.push(managed.bufferRange)
         }
+        for (const id of serviceIds) {
+            this._managed.delete(id)
+        }
+        await this.removeFromBuffer(false, ...bufferRanges)
         return true
     }
 
-    async removeFromBuffer (...ranges: number[][]) {
+    async removeFromBuffer (unloadServices: boolean, ...ranges: number[][]) {
         // Check for and remove possible empty or invalid ranges.
         for (let i=0; i<ranges.length; i++) {
             if (ranges[i][0] === ranges[i][1] || ranges[i][0] > ranges[i][1]) {
@@ -322,38 +253,48 @@ export default class ServiceMemoryManager implements MemoryManager {
                 i--
             }
         }
-        // Find and remove any current loaders that use one of the ranges.
-        for (const range of ranges) {
-            for (const managed of this._managed.values()) {
-                if (
-                    (range[0] > managed.bufferRange[0] && range[0] < managed.bufferRange[1]) ||
-                    (range[1] > managed.bufferRange[0] && range[1] < managed.bufferRange[1]) ||
-                    (range[0] <= managed.bufferRange[0] && range[1] >= managed.bufferRange[1])
-                ) {
-                    await managed.service.unload()
-                    // Correct the range to reflect the removed loader.
-                    if (managed.bufferRange[0] < range[0]) {
-                        range[0] = managed.bufferRange[0]
+        if (unloadServices) {
+            // Find and remove any current services that use one of the ranges.
+            for (const range of ranges) {
+                for (const managed of this._managed.values()) {
+                    if (
+                        (range[0] >= managed.bufferRange[0] && range[0] < managed.bufferRange[1]) ||
+                        (range[1] > managed.bufferRange[0] && range[1] <= managed.bufferRange[1]) ||
+                        (range[0] < managed.bufferRange[0] && range[1] > managed.bufferRange[1])
+                    ) {
+                        await managed.service.unload()
+                        // Correct the range to reflect the removed loader.
+                        if (managed.bufferRange[0] < range[0]) {
+                            range[0] = managed.bufferRange[0]
+                        }
+                        if (managed.bufferRange[1] > range[1]) {
+                            range[1] = managed.bufferRange[1]
+                        }
+                        this._managed.delete(managed.service.id)
                     }
-                    if (managed.bufferRange[1] > range[1]) {
-                        range[1] = managed.bufferRange[1]
-                    }
-                    this._managed.delete(managed.service.id)
                 }
             }
         }
         // Commission worker to fill possible empty spaces by shifting following ranges down.
-        const loaderRanges = [] as { id: string, range: number[] }[]
+        const rearrange = [] as { id: string, range: number[] }[]
         for (const managed of this._managed.values()) {
-            loaderRanges.push({
+            rearrange.push({
                 id: managed.service.id,
                 range: managed.bufferRange
             })
         }
+        if (!ranges.length || !rearrange.length) {
+            // Both arrays must have at least one element for the buffer to need rearranging.
+            return
+        }
+        // TODO: Lock buffers in each service before rearranging.
+        await Promise.all(this._managed.values().map(async managed => {
+            managed // TODO: Lock buffer.
+        }))
         const commission = this._commissionWorker(
             'release-and-rearrange',
             new Map<string, unknown>([
-                ['rearrange', loaderRanges],
+                ['rearrange', rearrange],
                 ['release', ranges],
             ])
         )
@@ -368,8 +309,11 @@ export default class ServiceMemoryManager implements MemoryManager {
             }
             managed.bufferRange = rearranged.range
             await managed.service.setBufferRange(rearranged.range)
-            // TODO: Relay the new range to the loader as well.
         }
+        // TODO: Unlock buffers in each service.
+        await Promise.all(this._managed.values().map(async managed => {
+            managed // TODO: Unlock buffer.
+        }))
     }
 
     updateLastUsed (loader: ManagedService) {

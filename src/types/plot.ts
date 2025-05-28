@@ -94,8 +94,6 @@ export type BiosignalPlotConfig = {
  * Plot trace for biosignals.
  */
 export type BiosignalTrace = {
-    /** Amplification to apply (as a multiplier) to the signal amplitude. */
-    amplification: number
     /** Trace color. TODO: Implement traces with multiple color segments. */
     color: WebGlCompatibleColor
     /** TODO: What is this value supposed to be used for? */
@@ -110,6 +108,8 @@ export type BiosignalTrace = {
     render: boolean
     /** Sampling rate of the signal. */
     samplingRate: number,
+    /** Scale to apply (as an exponent of 10) to the signal amplitude. */
+    scale: number
     /** Sensitivity of the individual line. */
     sensitivity: number
     /**

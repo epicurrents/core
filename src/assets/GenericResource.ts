@@ -7,8 +7,8 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { type DataResource, type ResourceState } from '#types/application'
-import { type StudyContext } from '#types/study'
+import type { DataResource, ResourceState } from '#types/application'
+import type { StudyContext } from '#types/study'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'GenericResource'
@@ -37,7 +37,7 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._setPropertyValue('dependenciesMissing', value)
     }
     get dependenciesReady () {
-        return this._dependenciesMissing
+        return this._dependenciesReady
     }
     set dependenciesReady (value: string[]) {
         this._setPropertyValue('dependenciesReady', value)
@@ -78,6 +78,16 @@ export default abstract class GenericResource extends GenericAsset implements Da
         }
     }
 
+    destroy () {
+        this._dependenciesMissing.length = 0
+        this._dependenciesReady.length = 0
+        this._errorReason = ''
+        this._loaded = false
+        this._source = null
+        super.destroy()
+        this.state = 'destroyed'
+    }
+
     getMainProperties () {
         // Override this in a child class.
         return new Map()
@@ -114,6 +124,5 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     async unload () {
         // Override this in a child class.
-        return Promise.resolve()
     }
 }

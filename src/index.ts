@@ -45,6 +45,7 @@ import {
     SignalFileReader,
     StudyCollection,
     studyContextTemplate,
+    WebDAVConnector,
 } from './assets'
 export {
     BiosignalAudio,
@@ -82,8 +83,27 @@ export {
     SignalFileReader,
     StudyCollection,
     studyContextTemplate,
+    WebDAVConnector,
 }
-
+import {
+    ApplicationEvents,
+    type AssetEvent,
+    type AssetPropertyEvent,
+    type BiosignalPropertyEvent,
+    type BiosignalResourceEvent,
+    type DatasetEvent,
+    EventBus,
+    type ResourcePropertyEvent,
+} from '#events'
+export {
+    AssetEvent,
+    AssetPropertyEvent,
+    BiosignalPropertyEvent,
+    BiosignalResourceEvent,
+    DatasetEvent,
+    EventBus,
+    ResourcePropertyEvent,
+}
 import SETTINGS from './config/Settings'
 export {
     SETTINGS,
@@ -104,28 +124,24 @@ import RuntimeStateManager from './runtime'
 export {
     RuntimeStateManager,
 }
-import * as util from './util'
+import type {
+    ApplicationConfig,
+    AssetService,
+    DataResource,
+    EpicurrentsApp,
+    FileSystemItem,
+    InterfaceModule,
+    InterfaceModuleConstructor,
+    ReaderMode,
+    MediaDataset,
+    ResourceModule,
+    SettingsValue,
+    StudyLoader,
+} from '#types'
+import * as util from '#util'
 export { util }
 
-//////////////////////////////////////////////////////////////////
-//                            TYPES                             //
-//////////////////////////////////////////////////////////////////
-
 import { Log } from 'scoped-event-log'
-import { EventBus } from '#events'
-import {
-    type AssetService,
-    type DataResource,
-    type EpicurrentsApp,
-    type FileSystemItem,
-    type InterfaceModule,
-    type InterfaceModuleConstructor,
-    type ReaderMode,
-    type MediaDataset,
-    type ResourceModule,
-    type SettingsValue,
-    type StudyLoader,
-} from './types'
 
 const SCOPE = 'index'
 
@@ -210,10 +226,12 @@ export class Epicurrents implements EpicurrentsApp {
             Log.warn(`Cannot alter default configuration after app launch. Use the setSettingsValue method instead.`, SCOPE)
             return
         }
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.CONFIG_CHANGED, 'application', 'before')
         for (const [field, value] of Object.entries(config)) {
             Log.debug(`Modifying default configuration field '${field}' to value ${value?.toString()}`, SCOPE)
-            SETTINGS.setFieldValue(field, value)
+            this.#runtime.SETTINGS.setFieldValue(field, value)
         }
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.CONFIG_CHANGED, 'application', 'after')
     }
 
     createDataset (name?: string, setAsActive?: boolean) {
@@ -228,11 +246,8 @@ export class Epicurrents implements EpicurrentsApp {
         return this.#runtime.getWorkerOverride(name)
     }
 
-    async launch (
-        containerId: string = '',
-        appId: string = `epicurrents`,
-        locale: string = 'en'
-    ): Promise<boolean> {
+    async launch (config?: ApplicationConfig): Promise<boolean> {
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZE, 'application', 'before')
         if (!this.#interfaceConstructor) {
             Log.error(`Cannot launch app before an interface has been registered.`, 'index')
             return false
@@ -254,14 +269,14 @@ export class Epicurrents implements EpicurrentsApp {
         // Make sure that the container element exists.
         // Prepend a hyphed to the container id, otherwise just use 'epicv'.
         // Using the literal 'epicv' in the selector is to avoid invalid selector errors.
-        containerId = containerId.length ? `-${containerId}` : ''
         const modules = Array.from(this.#runtime.MODULES.keys())
-        this.#interface = new this.#interfaceConstructor(this, this.#runtime, containerId, appId, locale, modules)
+        this.#interface = new this.#interfaceConstructor(this, this.#runtime, modules, config)
         const interfaceSuccess = await this.#interface.awaitReady()
         if (!interfaceSuccess) {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
             return false
         }
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZE, 'application', 'after')
         return true
     }
 

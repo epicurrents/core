@@ -70,6 +70,15 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
         return { ...this._signalCache }
     }
 
+    destroy (dispatchEvent = true) {
+        if (dispatchEvent) {
+            this.dispatchEvent(BiosignalCache.EVENTS.DESTROY, 'before')
+        }
+        this.releaseBuffers()
+        this._input = null
+        super.destroy()
+    }
+
     async insertSignals(signalPart: SignalCachePart) {
         if (this._signalCache.start === this._signalCache.end) {
             // Replace the empty signal cache with the input part.
@@ -88,8 +97,9 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
     }
 
     releaseBuffers() {
+        this._dataDuration = 0
         this._signalCache.start = 0
         this._signalCache.end = 0
-        this._signalCache.signals.splice(0)
+        this._signalCache.signals.length = 0
     }
 }

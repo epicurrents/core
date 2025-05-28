@@ -5,17 +5,18 @@
  * @license    Apache-2.0
  */
 
-import {
-    type ActionWatcher,
-    type AssetService,
-    type CommissionMap,
-    type CommissionPromise,
-    type MemoryManager,
-    type RequestMemoryResponse,
-    type SetupWorkerResponse,
-    type WorkerCommission,
-    type WorkerMessage,
-    type WorkerResponse,
+import type {
+    ActionWatcher,
+    AssetService,
+    CommissionMap,
+    CommissionPromise,
+    CommissionWorkerOptions,
+    MemoryManager,
+    RequestMemoryResponse,
+    SetupWorkerResponse,
+    WorkerCommission,
+    WorkerMessage,
+    WorkerResponse,
 } from '#types/service'
 import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
@@ -62,6 +63,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             } else {
                 // Only Worker has the onerror property.
                 this._worker = worker as Worker
+                Log.registerWorker(this._worker)
             }
         }
     }
@@ -118,7 +120,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
         action: string,
         props?: Map<string, unknown>,
         callbacks?: { resolve: ((value?: unknown) => void), reject: ((reason?: string) => void) },
-        overwriteRequest = false
+        options?: CommissionWorkerOptions
     ): WorkerCommission {
         if (!this._worker) {
             callbacks?.reject(`Worker has not been set up.`)
@@ -152,7 +154,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             this._commissions, action,
             new Map<number, CommissionPromise>()
         ) as CommissionMap
-        if (overwriteRequest) {
+        if (options?.overwriteRequest) {
             // Remove references to any previous requests
             commMap.clear()
         }
@@ -161,7 +163,12 @@ export default abstract class GenericService extends GenericAsset implements Ass
             reject: commission.reject,
             resolve: commission.resolve,
         })
-        this._worker.postMessage(msgData)
+        if (options?.transferList) {
+            // Transferable objects must be added as individual properties.
+            this._worker.postMessage({ ...msgData, ...options.transferList }, options.transferList)
+        } else {
+            this._worker.postMessage(msgData)
+        }
         return {
             promise: returnPromise,
             reject: commission.reject,
@@ -226,23 +233,13 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
                 this._notifyWaiters('setup-cache', data.success)
                 return true
-            } else if (
-                message.data.action === 'release-cache' ||
-                message.data.action === 'shutdown'
-            ) {
-                const decommission = this._commissions.get('decommission')
-                if (decommission && message.data.success === true) {
+            } else if (message.data.action === 'release-cache' || message.data.action === 'shutdown') {
+                if (commission && data.success) {
                     const prevState = this.memoryConsumption
                     this._memoryRange = null
                     this.dispatchPropertyChangeEvent('memoryConsumption', this.memoryConsumption, prevState)
-                    decommission.get(0)?.resolve()
-                    if (message.data.action === 'shutdown') {
-                        const prevState = this.isReady
-                        this._worker?.terminate()
-                        this._worker = null
-                        this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
-                    }
                 }
+                commission.resolve(data.success)
                 return true
             } else if (message.data.success === true) {
                 commission.resolve(message.data.result)
@@ -377,6 +374,17 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return waiter
     }
 
+    async destroy () {
+        await this.shutdown()
+        this._commissions.clear()
+        this._waiters.clear()
+        this._actionWatchers.length = 0
+        this._manager = null
+        this._memoryRange = null
+        this._port = null
+        super.destroy()
+    }
+
     removeActionWatcher (handler: ActionWatcher['handler']) {
         for (let i=0; i<this._actionWatchers.length; i++) {
             if (this._actionWatchers[i].handler === handler) {
@@ -463,6 +471,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
             new Map<string, unknown>([
                 ['buffer', this._manager.buffer],
                 ['range', this._memoryRange],
+                ['useMemoryManager', true],
             ])
         )
         const initResult = await commission.promise as MutexExportProperties | null
@@ -480,30 +489,37 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return commission.promise as Promise<SetupWorkerResponse>
     }
 
-    shutdown () {
+    async shutdown () {
         if (!window.__EPICURRENTS__?.RUNTIME) {
             Log.error(`Reference to application runtime was not found.`, SCOPE)
             return Promise.reject()
         }
+        const prevState = this.isReady
         window.__EPICURRENTS__.RUNTIME?.SETTINGS.removeAllPropertyUpdateHandlersFor(this._name)
         const response = this._commissionWorker('shutdown')
-        // Shutdown doesn't need a request number
-        const shutdown = getOrSetValue(
-            this._commissions, 'shutdown',
-            new Map<number, CommissionPromise>()
-        )
-        shutdown.set(0, response)
-        return response.promise as Promise<void>
+        if (await response.promise) {
+            this._commissions.clear()
+            this._waiters.clear()
+            this._actionWatchers.length = 0
+            this._isCacheSetup = false
+            this._isWorkerSetup = false
+            this._manager = null
+            this._memoryRange = null
+            this._port = null
+            this._worker?.terminate()
+            this._worker = null
+            this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+        }
     }
 
-    unload () {
-        const response = this._commissionWorker('release-cache')
-        // Decommission doesn't need a request number
-        const decommission = getOrSetValue(
-            this._commissions, 'decommission',
-            new Map<number, WorkerCommission>()
-        )
-        decommission.set(0, response)
-        return response.promise as Promise<void>
+    async unload (releaseFromManager = true) {
+        const prevState = this.isReady
+        const commission = this._commissionWorker('release-cache')
+        await commission.promise
+        if (this._manager && releaseFromManager) {
+            this._manager.release(this)
+        }
+        this._isCacheSetup = false
+        this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
     }
 }
