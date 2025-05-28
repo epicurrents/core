@@ -64,7 +64,7 @@ export type ConfigReadSignals = {
         label?: string
         name?: string
         samplingRate?: number
-        type?: string
+        modality?: string
     }[]
 }
 
