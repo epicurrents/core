@@ -28,21 +28,24 @@ import {
     GenericDataset,
     GenericDocumentResource,
     GenericFileReader,
+    GenericFileWriter,
     GenericMontageChannel,
     GenericResource,
     GenericService,
+    GenericSignalProcessor,
+    GenericSignalReader,
+    GenericSignalWriter,
     GenericSourceChannel,
     GenericStudyLoader,
     LocalFileReader,
     MixedFileSystemItem,
     MixedMediaDataset,
-    MontageProcesser,
+    MontageProcessor,
     MontageService,
     MontageWorkerSubstitute,
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
-    SignalFileReader,
     StudyCollection,
     studyContextTemplate,
     WebDAVConnector,
@@ -66,21 +69,24 @@ export {
     GenericDataset,
     GenericDocumentResource,
     GenericFileReader,
+    GenericFileWriter,
     GenericMontageChannel,
     GenericResource,
     GenericService,
+    GenericSignalProcessor,
+    GenericSignalReader,
+    GenericSignalWriter,
     GenericSourceChannel,
     GenericStudyLoader,
     LocalFileReader,
     MixedFileSystemItem,
     MixedMediaDataset,
-    MontageProcesser,
+    MontageProcessor,
     MontageService,
     MontageWorkerSubstitute,
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
-    SignalFileReader,
     StudyCollection,
     studyContextTemplate,
     WebDAVConnector,
@@ -137,6 +143,7 @@ import type {
     ResourceModule,
     SettingsValue,
     StudyLoader,
+    WriterMode,
 } from '#types'
 import * as util from '#util'
 export { util }
@@ -281,7 +288,7 @@ export class Epicurrents implements EpicurrentsApp {
     }
 
     async loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string) {
-        const context = this.#runtime.APP.studyLoaders.get(loader)
+        const context = this.#runtime.APP.studyImporters.get(loader)
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
             // Add an error resource in place of the resource that failed to load.
@@ -346,11 +353,26 @@ export class Epicurrents implements EpicurrentsApp {
         this.#runtime.setService(name, service)
     }
 
-    registerStudyLoader (name: string, label: string, mode: ReaderMode, loader: StudyLoader) {
+    registerStudyExporter (name: string, label: string, mode: WriterMode, loader: StudyLoader) {
         if (this.#memoryManager) {
             loader.registerMemoryManager(this.#memoryManager)
         }
-        this.#runtime.APP.studyLoaders.set(
+        this.#runtime.APP.studyExporters.set(
+            name,
+            {
+                label: label,
+                mode: mode,
+                loader: loader,
+                modalities: loader.supportedModalities
+            }
+        )
+    }
+
+    registerStudyImporter (name: string, label: string, mode: ReaderMode, loader: StudyLoader) {
+        if (this.#memoryManager) {
+            loader.registerMemoryManager(this.#memoryManager)
+        }
+        this.#runtime.APP.studyImporters.set(
             name,
             {
                 label: label,

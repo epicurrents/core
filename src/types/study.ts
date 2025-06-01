@@ -9,7 +9,7 @@
  */
 
 import { DataResource } from './application'
-import { FileSystemItem, FileFormatReader, ReaderMode } from './reader'
+import { FileSystemItem, FileFormatReader, ReaderMode, FileFormatWriter, WriterMode } from './reader'
 import { MemoryManager } from './service'
 
 
@@ -125,6 +125,7 @@ export type StudyFileContext = {
 export interface StudyLoader {
     /** File reader associated with this study loader. */
     fileReader: null | FileFormatReader
+    fileWriter: null | FileFormatWriter
     resourceModality: string
     /** Resource modalities supported by this loader. */
     supportedModalities: string[]
@@ -171,10 +172,15 @@ export interface StudyLoader {
      */
     loadFromUrl (fileUrl: string, config?: object, preStudy?: StudyContext): Promise<StudyContext|null>
     /**
-     * Register a new file loader for this study loader.
-     * @param loader - The new file loader.
+     * Register a new file reader for this study loader.
+     * @param mod - The new file format reader.
      */
-    registerFileReader (loader: FileFormatReader): void
+    registerFileReader (mod: FileFormatReader): void
+    /**
+     * Register a new file writer for this study loader.
+     * @param mod - The new file format writer.
+     */
+    registerFileWriter (mod: FileFormatWriter): void
     /**
      * Register the memory manager to use with this study loader.
      * @param manager - Memory manager to use.
@@ -189,31 +195,44 @@ export interface StudyLoader {
     useStudy (study: StudyContext, config?: object): Promise<UseStudyResponse>
 }
 /**
- * Context for a study loader.
+ * Context for a study exporter.
  */
-export type StudyLoaderContext = {
-    /** Label for the loader (to be displayed in the UI). */
+export type StudyExporterContext = {
+    /** Label for the exporter (to be displayed in the UI). */
     label: string
-    /** The loader itself. */
+    /** The loader to use for exporting. */
     loader: StudyLoader
-    /** Study modalities supported by this loader. */
+    /** Study modalities supported by the loader. */
     modalities: string[]
-    /** Mode to use (file, folder, study or url). */
+    /** Mode to use (`file` or `dataset`). */
+    mode: WriterMode
+}
+/**
+ * Context for a study importer.
+ */
+export type StudyImporterContext = {
+    /** Label for the importer (to be displayed in the UI). */
+    label: string
+    /** The loader to use for importing. */
+    loader: StudyLoader
+    /** Study modalities supported by the loader. */
+    modalities: string[]
+    /** Mode to use (`file`, `folder`, `study` or `url`). */
     mode: ReaderMode
 }
 /**
- * Context for a study load protocol.
+ * Context for a study load protocol (NYI).
  */
 export type StudyLoaderProtocolContext = {
     /** Label for the protocol (to be displayed in the UI). */
     label: string
-    /** Mode to use (file, folder, study or url). */
+    /** Mode to use (`file`, `folder`, `study` or `url`). */
     mode: ReaderMode
     /** The protocol itself. */
     protocol: OrderedLoadingProtocol
     /** Study scopes supported by this loader. */
     scopes: string[]
-    /** Study tyles supported by this loader. */
+    /** Study types supported by this loader. */
     types: string[]
 }
 /**

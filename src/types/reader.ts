@@ -9,6 +9,7 @@ import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import {
     AnnotationTemplate,
+    BiosignalHeaderRecord,
     SignalDataCache,
     SignalDataGap,
     SignalDataGapMap,
@@ -22,6 +23,24 @@ import {
     StudyContextFile,
     StudyLoader,
 } from './study'
+import { MediaDataset } from './dataset'
+import { TypedNumberArray, TypedNumberArrayConstructor } from './util'
+import { GenericBiosignalHeader } from '../assets'
+
+export type AnonymizationProperties = {
+    /**
+     * Anonymize the patient ID.
+     */
+    anonymizePatientId?: boolean
+    /**
+     * Anonymize the patient name.
+     */
+    anonymizePatientName?: boolean
+    /**
+     * Anonymize the patient birth date.
+     */
+    anonymizePatientBirthDate?: boolean
+}
 
 /**
  * An object describing a file type associated with a file reader. This object is meant to emulate the File System API
@@ -108,6 +127,18 @@ export interface FileDecoder {
      */
     setInput (buffer: ArrayBuffer): void
 }
+export interface FileEncoder extends BaseAsset {
+    dataEncoding: TypedNumberArrayConstructor
+}
+/**
+ * A file format module must export a reader and may optionally export a writer for the file type.
+ */
+export type FileFormatModule = {
+    /** Reader instance for this file type (mandatory). */
+    reader: FileFormatReader
+    /** Writer instance for this file type (null if not supported by the module). */
+    writer: FileFormatWriter | null
+}
 export interface FileFormatReader extends BaseAsset {
     /** File types associated with this reader. */
     fileTypes: AssociatedFileType[]
@@ -170,6 +201,32 @@ export type FileFormatReaderSpecs = {
     /** Patterns to match the filename against. */
     matchPatters: RegExp[]
 }
+/**
+ * FileFormatWriter is an interface for writing files in a specific format.
+ */
+export interface FileFormatWriter extends BaseAsset {
+    /** Description of the produced files(s). */
+    description: string
+    /** The file format that this writer produces. */
+    readonly format: string
+    /**
+     * Set the source study for this writer.
+     * @param study - The `StudyContext` to use as the source for writing.
+     */
+    setSourceStudy (study: StudyContext): void
+    /**
+     * Write the file to the given dataset.
+     * @param dataset - The dataset to write the file to.
+     * @param path - Path within the dataset to write the file to.
+     * @returns Promise that resolves when the file has been written.
+     */
+    writeFileToDataset (dataset: MediaDataset, path: string): Promise<void>
+    /**
+     * Write the file to the file system.
+     * @returns Promise that resolves when the file has been written.
+     */
+    writeFileToFileSystem (): Promise<void>
+}
 export interface FileReader {
     readFilesFromSource(source: unknown): Promise<FileSystemItem|undefined>
 }
@@ -206,9 +263,150 @@ export type FileSystemItemType = 'directory' | 'file'
 export type ReadDirection = 'backward' | 'alternate' | 'forward'
 export type ReaderMode = 'file' | 'folder' | 'study' | 'url'
 /**
- * SignalDataProcessers provide methods for storing and processing signal data.
+ * SignalDataEncoder provides methods for encoding signal data into a specific format.
  */
-export interface SignalDataProcesser {
+export interface SignalDataEncoder extends FileEncoder {
+    /**
+     * Create a new header for the signal data.
+     * @param properties - Properties to use for creating the header.
+     */
+    createHeader (properties?: Partial<BiosignalHeaderRecord>): BiosignalHeaderRecord
+    /**
+     * Encode the header and signal data into a specific format.
+     * @param anonymize - Whether to anonymize the data before encoding.
+     * @returns Promise resolving to an ArrayBuffer containing the encoded data, or null if encoding failed.
+     */
+    encode (anonymize?: boolean): Promise<ArrayBuffer | null>
+    /**
+     * Set the annotations to include in the encoded data.
+     * @param annotations - Annotations to include.
+     */
+    setAnnotations (annotations: AnnotationTemplate[]): void
+    /**
+     * Set the data gaps to include in the encoded data.
+     * @param dataGaps - Data gaps to include.
+     */
+    setDataGaps (dataGaps: SignalDataGapMap): void
+    /**
+     * Set new values to the given header `properties`.
+     * @param properties - Properties to use for creating the header.
+     * @returns The created header.
+     */
+    setHeader (properties?: Partial<BiosignalHeaderRecord>): BiosignalHeaderRecord
+    /**
+     * Set the signals to include in the encoded data.
+     * @param signals - Array of signal indices (according to the header) to include.
+     */
+    setSignalsToInclude (signals: number[]): void
+}
+/**
+ * SignalDataReader serves as an interface for file reading. After setting the required metadata, parts of the signal
+ * file can be loaded using time indices and the class handles all conversions between file time and byte positions,
+ * taking into account possible data unit (record) lengths and maximum allowed single load (chunk) sizes.
+ *
+ * For larger files it will keep loading the file progressively until the maximum cache size has been reached (NYI).
+ *
+ * Data loading methods return a promise which resolves when the requested data has been loaded or rejects if there
+ * is an error.
+ */
+export interface SignalDataReader extends SignalProcessorCache {
+    /**
+     * Source file URL.
+     */
+    url: string
+    /**
+     * Start loading signal data from the given file.
+     * @param file - File object.
+     * @param startFrom - Optional starting point of the loading process in seconds of file duration.
+     */
+    cacheFile (file: File, startFrom?: number): Promise<void>
+    /**
+     * Destroy the reader and release all resources.
+     * @returns Promise that resolves when the reader has been destroyed.
+     */
+    destroy (): void | Promise<void>
+    /**
+     * Read and cache the entire file from the given URL.
+     * @param url - Optional URL of the file (defaults to cached URL).
+     * @returns Loading success (true/false).
+     */
+    readFileFromUrl (url?: string): Promise<boolean>
+    /**
+     * Read a single part from the cached file.
+     * @param startFrom - Starting point of the loading process in seconds of file duration.
+     * @param dataLength - Length of the requested data in seconds.
+     * @returns Promise containing the signal file part or null.
+     */
+    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart | null>
+}
+/**
+ * SignalDataReader serves as an interface for file writing. After setting the required metadata and a signal data
+ * cache, a new file can be created and written to the filesystem or a dataset.
+ */
+export interface SignalDataWriter extends SignalProcessorCache {
+    /**
+     * Set the biosignal header for the file to be written.
+     * @param header - The biosignal header to use.
+     */
+    setBiosignalHeader (header: GenericBiosignalHeader): void
+    /**
+     * Set the file type specific header for the file to be written.
+     * @param header - The file type header to use.
+     */
+    setFileTypeHeader (header: unknown): void
+    /**
+     * Set the source data array for copying the original signal data from. The single array should contain all the
+     * signals for the recording; header information will be used to parse the data.
+     * @param buffer - The ArrayBuffer containing the signal data.
+     */
+    setSourceArrayBuffer (buffer: ArrayBuffer): void
+    /**
+     * Set the source digital signals to copy the original signal data from.
+     * Source and target files must use the same encoding for the signal data.
+     * The signals should be in the same order as defined in the header.
+     * @param signals - Array of TypedNumberArrays containing the digital signal data.
+     */
+    setSourceDigitalSignals (signals: TypedNumberArray[]): void
+}
+/**
+ * Partially loaded signal file containing:
+ * - `data` as a pseudo-File object.
+ * - `dataLen` as length of the actual signal data in seconds.
+ * - `length` of the loaded part in seconds (recording time).
+ * - `start` position of the loaded part in seconds (recording time).
+ */
+export type SignalFilePart = {
+    /** Signal data as a pseudo-File object. */
+    data: File
+    /** Length of the actual data in seconds. */
+    dataLength: number
+    /** Length of the loaded part in seconds (recording time, i.e. containing possible gaps). */
+    length: number
+    /** Starting time of the loaded part in seconds (recording time, i.e. including possible prior gaps). */
+    start: number
+}
+/**
+ * SignalFileReader has additional methods for reading the file header.
+ */
+export interface SignalFileReader extends FileFormatReader {
+    /**
+     * Read information about the recording contained in this file from the file header. Information is also saved
+     * into the cached study's `meta.header` property for later use.
+     * @param source - Data source as an ArrayBuffer.
+     * @param config - Optional configuration for the operation.
+     * @returns Promise that resolves with the loaded header entity or null if an error occurred.
+     */
+    readHeader: (source: ArrayBuffer, config?: ConfigReadHeader) => Promise<unknown | null>
+}
+/**
+ * SignalProcessorCache provide methods for storing and processing signal data. It doesn't have any direct interaction
+ * with the file source, so it can be used both in the main thread and in workers.
+ */
+export interface SignalProcessorCache {
+    /**
+     * Encoding used for the signal data in the data source.
+     */
+    readonly dataEncoding: TypedNumberArrayConstructor
     /**
      * Has the cache been initialized.
      */
@@ -229,15 +427,15 @@ export interface SignalDataProcesser {
      * Add new, unique annotations to the annotation cache.
      * @param annotations - New annotations to check and cache.
      */
-    cacheNewAnnotations (...annotations: AnnotationTemplate[]): void
+    addNewAnnotations (...annotations: AnnotationTemplate[]): void
     /**
      * Add new, unique data gaps to the data gap cache.
      * @param newGaps - New data gaps to check and cache.
      */
-    cacheNewDataGaps (newGaps: SignalDataGapMap): void
+    addNewDataGaps (newGaps: SignalDataGapMap): void
     /**
      * Get any cached annotations from data units in the provided `range`.
-     * @param range - Recording range in seconds [inluded, excluded].
+     * @param range - Recording range in seconds [included, excluded].
      * @returns List of annotations as BiosignalAnnotation[].
      */
     getAnnotations (range?: number[]): AnnotationTemplate[]
@@ -261,6 +459,11 @@ export interface SignalDataProcesser {
      * Release buffers removing all references to them and returning to initial state.
      */
     releaseCache (): Promise<void>
+    /**
+     * Overwrite current annotations with a new set of annotations.
+     * @param annotations - Annotations to set.
+     */
+    setAnnotations (annotations: AnnotationTemplate[]): void
     /**
      * Set new data gaps for the source data.
      * @param dataGaps - The new gaps.
@@ -323,84 +526,9 @@ export interface SignalDataProcesser {
         dataGaps?: SignalDataGap[]
     ): Promise<boolean>
 }
-/**
- * SignalDataReader serves as an interface for file reading. After setting the required metadata, parts of the signal
- * file can be loaded using time indices and the class handles all coversions between file time and byte positions,
- * taking into account possible data unit (record) lengths and maximum allowed single load (chunk) sizes.
- *
- * For larger files it will keep loading the file progressively until the maximum cache size has been reached (NYI).
- *
- * Data loading methods return a promise which resolves when the requested data has been loaded or rejects if there
- * is an error.
- */
-export interface SignalDataReader extends SignalDataProcesser {
-    /**
-     * Source file URL.
-     */
-    url: string
-    /**
-     * Start loading signal data from the given file.
-     * @param file - File object.
-     * @param startFrom - Optional starting point of the loading process in seconds of file duration.
-     */
-    cacheFile (file: File, startFrom?: number): Promise<void>
-    /**
-     * Destroy the reader and release all resources.
-     * @returns Promise that resolves when the reader has been destroyed.
-     */
-    destroy (): void | Promise<void>
-    /**
-     * Read and cache the entire file from the given URL.
-     * @param url - Optional URL of the file (defaults to cached URL).
-     * @returns Loading success (true/false).
-     */
-    readFileFromUrl (url?: string): Promise<boolean>
-    /**
-     * Read a single part from the cached file.
-     * @param startFrom - Starting point of the loading process in seconds of file duration.
-     * @param dataLength - Length of the requested data in seconds.
-     * @returns Promise containing the signal file part or null.
-     */
-    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart | null>
-}
-/**
- * SignalFileReader has additional methods for reading the signal header and actuals signal data.
- */
-export interface SignalFileReader extends FileFormatReader {
-    /**
-     * Read information about the recording contained in this file from the file header. Information is also saved
-     * into the cached study's `meta.header` property for later use.
-     * @param source - Data source as an ArrayBuffer.
-     * @param config - Optional configuration for the operation.
-     * @returns Loaded header entity.
-     */
-    readHeader: (source: ArrayBuffer, config?: ConfigReadHeader) => unknown
-    /**
-     * Read signal information into the cached study's `meta.channels` property. Signal data is loaded directly into
-     * the channel's `signal` property if direct loading is possible; otherwise the data is meant to be loaded
-     * asynchronously later.
-     * @param source - Signal data source as an ArrayBuffer.
-     * @param config - Optional configuration for the operation.
-     */
-    readSignals: (source: ArrayBuffer, config?: ConfigReadSignals) => Promise<void>
-}
-/**
- * Partially loaded signal file containing:
- * - `data` as a pseudo-File object.
- * - `dataLen` as length of the actual signal data in seconds.
- * - `length` of the loaded part in seconds (recording time).
- * - `start` position of the loaded part in seconds (recording time).
- */
-export type SignalFilePart = {
-    /** Signal data as a pseudo-File object. */
-    data: File
-    /** Length of the actual data in seconds. */
-    dataLength: number
-    /** Length of the loaded part in seconds (recording time, i.e. containing possible gaps). */
-    length: number
-    /** Starting time of the loaded part in seconds (recording time, i.e. including possible prior gaps). */
-    start: number
-}
+
 export type SuccessReject = (reason: string) => void
 export type SuccessResolve = (response: SuccessResponse) => void
 export type SuccessResponse = boolean
+/** Target for writing study export files. */
+export type WriterMode = 'file' | 'dataset'

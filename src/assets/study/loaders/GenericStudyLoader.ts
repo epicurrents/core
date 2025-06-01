@@ -5,15 +5,19 @@
  * @license    Apache-2.0
  */
 
-import { type DataResource } from '#root/src/types/application'
-import { type ConfigStudyLoader } from '#types/config'
-import { type FileFormatReader, type FileSystemItem } from '#root/src/types/reader'
-import { type MemoryManager } from '#types/service'
-import {
-    type StudyContext,
-    type StudyContextCollection,
-    type StudyLoader,
-    type UseStudyResponse,
+import type { DataResource } from '#types/application'
+import type { ConfigStudyLoader } from '#types/config'
+import type {
+    FileFormatWriter,
+    FileFormatReader,
+    FileSystemItem,
+} from '#root/src/types/reader'
+import type { MemoryManager } from '#types/service'
+import type {
+    StudyContext,
+    StudyContextCollection,
+    StudyLoader,
+    UseStudyResponse,
 } from '#types/study'
 import { Log } from 'scoped-event-log'
 import ServiceMemoryManager from '#assets/service/ServiceMemoryManager'
@@ -34,6 +38,7 @@ const SCOPE = 'GenericStudyLoader'
 
 export default class GenericStudyLoader implements StudyLoader {
     protected _fileReader: FileFormatReader | null = null
+    protected _fileWriter: FileFormatWriter | null = null
     protected _memoryManager: MemoryManager | null = null
     protected _name: string
     protected _resources: DataResource[] = []
@@ -45,19 +50,23 @@ export default class GenericStudyLoader implements StudyLoader {
      * @param scopes - Array of supported study scopes.
      * @param types - Array of supported study types.
      * @param reader - Optional file reader to use when loading studies. Can also be set with `registerFileReader`.
+     * @param writer - Optional file writer to use for transcoding studies. Can also be set with `registerFileWriter`.
      * @param memoryManager - Optional memory manager to use with this loader.
      */
     constructor (
         name: string,
         modalities: string[],
         reader?: FileFormatReader,
+        writer?: FileFormatWriter,
         memoryManager?: ServiceMemoryManager
     ) {
         this._name = name
         this._supportedModalities = modalities
         if (reader) {
             this.registerFileReader(reader)
-            reader.studyLoader = this
+        }
+        if (writer) {
+            this.registerFileWriter(writer)
         }
         if (memoryManager) {
             this.registerMemoryManager(memoryManager)
@@ -80,6 +89,10 @@ export default class GenericStudyLoader implements StudyLoader {
 
     get fileReader () {
         return this._fileReader
+    }
+
+    get fileWriter () {
+        return this._fileWriter
     }
 
     get resourceModality () {
@@ -399,11 +412,16 @@ export default class GenericStudyLoader implements StudyLoader {
         return this._resources.length
     }
 
-    registerFileReader (loader: FileFormatReader) {
-        this._fileReader = loader
+    registerFileReader (reader: FileFormatReader) {
+        this._fileReader = reader
+        reader.studyLoader = this
         if (this._memoryManager) {
-            loader.registerMemoryManager(this._memoryManager)
+            reader.registerMemoryManager(this._memoryManager)
         }
+    }
+
+    registerFileWriter (writer: FileFormatWriter) {
+        this._fileWriter = writer
     }
 
     registerMemoryManager (manager: MemoryManager) {

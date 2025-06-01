@@ -10,7 +10,7 @@
 import { Log } from 'scoped-event-log'
 import ServiceWorkerSubstitute from '#assets/service/ServiceWorkerSubstitute'
 import { validateCommissionProps } from '#util'
-import MontageProcesser from './MontageProcesser'
+import MontageProcessor from './MontageProcessor'
 import type {
     AppSettings,
     BiosignalFilters,
@@ -29,7 +29,7 @@ import type {
 const SCOPE = 'MontageWorkerSubstitute'
 
 export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
-    protected _montage = null as MontageProcesser | null
+    protected _montage = null as MontageProcessor | null
     async postMessage (message: WorkerMessage['data']) {
         if (!message?.action) {
             return
@@ -217,7 +217,7 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 const MOD_SETTINGS = window
                                      .__EPICURRENTS__.RUNTIME?.SETTINGS
                                      .modules[data.namespace] as unknown as CommonBiosignalSettings
-                this._montage = new MontageProcesser(MOD_SETTINGS)
+                this._montage = new MontageProcessor(MOD_SETTINGS)
                 this._montage.setupChannels(data.montage, data.config, data.setupChannels)
                 Log.debug(`Worker setup complete.`, SCOPE)
                 return this.returnSuccess(message)

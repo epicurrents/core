@@ -7,92 +7,57 @@
 
 import {
     NUMERIC_ERROR_VALUE,
-    nullPromise,
 } from '#util'
-import {
-    type AnnotationTemplate,
-    type SignalCacheMutex,
-    type SignalCachePart,
-    type SignalCacheProcess,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
-    type SignalDataReader,
-    type SignalFilePart,
+import type {
+    AnnotationTemplate,
+    SignalCacheMutex,
+    SignalCachePart,
+    SignalDataCache,
+    SignalDataGap,
+    SignalDataGapMap,
+    SignalProcessorCache,
+    TypedNumberArray,
+    TypedNumberArrayConstructor,
 } from '#types'
 import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
 import { Log } from 'scoped-event-log'
 import { EPS as FLOAT32_EPS } from '@stdlib/constants-float32'
+import { GenericBiosignalHeader } from '../biosignal'
 
 const SCOPE = 'SignalFileReader'
 
-export default abstract class SignalFileReader implements SignalDataReader {
+export default abstract class GenericSignalProcessor implements SignalProcessorCache {
 
     /** Map of annotations as <position in seconds, list of annotations>. */
     protected _annotations = new Map<number, AnnotationTemplate[]>()
-    /** Promise awaiting data to update. */
-    protected _awaitData = null as null | {
-        range: number[],
-        resolve: () => void,
-        timeout: unknown,
-    }
-    /** Ongoing cache process. */
-    protected _cacheProcesses = [] as SignalCacheProcess[]
-    /** Number of data units to load as a chunk. */
-    protected _chunkLoadSize = 0
-    /** Number of data units to load as a single chunk. */
-    protected _chunkUnitCount = 0
-    /** Recording data block structure in data chunks. */
-    protected _dataBlocks = [] as {
-        /** Record index this block starts at. */
-        startRecord: number
-        /** Record index this block ends at (excluded). */
-        endRecord: number
-        /** Recording time (in seconds) at start of this block. */
-        startTime: number
-        /** Recording time (in seconds) at end of this block. */
-        endTime: number
-        /** File byte position this block starts at. */
-        startBytePos: number
-        /** File byte position this block ends at. */
-        endBytePos: number
-        /** Data contained in this block if loaded, null if not. */
-        data: SignalFilePart | null
-    }[]
+    protected _dataEncoding: TypedNumberArrayConstructor
     /** Map of data gaps as <gap data position, gap length> in seconds. */
     protected _dataGaps = new Map<number, number>() as SignalDataGapMap
-    /** Byte position of the first data unit (= header size in bytes). */
-    protected _dataOffset = 0
-    /** Number of data units in in the source file. */
+    /** Number of data units to write into the file. */
     protected _dataUnitCount = 0
     /** Duration of single data unit in seconds. */
     protected _dataUnitDuration = 0
     /** Size of single data unit in bytes. */
     protected _dataUnitSize = 0
-    /** Is the source file discontinous. */
+    /** Is the resulting file discontinuous. */
     protected _discontinuous = false
     /** A plain fallback data cache in case mutex is not usable. */
     protected _fallbackCache = null as SignalDataCache | null
-    /** The file to load. */
-    protected _file = null as SignalFilePart | null
-    /** Index of next data data unit to load. */
-    protected _filePos = 0
-    /** Is the mutex fully setup and ready. */
-    protected _isMutexReady = false
-    protected _maxDataBlocks = 0
+    protected _fileTypeHeader: unknown | null = null
+    protected _header: GenericBiosignalHeader | null = null
+    /** Data source mutex. */
     protected _mutex = null as SignalCacheMutex | null
-    /** Loading process start time (for debugging). */
-    protected _startTime = 0
+    protected _sourceBuffer: ArrayBuffer | null = null
+    protected _sourceDigitalSignals: TypedNumberArray[] | null = null
     protected _totalDataLength = 0
     protected _totalRecordingLength = 0
-    /** File data url. */
-    protected _url = ''
 
-    constructor () {
+    constructor (dataEncoding: TypedNumberArrayConstructor) {
+        this._dataEncoding = dataEncoding
     }
 
     protected get _cache (): SignalCacheMutex | SignalDataCache | null {
-        if (this._mutex && this._isMutexReady) {
+        if (this._mutex) {
             return this._mutex
         } else if (this._fallbackCache) {
             return this._fallbackCache
@@ -102,6 +67,10 @@ export default abstract class SignalFileReader implements SignalDataReader {
 
     get cacheReady () {
         return this._cache !== null
+    }
+
+    get dataEncoding () {
+        return this._dataEncoding
     }
 
     get dataLength () {
@@ -118,13 +87,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
 
     get totalLength () {
         return this._totalRecordingLength
-    }
-
-    get url () {
-        return this._url
-    }
-    set url (url: string) {
-        this._url = url
     }
 
     /**
@@ -165,16 +127,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return this._dataUnitIndexToTime(time/this._dataUnitDuration)
     }
     /**
-     * Cancel an ongoing file loading process.
-     */
-    protected _cancelLoading () {
-        const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        Log.info(`File loading canceled, managed to load ${this._filePos} bytes in ${loadTime} seconds.`, SCOPE)
-        this._chunkLoadSize = 0
-        this._file = null
-        this._filePos = 0
-    }
-    /**
      * Convert a data unit index into timestamp.
      * @param index - Data unit index to convert.
      * @returns Recording timestamp in seconds.
@@ -194,17 +146,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
             }
         }
         return index*this._dataUnitDuration + priorGapsTotal
-    }
-    /**
-     * Wrap up after file loading has finished.
-     */
-    protected _finishLoading () {
-        // Log message
-        const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        Log.debug(`File loading complete, ${this._filePos} bytes loaded in ${loadTime} seconds.`, SCOPE)
-        this._chunkLoadSize = 0
-        this._file = null
-        this._filePos = 0
     }
     /**
      * Get the total gap time between two points in recording time.
@@ -241,69 +182,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
         return { start: rangeStart, end: rangeEnd }
     }
     /**
-     * Get the largest start and lowest end updated data range (in seconds) for the signals.
-     * @returns Range as { start: number, end: number } measured in seconds or NUMERIC_ERROR_VALUE if an error occurred.
-     */
-    async getSignalUpdatedRange () {
-        if (!this._cache) {
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        const ranges = this._cache.outputSignalUpdatedRanges
-        const srs = this._cache.outputSignalSamplingRates
-        let highestStart = NUMERIC_ERROR_VALUE
-        let lowestEnd = NUMERIC_ERROR_VALUE
-        for (let i=0; i<ranges.length; i++) {
-            const sr = await srs[i]
-            if (!sr) {
-                // Empty or missing channel, skip
-                continue
-            }
-            const range = await ranges[i]
-            if (!range) {
-                Log.error(`Montage signal mutex did not report a valid updated range for signal at index ${i}.`, SCOPE)
-                return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-            }
-            const tStart = range.start/sr
-            const tEnd = range.end/sr
-            if (range.start !== IOMutex.EMPTY_FIELD) {
-                highestStart = (highestStart === NUMERIC_ERROR_VALUE || tStart > highestStart) ? tStart : highestStart
-            } else {
-                Log.warn(`Signal #${i} has not updated start position set.`, SCOPE)
-            }
-            if (range.end !== IOMutex.EMPTY_FIELD) {
-                lowestEnd = (lowestEnd === NUMERIC_ERROR_VALUE || tEnd < lowestEnd) ? tEnd : lowestEnd
-            } else {
-                Log.warn(`Signal #${i} has not updated end position set.`, SCOPE)
-            }
-        }
-        if (highestStart === NUMERIC_ERROR_VALUE && lowestEnd === NUMERIC_ERROR_VALUE) {
-            Log.error(`Cannot get ranges of updated signals, cache has no initialized signals.`, SCOPE)
-            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
-        }
-        return {
-            start: this._cacheTimeToRecordingTime(highestStart),
-            end: this._cacheTimeToRecordingTime(lowestEnd),
-        }
-    }
-    /**
-     * Load the next part from the cached file.
-     */
-    protected _loadNextPart () {
-        if (!this._file) {
-            return
-        }
-        const partEnd = this._file.length > this._filePos + this._chunkLoadSize
-                        ? this._filePos + this._chunkLoadSize
-                        : this._file.length
-        if (
-            this._file.start > this._filePos ||
-            (this._file.length - this._file.start + this._filePos) < partEnd
-        ) {
-            Log.error(`Requested file part has not been cached.`, SCOPE)
-        }
-        this._filePos = partEnd
-    }
-    /**
      * Convert recording time to cache time (i.e. time without data gaps).
      * @param time - Recording time.
      * @returns Matching cache time (without gaps).
@@ -324,15 +202,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
             return time
         }
         return time - this._getGapTimeBetween(0, time)
-    }
-    /**
-     * Stop current loading process, but don't reset cached file data.
-     * @remarks
-     * This method doesn't seem to actually do anything?
-     */
-    protected _stopLoading () {
-        const loadTime = ((Date.now() - this._startTime)/1000).toFixed(2)
-        Log.info(`File loading stopped after loading ${this._filePos} bytes in ${loadTime} seconds.`, SCOPE)
     }
     /**
      * Convert a recording timestamp to data unit index.
@@ -357,7 +226,15 @@ export default abstract class SignalFileReader implements SignalDataReader {
         Log.error(`cacheFile has not been overridden by child class.`, SCOPE)
     }
 
-    cacheNewAnnotations (...annotations: AnnotationTemplate[]) {
+    async destroy () {
+        await this.releaseCache()
+        this._annotations.clear()
+        this._dataGaps.clear()
+        this._fallbackCache = null
+        this._mutex = null
+    }
+
+    addNewAnnotations (...annotations: AnnotationTemplate[]) {
         // Arrange the annotations by record.
         const annoMap = new Map<number, AnnotationTemplate[]>()
         for (const anno of annotations) {
@@ -385,7 +262,7 @@ export default abstract class SignalFileReader implements SignalDataReader {
         }
     }
 
-    cacheNewDataGaps (newGaps: Map<number, number>) {
+    addNewDataGaps (newGaps: Map<number, number>) {
         new_loop:
         for (const newGap of newGaps) {
             if (!newGap[1] || newGap[1] < 0) {
@@ -400,17 +277,6 @@ export default abstract class SignalFileReader implements SignalDataReader {
         }
         // We need to sort the gaps to make sure keys appear in ascending order.
         this._dataGaps = new Map([...this._dataGaps.entries()].sort((a, b) => a[0] - b[0]))
-    }
-
-    async destroy () {
-        await this.releaseCache()
-        this._annotations.clear()
-        this._dataGaps.clear()
-        this._dataBlocks.length = 0
-        this._fallbackCache = null
-        this._file = null
-        this._mutex = null
-        this._url = ''
     }
 
     getAnnotations (range?: number[]) {
@@ -486,38 +352,55 @@ export default abstract class SignalFileReader implements SignalDataReader {
         Log.error(`getSignals must be overridden in the child class.`, SCOPE)
         return null
     }
-
-    async readPartFromFile (_startFrom: number, _dataLength: number): Promise<SignalFilePart | null> {
-        Log.error(`readPartFromFile has not been overridden by child class.`, SCOPE)
-        return nullPromise
-    }
-
-    async readFileFromUrl (url?: string) {
-        return await fetch(url || this._url)
-            .then(response => response.blob())
-            .then(blobFile => {
-                this._file = {
-                    data: new File([blobFile], "recording"),
-                    dataLength: this._totalDataLength,
-                    start: 0,
-                    length: this._totalRecordingLength,
-                }
-                return true
-            }).catch((reason: Error) => {
-                Log.error(`Error loading file from URL '${url || this._url}':`, SCOPE, reason)
-                return false
-            })
+    /**
+     * Get the largest start and lowest end updated data range (in seconds) for the signals.
+     * @returns Range as { start: number, end: number } measured in seconds or NUMERIC_ERROR_VALUE if an error occurred.
+     */
+    async getSignalUpdatedRange () {
+        if (!this._cache) {
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        const ranges = this._cache.outputSignalUpdatedRanges
+        const srs = this._cache.outputSignalSamplingRates
+        let highestStart = NUMERIC_ERROR_VALUE
+        let lowestEnd = NUMERIC_ERROR_VALUE
+        for (let i=0; i<ranges.length; i++) {
+            const sr = await srs[i]
+            if (!sr) {
+                // Empty or missing channel, skip
+                continue
+            }
+            const range = await ranges[i]
+            if (!range) {
+                Log.error(`Montage signal mutex did not report a valid updated range for signal at index ${i}.`, SCOPE)
+                return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+            }
+            const tStart = range.start/sr
+            const tEnd = range.end/sr
+            if (range.start !== IOMutex.EMPTY_FIELD) {
+                highestStart = (highestStart === NUMERIC_ERROR_VALUE || tStart > highestStart) ? tStart : highestStart
+            } else {
+                Log.warn(`Signal #${i} has not updated start position set.`, SCOPE)
+            }
+            if (range.end !== IOMutex.EMPTY_FIELD) {
+                lowestEnd = (lowestEnd === NUMERIC_ERROR_VALUE || tEnd < lowestEnd) ? tEnd : lowestEnd
+            } else {
+                Log.warn(`Signal #${i} has not updated end position set.`, SCOPE)
+            }
+        }
+        if (highestStart === NUMERIC_ERROR_VALUE && lowestEnd === NUMERIC_ERROR_VALUE) {
+            Log.error(`Cannot get ranges of updated signals, cache has no initialized signals.`, SCOPE)
+            return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
+        }
+        return {
+            start: this._cacheTimeToRecordingTime(highestStart),
+            end: this._cacheTimeToRecordingTime(lowestEnd),
+        }
     }
 
     async releaseCache () {
-        for (const proc of this._cacheProcesses) {
-            proc.continue = false
-            proc.signals.length = 0
-        }
-        this._cacheProcesses.length = 0
         this._cache?.releaseBuffers()
         if (this._mutex) {
-            this._isMutexReady = false
             this._mutex = null
         } else if (this._fallbackCache) {
             this._fallbackCache = null
@@ -525,8 +408,32 @@ export default abstract class SignalFileReader implements SignalDataReader {
         Log.debug(`Signal cache released.`, SCOPE)
     }
 
+    setAnnotations (annotations: AnnotationTemplate[]) {
+        this._annotations.clear()
+        for (const anno of annotations) {
+            if (!anno) {
+                continue
+            }
+            const existingAnnos = this._annotations.get(anno.start)
+            if (existingAnnos) {
+                // If there are already annotations at this position, add to them.
+                existingAnnos.push(anno)
+            } else {
+                this._annotations.set(anno.start, [anno])
+            }
+        }
+    }
+
+    setBiosignalHeader(header: GenericBiosignalHeader): void {
+        this._header = header
+    }
+
     setDataGaps (dataGaps: SignalDataGapMap) {
         this._dataGaps = dataGaps
+    }
+
+    setFileTypeHeader(header: unknown): void {
+        this._fileTypeHeader = header
     }
 
     setupCache (): SignalDataCache | null {

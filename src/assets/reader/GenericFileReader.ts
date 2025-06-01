@@ -59,7 +59,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
     }
      */
     protected _fileTypes: AssociatedFileType[]
-    /** A substitute processer to use in environments where workers cannot be used. */
+    /** A substitute processor to use in environments where workers cannot be used. */
     protected _getWorkerSubstitute: (() => Worker | null) = () => null
     protected _matchPatterns: RegExp[] = []
     protected _memoryManager: MemoryManager | null  = null

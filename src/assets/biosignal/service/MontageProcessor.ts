@@ -18,7 +18,7 @@ import {
 } from '#util/signal'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
-import { SignalFileReader } from '#assets/reader'
+import { GenericSignalReader } from '#assets/reader'
 import type {
     BiosignalFilters,
     BiosignalSetup,
@@ -26,7 +26,6 @@ import type {
     SetupChannel,
     SignalDataCache,
     SignalDataGap,
-    SignalDataGapMap,
     SignalPart,
 } from '#types/biosignal'
 import type {
@@ -40,11 +39,10 @@ import type { SignalCachePart } from '#types/service'
 import { Log } from 'scoped-event-log'
 import type { MutexExportProperties } from 'asymmetric-io-mutex'
 
-const SCOPE = "MontageProcesser"
+const SCOPE = "MontageProcessor"
 
-export default class MontageProcesser extends SignalFileReader implements SignalDataReader {
+export default class MontageProcessor extends GenericSignalReader implements SignalDataReader {
     protected _channels = [] as MontageChannel[]
-    protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _filters = {
         highpass: 0,
         lowpass: 0,
@@ -54,7 +52,7 @@ export default class MontageProcesser extends SignalFileReader implements Signal
     protected _setup = null as BiosignalSetup | null
 
     constructor (settings: CommonBiosignalSettings) {
-        super()
+        super(Float32Array)
         this._settings = settings
         // Set some parent class properties to avoid errors.
         this._dataUnitDuration = 1

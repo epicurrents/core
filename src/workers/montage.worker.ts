@@ -15,7 +15,7 @@ import {
 } from '#types/biosignal'
 import { type CommonBiosignalSettings } from '#types/config'
 import { type WorkerMessage } from '#types/service'
-import MontageProcesser from '#assets/biosignal/service/MontageProcesser'
+import MontageProcessor from '#assets/biosignal/service/MontageProcessor'
 import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-event-log'
 import { BaseWorker } from './base.worker'
@@ -38,7 +38,7 @@ export class MontageWorker extends BaseWorker {
         ['update-settings', this.updateSettings],
     ])
     /** Montage processer. */
-    protected _montage = null as MontageProcesser | null
+    protected _montage = null as MontageProcessor | null
     protected _name = ''
     constructor () {
         super()
@@ -271,7 +271,7 @@ export class MontageWorker extends BaseWorker {
         }
         this._namespace = data.namespace as string
         const settings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
-        this._montage = new MontageProcesser(settings)
+        this._montage = new MontageProcessor(settings)
         this._montage.setupChannels(data.montage, data.config, data.setupChannels)
         this._name = data.montage
         Log.debug(`Worker setup complete.`, SCOPE)

@@ -11,14 +11,15 @@ import {
     SettingsValue,
 } from './config'
 import { DatasetLoader, MediaDataset } from './dataset'
-import { FileSystemItem, ReaderMode } from './reader'
+import { FileSystemItem, ReaderMode, WriterMode } from './reader'
 import { BiosignalPlot } from './plot'
 import { AssetService } from './service'
 import {
     StudyContext,
+    StudyExporterContext,
+    StudyImporterContext,
     StudyLoaderProtocolContext,
     StudyLoader,
-    StudyLoaderContext,
 } from './study'
 import { Modify } from './util'
 import {
@@ -334,13 +335,21 @@ export interface EpicurrentsApp {
      */
     registerService (name: string, service: AssetService): void
     /**
-     * Register a new study loader.
-     * @param name - Unique name of the loader. If another loader exists with the same name it will be replaced.
-     * @param label - A user-facing label for the loader.
-     * @param mode - Opening mode for this loader (`file`, `folder`, `study` or `url`).
-     * @param loader - The study loader itself.
+     * Register a new study exporter.
+     * @param name - Unique name of the exporter. If another exporter exists with the same name it will be replaced.
+     * @param label - A user-facing label for the exporter.
+     * @param mode - Writing mode for this exporter (`file` or `dataset`).
+     * @param loader - The study loader to use for exporting.
      */
-    registerStudyLoader (name: string, label: string, mode: ReaderMode, loader: StudyLoader): void
+    registerStudyExporter (name: string, label: string, mode: WriterMode, loader: StudyLoader): void
+    /**
+     * Register a new study importer.
+     * @param name - Unique name of the importer. If another importer exists with the same name it will be replaced.
+     * @param label - A user-facing label for the importer.
+     * @param mode - Opening mode for this importer (`file`, `folder`, `study` or `url`).
+     * @param loader - The study loader to use for importing.
+     */
+    registerStudyImporter (name: string, label: string, mode: ReaderMode, loader: StudyLoader): void
     /**
      * Select the resource with the given `id` in current dataset as active.
      * @param id - Unique ID of the resource.
@@ -386,7 +395,7 @@ export interface InterfaceModule {
  */
 export interface InterfaceModuleConstructor {
     new (
-        epicvApp: EpicurrentsApp,
+        epicApp: EpicurrentsApp,
         runtime?: StateManager,
         modules?: string[],
         config?: ApplicationConfig,
@@ -460,7 +469,8 @@ export type RuntimeAppModule = NullProtoObject & {
     /** List of available plots as <name, plot-instance|null>. */
     plots: Map<string, BiosignalPlot | null>
     runningId: number
-    studyLoaders: Map<string, StudyLoaderContext>
+    studyExporters: Map<string, StudyExporterContext>
+    studyImporters: Map<string, StudyImporterContext>
     studyLoadProtocols: Map<string, StudyLoaderProtocolContext>
 }
 

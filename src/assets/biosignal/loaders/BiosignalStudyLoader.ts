@@ -5,18 +5,18 @@
  * @license    Apache-2.0
  */
 
-import { type VideoAttachment } from '#types/biosignal'
-import { type ConfigStudyContext, type ConfigStudyLoader } from '#types/config'
-import { type FileFormatReader } from '#root/src/types/reader'
-import { type StudyContext } from '#types/study'
+import type { VideoAttachment } from '#types/biosignal'
+import type { ConfigStudyContext, ConfigStudyLoader } from '#types/config'
+import type { FileFormatReader, FileFormatWriter } from '#root/src/types/reader'
+import type { StudyContext } from '#types/study'
 import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
 
 //const SCOPE = 'BiosignalStudyLoader'
 
 export default class BiosignalStudyLoader extends GenericStudyLoader {
 
-    constructor (name: string, modalities: string[], reader: FileFormatReader) {
-        super(name, modalities, reader)
+    constructor (name: string, modalities: string[], reader: FileFormatReader, writer?: FileFormatWriter) {
+        super(name, modalities, reader, writer)
     }
 
     async loadFromUrl(fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext):

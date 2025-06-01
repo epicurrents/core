@@ -5,9 +5,13 @@
  * @license    Apache-2.0
  */
 
-import { type RuntimeAppModule, type SafeObject } from '#root/src/types/application'
-import { type BiosignalPlot } from '#types/plot'
-import { type StudyLoaderContext, type StudyLoaderProtocolContext } from '#types/study'
+import type { RuntimeAppModule, SafeObject } from '#root/src/types/application'
+import type { BiosignalPlot } from '#types/plot'
+import type {
+    StudyExporterContext,
+    StudyImporterContext,
+    StudyLoaderProtocolContext
+} from '#types/study'
 
 //const SCOPE = 'runtime-app-module'
 
@@ -23,7 +27,8 @@ const APP: SafeObject & RuntimeAppModule = {
     },
     plots: new Map<string, BiosignalPlot>(),
     runningId: 0,
-    studyLoaders: new Map<string, StudyLoaderContext>(),
+    studyExporters: new Map<string, StudyExporterContext>(),
+    studyImporters: new Map<string, StudyImporterContext>(),
     studyLoadProtocols: new Map<string, StudyLoaderProtocolContext>(),
 }
 export default APP
