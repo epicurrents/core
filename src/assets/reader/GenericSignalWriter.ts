@@ -13,8 +13,9 @@ import type {
 } from '#types'
 import { GenericBiosignalHeader } from '../biosignal'
 import GenericSignalProcessor from './GenericSignalProcessor'
+import { Log } from 'scoped-event-log'
 
-//const SCOPE = 'GenericSignalFileWriter'
+const SCOPE = 'GenericSignalFileWriter'
 
 export default abstract class GenericSignalWriter extends GenericSignalProcessor implements SignalDataWriter {
     protected _encoder: FileEncoder
@@ -47,7 +48,7 @@ export default abstract class GenericSignalWriter extends GenericSignalProcessor
         this._encoder = value
     }
 
-    setBiosignalHeader(header: GenericBiosignalHeader): void {
+    setBiosignalHeader (header: GenericBiosignalHeader): void {
         this._header = header
     }
 
@@ -55,15 +56,30 @@ export default abstract class GenericSignalWriter extends GenericSignalProcessor
         this._dataGaps = dataGaps
     }
 
-    setFileTypeHeader(header: unknown): void {
+    setFileTypeHeader (header: unknown): void {
         this._fileTypeHeader = header
     }
 
-    setSourceArrayBuffer(buffer: ArrayBuffer): void {
+    setSourceArrayBuffer (buffer: ArrayBuffer): void {
         this._sourceBuffer = buffer
     }
 
-    setSourceDigitalSignals(signals: TypedNumberArray[]): void {
+    setSourceDigitalSignals (signals: TypedNumberArray[]): void {
         this._sourceDigitalSignals = signals
+    }
+
+    async writeRecordingToArrayBuffer (): Promise<ArrayBuffer | null> {
+        Log.error('writeRecordingToArrayBuffer must be overridden in the child class.', SCOPE)
+        return null
+    }
+
+    async writeRecordingToFile (_fileName: string): Promise<File | null> {
+        Log.error('writeRecordingToFile must be overridden in the child class.', SCOPE)
+        return null
+    }
+
+    writeRecordingToStream (): ReadableStream | null {
+        Log.error('writeRecordingToStream must be overridden in the child class.', SCOPE)
+        return null
     }
 }

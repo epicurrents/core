@@ -341,7 +341,7 @@ export interface SignalDataReader extends SignalProcessorCache {
 }
 /**
  * SignalDataReader serves as an interface for file writing. After setting the required metadata and a signal data
- * cache, a new file can be created and written to the filesystem or a dataset.
+ * cache, a new file can be created and retrieved as an array buffer.
  */
 export interface SignalDataWriter extends SignalProcessorCache {
     /**
@@ -367,6 +367,22 @@ export interface SignalDataWriter extends SignalProcessorCache {
      * @param signals - Array of TypedNumberArrays containing the digital signal data.
      */
     setSourceDigitalSignals (signals: TypedNumberArray[]): void
+    /**
+     * Write the recording to an array buffer.
+     * @returns Promise that resolves when the file has been written.
+     */
+    writeRecordingToArrayBuffer (): Promise<ArrayBuffer | null>
+    /**
+     * Write the recording to a File object.
+     * @param fileName - Name of the file to write.
+     * @returns Promise that resolves with the File object or null if an error occurred.
+     */
+    writeRecordingToFile (fileName: string): Promise<File | null>
+    /**
+     * Write the recording to a ReadableStream.
+     * @returns A ReadableStream that will relay the file data as it is being encoded or null if not available.
+     */
+    writeRecordingToStream (): ReadableStream | null
 }
 /**
  * Partially loaded signal file containing:
