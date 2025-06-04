@@ -7,8 +7,8 @@
 
 import type {
     FileEncoder,
-    SignalDataGapMap,
     SignalDataWriter,
+    SignalInterruptionMap,
     TypedNumberArray,
 } from '#types'
 import { GenericBiosignalHeader } from '../biosignal'
@@ -52,12 +52,12 @@ export default abstract class GenericSignalWriter extends GenericSignalProcessor
         this._header = header
     }
 
-    setDataGaps (dataGaps: SignalDataGapMap) {
-        this._dataGaps = dataGaps
-    }
-
     setFileTypeHeader (header: unknown): void {
         this._fileTypeHeader = header
+    }
+
+    setInterruptions (interruptions: SignalInterruptionMap) {
+        this._interruptions = interruptions
     }
 
     setSourceArrayBuffer (buffer: ArrayBuffer): void {

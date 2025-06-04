@@ -13,12 +13,13 @@ import type {
     BiosignalMontageService,
     GetSignalsResponse,
     MontageChannel,
+    MontageWorkerCommission,
     SetupMutexResponse,
     SetupSharedWorkerResponse,
     SetFiltersResponse,
     SetupCacheResponse,
     SignalDataCache,
-    SignalDataGapMap,
+    SignalInterruptionMap,
 } from '#types/biosignal'
 import type { ConfigChannelFilter } from '#types/config'
 import type {
@@ -209,16 +210,16 @@ export default class MontageService extends GenericService implements BiosignalM
         return channels.promise as Promise<void>
     }
 
-    setDataGaps (gaps: SignalDataGapMap) {
-        // Convert gaps into a JSON friendly format.
-        const gapList = []
-        for (const gap of gaps.entries()) {
-            gapList.push({ start: gap[0], duration: gap[1] })
+    setInterruptions (interruptions: SignalInterruptionMap) {
+        // Convert interruptions into a JSON friendly format.
+        const interruptionList = []
+        for (const intr of interruptions.entries()) {
+            interruptionList.push({ start: intr[0], duration: intr[1] })
         }
         this._worker?.postMessage({
-            action: 'set-data-gaps',
-            dataGaps: gapList
-        })
+            action: 'set-interruptions',
+            interruptions: interruptionList
+        } as MontageWorkerCommission['set-interruptions'])
     }
 
     async setFilters () {

@@ -21,8 +21,8 @@ import type {
     BiosignalResource,
     BiosignalSetup,
     SignalDataCache,
-    SignalDataGap,
-    SignalDataGapMap,
+    SignalInterruption,
+    SignalInterruptionMap,
     SignalPart,
     SourceChannel,
     VideoAttachment,
@@ -47,7 +47,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _channels: SourceChannel[] = []
     protected _cursors: BiosignalCursor[] = []
     protected _dataDuration: number = 0
-    protected _dataGaps: SignalDataGapMap = new Map<number, number>()
     protected _displayViewStart: number = 0
     protected _filterChannelTypes = {} as { [type: string]: BiosignalFilterType[] }
     protected _filters = {
@@ -56,6 +55,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         lowpass: 0,
         notch: 0,
     } as BiosignalFilters
+    protected _interruptions: SignalInterruptionMap = new Map<number, number>()
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
@@ -123,28 +123,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this._setPropertyValue('dataDuration', value)
     }
 
-    get dataGaps (): SignalDataGap[] {
-        const dataGaps = [] as SignalDataGap[]
-        let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            dataGaps.push({ start: gap[0] + priorGapsTotal, duration: gap[1] })
-            priorGapsTotal += gap[1]
-        }
-        return dataGaps
-    }
-    set dataGaps (value: SignalDataGap[]) {
-        const prevState = [...this.dataGaps]
-        this._dataGaps.clear()
-        for (const gap of value) {
-            this._dataGaps.set(gap.start, gap.duration)
-        }
-        // Set updated data gaps in montages.
-        for (const montage of this._montages) {
-            montage.setDataGaps(this._dataGaps)
-        }
-        this.dispatchPropertyChangeEvent('dataGaps', this.dataGaps, prevState)
-    }
-
     get displayViewStart () {
         return this._displayViewStart
     }
@@ -166,6 +144,28 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     get id () {
         return this._id
+    }
+
+    get interruptions (): SignalInterruption[] {
+        const interruptions = [] as SignalInterruption[]
+        let priorGapsTotal = 0
+        for (const intr of this._interruptions) {
+            interruptions.push({ start: intr[0] + priorGapsTotal, duration: intr[1] })
+            priorGapsTotal += intr[1]
+        }
+        return interruptions
+    }
+    set interruptions (value: SignalInterruption[]) {
+        const prevState = [...this.interruptions]
+        this._interruptions.clear()
+        for (const intr of value) {
+            this._interruptions.set(intr.start, intr.duration)
+        }
+        // Set updated interruptions in montages.
+        for (const montage of this._montages) {
+            montage.setInterruptions(this._interruptions)
+        }
+        this.dispatchPropertyChangeEvent('interruptions', this.interruptions, prevState)
     }
 
     get maxSampleCount () {
@@ -358,21 +358,21 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.dispatchPropertyChangeEvent('cursors', this.cursors, prevState)
     }
 
-    addDataGaps (gaps: SignalDataGapMap) {
+    addInterruptions (interruptions: SignalInterruptionMap) {
         let anyChange = false
-        const prevState = this.dataGaps
-        for (const gap of gaps) {
-            if (this._dataGaps.get(gap[0]) !== gap[1]) {
-                this._dataGaps.set(gap[0], gap[1])
+        const prevState = this.interruptions
+        for (const intr of interruptions) {
+            if (this._interruptions.get(intr[0]) !== intr[1]) {
+                this._interruptions.set(intr[0], intr[1])
                 anyChange = true
             }
         }
         if (anyChange) {
-            // Propagate new data gaps to montages.
+            // Propagate new interruptions to montages.
             for (const montage of this._montages) {
-                montage.setDataGaps(gaps)
+                montage.setInterruptions(interruptions)
             }
-            this.dispatchPropertyChangeEvent('dataGaps', this.dataGaps, prevState)
+            this.dispatchPropertyChangeEvent('interruptions', this.interruptions, prevState)
         }
     }
 
@@ -392,9 +392,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this._cacheProps = null
         this._channels.length = 0
         this._cursors.length = 0
-        this._dataGaps.clear()
         this._filterChannelTypes = {}
         this._filters.bandreject.length = 0
+        this._interruptions.clear()
         this._memoryManager = null
         this._montages.forEach(m => m.removeAllEventListeners())
         this._montages.length = 0
@@ -482,15 +482,15 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._activeMontage.getChannelSignal(channel, range, config)
     }
 
-    getDataGaps (useCacheTime = false): SignalDataGap[] {
-        const dataGaps = [] as SignalDataGap[]
+    getInterruptions (useCacheTime = false): SignalInterruption[] {
+        const interruptions = [] as SignalInterruption[]
         let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            const gapTime = useCacheTime ? gap[0] : gap[0] + priorGapsTotal
-            dataGaps.push({ start: gapTime, duration: gap[1] })
-            priorGapsTotal += gap[1]
+        for (const intr of this._interruptions) {
+            const intrTime = useCacheTime ? intr[0] : intr[0] + priorGapsTotal
+            interruptions.push({ start: intrTime, duration: intr[1] })
+            priorGapsTotal += intr[1]
         }
-        return dataGaps
+        return interruptions
     }
 
     async getRawChannelSignal (channel: number | string, range: number[], config?: ConfigChannelFilter):
@@ -633,14 +633,14 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
-    setDataGaps (gaps: SignalDataGapMap) {
-        const prevState = this.dataGaps
-        this._dataGaps = gaps
-        // Set updated data gaps in montages.
+    setInterruptions (interruptions: SignalInterruptionMap) {
+        const prevState = this.interruptions
+        this._interruptions = interruptions
+        // Set updated interruptions in montages.
         for (const montage of this._montages) {
-            montage.setDataGaps(gaps)
+            montage.setInterruptions(interruptions)
         }
-        this.dispatchPropertyChangeEvent('dataGaps', this.dataGaps, prevState)
+        this.dispatchPropertyChangeEvent('interruptions', this.interruptions, prevState)
     }
 
     setDefaultSensitivity (value: number) {

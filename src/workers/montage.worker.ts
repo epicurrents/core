@@ -5,16 +5,16 @@
  * @license    Apache-2.0
  */
 
-import {
-    type BiosignalFilters,
-    type MontageWorkerCommission,
-    type MontageWorkerCommissionAction,
-    type SetFiltersResponse,
-    type SetupMutexResponse,
-    type SignalDataGapMap,
+import type {
+    BiosignalFilters,
+    MontageWorkerCommission,
+    MontageWorkerCommissionAction,
+    SetFiltersResponse,
+    SetupMutexResponse,
+    SignalInterruptionMap,
 } from '#types/biosignal'
-import { type CommonBiosignalSettings } from '#types/config'
-import { type WorkerMessage } from '#types/service'
+import type { CommonBiosignalSettings } from '#types/config'
+import type { WorkerMessage } from '#types/service'
 import MontageProcessor from '#assets/biosignal/service/MontageProcessor'
 import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-event-log'
@@ -30,7 +30,7 @@ export class MontageWorker extends BaseWorker {
         ['get-signals', this.getSignals],
         ['map-channels', this.mapChannels],
         ['release-cache', this.releaseCache],
-        ['set-data-gaps', this.setDataGaps],
+        ['set-interruptions', this.setInterruptions],
         ['set-filters', this.setFilters],
         ['setup-input-cache', this.setInputCache],
         ['setup-input-mutex', this.setupInputMutex],
@@ -102,30 +102,6 @@ export class MontageWorker extends BaseWorker {
     async releaseCache (msgData: WorkerMessage['data']) {
         await this._montage?.releaseCache()
         Log.debug(`Cache released.`, SCOPE)
-        return this._success(msgData)
-    }
-    /**
-     *
-     * @param msgData - Data property from the message to the worker.
-     * @returns True if action was successful, false otherwise.
-     */
-    async setDataGaps (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
-            msgData as MontageWorkerCommission['set-data-gaps'],
-            {
-                dataGaps: 'Array'
-            },
-            this._montage !== null
-        )
-        if (!data) {
-            return this._failure(msgData)
-        }
-        const newGaps = new Map<number, number>() as SignalDataGapMap
-        for (const gap of data.dataGaps) {
-            newGaps.set(gap.start, gap.duration)
-        }
-        this._montage?.setDataGaps(newGaps)
-        Log.debug(`New data gaps set.`, SCOPE)
         return this._success(msgData)
     }
     /**
@@ -249,6 +225,30 @@ export class MontageWorker extends BaseWorker {
         } else {
             return this._failure(msgData, `Failed to set up input mutex in the montage worker.`)
         }
+    }
+    /**
+     * Sets interruptions in the source recording to the montage worker.
+     * @param msgData - Data property from the message to the worker.
+     * @returns True if action was successful, false otherwise.
+     */
+    async setInterruptions (msgData: WorkerMessage['data']) {
+        const data = validateCommissionProps(
+            msgData as MontageWorkerCommission['set-interruptions'],
+            {
+                interruptions: 'Array'
+            },
+            this._montage !== null
+        )
+        if (!data) {
+            return this._failure(msgData)
+        }
+        const newInterruptions = new Map<number, number>() as SignalInterruptionMap
+        for (const intr of data.interruptions) {
+            newInterruptions.set(intr.start, intr.duration)
+        }
+        this._montage?.setInterruptions(newInterruptions)
+        Log.debug(`New data interruptions set.`, SCOPE)
+        return this._success(msgData)
     }
     /**
      *

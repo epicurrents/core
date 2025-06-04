@@ -476,8 +476,8 @@ export interface BiosignalHeaderRecord {
     annotations: AnnotationTemplate[]
     /** Duration of the actual data (excluding gaps) in seconds. */
     dataDuration: number
-    /** List of data gaps in the recording as <startTime, length> in seconds. */
-    dataGaps: SignalDataGapMap
+    /** List of interriptions in the recording as <start time, length> in seconds. */
+    interruptions: SignalInterruptionMap
     /** Number of data units in the recording. */
     dataUnitCount: number
     /** Duration of a single data unit in seconds. */
@@ -501,12 +501,12 @@ export interface BiosignalHeaderRecord {
     /** The serializable properties that can be posted between main thread and workers. */
     serializable: {
         annotations: string[]
-        dataGaps: number[][]
         dataUnitCount: number
         dataUnitDuration: number
         dataUnitSize: number
         discontinuous: boolean
         fileType: string
+        interruptions: number[][]
         patientId: string
         recordingId: string
         recordingStartTime: Date | null
@@ -526,11 +526,11 @@ export interface BiosignalHeaderRecord {
      */
     addAnnotations (...items: BiosignalAnnotation[]): void
     /**
-     * Add the given data gaps to this header record.
-     * The gaps are transferred to the actual recording at the time of instantiation.
-     * @param items - Data gaps to add.
+     * Add the given recording interruptions to this header record.
+     * The interruptions are transferred to the actual recording at the time of instantiation.
+     * @param items - Recording interruptions to add.
      */
-    addDataGaps (items: SignalDataGapMap): void
+    addInterruptions (items: SignalInterruptionMap): void
     /**
     * Get the label for a given signal index.
     * @param index - Index of the signal.
@@ -668,10 +668,10 @@ export interface BiosignalMontage extends BaseAsset {
      */
     getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
-     * Get a list of data gaps in the parent recording.
-     * @param useCacheTime - Use cache time (ignoring previous gaps) instead of recording time.
+     * Get a list of interruptions in the parent recording.
+     * @param useCacheTime - Use cache time (ignoring previous interruptions) instead of recording time.
      */
-    getDataGaps (useCacheTime?: boolean): SignalDataGap[]
+    getInterruptions (useCacheTime?: boolean): SignalInterruption[]
     /**
      * Map the channels that have been loaded into the setup of this montage.
      * Mapping will match the source signals and derivations into proper montage channels.
@@ -724,11 +724,11 @@ export interface BiosignalMontage extends BaseAsset {
      */
     setChannelLayout (config: ConfigChannelLayout): void
     /**
-     * Set the data gaps to use when calculating this montage. Gap information will be relayed to the service
+     * Set the recording interruptions to use when calculating this montage. Information will be relayed to the service
      * responsible for signal processing.
-     * @param gaps - New gaps to use.
+     * @param interruptions - New interruptions to use.
      */
-    setDataGaps (gaps: SignalDataGapMap): void
+    setInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Set high-pass filter value for given channel.
      * Passing undefined will unset the channel-specific filter value and reapply default (recording level) value.
@@ -832,10 +832,10 @@ export interface BiosignalMontageService extends AssetService {
      */
     mapChannels (): Promise<void>
     /**
-     * Set the given gaps to the recording in the web worker.
-     * @param gaps - The gaps to set as a map of <start data time, duration> in seconds.
+     * Set the given interruptions to the recording in the web worker.
+     * @param gaps - The interruptions to set as a map of <start data time, duration> in seconds.
      */
-    setDataGaps (gaps: SignalDataGapMap): void
+    setInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Set the filters in the web worker to match current montage filters.
      * @returns Promise that resolves as true if some filter was updated, false otherwise.
@@ -919,10 +919,10 @@ export interface BiosignalResource extends DataResource {
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
     /**
-     * Gaps in source signal data as an array of
+     * Interruptions in source signal data as an array of
      * { `start`: number (in seconds of recording time), `duration`: number (in seconds) }.
      * */
-    dataGaps: SignalDataGap[]
+    interruptions: SignalInterruption[]
     /** The display view start can be optionally updated after signals are processed and actually displayed. */
     displayViewStart: number
     /** List of channel types and default filters that should be applied to them. */
@@ -977,10 +977,10 @@ export interface BiosignalResource extends DataResource {
      */
     addCursors (...cursors: BiosignalCursor[]): void
     /**
-     * Add new data gaps to the recording in the form of a data gap map.
-     * @param gaps - Map of new gaps to add `<start data time, duration>`.
+     * Add new interruptions to the recording in the form of a data gap map.
+     * @param interruptions - Map of new interruptions to add `<start data time, duration>`.
      */
-    addDataGaps (gaps: SignalDataGapMap): void
+    addInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Start the process of caching signals from the saved URL.
      * @param ranges - Optional ranges to cache in seconds `[start, end]` (NYI, defaults to the whole recording).
@@ -1022,11 +1022,11 @@ export interface BiosignalResource extends DataResource {
      */
     getChannelSignal (channel: number | string, range: number[], config?: unknown): Promise<SignalCacheResponse>
     /**
-     * Get a list of data gaps in this recording. This method allows you to alternatively get the gaps using data cache
-     * time (i.e. not including prior gap time) instead of recording time.
-     * @param useCacheTime - Use cache time (ignoring previous gaps) instead of recording time.
+     * Get a list of interruptions in this recording. This method allows you to alternatively get the interruptions
+     * using data cache time (i.e. not including prior interruption time) instead of recording time.
+     * @param useCacheTime - Use cache time (ignoring previous interruptions) instead of recording time.
      */
-    getDataGaps (useCacheTime?: boolean): SignalDataGap[]
+    getInterruptions (useCacheTime?: boolean): SignalInterruption[]
     /**
      * Check if the recording has video for the given time point or range.
      * @param time - Time point as number or time range as [start, end].
@@ -1048,10 +1048,10 @@ export interface BiosignalResource extends DataResource {
      */
     setActiveMontage (montage: number | string | null): Promise<void>
     /**
-     * Set the data gaps present in this recording.
-     * @param gaps - New gaps to use.
+     * Set the interruptions present in this recording.
+     * @param interruptions - New interruptions to use.
      */
-    setDataGaps (gaps: SignalDataGapMap): void
+    setInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Set the default sensitivity to use for primary channel type.
      * @param value - A positive number in the recording's default unit.
@@ -1193,10 +1193,10 @@ export type MontageWorkerCommission = {
     }
     /** Release the momery used by the cache in this montage. */
     'release-cache': WorkerMessage['data']
-    /** Set gaps in signal data. */
-    'set-data-gaps': WorkerMessage['data'] & {
-        /** Array of data gaps. */
-        dataGaps: { duration: number, start: number }[]
+    /** Set interruptions in signal data. */
+    'set-interruptions': WorkerMessage['data'] & {
+        /** Array of data interruptions. */
+        interruptions: { duration: number, start: number }[]
     }
     /** Set default filters as a JSON string. */
     'set-filters': WorkerMessage['data'] & {
@@ -1320,20 +1320,20 @@ export interface SignalDataCache {
     invalidateOutputSignals (): void
     releaseBuffers (): void
 }
-/** A single gap in continuous signal data. */
-export type SignalDataGap = {
-    /** Gap duration in seconds. */
+/** A single interruption in a discontinuous recording. */
+export type SignalInterruption = {
+    /** Interruption duration in seconds. */
     duration: number
-    /** Gap start in seconds of data time (excluding prior gaps). */
+    /** Interruption start in seconds of data time (excluding prior interruptions). */
     start: number
 }
 /**
- * Map of gaps in continuous signal data as Map<gap position in seconds, gap length in seconds>.
- * Position is expressed in seconds of actual signal data, i.e. ignoring any previous data gaps.
+ * Map of interruptions in discontinuous signal data as Map<position, length> in seconds.
+ * Position is expressed in seconds of actual signal data, i.e. ignoring any previous interruptions.
  * @remarks
- * This type should probably be removed in the future in favor of the more verbose SignalDataGap.
+ * This type should probably be removed in the future in favor of the more verbose SignalInterruption.
  */
-export type SignalDataGapMap = Map<number, number>
+export type SignalInterruptionMap = Map<number, number>
 export type SignalPart = {
     data: Float32Array
     samplingRate: number

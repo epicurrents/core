@@ -5,24 +5,24 @@
  * @license    Apache-2.0
  */
 
-import {
-    type AnnotationTemplate,
-    type BiosignalDataService,
-    type BiosignalHeaderRecord,
-    type BiosignalResource,
-    type BiosignalSetupResponse,
-    type SignalDataCache,
-    type SignalDataGap,
-    type SignalDataGapMap,
+import type {
+    AnnotationTemplate,
+    BiosignalDataService,
+    BiosignalHeaderRecord,
+    BiosignalResource,
+    BiosignalSetupResponse,
+    SignalDataCache,
+    SignalInterruption,
+    SignalInterruptionMap,
 } from '#types/biosignal'
-import {
+import type {
     CacheSignalsResponse,
-    type MemoryManager,
-    type SetupStudyResponse,
-    type SignalCacheResponse,
-    type WorkerResponse,
+    MemoryManager,
+    SetupStudyResponse,
+    SignalCacheResponse,
+    WorkerResponse,
 } from '#types/service'
-import { type StudyContext } from '#types/study'
+import type { StudyContext } from '#types/study'
 import { INDEX_NOT_ASSIGNED } from '#util/constants'
 import { ConfigChannelFilter } from '#types/config'
 import GenericService from '#assets/service/GenericService'
@@ -115,15 +115,14 @@ export default abstract class GenericBiosignalService extends GenericService imp
             if (annotations?.length) {
                 this._recording.addAnnotationsFromTemplates(...annotations)
             }
-            const dataGaps = data.dataGaps as SignalDataGap[] | undefined
-            if (dataGaps?.length) {
-                const newGaps = new Map<number, number>() as SignalDataGapMap
-                for (const gap of dataGaps) {
-                    newGaps.set(gap.start, gap.duration)
+            const interruptions = data.interruptions as SignalInterruption[] | undefined
+            if (interruptions?.length) {
+                const newGaps = new Map<number, number>() as SignalInterruptionMap
+                for (const intr of interruptions) {
+                    newGaps.set(intr.start, intr.duration)
                 }
-                // Data gap information can change as the file is loaded,
-                // they must be reset when caching new data.
-                this._recording.setDataGaps(newGaps)
+                // Interruption information can change as the file is loaded, it must be reset when caching new data.
+                this._recording.setInterruptions(newGaps)
             }
             return true
         }
@@ -150,7 +149,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
                     end: data.end,
                     signals: data.signals,
                     annotations: data.annotations,
-                    dataGaps: data.dataGaps,
+                    interruptions: data.interruptions,
                 } as SignalCacheResponse)
             }
             return true

@@ -25,7 +25,7 @@ import type {
     MontageChannel,
     SetupChannel,
     SignalDataCache,
-    SignalDataGap,
+    SignalInterruption,
     SignalPart,
 } from '#types/biosignal'
 import type {
@@ -63,10 +63,6 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
     }
     set channels (value: MontageChannel[]) {
         this._channels = value
-    }
-
-    get dataGaps () {
-        return this._dataGaps
     }
 
     get filters () {
@@ -149,10 +145,10 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         // Get the input signals
         const SIGNALS = await this._cache.inputSignals
         const padding = this._settings.filterPaddingSeconds || 0
-        // Check for possible gaps in this range.
+        // Check for possible interruptions in this range.
         const filterRangeStart = Math.max(cacheStart - padding, 0)
         const filterRangeEnd = Math.min(cacheEnd + padding, this._totalDataLength)
-        const dataGaps = this.getDataGaps([filterRangeStart, filterRangeEnd], true)
+        const interruptions = this.getInterruptions([filterRangeStart, filterRangeEnd], true)
         channel_loop:
         for (let i=0; i<channels.length; i++) {
             const chan = channels[i]
@@ -166,10 +162,10 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 derived.signals.push(sigProps)
                 continue
             }
-            // Check if whole range is just data gap.
-            for (const gap of dataGaps) {
-                const gapStartRecTime = this._cacheTimeToRecordingTime(gap.start)
-                if (gapStartRecTime <= start && gapStartRecTime + gap.duration >= end) {
+            // Check if whole range is just interruption time.
+            for (const intr of interruptions) {
+                const intrStartRecTime = this._cacheTimeToRecordingTime(intr.start)
+                if (intrStartRecTime <= start && intrStartRecTime + intr.duration >= end) {
                     derived.signals.push(sigProps)
                     continue channel_loop
                 }
@@ -177,7 +173,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             const highpass = chan.highpassFilter !== null ? chan.highpassFilter : this._filters.highpass
             const lowpass = chan.lowpassFilter !== null ? chan.lowpassFilter : this._filters.lowpass
             const notch = chan.notchFilter !== null ? chan.notchFilter : this._filters.notch
-            // Get filter padding for the channel ignoring possible data gaps.
+            // Get filter padding for the channel ignoring possible interruptions.
             const {
                 filterLen,
                 filterStart, filterEnd,
@@ -194,28 +190,30 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             const filterRange = filterEnd - filterStart
             let dataStart = filterStart
             let dataEnd = filterEnd
-            // Calculate signal indices (relative to the retrieved data part) for data gaps.
-            const gapIndices = [] as number[][]
-            for (const gap of dataGaps) {
-                const gapStart = Math.round(gap.start*chan.samplingRate) - filterStart
-                const gapLen = Math.round(gap.duration*chan.samplingRate)
-                if (gapStart >= filterRange) {
+            // Calculate signal indices (relative to the retrieved data part) for interruptions.
+            const intrIndices = [] as number[][]
+            for (const intr of interruptions) {
+                const intrStart = Math.round(intr.start*chan.samplingRate) - filterStart
+                const intrLen = Math.round(intr.duration*chan.samplingRate)
+                if (intrStart >= filterRange) {
                     break
-                } else if (gapStart + gapLen <= 0) {
+                } else if (intrStart + intrLen <= 0) {
                     continue
                 }
-                // Apply a maximum of filter padding length of gap.
-                const startPos = Math.max(gapStart, 0)
-                const endPos = Math.min(gapStart + gapLen, filterRange)
+                // Apply a maximum of filter padding length of interruption.
+                const startPos = Math.max(intrStart, 0)
+                const endPos = Math.min(intrStart + intrLen, filterRange)
                 if (filterLen) {
-                    // Adjust data (=padding) starting and ending positions, if gap is withing filter padding range.
+                    // Adjust data (=padding) starting and ending positions, if the interruption is withing filter
+                    // padding range.
                     if (startPos >= 0 && startPos < filterLen) {
                         dataStart += Math.min(endPos, filterLen) - startPos
-                    } else if (gap.start < start) {
-                        // If a data gap crosses or is adjacent to the requested range start, we cannot determine its
-                        // position by cache coordinates; we need to compare actual gap and range start times.
-                        const relStart = Math.max(gap.start - start, -padding)
-                        const maxDur = Math.min(gap.duration, padding)
+                    } else if (intr.start < start) {
+                        // If an interruption crosses or is adjacent to the requested range start, we cannot determine
+                        // its position by cache coordinates; we need to compare the actual interruption and range
+                        // start times.
+                        const relStart = Math.max(intr.start - start, -padding)
+                        const maxDur = Math.min(intr.duration, padding)
                         if (relStart <= 0 && maxDur >= -relStart) {
                             dataStart += Math.round(-relStart*chan.samplingRate)
                         }
@@ -223,7 +221,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                         dataEnd -= Math.min(endPos, filterRange) - startPos
                     }
                 }
-                gapIndices.push([startPos, endPos])
+                intrIndices.push([startPos, endPos])
             }
             // Need to calculate signal relative to reference(s), one datapoint at a time.
             // Check that active signal and all reference signals have the same length.
@@ -270,34 +268,34 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 j++
             }
             if (shouldFilterSignal(chan, this._filters, this._settings)) {
-                // Add possible data gaps.
+                // Add possible interruptions.
                 // @ts-ignore Prepare for TypeScript 5.7+.
-                let gapped = data as Float32Array<ArrayBufferLike>
+                let interrupted = data as Float32Array<ArrayBufferLike>
                 let lastGapEnd = 0
                 const sigParts = [] as Float32Array[]
-                for (const gap of gapIndices) {
-                    if (lastGapEnd < gap[0]) {
-                        sigParts.push(gapped.slice(lastGapEnd, gap[0]))
+                for (const intr of intrIndices) {
+                    if (lastGapEnd < intr[0]) {
+                        sigParts.push(interrupted.slice(lastGapEnd, intr[0]))
                     }
-                    const gapSig = new Float32Array(gap[1] - gap[0])
-                    gapSig.fill(0.0)
-                    sigParts.push(gapSig)
-                    sigParts.push(gapped.slice(gap[0]))
-                    gapped = concatTypedNumberArrays(...sigParts)
-                    lastGapEnd = gap[1]
+                    const intrSig = new Float32Array(intr[1] - intr[0])
+                    intrSig.fill(0.0)
+                    sigParts.push(intrSig)
+                    sigParts.push(interrupted.slice(intr[0]))
+                    interrupted = concatTypedNumberArrays(...sigParts)
+                    lastGapEnd = intr[1]
                 }
                 sigProps.data = filterSignal(
-                    gapped,
+                    interrupted,
                     chan.samplingRate,
                     highpass,
                     lowpass,
                     notch,
                 )
-                // Remove the gap parts in reverse order.
-                for (const gap of gapIndices.reverse()) {
+                // Remove the interruption parts in reverse order.
+                for (const intr of intrIndices.reverse()) {
                     sigProps.data = concatTypedNumberArrays(
-                        sigProps.data.slice(0, gap[0]),
-                        sigProps.data.slice(gap[1])
+                        sigProps.data.slice(0, intr[0]),
+                        sigProps.data.slice(intr[1])
                     )
                 }
                 // Remove the part of signal data that was used for filtering.
@@ -325,7 +323,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
 
     async destroy () {
         this._channels.length = 0
-        this._dataGaps.clear()
+        this._interruptions.clear()
         this._mutex = null
         this._setup = null
         await super.destroy()
@@ -383,32 +381,32 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 requestedSigs.signals = filtered
             }
         }
-        // Find amount of gap time before and within the range.
-        const dataGaps = this.getDataGaps(range)
-        if (!dataGaps.length) {
+        // Find amount of interruption time before and within the range.
+        const interruptions = this.getInterruptions(range)
+        if (!interruptions.length) {
             return requestedSigs
         }
-        const priorGapsTotal = range[0] > 0 ? this._getGapTimeBetween(0, range[0]) : 0
-        const gapsTotal = this._getGapTimeBetween(0, range[1])
+        const priorGapsTotal = range[0] > 0 ? this._getInterruptionTimeBetween(0, range[0]) : 0
+        const intrTotal = this._getInterruptionTimeBetween(0, range[1])
         const rangeStart = range[0] - priorGapsTotal
-        const rangeEnd = range[1] - gapsTotal
+        const rangeEnd = range[1] - intrTotal
         //const responseSigs = [] as SignalCachePart['signals']
         for (let i=0; i<requestedSigs.signals.length; i++) {
             const signalForRange = new Float32Array(
                                             Math.round((range[1] - range[0])*requestedSigs.signals[i].samplingRate)
                                         ).fill(0.0)
             if (rangeStart === rangeEnd) {
-                // The whole range is just gap space.
+                // The whole range is interruption time.
                 requestedSigs.signals[i].data = signalForRange
                 continue
             }
             const startSignalIndex = Math.round((rangeStart - requestedSigs.start)*requestedSigs?.signals[i].samplingRate)
             const endSignalIndex = Math.round((rangeEnd - requestedSigs.start)*requestedSigs.signals[i].samplingRate)
             signalForRange.set(requestedSigs.signals[i].data.slice(startSignalIndex, endSignalIndex))
-            for (const gap of dataGaps) {
-                const startPos = Math.round((gap.start - range[0])*requestedSigs.signals[i].samplingRate)
+            for (const intr of interruptions) {
+                const startPos = Math.round((intr.start - range[0])*requestedSigs.signals[i].samplingRate)
                 const endPos = Math.min(
-                    startPos + Math.round(gap.duration*requestedSigs.signals[i].samplingRate),
+                    startPos + Math.round(intr.duration*requestedSigs.signals[i].samplingRate),
                     startPos + signalForRange.length
                 )
                 // Move the existing array members upward.
@@ -512,14 +510,14 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
      * Set up a simple signal cache as the data source for this montage.
      * @param cache - The data cache to use.
      * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param dataGaps - Possible data gaps in the recording.
+     * @param recordingDuration - Total duration of the recording (including interruptions) in seconds.
+     * @param interruptions - Possible interruptions in the recording.
      */
     setupCacheWithInput (
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps = [] as SignalDataGap[]
+        interruptions = [] as SignalInterruption[]
     ) {
         if (this._cache) {
             Log.error(`Montage cache is already set up.`, SCOPE)
@@ -535,8 +533,8 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         } else {
             this._discontinuous =  false
         }
-        for (const gap of dataGaps) {
-            this._dataGaps.set(gap.start, gap.duration)
+        for (const intr of interruptions) {
+            this._interruptions.set(intr.start, intr.duration)
         }
         this._fallbackCache = new BiosignalCache(dataDuration, cache)
         Log.debug(`Basic cache setup complete.`, SCOPE)
@@ -548,15 +546,15 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
      * @param input - Properties of the input data mutex.
      * @param bufferStart - Starting index of the montage mutex array in the buffer.
      * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param dataGaps - Possible data gaps in the recording.
+     * @param recordingDuration - Total duration of the recording (including interruptions) in seconds.
+     * @param interruptions - Possible interruptions in the recording.
      */
     async setupMutexWithInput (
         input: MutexExportProperties,
         bufferStart: number,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps = [] as SignalDataGap[]
+        interruptions = [] as SignalInterruption[]
     ) {
         if (!input.buffer) {
             return null
@@ -583,8 +581,8 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         } else {
             this._discontinuous =  false
         }
-        for (const gap of dataGaps) {
-            this._dataGaps.set(gap.start, gap.duration)
+        for (const intr of interruptions) {
+            this._interruptions.set(intr.start, intr.duration)
         }
         // Use input mutex properties as read buffers.
         this._mutex = new BiosignalMutex(
@@ -606,7 +604,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps = [] as SignalDataGap[]
+        interruptions = [] as SignalInterruption[]
     ) {
         Log.debug(`Setting up shared worker cache.`, SCOPE)
         // Construct a SignalCachePart to initialize the mutex.
@@ -630,8 +628,8 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         } else {
             this._discontinuous =  false
         }
-        for (const gap of dataGaps) {
-            this._dataGaps.set(gap.start, gap.duration)
+        for (const intr of interruptions) {
+            this._interruptions.set(intr.start, intr.duration)
         }
         this._fallbackCache = new SharedWorkerCache(input, postMessage)
         Log.debug(`Shared worker cache setup complete.`, SCOPE)

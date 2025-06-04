@@ -16,8 +16,8 @@ import type {
     MontageChannel,
     SetFiltersResponse,
     SignalDataCache,
-    SignalDataGap,
-    SignalDataGapMap,
+    SignalInterruption,
+    SignalInterruptionMap,
 } from '#types/biosignal'
 import type {
     ConfigBiosignalMontage,
@@ -274,8 +274,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this.getAllSignals(range, config)
     }
 
-    getDataGaps (useCacheTime = false): SignalDataGap[] {
-        return this._recording.getDataGaps(useCacheTime)
+    getInterruptions (useCacheTime = false): SignalInterruption[] {
+        return this._recording.getInterruptions(useCacheTime)
     }
 
     mapChannels (config?: ConfigMapChannels) {
@@ -386,8 +386,8 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         calculateSignalOffsets(this._channels, config)
     }
 
-    setDataGaps (gaps: SignalDataGapMap) {
-        this._service.setDataGaps(gaps)
+    setInterruptions (interruptions: SignalInterruptionMap) {
+        this._service.setInterruptions(interruptions)
     }
 
     async setHighpassFilter (value: number, target?: string | number) {

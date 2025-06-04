@@ -13,8 +13,8 @@ import type {
     SignalCacheMutex,
     SignalCachePart,
     SignalDataCache,
-    SignalDataGap,
-    SignalDataGapMap,
+    SignalInterruption,
+    SignalInterruptionMap,
     SignalProcessorCache,
     TypedNumberArray,
     TypedNumberArrayConstructor,
@@ -31,8 +31,6 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
     /** Map of annotations as <position in seconds, list of annotations>. */
     protected _annotations = new Map<number, AnnotationTemplate[]>()
     protected _dataEncoding: TypedNumberArrayConstructor
-    /** Map of data gaps as <gap data position, gap length> in seconds. */
-    protected _dataGaps = new Map<number, number>() as SignalDataGapMap
     /** Number of data units to write into the file. */
     protected _dataUnitCount = 0
     /** Duration of single data unit in seconds. */
@@ -45,6 +43,8 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
     protected _fallbackCache = null as SignalDataCache | null
     protected _fileTypeHeader: unknown | null = null
     protected _header: GenericBiosignalHeader | null = null
+    /** Map of recording interruptions as <data position, length> in seconds. */
+    protected _interruptions = new Map<number, number>() as SignalInterruptionMap
     /** Data source mutex. */
     protected _mutex = null as SignalCacheMutex | null
     protected _sourceBuffer: ArrayBuffer | null = null
@@ -106,9 +106,9 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         return <File>blob
     }
     /**
-     * Convert cache time (i.e. time without data gaps) to recording time.
-     * @param time - Cache time without gaps.
-     * @returns Matching recording time (with gaps).
+     * Convert cache time (i.e. time without interruptions) to recording time.
+     * @param time - Cache time without interruptions.
+     * @returns Matching recording time (with interruptions).
      */
     _cacheTimeToRecordingTime (time: number) {
         if (time === NUMERIC_ERROR_VALUE) {
@@ -140,28 +140,28 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
             return NUMERIC_ERROR_VALUE
         }
         let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            if (gap[0] < index*this._dataUnitDuration) {
-                priorGapsTotal += gap[1]
+        for (const intr of this._interruptions) {
+            if (intr[0] < index*this._dataUnitDuration) {
+                priorGapsTotal += intr[1]
             }
         }
         return index*this._dataUnitDuration + priorGapsTotal
     }
     /**
-     * Get the total gap time between two points in recording time.
+     * Get the total interruption time between two points in recording time.
      * @param start - Starting time in recording seconds.
      * @param end - Ending time in recording seconds.
-     * @returns Total gap time in seconds.
+     * @returns Total interruption time in seconds.
      */
-    protected _getGapTimeBetween (start: number, end: number): number {
+    protected _getInterruptionTimeBetween (start: number, end: number): number {
         if (!this._discontinuous) {
             return 0
         }
-        let gapTotal = 0
-        for (const gap of this.getDataGaps([start, end])) {
-            gapTotal += gap.duration
+        let intrTotal = 0
+        for (const intr of this.getInterruptions([start, end])) {
+            intrTotal += intr.duration
         }
-        return gapTotal
+        return intrTotal
     }
     /**
      * Get current signal cache range.
@@ -182,9 +182,9 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         return { start: rangeStart, end: rangeEnd }
     }
     /**
-     * Convert recording time to cache time (i.e. time without data gaps).
+     * Convert recording time to cache time (i.e. time without interruptions).
      * @param time - Recording time.
-     * @returns Matching cache time (without gaps).
+     * @returns Matching cache time (without interruptions).
      */
     protected _recordingTimeToCacheTime (time: number): number {
         if (time === NUMERIC_ERROR_VALUE) {
@@ -201,7 +201,7 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
             // Zero is always zero, continuous recording has the same cache and recording time.
             return time
         }
-        return time - this._getGapTimeBetween(0, time)
+        return time - this._getInterruptionTimeBetween(0, time)
     }
     /**
      * Convert a recording timestamp to data unit index.
@@ -217,9 +217,9 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
             SCOPE)
             return NUMERIC_ERROR_VALUE
         }
-        const priorGapsTotal = time > 0 ? this._getGapTimeBetween(0, time) : 0
+        const priorIntrTotal = time > 0 ? this._getInterruptionTimeBetween(0, time) : 0
         // Avoid float rounding error when converting from stored 32 bit into internal 64 bit float.
-        return Math.floor((time + FLOAT32_EPS - priorGapsTotal)/this._dataUnitDuration)
+        return Math.floor((time + FLOAT32_EPS - priorIntrTotal)/this._dataUnitDuration)
     }
 
     async cacheFile(_file: File, _startFrom?: number | undefined): Promise<void> {
@@ -229,8 +229,8 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
     async destroy () {
         await this.releaseCache()
         this._annotations.clear()
-        this._dataGaps.clear()
         this._fallbackCache = null
+        this._interruptions.clear()
         this._mutex = null
     }
 
@@ -262,21 +262,21 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         }
     }
 
-    addNewDataGaps (newGaps: Map<number, number>) {
+    addNewInterruptions (newInterruptions: Map<number, number>) {
         new_loop:
-        for (const newGap of newGaps) {
-            if (!newGap[1] || newGap[1] < 0) {
+        for (const intr of newInterruptions) {
+            if (!intr[1] || intr[1] < 0) {
                 continue
             }
-            for (const exsistingGap of this._dataGaps) {
-                if (newGap[0] === exsistingGap[0]) {
+            for (const exsisting of this._interruptions) {
+                if (intr[0] === exsisting[0]) {
                     continue new_loop
                 }
             }
-            this._dataGaps.set(newGap[0], newGap[1])
+            this._interruptions.set(intr[0], intr[1])
         }
-        // We need to sort the gaps to make sure keys appear in ascending order.
-        this._dataGaps = new Map([...this._dataGaps.entries()].sort((a, b) => a[0] - b[0]))
+        // We need to sort the interruptions to make sure keys appear in ascending order.
+        this._interruptions = new Map([...this._interruptions.entries()].sort((a, b) => a[0] - b[0]))
     }
 
     getAnnotations (range?: number[]) {
@@ -306,46 +306,46 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         return annotations
     }
 
-    getDataGaps (range = [] as number[], useCacheTime = false): SignalDataGap[] {
+    getInterruptions (range = [] as number[], useCacheTime = false): SignalInterruption[] {
         const start = Math.max(0, range[0] || 0)
         const end = useCacheTime
                     ? Math.min(range[1] || this._totalDataLength, this._totalDataLength)
                     : Math.min(range[1] || this._totalRecordingLength, this._totalRecordingLength)
-        const dataGaps = [] as SignalDataGap[]
+        const interruptions = [] as SignalInterruption[]
         if (start > end) {
-            Log.error(`Requested data gap range ${start} - ${end} is not valid.`, SCOPE)
-            return dataGaps
+            Log.error(`Requested interruption range ${start} - ${end} is not valid.`, SCOPE)
+            return interruptions
         } else if (start === end) {
             // This can happen when setting up a discontinous recording, but not outside of that.
-            Log.debug(`Requested data gap range ${start} - ${end} is empty.`, SCOPE)
-            return dataGaps
+            Log.debug(`Requested interruption range ${start} - ${end} is empty.`, SCOPE)
+            return interruptions
         }
         let priorGapsTotal = 0
-        for (const gap of this._dataGaps) {
-            const gapTime = useCacheTime ? gap[0] : gap[0] + priorGapsTotal
-            priorGapsTotal += gap[1]
-            if ((useCacheTime ? gapTime : gapTime + gap[1]) <= start) {
+        for (const intr of this._interruptions) {
+            const position = useCacheTime ? intr[0] : intr[0] + priorGapsTotal
+            priorGapsTotal += intr[1]
+            if ((useCacheTime ? position : position + intr[1]) <= start) {
                 continue
-            } else if (!useCacheTime && gapTime < start && gapTime + gap[1] > start) {
-                // Prior gap partially extends to the checked range.
-                if (gapTime + gap[1] < end) {
-                    dataGaps.push({ start: start, duration: gapTime + gap[1] - start })
+            } else if (!useCacheTime && position < start && position + intr[1] > start) {
+                // Prior interruption partially extends to the checked range.
+                if (position + intr[1] < end) {
+                    interruptions.push({ start: start, duration: position + intr[1] - start })
                 } else {
-                    dataGaps.push({ start: start, duration: end - start })
+                    interruptions.push({ start: start, duration: end - start })
                     break
                 }
-            } else if (gapTime >= start && gapTime < end) {
-                if (useCacheTime || gapTime + gap[1] < end) {
-                    dataGaps.push({ start: gapTime, duration: gap[1] })
+            } else if (position >= start && position < end) {
+                if (useCacheTime || position + intr[1] < end) {
+                    interruptions.push({ start: position, duration: intr[1] })
                 } else {
-                    dataGaps.push({ start: gapTime, duration: end - gapTime })
+                    interruptions.push({ start: position, duration: end - position })
                     break
                 }
             } else {
                 break
             }
         }
-        return dataGaps
+        return interruptions
     }
 
     async getSignals (_range: number[], _config?: unknown): Promise<SignalCachePart|null> {
@@ -428,8 +428,8 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         this._header = header
     }
 
-    setDataGaps (dataGaps: SignalDataGapMap) {
-        this._dataGaps = dataGaps
+    setInterruptions (interruptions: SignalInterruptionMap) {
+        this._interruptions = interruptions
     }
 
     setFileTypeHeader(header: unknown): void {
@@ -445,7 +445,7 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         _cache: SignalDataCache,
         _dataDuration: number,
         _recordingDuration: number,
-        _dataGaps = [] as SignalDataGap[]
+        _interruptions = [] as SignalInterruption[]
     ) {
         Log.error(`setupCacheWithInput must be overridden in the child class.`, SCOPE)
     }
@@ -460,7 +460,7 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         _bufferStart: number,
         _dataDuration: number,
         _recordingDuration: number,
-        _dataGaps = [] as SignalDataGap[]
+        _interruptions = [] as SignalInterruption[]
     ): Promise<MutexExportProperties|null> {
         Log.error(`setupMutexWithInput must be overridden in the child class.`, SCOPE)
         return null
@@ -470,14 +470,14 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
      * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
      * @param input - Message port from the input worker.
      * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param dataGaps - Possible data gaps in the recording.
+     * @param recordingDuration - Total duration of the recording (including interruptions) in seconds.
+     * @param interruptions - Possible interruptions in the recording.
      */
     async setupSharedWorkerWithInput (
         _input: MessagePort,
         _dataDuration: number,
         _recordingDuration: number,
-        _dataGaps = [] as SignalDataGap[]
+        _interruptions = [] as SignalInterruption[]
     ): Promise<boolean> {
         Log.error(`setupSharedWorkerWithInput must be overridden in the child class.`, SCOPE)
         return false

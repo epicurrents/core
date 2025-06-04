@@ -11,14 +11,13 @@ import {
     type BiosignalFilters,
     type BiosignalHeaderRecord,
     type BiosignalHeaderSignal,
-    type SignalDataGapMap,
+    type SignalInterruptionMap,
 } from '#types/biosignal'
 
 const SCOPE = 'GenericBiosignalHeader'
 
 export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
     private _annotations: AnnotationTemplate[]
-    private _dataGaps: SignalDataGapMap
     private _dataDuration: number
     private _dataUnitCount: number
     private _dataUnitDuration: number
@@ -26,6 +25,7 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
     private _discontinous: boolean
     private _duration: number
     private _fileType: string
+    private _interruptions: SignalInterruptionMap
     private _maxSamplingRate: number = 0
     private _patientId: string
     private _recordingId: string
@@ -45,17 +45,17 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         recordingStartTime = null as Date | null,
         discontinuous = false,
         annotations = [] as AnnotationTemplate[],
-        dataGaps = new Map() as SignalDataGapMap,
+        interruptions = new Map() as SignalInterruptionMap,
     ) {
         this._annotations = annotations
-        this._dataGaps = dataGaps
+        this._interruptions = interruptions
         this._dataDuration = dataUnitCount*dataUnitDuration
         this._dataUnitCount = dataUnitCount
         this._dataUnitDuration = dataUnitDuration
         this._dataUnitSize = dataUnitSize
         this._discontinous = discontinuous
         this._duration = this._dataDuration +
-                         Array.from(dataGaps.values())
+                         Array.from(interruptions.values())
                               .reduce(function (a, b) { return a + b }, 0)
         this._fileType = fileType
         this._patientId = patientId
@@ -71,10 +71,6 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
 
     get dataDuration () {
         return this._dataDuration
-    }
-
-    get dataGaps () {
-        return this._dataGaps
     }
 
     get dataUnitCount () {
@@ -95,6 +91,10 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
 
     get fileType () {
         return this._fileType
+    }
+
+    get interruptions () {
+        return this._interruptions
     }
 
     get maxSamplingRate () {
@@ -124,12 +124,12 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
     get serializable () {
         return {
             annotations: [],
-            dataGaps: Array.from(this.dataGaps.entries()),
             dataUnitCount: this.dataUnitCount,
             dataUnitDuration: this.dataUnitDuration,
             dataUnitSize: this.dataUnitSize,
             discontinuous: this.discontinuous,
             fileType: this.fileType,
+            interruptions: Array.from(this.interruptions.entries()),
             patientId: this.patientId,
             recordingId: this.recordingId,
             recordingStartTime: this.recordingStartTime,
@@ -154,9 +154,9 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         this._annotations.push(...items)
     }
 
-    addDataGaps (items: SignalDataGapMap) {
-        for (const gap of items) {
-            this._dataGaps.set(gap[0], gap[1])
+    addInterruptions (items: SignalInterruptionMap) {
+        for (const intr of items) {
+            this._interruptions.set(intr[0], intr[1])
         }
     }
 

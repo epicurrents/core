@@ -11,8 +11,8 @@ import {
     AnnotationTemplate,
     BiosignalHeaderRecord,
     SignalDataCache,
-    SignalDataGap,
-    SignalDataGapMap,
+    SignalInterruption,
+    SignalInterruptionMap,
 } from './biosignal'
 import {
     MemoryManager,
@@ -283,16 +283,16 @@ export interface SignalDataEncoder extends FileEncoder {
      */
     setAnnotations (annotations: AnnotationTemplate[]): void
     /**
-     * Set the data gaps to include in the encoded data.
-     * @param dataGaps - Data gaps to include.
-     */
-    setDataGaps (dataGaps: SignalDataGapMap): void
-    /**
      * Set new values to the given header `properties`.
      * @param properties - Properties to use for creating the header.
      * @returns The created header.
      */
     setHeader (properties?: Partial<BiosignalHeaderRecord>): BiosignalHeaderRecord
+    /**
+     * Set the recording interruptions to include in the encoded data.
+     * @param interruptions - Recording interruptions to include.
+     */
+    setInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Set the signals to include in the encoded data.
      * @param signals - Array of signal indices (according to the header) to include.
@@ -445,10 +445,10 @@ export interface SignalProcessorCache {
      */
     addNewAnnotations (...annotations: AnnotationTemplate[]): void
     /**
-     * Add new, unique data gaps to the data gap cache.
-     * @param newGaps - New data gaps to check and cache.
+     * Add new, unique interruptions to the recording interruption cache.
+     * @param newInterruptions - New interruptions to check and cache.
      */
-    addNewDataGaps (newGaps: SignalDataGapMap): void
+    addNewInterruptions (newInterruptions: SignalInterruptionMap): void
     /**
      * Get any cached annotations from data units in the provided `range`.
      * @param range - Recording range in seconds [included, excluded].
@@ -456,14 +456,14 @@ export interface SignalProcessorCache {
      */
     getAnnotations (range?: number[]): AnnotationTemplate[]
     /**
-     * Retrieve data gaps in the given `range`.
+     * Retrieve recording interruptions in the given `range`.
      * @param range - Time range to check in seconds.
-     * @param useCacheTime - Consider range in cache time without prior data gaps (for internal use, default false).
+     * @param useCacheTime - Consider range in cache time without prior interruptions (for internal use, default false).
      * @remarks
      * For file structures based on data units, both the starting and ending data unit are excluded,
-     * because there cannot be a data gap inside just one unit.
+     * because there cannot be an interruption inside just one unit.
      */
-    getDataGaps (range?: number[], useCacheTime?: boolean): SignalDataGap[]
+    getInterruptions (range?: number[], useCacheTime?: boolean): SignalInterruption[]
     /**
      * Get signals for the given part.
      * @param range - Range in seconds as [start, end].
@@ -481,10 +481,10 @@ export interface SignalProcessorCache {
      */
     setAnnotations (annotations: AnnotationTemplate[]): void
     /**
-     * Set new data gaps for the source data.
-     * @param dataGaps - The new gaps.
+     * Set new recording interruptions for the source data.
+     * @param interruptions - The new interruptions.
      */
-    setDataGaps (dataGaps: SignalDataGapMap): void
+    setInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Initialize a new, plain reader cache.
      * @param dataDuration - Duration of the signal data in seconds, if known.
@@ -496,13 +496,13 @@ export interface SignalProcessorCache {
      * @param cache - The data cache to use.
      * @param dataDuration - Duration of actual signal data in seconds.
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param dataGaps - Possible data gaps in the recording.
+     * @param interruptions - Possible interruptions in the recording.
      */
     setupCacheWithInput (
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps?: SignalDataGap[],
+        interruptions?: SignalInterruption[],
     ): void
     /**
      * Initialize a new shared array mutex using the given `buffer`.
@@ -518,7 +518,7 @@ export interface SignalProcessorCache {
      * @param bufferStart - Starting index of the new mutex array in the buffer.
      * @param dataDuration - Duration of actual signal data in seconds.
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param dataGaps - Possible data gaps in the recording.
+     * @param interruptions - Possible interruptions in the recording.
      * @returns Newly created mutex properties or null on failure.
      */
     setupMutexWithInput (
@@ -526,20 +526,20 @@ export interface SignalProcessorCache {
         bufferStart: number,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps?: SignalDataGap[]
+        interruptions?: SignalInterruption[]
     ): Promise<MutexExportProperties|null>
     /**
      * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
      * @param input - Message port from the input worker.
      * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param dataGaps - Possible data gaps in the recording.
+     * @param recordingDuration - Total duration of the recording (including interruptions) in seconds.
+     * @param interruptions - Possible interruptions in the recording.
      */
     setupSharedWorkerWithInput (
         input: MessagePort,
         dataDuration: number,
         recordingDuration: number,
-        dataGaps?: SignalDataGap[]
+        interruptions?: SignalInterruption[]
     ): Promise<boolean>
 }
 

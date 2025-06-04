@@ -22,7 +22,7 @@ import type {
     SetupChannel,
     SignalCacheResponse,
     SignalDataCache,
-    SignalDataGapMap,
+    SignalInterruptionMap,
     WorkerMessage,
 } from '#types'
 
@@ -86,28 +86,6 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 Log.debug(`Cache released.`, SCOPE)
                 return this.returnSuccess(message)
             }
-            case 'set-data-gaps': {
-                const data = validateCommissionProps(
-                    message as WorkerMessage['data'] & {
-                        dataGaps: { duration: number, start: number }[],
-                    },
-                    {
-                        dataGaps: 'Array'
-                    },
-                    this._montage !== null,
-                    this.returnMessage.bind(this)
-                )
-                if (!data) {
-                    return
-                }
-                const newGaps = new Map<number, number>() as SignalDataGapMap
-                for (const gap of data.dataGaps) {
-                    newGaps.set(gap.start, gap.duration)
-                }
-                this._montage?.setDataGaps(newGaps)
-                Log.debug(`New data gaps set.`, SCOPE)
-                return this.returnSuccess(message)
-            }
             case 'set-filters': {
                 const data = validateCommissionProps(
                     message,
@@ -157,6 +135,28 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     ...message,
                     updated: someUpdated,
                 } as WorkerMessage['data'] & SetFiltersResponse)
+            }
+            case 'set-interruptions': {
+                const data = validateCommissionProps(
+                    message as WorkerMessage['data'] & {
+                        interruptions: { duration: number, start: number }[],
+                    },
+                    {
+                        interruptions: 'Array'
+                    },
+                    this._montage !== null,
+                    this.returnMessage.bind(this)
+                )
+                if (!data) {
+                    return
+                }
+                const newInterruptions = new Map<number, number>() as SignalInterruptionMap
+                for (const intr of data.interruptions) {
+                    newInterruptions.set(intr.start, intr.duration)
+                }
+                this._montage?.setInterruptions(newInterruptions)
+                Log.debug(`New interruptions set.`, SCOPE)
+                return this.returnSuccess(message)
             }
             case 'setup-cache': {
                 const data = validateCommissionProps(
