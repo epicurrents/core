@@ -93,10 +93,14 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
      * Expand the given blob into a file-like object.
      * @param blob - Blob to modify.
      * @param name - Name of the file.
-     * @param path - Optional webkitRelativePath (defaults to "").
+     * @param path - Path of the file, if applicable.
      * @returns Pseudo-file created from the blob.
      */
-    protected _blobToFile (blob: Blob, name: string, path?: string): File {
+    protected _blobToFile (blob: Blob | File, name: string, path?: string): File {
+        if (blob instanceof File || (blob as File).lastModified) {
+            // If the blob is already a file, just return it.
+            return blob as File
+        }
         // Import properties expected of a file object.
         Object.assign(blob, {
             lastModified: Date.now(),

@@ -74,22 +74,6 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
     }
 
     /**
-     * Expand the given blob into a file-like object.
-     * @param blob - Blob to modify.
-     * @param name - Name of the file.
-     * @param path - Optional webkitRelativePath (defaults to "").
-     * @returns Pseudo-file created from the blob.
-     */
-    protected _blobToFile (blob: Blob, name: string, path?: string): File {
-        // Import properties expected of a file object.
-        Object.assign(blob, {
-            lastModified: Date.now(),
-            name: name,
-            webkitRelativePath: path || "",
-        })
-        return <File>blob
-    }
-    /**
      * Cancel an ongoing file loading process.
      */
     protected _cancelLoading () {
