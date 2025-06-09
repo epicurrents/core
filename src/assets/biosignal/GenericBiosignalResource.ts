@@ -142,10 +142,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._videos.length > 0
     }
 
-    get id () {
-        return this._id
-    }
-
     get interruptions (): SignalInterruption[] {
         const interruptions = [] as SignalInterruption[]
         let priorGapsTotal = 0
