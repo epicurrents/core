@@ -100,7 +100,11 @@ export default class WebGlPlotTrace implements WebGlTrace {
         this._samplingRate = samplingRate
         this._sensitivity = sensitivity
         this._scale = scale
-        this._xyPairs = new Float32Array(2*Math.floor(length))
+        this._xyPairs = new Float32Array(
+            2*Math.floor(
+                Math.max(0, length)
+            )
+        )
         this.initData()
     }
 
