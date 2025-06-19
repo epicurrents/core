@@ -22,6 +22,7 @@ import { GenericSignalReader } from '#assets/reader'
 import type {
     BiosignalFilters,
     BiosignalSetup,
+    DerivedChannelProperties,
     MontageChannel,
     SetupChannel,
     SignalDataCache,
@@ -173,6 +174,13 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             const highpass = chan.highpassFilter !== null ? chan.highpassFilter : this._filters.highpass
             const lowpass = chan.lowpassFilter !== null ? chan.lowpassFilter : this._filters.lowpass
             const notch = chan.notchFilter !== null ? chan.notchFilter : this._filters.notch
+            const activeLen = SIGNALS[
+                Array.isArray(chan.active)
+                    ? Array.isArray(chan.active[0])
+                        ? chan.active[0][0]
+                        : chan.active[0]
+                    : chan.active
+            ]?.length || 0
             // Get filter padding for the channel ignoring possible interruptions.
             const {
                 filterLen,
@@ -182,7 +190,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 //signalStart, signalEnd,
             } = getFilterPadding(
                 [relStart, relEnd],
-                SIGNALS[chan.active].length,
+                activeLen,
                 chan,
                 this._settings,
                 this._filters
@@ -225,9 +233,12 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             }
             // Need to calculate signal relative to reference(s), one datapoint at a time.
             // Check that active signal and all reference signals have the same length.
-            const refs = [] as number[]
+            const refs = [] as DerivedChannelProperties
             for (const ref of chan.reference) {
-                if (SIGNALS[chan.active].length === SIGNALS[ref].length) {
+                const refLen = SIGNALS[
+                    Array.isArray(ref) ? ref[0] : ref
+                ]?.length || 0
+                if (activeLen === refLen) {
                     refs.push(ref)
                 }
             }
@@ -237,7 +248,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             for (let n=dataStart; n<dataEnd; n++) {
                 let refAvg = 0
                 // Just leave the value at zero if we are outside tha actual signal range.
-                if (n < 0 || n >= SIGNALS[chan.active].length) {
+                if (n < 0 || n >= activeLen) {
                     j++
                     continue
                 }
@@ -248,23 +259,37 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                     if (refs.length > 1) {
                         // Calculate average reference and cache it.
                         for (const ref of refs) {
-                            refAvg += SIGNALS[ref][n]
+                            const refWeight = Array.isArray(ref) ? ref[1] : 1
+                            const refIndex = Array.isArray(ref) ? ref[0] : ref
+                            refAvg += SIGNALS[refIndex][n]*refWeight
                         }
                         refAvg /= refs.length
                         avgMap[j] = refAvg
                     } else if (!refs.length) {
                         refAvg = 0
                     } else {
-                        refAvg = SIGNALS[refs[0]][n]
+                        const refWeight = Array.isArray(refs[0]) ? refs[0][1] : 1
+                        const refIndex = Array.isArray(refs[0]) ? refs[0][0] : refs[0]
+                        refAvg = SIGNALS[refIndex][n]*refWeight
                     }
+                }
+                let actAvg = Array.isArray(chan.active) ? 0 : SIGNALS[chan.active][n]
+                if (Array.isArray(chan.active)) {
+                    // Calculate the average of all active signals.
+                    for (const act of chan.active) {
+                        const actWeight = Array.isArray(act) ? act[1] : 1
+                        const actIndex = Array.isArray(act) ? act[0] : act
+                        actAvg += SIGNALS[actIndex][n]*actWeight
+                    }
+                    actAvg /= chan.active.length
                 }
                 if (config?.excludeActiveFromAvg) {
                     // Doing this correction separately may seem overly complicated, but if we want
                     // to cache the average value, it must contain values from all channels.
-                    refAvg -= SIGNALS[chan.active][n]/refs.length
+                    refAvg -= actAvg/refs.length
                     refAvg *= refs.length/(refs.length - 1)
                 }
-                data.set([(SIGNALS[chan.active][n] - refAvg)], j)
+                data.set([(actAvg - refAvg)], j)
                 j++
             }
             if (shouldFilterSignal(chan, this._filters, this._settings)) {
@@ -357,7 +382,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             // Retrieve missing signals (result channels will be filtered according to include/exclude).
             requestedSigs = (await this.calculateSignalsForPart(range[0], range[1], false, config)) as SignalCachePart
             if (!requestedSigs) {
-                Log.error(`Cound not cache requested signal range ${range[0]} - ${range[1]}.`, SCOPE)
+                Log.error(`Could not cache requested signal range ${range[0]} - ${range[1]}.`, SCOPE)
                 return null
             }
         } else {

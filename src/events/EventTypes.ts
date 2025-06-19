@@ -101,10 +101,12 @@ export type DatasetEvent = {
     [DatasetEvents.SET_ACTIVE_RESOURCE]: EventWithPayload<DataResource>
 }
 /**
- * Names of events emitted by resource classes.
+ * Names of events emitted by resource classes (in addition to `AssetEvents`).
  */
 export enum ResourceEvents {
-    /** The resource is prepared for use. */
+    /** Initial setup is performed after the resource is activated for the first time. */
+    INITIAL_SETUP = 'initial-setup',
+    /** The resource is prepared for use. This step must finish before the resource can be activated. */
     PREPARE = 'prepare',
     /** The resource is unloaded and memory reserved to it released. */
     UNLOAD = 'unload',
@@ -133,7 +135,9 @@ export type ResourcePropertyEvent = AssetPropertyEvent & {
  * Events emitted by resource classes.
  */
 export type ResourceEvent = ResourcePropertyEvent & AssetEvent & {
-    /** The resource is prepared for use. */
+    /** Initial setup is performed after the resource is activated for the first time. */
+    [ResourceEvents.INITIAL_SETUP]: BroadcastStateEvent
+    /** The resource is prepared for use. This step must finish before the resource can be activated. */
     [ResourceEvents.PREPARE]: BroadcastStateEvent
     /** The resource is unloaded and memory reserved to it released. */
     [ResourceEvents.UNLOAD]: BroadcastStateEvent

@@ -14,6 +14,7 @@ import { nullPromise } from '#util/general'
 
 export default abstract class GenericDocumentResource extends GenericResource implements DocumentResource {
 
+    protected _scale = 1
     protected _sourceFormat: string
 
     constructor (name: string, modality: string, format: string, source: StudyContext) {
@@ -23,6 +24,13 @@ export default abstract class GenericDocumentResource extends GenericResource im
 
     get content (): Promise<unknown> {
         return nullPromise
+    }
+
+    get scale () {
+        return this._scale
+    }
+    set scale (value: number) {
+        this._setPropertyValue('scale', value)
     }
 
     get sourceFormat () {

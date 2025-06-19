@@ -1,6 +1,6 @@
 /**
  * Generic resource.
- * This class serves only as as superclass for more spesific resource classes.
+ * This class serves only as as superclass for more specific resource classes.
  * @package    epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
@@ -10,10 +10,15 @@ import GenericAsset from '#assets/GenericAsset'
 import type { DataResource, ResourceState } from '#types/application'
 import type { StudyContext } from '#types/study'
 import { Log } from 'scoped-event-log'
+import { ResourceEvents } from '#events'
 
 const SCOPE = 'GenericResource'
 
 export default abstract class GenericResource extends GenericAsset implements DataResource {
+    /**
+     * Core events emitted by this resource (not including property change events).
+     */
+    static readonly EVENTS = { ...GenericAsset.EVENTS, ...ResourceEvents }
 
     protected _dependenciesMissing = [] as string[]
     protected _dependenciesReady = [] as string[]

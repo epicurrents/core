@@ -149,7 +149,7 @@ export const secondsToTimeString = (secs: number, components: boolean = false) =
     if (components) {
         return [days, hours, mins, secs]
     }
-    const sPart = secs.toFixed() !== '0' ? `${secs.toFixed()} s` : ''
+    const sPart = secs >= 1 ? `${Math.floor(secs).toString()} s` : ''
     const mPart = mins ? `${mins} min` : ''
     const hPart = hours ? `${hours} h` : ''
     if (days) {
@@ -241,7 +241,7 @@ export const timePartsToShortString = (parts: number[]) => {
                                 }
                                 return (anyNonZero || n > 0)
                             })
-                            .map(n => n.toFixed().padStart(2, '0'))
+                            .map(n => Math.floor(n).toString().padStart(2, '0'))
                             .join(':')
     // Return a minimum of <mins>:<secs>.
     if (!timeShort) {

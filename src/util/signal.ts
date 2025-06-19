@@ -5,14 +5,15 @@
  * @license    Apache-2.0
  */
 
-import {
-    type BiosignalChannel,
-    type BiosignalChannelProperties,
-    type BiosignalFilters,
-    type BiosignalSetup,
-    type FftAnalysisResult,
-    type MontageChannel,
-    type SetupChannel,
+import type {
+    DerivedChannelProperties,
+    BiosignalChannel,
+    BiosignalChannelProperties,
+    BiosignalFilters,
+    BiosignalSetup,
+    FftAnalysisResult,
+    MontageChannel,
+    SetupChannel,
 } from '#types/biosignal'
 import { CommonBiosignalSettings, type ConfigChannelLayout } from '../types/config'
 import { type SignalCachePart } from '#types/service'
@@ -25,6 +26,7 @@ import { Log } from 'scoped-event-log'
 //import { BiosignalMutex } from '#assets/biosignal'
 import { LTTB } from 'downsample'
 import { NUMERIC_ERROR_VALUE } from './constants'
+import { deepClone } from './general'
 
 const SCOPE = 'util:signal'
 const iirCalculator = new Fili.CalcCascades()
@@ -538,8 +540,7 @@ export const fftAnalysis = (signal: Float32Array, samplingRate: number): FftAnal
     // FFT can only provide information up to 1/2 signal sampling rate, so scrap the rest
     const resolution = samplingRate/magnitudes.length
     const finalIndex = Math.floor((0.5*samplingRate)/resolution)
-    // Calculate signal frequency equivalents for each magnitude bin and add estimated
-    // power spectral desities.
+    // Calculate signal frequency equivalents for each magnitude bin and add estimated power spectral densities.
     const freqEqvs = [] as number[]
     const psds = [] as number[]
     for (let i=0; i<finalIndex; i++) {
@@ -895,6 +896,7 @@ export const isContinuousSignal = (...signalParts: SignalCachePart[]) => {
  * Map the derived channels in this montage to the signal channels of the given setup.
  * @param setup - Setup describing the data source.
  * @param config - Biosignal config of the appropriate type and channel layout properties. Expected fields are:
+ * *               - `channels` SetupChannel[] - List of channels to include in the montage.
  *                 - `channelSpacing` number - Relative spacing between consecutive channels (default 1).
  *                 - `groupSpacing` number - Relative spacing between consecutive groups (default 1).
  *                 - `isRaw` boolean - Is this a raw setup (default yes).
@@ -925,7 +927,7 @@ export const mapMontageChannels = (
             label: props?.label || '',
             modality: props?.modality || '',
             laterality: props?.laterality || '',
-            active: typeof props?.active === 'number' ? props.active : NUMERIC_ERROR_VALUE,
+            active: props?.active ?? NUMERIC_ERROR_VALUE,
             reference: props?.reference || [],
             averaged: props?.averaged || false,
             samplingRate: props?.samplingRate || 0,
@@ -964,6 +966,14 @@ export const mapMontageChannels = (
         }
         calculateSignalOffsets(channels)
         return channels
+    } else {
+        // This method makes alterations to the configuration object so clone it to avoid side effects.
+        const configClone = deepClone(config)
+        if (!configClone) {
+            Log.error(`Cannot map montage channels; configuration is not a serializable object.`, SCOPE)
+            return []
+        }
+        config = configClone
     }
     const channelMap: { [name: string]: SetupChannel | null } = {}
     // First map names to correct channel indices.
@@ -982,29 +992,121 @@ export const mapMontageChannels = (
         channelMap[lbl] = null // Not found.
     }
     // Next, map active and reference electrodes to correct signal channels.
+    config_loop:
     for (const chan of config.channels) {
-        // Check that the active channel can be found.
-        const actChan = channelMap[chan.active]
-        if (actChan === null || actChan === undefined) {
-            channels.push(
-                getChannel({
-                    label: chan.label,
-                    modality: chan.modality,
-                    name: chan.name,
-                })
-            )
-            continue
+        // Check that all active channels can be found and have compatible properties.
+        let actSR = 0
+        let actUnit = ''
+        let active = null as number | DerivedChannelProperties | null
+        for (const actProps of Array.isArray(chan.active) ? chan.active : [chan.active]) {
+            const actIdx = Array.isArray(actProps) ? actProps[0] : actProps
+            const actChan = channelMap[actIdx]
+            if (actChan === null || actChan === undefined) {
+                channels.push(
+                    getChannel({
+                        label: chan.label,
+                        modality: chan.modality,
+                        name: chan.name,
+                    })
+                )
+                continue config_loop
+            }
+            // Check modalities.
+            if (actChan.modality !== chan.modality) {
+                Log.warn(
+                    `Channel '${actChan.name}' has modality '${actChan.modality}' ` +
+                    `but montage channel '${chan.label}' has modality '${chan.modality}'.`,
+                SCOPE)
+                continue config_loop
+            }
+            // Check sampling rates.
+            if (actSR && actSR !== actChan.samplingRate) {
+                Log.warn(
+                    `Channel '${actChan.name}' has sampling rate '${actChan.samplingRate}' but at least one of the ` +
+                    `active channels in montage channel '${chan.label}' has sampling rate '${actSR}'.`,
+                SCOPE)
+                continue config_loop
+            } else if (actSR && chan.samplingRate && actSR !== chan.samplingRate) {
+                Log.warn(
+                    `Channel '${actChan.name}' has sampling rate '${actChan.samplingRate}' but montage channel ` +
+                    `'${chan.label}' has sampling rate '${chan.samplingRate}'.`,
+                SCOPE)
+                continue config_loop
+            } else if (!actSR) {
+                // Set the sampling rate for the first active channel.
+                actSR = actChan.samplingRate || 0
+            }
+            // Check units.
+            if (actUnit && actUnit !== actChan.unit) {
+                Log.warn(
+                    `Channel '${actChan.name}' has unit '${actChan.unit}' but at least of of the active channels ` +
+                    `in montage channel' ${chan.label}' has unit '${actUnit}'.`,
+                SCOPE)
+                continue config_loop
+            } else if (chan.unit && actChan.unit && chan.unit !== actChan.unit) {
+                Log.warn(
+                    `Channel '${actChan.name}' has unit '${actChan.unit}' but montage channel ` +
+                    `'${chan.label}' has unit '${chan.unit}'.`,
+                SCOPE)
+                continue config_loop
+            } else if (!actUnit && actChan.unit) {
+                // Set the unit for the first active channel.
+                actUnit = actChan.unit
+            }
+            if (Array.isArray(chan.active)) {
+                // If active is an array, store the channel index and its properties.
+                if (active === null) {
+                    // Create a new active channel array.
+                    active = Array.isArray(actProps) ? [[actChan.index, actProps[1]]] : [actChan.index]
+                } else if (Array.isArray(active)) {
+                    // If active is an array, add the new channel to it.
+                    if (Array.isArray(actProps)) {
+                        active.push([actChan.index, actProps[1]])
+                    } else {
+                        active.push(actChan.index)
+                    }
+                }
+            } else {
+                // If active is not an array, just set it to the current channel.
+                active = actChan.index
+            }
+            // Replace possibly empty properties from the source channel if there is only one active source.
+            if (!Array.isArray(actProps)) {
+                chan.laterality ||= actChan.laterality
+                chan.polarity ||= actChan.displayPolarity
+                chan.samplingRate ||= actChan.samplingRate
+                chan.scale ||= actChan.scale
+                chan.unit ||= actChan.unit
+            }
         }
-        const refs = [] as number[]
+        const refs = [] as DerivedChannelProperties
         if (chan.reference.length) {
             for (const ref of chan.reference) {
+                // Check that all reference channels can be found and have the right sampling rate.
+                const refIdx = Array.isArray(ref) ? ref[0] : ref
                 // Store this in a separate const to avoid Typescript linter errors.
-                const refChan = channelMap[ref]
-                if (refChan !== null && refChan !== undefined &&
-                    actChan.samplingRate === refChan.samplingRate
-                ) {
-                    refs.push(refChan.index)
+                const refChan = channelMap[refIdx]
+                if (refChan === null || refChan === undefined) {
+                    Log.warn(
+                        `Reference channel ${refIdx} for montage channel ${chan.label} not found in setup.`,
+                    SCOPE)
+                    continue
                 }
+                if (refChan.modality !== chan.modality) {
+                    Log.warn(
+                        `Reference channel ${refChan.name} has modality ${refChan.modality} ` +
+                        `but montage channel ${chan.label} has modality ${chan.modality}.`,
+                    SCOPE)
+                    continue
+                }
+                if (refChan.samplingRate && refChan.samplingRate !== actSR) {
+                    Log.warn(
+                        `Reference channel ${refChan.name} has sampling rate ${refChan.samplingRate} ` +
+                        `but montage channel ${chan.label} has active channel sampling rate ${actSR}.`,
+                    SCOPE)
+                    continue
+                }
+                refs.push(Array.isArray(ref) ? [refChan.index, ref[1]] : refChan.index)
             }
             if (!refs.length) {
                 // Not a single reference channel found.
@@ -1020,15 +1122,15 @@ export const mapMontageChannels = (
                     getChannel({
                         label: chan.label,
                         name: chan.name,
-                        modality: chan.modality || actChan.modality,
-                        laterality: chan.laterality || actChan.laterality,
-                        active: actChan.index,
+                        modality: chan.modality,
+                        laterality: chan.laterality,
+                        active: active ?? undefined,
                         reference: refs,
                         averaged: chan.averaged,
-                        samplingRate: actChan.samplingRate,
-                        scale: actChan.scale,
-                        displayPolarity: chan.polarity || actChan.displayPolarity,
-                        unit: chan.unit || actChan.unit,
+                        samplingRate: chan.samplingRate || actSR,
+                        scale: chan.scale,
+                        displayPolarity: chan.polarity,
+                        unit: chan.unit || actUnit,
                     })
                 )
             }
@@ -1038,13 +1140,13 @@ export const mapMontageChannels = (
                 getChannel({
                     label: chan.label,
                     name: chan.name,
-                    modality: chan.modality || actChan.modality,
-                    laterality: chan.laterality || actChan.laterality,
-                    active: actChan.index,
-                    samplingRate: actChan.samplingRate,
-                    scale: actChan.scale,
-                    displayPolarity: chan.polarity || actChan.displayPolarity,
-                    unit: chan.unit || actChan.unit,
+                    modality: chan.modality,
+                    laterality: chan.laterality,
+                    active: active ?? undefined,
+                    samplingRate: actSR,
+                    scale: chan.scale,
+                    displayPolarity: chan.polarity,
+                    unit: chan.unit || actUnit,
                 })
             )
         }

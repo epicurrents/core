@@ -5,20 +5,24 @@
  * @license    Apache-2.0
  */
 
-import type { BiosignalChannel, MontageChannel } from '#types'
+import type {
+    DerivedChannelProperties,
+    BiosignalChannel,
+    MontageChannel,
+} from '#types'
 import GenericBiosignalChannel from './GenericBiosignalChannel'
 
 export default abstract class GenericMontageChannel extends GenericBiosignalChannel implements MontageChannel {
 
-    protected _active: number
-    protected _reference: number[]
+    protected _active: number | DerivedChannelProperties
+    protected _reference: DerivedChannelProperties
 
     constructor (
             name: string,
             label: string,
             type: string,
-            active: number,
-            reference: number[],
+            active: number | DerivedChannelProperties,
+            reference: DerivedChannelProperties,
             averaged: boolean,
             samplingRate: number,
             unit: string,
@@ -33,14 +37,14 @@ export default abstract class GenericMontageChannel extends GenericBiosignalChan
     get active () {
         return this._active
     }
-    set active (value: number) {
+    set active (value: number | DerivedChannelProperties) {
         this._setPropertyValue('active', value)
     }
 
     get reference () {
         return this._reference
     }
-    set reference (value: number[]) {
+    set reference (value: DerivedChannelProperties) {
         this._setPropertyValue('reference', value)
     }
 }

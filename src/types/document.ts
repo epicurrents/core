@@ -13,6 +13,8 @@ import { DataResource } from './application'
 export interface DocumentResource extends DataResource {
     /** Promise that resolves with the content of the document. */
     content: Promise<unknown>
+    /** Scale of the document, used for zooming in or out in the UI. */
+    scale: number
     /** Format of the source file. */
     sourceFormat: string
 }

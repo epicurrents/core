@@ -238,6 +238,24 @@ export interface BiosignalChannel {
     setSignal (signal: Float32Array): void
 }
 /**
+ * A derivation using two or more raw signals. Derivations are calculated before montage signals and can be used like
+ * any other source channel signal.
+ */
+export type BiosignalChannelDerivationTemplate = BiosignalChannelTemplate & {
+    /**
+     * Properties for matching the active channel signal. Name of the signal is used to match to the already mapped
+     * setup channels and if that fails, only then against the source file signal labels.
+     * If more than one channel is given, a weighted average of the signals will be calculated.
+     * */
+    active: BiosignalReferenceChannelTemplate[]
+    /**
+     * Properties for matching reference channel signals. Name of the signal is used to match to the already mapped
+     * setup channels and if that fails, only then against the source file signal labels.
+     * If more than one channel is given, a weighted average of the signals will be calculated.
+     */
+    reference: BiosignalReferenceChannelTemplate[]
+}
+/**
  * Filters for a single biosignal channel. Null means the channel uses the resource's filter value for that type.
  */
 export type BiosignalChannelFilters = {
@@ -282,8 +300,8 @@ export type BiosignalChannelMarker = {
  * Basic properties of the biosignal channel entity to be used when loading configurations from JSON.
  */
 export type BiosignalChannelProperties = {
-    /** Index of the active channel. */
-    active?: number
+    /** Index or indices of the active channel(s). */
+    active?: number | DerivedChannelProperties
     /** Is the signal on this channel average referenced. */
     averaged?: boolean
     /** Polarity of the signal on this channel. */
@@ -308,7 +326,7 @@ export type BiosignalChannelProperties = {
         top: number
     }
     /** List of reference channel indices. */
-    reference?: number[]
+    reference?: DerivedChannelProperties
     /** Number of samples in this signal. */
     sampleCount?: number
     /** Sampling rate of the signal. */
@@ -897,6 +915,18 @@ export type BiosignalMontageTemplate = {
      */
     reference: BiosignalMontageReferenceSignal
 }
+export type BiosignalReferenceChannelTemplate = {
+    /**
+     * Unique name of the channel.
+     * This name will be matched against the labels of the source signals first and a pattern match will be used only
+     * if no direct match is found.
+     */
+    name: string
+    /** A RegExp pattern to match the source signal label. */
+    pattern?: string
+    /** Weight of the channel in the average signal calculation (default 1). */
+    weight?: number
+}
 /**
  * BiosignalResource is a collection of uniform or polygraphic biosignals.
  */
@@ -993,6 +1023,23 @@ export interface BiosignalResource extends DataResource {
      */
     destroy (): void | Promise<void>
     /**
+     * Get the absolute time at the given time in seconds since recording start.
+     * @param time - Time point in seconds.
+     * @returns Date and time properties at the given time point. `day` property starts from 1 instead of 0.
+     */
+    getAbsoluteTimeAt (time: number): {
+        /** Date at time point or null if recording start date is not known. */
+        date: Date | null
+        /** Day number at time point starting from 1. */
+        day: number
+        /** Hour at time point in 24 hour format. */
+        hour: number
+        /** Minute at time point. */
+        minute: number
+        /** Second at time point. */
+        second: number
+    }
+    /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
      * @param config - Optional config (TODO: Config definitions).
@@ -1027,6 +1074,17 @@ export interface BiosignalResource extends DataResource {
      * @param useCacheTime - Use cache time (ignoring previous interruptions) instead of recording time.
      */
     getInterruptions (useCacheTime?: boolean): SignalInterruption[]
+    /**
+     * Get relative time properties at the given time point in seconds since recording start.
+     * @param time - Time point in seconds.
+     * @returns Relative time properties at the given time point.
+     */
+    getRelativeTimeAt (time: number): {
+        days: number
+        hours: number
+        minutes: number
+        seconds: number
+    }
     /**
      * Check if the recording has video for the given time point or range.
      * @param time - Time point as number or time range as [start, end].
@@ -1107,10 +1165,12 @@ export type BiosignalScope = 'eeg'
 export interface BiosignalSetup {
     /** Channel configuration for each matched raw signal. */
     channels: SetupChannel[]
-    /** Channels that should have been present, but were not found. */
-    missingChannels: SetupChannel[]
     /** Descriptive label for this setup. */
     label: string
+    /** Channel derivations that are precalculated and stored as source signals. */
+    derivations?: SetupDerivation[]
+    /** Channels that should have been present, but were not found. */
+    missingChannels: SetupChannel[]
     /** Unique name for this setup. */
     name: string
     /** Raw signals that could not be matched to any channel in the setup. */
@@ -1143,6 +1203,22 @@ export type ChannelPositionProperties = {
     top: number
 }
 /**
+ * Indices of channels in the source file used for constructing a derived channel.
+ *
+ * If multiple indices are present, the channel is an average of the signals at those indices. Each channel may have a
+ * weight as a second item in the array, e.g. `[0, 1]` or `[[0, 1], [2]]`. The weight will be used as a multiplier for
+ * each sample value in that signal. Default weight is 1 (if omitted).
+ *
+ * @example
+ * // Single channel with index 0:
+ * active: [0]
+ * // Two channels with indices 0 and 1, both with weight 1:
+ * active: [0, 1]
+ * // Two channels with indices 0 and 1, with weights 0.5 and 1:
+ * active: [[0, 0.5], [1]]
+ */
+export type DerivedChannelProperties = (number | number[])[]
+/**
  * Properties from an FFT analysis of a signal segment.
  */
 export type FftAnalysisResult = {
@@ -1167,12 +1243,15 @@ export type GetSignalsResponse = {
  * A single channel in an biosignal montage configuration.
  */
 export interface MontageChannel extends BiosignalChannel, BaseAsset {
-    /** Index of the active channel. */
-    active: number
+    /**
+     * Active channel index or a set of active channel indices; multiple channels will be averaged using optional
+     * weights.
+     */
+    active: number | DerivedChannelProperties
     /** Does this channel use a common average reference. */
     averaged: boolean
-    /** Set of reference channel indices; multiple channels will be averaged. */
-    reference: number[]
+    /** Set of reference channel indices; multiple channels will be averaged using optional weights. */
+    reference: DerivedChannelProperties
 }
 /**
  * Commission types for a montage worker with the action name as key and property types as value.
@@ -1273,7 +1352,7 @@ export type SetupCacheResponse = {
  */
 export interface SetupChannel extends BiosignalChannelTemplate {
     /** Index of the active channel. */
-    active: number
+    active: number | DerivedChannelProperties
     /** Set to true if the raw signal uses average reference, so it is not applied twice. */
     averaged: boolean
     /** Non-default polarity of this channel's signal. */
@@ -1281,7 +1360,20 @@ export interface SetupChannel extends BiosignalChannelTemplate {
     /** Index of the matched raw signal. */
     index: number
     /** Set of reference channel indices; multiple channels will be averaged. */
-    reference: number[]
+    reference: DerivedChannelProperties
+}
+/**
+ * Configuration for a single derived channel in BiosignalSetup.
+ */
+export type SetupDerivation = {
+    /** Properties of the active channel(s). */
+    active: number | DerivedChannelProperties
+    /** Set to true if the raw signal uses average reference, so it is not applied twice. */
+    averaged: boolean
+    /** Non-default polarity of this channel's signal. */
+    displayPolarity: SignalPolarity
+    /** Set of reference channel indices; multiple channels will be averaged. */
+    reference: DerivedChannelProperties
 }
 /**
  * Reponse that contains the created mutex export properties in `cacheProperties`, if `success` is true.

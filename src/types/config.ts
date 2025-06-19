@@ -8,6 +8,7 @@
 import { PropertyChangeHandler } from './application'
 import {
     BiosignalAnnotation,
+    BiosignalChannelDerivationTemplate,
     BiosignalChannelTemplate,
     BiosignalFilterType,
     SetupChannel,
@@ -194,6 +195,8 @@ export type CommonBiosignalSettings = {
         /** Should montage signals be pre-cached into a biosignal mutex. */
         preCache: boolean
     }
+    /** The frequency that the notch filter should be applied to by default (0 to disable). */
+    notchDefaultFrequency: 50 | 60 | 0
     /** Scale to apply to a signal's amplitude as an exponent of 10. */
     scale: {
         availableValues: number[]
@@ -218,6 +221,8 @@ export type ConfigBiosignalMontage = {
 export type ConfigBiosignalSetup = {
     /** Channel templates for raw channel properties. */
     channels: BiosignalChannelTemplate[]
+    /** Channel derivations that are precalculated and stored as source signals. */
+    derivations?: BiosignalChannelDerivationTemplate[]
     /** Descriptive label for this montage. */
     label: string
     /** Unique name used for matching this setup. */

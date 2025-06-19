@@ -405,6 +405,39 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         super.destroy()
     }
 
+    getAbsoluteTimeAt (time: number) {
+        if (!this.startTime) {
+            // The recording has no start time information, just return relative time.
+            return {
+                date: null,
+                day: Math.floor(time / 86400) + 1, // +1 to start from day 1.
+                hour: Math.floor((time % 86400) / 3600),
+                minute: Math.floor((time % 3600) / 60),
+                second: Math.floor(time % 60),
+            }
+        }
+        // Calculate the absolute date and time at given time position.
+        const startDay = this.startTime.getFullYear()*365
+                         + this.startTime.getMonth()*30
+                         + this.startTime.getDay()
+        const posDate = new Date(
+                            this.startTime.getTime()
+                            + time*1000
+                        )
+        const posDay = posDate.getFullYear()*365
+                       + posDate.getMonth()*30
+                       + posDate.getDay()
+        // Add 1 to day to start from day 1.
+        const day = posDay - startDay + 1
+        const hour = posDate.getHours()
+        const minute = posDate.getMinutes()
+        const second = posDate.getSeconds()
+        return {
+            date: posDate,
+            day, hour, minute, second
+        }
+    }
+
     getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {
         if (!this._activeMontage) {
             return this.getAllRawSignals(range, config)
@@ -508,6 +541,15 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             }
         }
         return this.getAllRawSignals(range, config)
+    }
+
+    getRelativeTimeAt (time: number) {
+        return {
+            days: Math.floor(time / 86400),
+            hours: Math.floor((time % 86400) / 3600),
+            minutes: Math.floor((time % 3600) / 60),
+            seconds: Math.floor(time % 60),
+        }
     }
 
     hasVideoAt (time: number | [number, number]) {
