@@ -22,22 +22,6 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
     constructor (name: string) {
         super(name)
     }
-
-    get dependenciesMissing () {
-        return []
-    }
-    get dependenciesReady () {
-        return []
-    }
-    get errorReason () {
-        return this._errorReason
-    }
-    set errorReason (value: string) {
-        this._setPropertyValue('errorReason', value)
-    }
-    get isReady () {
-        return this._state === 'ready'
-    }
     get resources () {
         return this._resources as GenericResource[]
     }
@@ -49,16 +33,6 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
     }
     set source (value: StudyContext | null) {
         this._setPropertyValue('source', value)
-    }
-    get state () {
-        return this._state
-    }
-    set state (value: ResourceState) {
-        this._setPropertyValue('state', value)
-    }
-
-    addDependencies(..._dependencies: string[]) {
-        // Not implemented.
     }
 
     addResource (resource: GenericResource) {
@@ -87,13 +61,5 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
     async prepare () {
         this.state = 'ready'
         return true
-    }
-
-    removeDependencies(..._dependencies: string[]) {
-        // Not implemented.
-    }
-
-    setDependenciesReady(..._dependencies: string[]) {
-        // Not implemented.
     }
 }

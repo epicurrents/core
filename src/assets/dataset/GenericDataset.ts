@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import GenericResource from '#assets/GenericResource'
 import { type DataResource } from '#types/application'
 import {
     type BaseDataset,
@@ -12,12 +13,11 @@ import {
     type ResourceSortingScheme
 } from '#types/dataset'
 import { Log } from 'scoped-event-log'
-import GenericAsset from '../GenericAsset'
 import { deepClone } from '#util'
 
 const SCOPE = 'GenericDataset'
 
-export default abstract class GenericDataset extends GenericAsset implements BaseDataset {
+export default abstract class GenericDataset extends GenericResource implements BaseDataset {
     protected _resources: DataResource[] = []
     protected _resourceSorting: ResourceSortingInstructions
     /**
