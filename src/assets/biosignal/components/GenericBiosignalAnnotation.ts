@@ -6,7 +6,57 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { BiosignalAnnotation, SettingsColor } from '#types'
+import type {
+    BiosignalAnnotation,
+    ConfigSchema,
+    ResourceConfig,
+    SettingsColor,
+} from '#types'
+
+/**
+ * Configuration schema for biosignal annotations.
+ */
+const CONFIG_SCHEMA = {
+    context: 'biosignal_annotation',
+    fields: [
+        // Properties that can be modified with an external config.
+        {
+            name: 'background',
+            type: 'boolean',
+        },
+        {
+            name: 'duration',
+            type: 'number',
+        },
+        {
+            name: 'label',
+            type: 'string',
+        },
+        {
+            name: 'opacity',
+            type: 'number',
+        },
+        {
+            name: 'priority',
+            type: 'number',
+        },
+        {
+            name: 'start',
+            type: 'number',
+        },
+        {
+            name: 'text',
+            type: 'string',
+        },
+        {
+            name: 'visible',
+            type: 'boolean',
+        },
+    ],
+    name: 'Biosignal annotation configuration',
+    type: 'epicurrents_configuration',
+    version: '1.0',
+} as ConfigSchema
 
 export default abstract class GenericBiosignalAnnotation extends GenericAsset implements BiosignalAnnotation {
     protected _annotator = ''
@@ -152,5 +202,9 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     }
     set visible (value: boolean) {
         this._setPropertyValue('visible', value)
+    }
+
+    configure (config: ResourceConfig) {
+        super.configure(config, CONFIG_SCHEMA, this)
     }
 }

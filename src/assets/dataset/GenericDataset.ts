@@ -6,11 +6,11 @@
  */
 
 import GenericResource from '#assets/GenericResource'
-import { type DataResource } from '#types/application'
-import {
-    type BaseDataset,
-    type ResourceSortingInstructions,
-    type ResourceSortingScheme
+import type { DataResource } from '#types/application'
+import type {
+    BaseDataset,
+    ResourceSortingInstructions,
+    ResourceSortingScheme
 } from '#types/dataset'
 import { Log } from 'scoped-event-log'
 import { deepClone } from '#util'

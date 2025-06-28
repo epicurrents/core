@@ -27,7 +27,12 @@ import type {
     SourceChannel,
     VideoAttachment,
 } from '#types/biosignal'
-import type { CommonBiosignalSettings, ConfigChannelFilter } from '#types/config'
+import type {
+    CommonBiosignalSettings,
+    ConfigChannelFilter,
+    ConfigSchema,
+    ResourceConfig,
+} from '#types/config'
 import type {
     MemoryManager,
     SignalCachePart,
@@ -36,6 +41,52 @@ import type {
 import type { StudyContext } from '#types/study'
 import Log from 'scoped-event-log'
 import type { MutexExportProperties } from 'asymmetric-io-mutex'
+
+/**
+ * Configuration schema for the biosignal resources.
+ */
+const CONFIG_SCHEMA = {
+    context: 'biosignal_resource',
+    fields: [
+        // Properties that can be modified with an external config.
+        {
+            name: 'interruptions',
+            type: 'array',
+        },
+        {
+            name: 'modality',
+            type: 'string',
+        },
+        {
+            name: 'name',
+            type: 'string',
+        },
+        {
+            name: 'startTime',
+            nullable: true,
+            type: 'date',
+        },
+        {
+            name: 'timebase',
+            type: 'number',
+        },
+        {
+            name: 'timebaseUnit',
+            type: 'string',
+        },
+        {
+            name: 'totalDuration',
+            type: 'number',
+        },
+        {
+            name: 'viewStart',
+            type: 'number',
+        },
+    ],
+    name: 'Biosignal resource configuration',
+    type: 'epicurrents_configuration',
+    version: '1.0',
+} as ConfigSchema
 
 const SCOPE = 'GenericBiosignalResource'
 
@@ -183,10 +234,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this._setPropertyValue('montages', value)
     }
 
-    get name () {
-        return this._name
-    }
-
     get recordMontage () {
         return this._recordMontage
     }
@@ -252,6 +299,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     get startTime () {
         return this._startTime
+    }
+    set startTime (value: Date | null) {
+        this._setPropertyValue('startTime', value)
     }
 
     get timebase () {
@@ -379,6 +429,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             return this._service?.cacheSignalsFromUrl() || false
         }
         return false
+    }
+
+    configure (config: ResourceConfig) {
+        super.configure(config, CONFIG_SCHEMA, this)
     }
 
     async destroy (): Promise<void> {

@@ -5,9 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { type ResourceState } from '#types/application'
-import { type MediaDataset } from '#types/dataset'
-import { type StudyContext } from '#types/study'
+import type { ResourceState } from '#types/application'
+import type { MediaDataset } from '#types/dataset'
+import type { StudyContext } from '#types/study'
 import GenericDataset from '#assets/dataset/GenericDataset'
 import GenericResource from '#assets/GenericResource'
 

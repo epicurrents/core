@@ -7,15 +7,39 @@
  */
 
 import EventBus from '#events/EventBus'
+import { deepClone, safeObjectFrom } from '#util'
 import { Log } from 'scoped-event-log'
 import { AssetEvents } from '#events/EventTypes'
 import type { BaseAsset, PropertyChangeHandler } from '#types/application'
+import type { ConfigSchema, ResourceConfig } from '#types/config'
 import type { EventWithPayload, PropertyChangeEvent } from '#types/event'
 import type {
     ScopedEventBus,
     ScopedEventCallback,
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
+
+/**
+ * Configuration schema for generic asset.
+ */
+const CONFIG_SCHEMA = {
+    context: 'generic_asset',
+    fields: [
+        // Properties that can be modified with an external config.
+        {
+            name: 'modality',
+            type: 'string',
+        },
+        {
+            name: 'name',
+            type: 'string',
+        },
+    ],
+    name: 'Generic asset configuration',
+    type: 'epicurrents_configuration',
+    // Since this is the root schema, it must have the highest (= most recent) version.
+    version: '1.0',
+} as ConfigSchema
 
 const SCOPE = "GenericAsset"
 
@@ -44,6 +68,7 @@ export default abstract class GenericAsset implements BaseAsset {
         return errorId
     }
     private static USED_IDS = new Set<string>()
+    protected _configSchema: null | ConfigSchema = null
     protected _eventBus: ScopedEventBus
     protected _id: string
     protected _isActive: boolean = false
@@ -104,6 +129,66 @@ export default abstract class GenericAsset implements BaseAsset {
     ///////////////////////////////////////////////////
 
     /**
+     * Merge the given config `schema` with this resource's schema. This method validates all fields in the schema,
+     * avoiding possible errors when applying a config.
+     * @param schema - Config schema to merge with this resource.
+     * @param resource - Optional resource to use for property name validation. If not provided, this resource is used.
+     */
+    protected _mergeConfigSchema (schema: ConfigSchema, resource?: BaseAsset) {
+        // Check schema version compatibility.
+        const [major, minor] = schema.version.split('.').map(n => parseInt(n))
+        const [thisMaj, thisMin] = CONFIG_SCHEMA.version.split('.').map(n => parseInt(n))
+        if (major !== thisMaj || minor > thisMin) {
+            Log.error(
+                `Config schema version mismatch: expected '${CONFIG_SCHEMA.version}', ` +
+                `but received '${schema.version}'.`,
+                SCOPE
+            )
+            return
+        }
+        const target = (resource ?? this) as typeof this
+        const localSchema = deepClone(safeObjectFrom(schema)) // Avoid modifying the original schema.
+        if (!localSchema) {
+            Log.error(`Config schema is not a serializable object.`, SCOPE)
+            return
+        }
+        for (let i=0; i<localSchema.fields.length; i++) {
+            const field = localSchema.fields[i]
+            if (field.type === 'schema') {
+                // Nested schemas should have been extracted from the config, they cannot be processed here.
+                Log.warn(`Config schema error: field '${field.name}' is a nested schema.`, SCOPE)
+                localSchema.fields.splice(i, 1)
+                i--
+                continue
+            }
+            // Check if the field is a public property of this resource, protected properties are not configurable.
+            if (field.name.startsWith('_')) {
+                Log.warn(
+                    `Config schema error: field '${field.name}' is a protected property and cannot be configured.`,
+                    SCOPE
+                )
+                localSchema.fields.splice(i, 1)
+                i--
+                continue
+            }
+            // The field must have a setter to be configurable.
+            const propertySetter = Object.getOwnPropertyDescriptor(target, field.name)?.set
+            if (!propertySetter) {
+                Log.warn(
+                    `Config schema error: property '${field.name}' is not configurable on ` +
+                    `'${target.constructor.name}'.`,
+                    SCOPE
+                )
+                localSchema.fields.splice(i, 1)
+                i--
+                continue
+            }
+            // Add the field to the config schema.
+            CONFIG_SCHEMA.fields.push(field)
+        }
+    }
+
+    /**
      * Set a new value for a property in this asset.
      * @param property - Name of the property.
      * @param newValue - New value for the property.
@@ -150,6 +235,55 @@ export default abstract class GenericAsset implements BaseAsset {
         phase: ScopedEventPhase = 'after',
     ) {
         this._eventBus.addScopedEventListener(event, callback, subscriber, this.id, phase)
+    }
+
+    configure (config: ResourceConfig, schema?: ConfigSchema, resource?: BaseAsset) {
+        if (schema) {
+            this._mergeConfigSchema(schema, resource)
+        }
+        const target = (resource ?? this) as typeof this
+        if (!target._configSchema) {
+            Log.error(`Config schema is not defined for ${target.constructor.name}.`, SCOPE)
+            return
+        }
+        if (!config.hasOwnProperty('type') || config.type !== 'epicurrents_configuration') {
+            Log.error(`Config type is not 'epicurrents_configuration'.`, SCOPE)
+            return
+        }
+        for (const [key, value] of Object.entries(config) as [string, unknown][]) {
+            // Validate the config against the schema.
+            const field = target._configSchema.fields.find(f => f.name === key)
+            if (field === undefined) {
+                Log.warn(`Config field '${key}' is not defined in the config schema.`, SCOPE)
+                continue
+            }
+            const fieldTypes = Array.isArray(field.type) ? field.type : [field.type] as string[]
+            if (
+                // Date fields are strings in the config.
+                (field.type !== 'date' || typeof value !== 'string') &&
+                // Otherwise the value type must match the field type.
+                !fieldTypes.includes(typeof value)
+            ) {
+                Log.warn(
+                    `Config field '${key}' must be of type '${fieldTypes.join('/')}', ` +
+                    `but received type '${typeof value}'.`,
+                    SCOPE
+                )
+                continue
+            }
+            // Only allow setting public property values (this also catches prototype injections).
+            if (key.startsWith('_')) {
+                Log.warn(`Config field '${key}' is a protected property and cannot be configured.`, SCOPE)
+                continue
+            }
+            // The property must have a setter or it isn't configurable.
+            const propertySetter = Object.getOwnPropertyDescriptor(target, key)?.set
+            if (!propertySetter) {
+                Log.warn(`Property '${key}' is not configurable on '${target.name}'.`, SCOPE)
+                continue
+            }
+            propertySetter(value as BaseAsset[keyof BaseAsset])
+        }
     }
 
     destroy () {

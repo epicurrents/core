@@ -263,6 +263,38 @@ export type ConfigReleaseBuffers = {
     /** Should the reserved buffer ranges be removed from the memory manager as well. */
     removeFromManager: boolean
 }
+export type ConfigSchema = {
+    /** Context that identifies the resource type that this config schema describes. */
+    context: string
+    fields: ConfigSchemaField[]
+    /** Unique name for this schema. Is used to match nested schema objects. */
+    name: string
+    type: 'epicurrents_configuration'
+    /**
+     * Version number of the schema (dot-delimited).
+     * Full digits are used for major changes, decimal digits for minor changes.
+     * Schemas are backwards compatible within the same major version.
+     */
+    version: string
+}
+export type ConfigSchemaField = {
+    /** Name of the field. It must match the name of the setter in the target resource. */
+    name: string
+    /** Type of the field. */
+    type: 'array' | 'boolean' | 'date' | 'number' | 'object' | 'schema' | 'string'
+    /**
+     * Name of the schema context that this field describes.
+     * Only applies to fields of type 'schema'.
+     */
+    context?: string
+    /**
+     * Fields for a nested config schema.
+     * Only applies to fields of type 'schema'.
+     */
+    fields?: ConfigSchemaField[]
+    nullable?: boolean
+    required?: boolean
+}
 export type ConfigStudyContext = {
     name?: string
 }
@@ -273,6 +305,7 @@ export type ConfigStudyLoader = {
     name?: string
     studies?: { [key: string]: unknown }
 }
+export type ResourceConfig = Record<string, unknown>
 /**
  * Color with values for [`red`, `green`, `blue`, `alpha`] as fraction of 1.
  */

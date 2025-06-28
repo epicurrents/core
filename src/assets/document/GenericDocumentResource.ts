@@ -5,10 +5,28 @@
  * @license    Apache-2.0
  */
 
-import { type DocumentResource } from '#types/document'
-import { type StudyContext } from '#types/study'
+import type { ConfigSchema, ResourceConfig } from '#types/config'
+import type { DocumentResource } from '#types/document'
+import type { StudyContext } from '#types/study'
 import GenericResource from '#assets/GenericResource'
 import { nullPromise } from '#util/general'
+
+/**
+ * Configuration schema for generic document.
+ */
+const CONFIG_SCHEMA = {
+    context: 'generic_dataset',
+    fields: [
+        // Properties that can be modified with an external config.
+        {
+            name: 'scale',
+            type: 'number',
+        },
+    ],
+    name: 'Gneric document configuration',
+    type: 'epicurrents_configuration',
+    version: '1.0',
+} as ConfigSchema
 
 //const SCOPE = 'GenericDocumentResource'
 
@@ -35,5 +53,9 @@ export default abstract class GenericDocumentResource extends GenericResource im
 
     get sourceFormat () {
         return this._sourceFormat
+    }
+
+    configure (config: ResourceConfig) {
+        super.configure(config, CONFIG_SCHEMA, this)
     }
 }

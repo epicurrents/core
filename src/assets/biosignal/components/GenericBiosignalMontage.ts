@@ -24,6 +24,8 @@ import type {
     ConfigChannelFilter,
     ConfigChannelLayout,
     ConfigMapChannels,
+    ConfigSchema,
+    ResourceConfig,
 } from '#types/config'
 import type { HighlightContext, SignalHighlight } from '#types/plot'
 import type {
@@ -43,6 +45,23 @@ import {
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import GenericAsset from '#assets/GenericAsset'
 import MontageService from '../service/MontageService'
+
+/**
+ * Configuration schema for biosignal montages.
+ */
+const CONFIG_SCHEMA = {
+    context: 'biosignal_montage',
+    fields: [
+        // Properties that can be modified with an external config.
+        {
+            name: 'label',
+            type: 'string',
+        },
+    ],
+    name: 'Biosignal montage configuration',
+    type: 'epicurrents_configuration',
+    version: '1.0',
+} as ConfigSchema
 
 const SCOPE = 'GenericBiosignalMontage'
 
@@ -196,6 +215,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     async cacheSignals (..._ranges: [number, number][]) {
 
+    }
+
+    configure (config: ResourceConfig) {
+        super.configure(config, CONFIG_SCHEMA, this)
     }
 
     async getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {

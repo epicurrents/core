@@ -20,8 +20,8 @@ export default abstract class GenericResource extends GenericAsset implements Da
      */
     static readonly EVENTS = { ...GenericAsset.EVENTS, ...ResourceEvents }
 
-    protected _dependenciesMissing = [] as string[]
-    protected _dependenciesReady = [] as string[]
+    protected _dependenciesMissing: string[] = []
+    protected _dependenciesReady: string[] = []
     protected _errorReason = ''
     /** Is this record selected as active in the UI. */
     protected _loaded = false

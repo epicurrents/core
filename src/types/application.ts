@@ -8,6 +8,8 @@
 import {
     AppSettings,
     BaseModuleSettings,
+    ConfigSchema,
+    ResourceConfig,
     SettingsValue,
 } from './config'
 import { DatasetLoader, MediaDataset } from './dataset'
@@ -73,6 +75,13 @@ export interface BaseAsset {
         subscriber: string,
         phase?: ScopedEventPhase
     ): void
+    /**
+     * Configure this asset with the given `config` and optional `schema`.
+     * @param config - Configuration to apply.
+     * @param schema - Optional configuration schema to validate against. If not given here, it must be set prior to calling this method.
+     * @param resource - Optional asset to apply the configuration to (default this).
+     */
+    configure (config: ResourceConfig, schema?: ConfigSchema, resource?: BaseAsset): void
     /**
      * Ideally, this method should take care of releasing any resources the asset has reserved.
      * It should be called starting from the last inheriting class and calling the super's `destroy` once all the

@@ -13,9 +13,72 @@ import type {
     BiosignalChannelFilters,
     BiosignalChannelMarker,
     BiosignalCursor,
+    ConfigSchema,
+    ResourceConfig,
     SignalPolarity,
-} from '#types/biosignal'
+} from '#types'
 import GenericAsset from '#assets/GenericAsset'
+
+/**
+ * Configuration schema for biosignal channels.
+ */
+const CONFIG_SCHEMA = {
+    context: 'biosignal_channel',
+    fields: [
+        // Properties that can be modified with an external config.
+        {
+            name: 'averaged',
+            type: 'boolean',
+        },
+        {
+            name: 'displayPolarity',
+            type: 'number',
+        },
+        {
+            name: 'label',
+            type: 'string',
+        },
+        {
+            name: 'laterality',
+            type: 'string',
+        },
+        {
+            name: 'sampleCount',
+            type: 'number',
+        },
+        {
+            name: 'samplingRate',
+            type: 'number',
+        },
+        {
+            name: 'scale',
+            type: 'number',
+        },
+        {
+            name: 'sensitivity',
+            type: 'number',
+        },
+        {
+            name: 'triggerPosition',
+            type: 'number',
+        },
+        {
+            name: 'triggerValue',
+            type: 'number',
+        },
+        {
+            name: 'unit',
+            type: 'string',
+        },
+        {
+            name: 'visible',
+            type: 'boolean',
+        },
+    ],
+    name: 'Biosignal channel configuration',
+    type: 'epicurrents_configuration',
+    version: '1.0',
+} as ConfigSchema
 
 const SCOPE = "GenericBiosignalChannel"
 
@@ -161,6 +224,9 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     get label () {
         return this._label
     }
+    set label (value: string) {
+        this._setPropertyValue('label', value)
+    }
 
     get laterality () {
         return this._laterality
@@ -200,9 +266,23 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     get sampleCount () {
         return this._sampleCount
     }
+    set sampleCount (value: number) {
+        if (value < 0) {
+            Log.error(`Sample count must be a non-negative number, ${value} was given.`, SCOPE)
+            return
+        }
+        this._setPropertyValue('sampleCount', value)
+    }
 
     get samplingRate () {
         return this._samplingRate
+    }
+    set samplingRate (value: number) {
+        if (value <= 0) {
+            Log.error(`Sampling rate must be a positive number, ${value} was given.`, SCOPE)
+            return
+        }
+        this._setPropertyValue('samplingRate', value)
     }
 
     get scale () {
@@ -311,6 +391,10 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     clearTriggerPoints () {
         this._triggerPoints.splice(0)
         this._triggerCache.clear()
+    }
+
+    configure (config: ResourceConfig) {
+        super.configure(config, CONFIG_SCHEMA, this)
     }
 
     findTriggerPoints (value?: number) {
