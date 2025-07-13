@@ -219,10 +219,12 @@ export {
 
 import type {
     ConnectorCredentials,
+    ConnectorMode,
     DatasourceConnector,
 } from './connector'
 export {
     ConnectorCredentials,
+    ConnectorMode,
     DatasourceConnector,
 }
 
