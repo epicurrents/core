@@ -25,7 +25,7 @@ import { type StudyContext, type StudyLoader } from '#types/study'
 import { Log } from 'scoped-event-log'
 import SETTINGS from '#config/Settings'
 import GenericAsset from '#assets/GenericAsset'
-import { MixedMediaDataset } from '#assets/dataset'
+import { MixedMediaDataset, WebDAVConnector } from '#assets/dataset'
 
 import { APP as APP_MODULE } from './modules'
 export { APP_MODULE }
@@ -133,6 +133,17 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
     }
     set isInitialized (value: boolean) {
         this._setPropertyValue('isInitialized', value)
+    }
+
+    addConnector (name: string, url: string, username: string, password: string): void {
+        if (state.APP.connectors.has(name)) {
+            Log.warn(`Connector with name '${name}' already exists.`, SCOPE)
+            return
+        }
+        const connector = new WebDAVConnector(name, { username, password }, url, WebDAVConnector.ConnectorMode.Read)
+        this.dispatchPayloadEvent('add-connector', connector, 'before')
+        state.APP.connectors.set(name, connector)
+        this.dispatchPayloadEvent('add-connector', connector)
     }
 
     addDataset (dataset: MediaDataset, setAsActive = false) {

@@ -12,6 +12,7 @@ import {
     ResourceConfig,
     SettingsValue,
 } from './config'
+import { DatasourceConnector } from './connector'
 import { DatasetLoader, MediaDataset } from './dataset'
 import { FileSystemItem, ReaderMode, WriterMode } from './reader'
 import { BiosignalPlot } from './plot'
@@ -30,6 +31,7 @@ import {
     ScopedEventHooks,
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
+import type { WebDAVClient } from 'webdav'
 /**
  * Configuration properties for the main application.
  */
@@ -468,6 +470,7 @@ export type ResourceState = 'added' | 'destroyed' | 'error' | 'loaded' | 'loadin
  */
 export type RuntimeAppModule = NullProtoObject & {
     activeDataset: MediaDataset | null
+    connectors: Map<string, DatasourceConnector>
     datasets: MediaDataset[]
     id: string
     moduleName: {
@@ -535,11 +538,20 @@ export type RuntimeState = NullProtoObject & {
  */
 export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
 /**
- * Statemanager is the instance that manages application runtime state.
+ * State manager is the instance that manages application runtime state.
  * In addition to the actual modules, it also includes shorthands for
  * core APP properties and methods for altering MODULES and SERVICES.
  */
 export interface StateManager extends RuntimeState, BaseAsset {
+    /**
+     * Add a new connector to the list of available connectors.
+     * @param name - Name of the connector.
+     * @param url - URL of the connector.
+     * @param username - Username for the connector.
+     * @param password - Password for the connector.
+     * @param wdClient - Optional override for the WebDAV client instance.
+     */
+    addConnector (name: string, url: string, username: string, password: string, wdClient?: WebDAVClient): void
     /**
      * Add a new dataset to the list of datasets.
      * @param dataset - New dataset to add.
@@ -549,7 +561,7 @@ export interface StateManager extends RuntimeState, BaseAsset {
     addDataset (dataset: MediaDataset, setAsActive?: boolean): void
     /**
      * Add a new `resource` with the given `modality`.
-     * @param modality - Modality of the new resoure.
+     * @param modality - Modality of the new resource.
      * @param resource - The resource to add.
      * @param setAsActive - Should the new resource be set as active (default false).
      * @emits `add-resource` with the new resource as payload.

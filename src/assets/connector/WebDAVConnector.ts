@@ -32,7 +32,7 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         Write: 'w',
         /** Read and write mode. */
         ReadWrite: 'rw',
-    }
+    } as Record<string, ConnectorMode>
     protected _client: WebDAVClient
     protected _mode: ConnectorMode
     protected _source: string
