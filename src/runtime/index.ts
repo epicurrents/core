@@ -282,6 +282,17 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         return newSet
     }
 
+    removeConnector (name: string) {
+        if (!state.APP.connectors.has(name)) {
+            Log.warn(`Could not remove connector '${name}': it does not exist.`, SCOPE)
+            return
+        }
+        const connector = state.APP.connectors.get(name)
+        this.dispatchPayloadEvent('remove-connector', connector, 'before')
+        state.APP.connectors.delete(name)
+        this.dispatchPayloadEvent('remove-connector', connector)
+    }
+
     removeResource (resource: DataResource | string | number, dataset?: MediaDataset) {
         const activeSet = dataset || this.APP.activeDataset
         if (!activeSet) {

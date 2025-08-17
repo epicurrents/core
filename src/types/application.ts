@@ -606,6 +606,12 @@ export interface StateManager extends RuntimeState, BaseAsset {
         config?: unknown
     ): Promise<MediaDataset>
     /**
+     * Remove the connector with the given `name`.
+     * @param name - Name of the connector to remove.
+     * @emits `remove-connector` with the removed connector as payload.
+     */
+    removeConnector (name: string): void
+    /**
      * Remove the given `resource` from available resources.
      * @param resource - The resource to remove (either resources array index, resource id or resource object).
      * @param dataset - Resource dataset if not the currently active set.

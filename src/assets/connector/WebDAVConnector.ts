@@ -124,7 +124,7 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         try {
             await this._client.exists('/')
         } catch (e) {
-            Log.error(`Failed to authenticate to WebDAV server: ${e}`, SCOPE)
+            Log.error([`Failed to authenticate with WebDAV server.`, e as string], SCOPE)
             return false
         }
         return true
