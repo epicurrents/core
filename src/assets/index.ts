@@ -28,6 +28,7 @@ import {
 } from './document'
 import {
     ErrorResource,
+    ErrorResponse,
 } from './error'
 import {
     BiosignalAudio,
@@ -60,6 +61,7 @@ export {
     BiosignalMutex,
     BiosignalStudyLoader,
     ErrorResource,
+    ErrorResponse,
     FileSystemDirectory,
     FileSystemFile,
     GenericBiosignalAnnotation,

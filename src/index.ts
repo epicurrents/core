@@ -15,6 +15,7 @@ import {
     BiosignalMutex,
     BiosignalStudyLoader,
     ErrorResource,
+    ErrorResponse,
     FileSystemDirectory,
     FileSystemFile,
     GenericAsset,
@@ -56,6 +57,7 @@ export {
     BiosignalMutex,
     BiosignalStudyLoader,
     ErrorResource,
+    ErrorResponse,
     FileSystemDirectory,
     FileSystemFile,
     GenericAsset,
@@ -153,7 +155,7 @@ import { Log } from 'scoped-event-log'
 const SCOPE = 'index'
 
 export class Epicurrents implements EpicurrentsApp {
-    // Private poperties.
+    // Private properties.
     /**
      * Master event bus.
      */
