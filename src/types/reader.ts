@@ -26,6 +26,7 @@ import {
 import { MediaDataset } from './dataset'
 import { TypedNumberArray, TypedNumberArrayConstructor } from './util'
 import { GenericBiosignalHeader } from '../assets'
+import { UrlAccessOptions } from './config'
 
 export type AnonymizationProperties = {
     /**
@@ -89,13 +90,14 @@ export type ConfigReadSignals = {
 
 /**
  * URL reader optional configuration.
+ * @param authHeader - Authorization header to include in the request.
  * @param headerReader - Header reader configuration.
  * @param mime - Mime type of the file.
  * @param name - Name of the file.
  * @param signalReader - Signal reader configuration.
  * @param url - Study file URL, if different from the source URL.
  */
-export type ConfigReadUrl = {
+export type ConfigReadUrl = UrlAccessOptions & {
     headerReader?: ConfigReadHeader
     mime?: string
     name?: string
@@ -167,7 +169,7 @@ export interface FileFormatReader extends BaseAsset {
      * Load a remote file from the give `url`.
      * @param url - The URL to load the file from.
      */
-    readUrl (url: StudyContextFile | string, config?: unknown): Promise<StudyContextFile | null>
+    readUrl (url: StudyContextFile | string, config?: ConfigReadUrl): Promise<StudyContextFile | null>
     /**
      * See if the given `modality` is supported by this reader.
      * @param modality - Modality to check.

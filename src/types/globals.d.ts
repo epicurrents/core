@@ -11,6 +11,10 @@
  */
 type EpicurrentsGlobal = {
     /**
+     * The main Epicurrents application instance.
+     */
+    APP: import('#types/application').EpicurrentsApp | null
+    /**
      * Master event bus for broadcasting application events.
      */
     EVENT_BUS: import('scoped-event-bus').EventBus | null

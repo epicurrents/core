@@ -6,6 +6,7 @@
  */
 
 import type { ResourceState } from '#types/application'
+import type { DatasourceConnector } from '#types/connector'
 import type { MediaDataset } from '#types/dataset'
 import type { StudyContext } from '#types/study'
 import GenericDataset from '#assets/dataset/GenericDataset'
@@ -19,8 +20,8 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
      * Create a new media dataset with the given properties.
      * @param name - Name of the dataset.
      */
-    constructor (name: string) {
-        super(name)
+    constructor (name: string, connectors?: { input?: DatasourceConnector, output?: DatasourceConnector }) {
+        super(name, connectors)
     }
     get resources () {
         return this._resources as GenericResource[]

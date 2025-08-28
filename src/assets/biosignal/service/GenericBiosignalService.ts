@@ -24,7 +24,7 @@ import type {
 } from '#types/service'
 import type { StudyContext } from '#types/study'
 import { INDEX_NOT_ASSIGNED } from '#util/constants'
-import { ConfigChannelFilter } from '#types/config'
+import { ConfigChannelFilter, UrlAccessOptions } from '#types/config'
 import GenericService from '#assets/service/GenericService'
 import Log from 'scoped-event-log'
 
@@ -184,7 +184,11 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return commission.promise as Promise<SignalDataCache|null>
     }
 
-    async setupWorker (header: BiosignalHeaderRecord, study: StudyContext) {
+    async setupWorker (
+        header: BiosignalHeaderRecord,
+        study: StudyContext,
+        options?: UrlAccessOptions
+    ) {
         // Find biosignal files.
         const fileUrls = study.files.filter(file => file.role === 'data').map(file => file.url)
         Log.info(`Loading study ${study.name} in worker.`, SCOPE)
@@ -194,6 +198,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
             new Map<string, unknown>([
                 ['header', header.serializable],
                 ['urls', fileUrls],
+                ['authHeader', options?.authHeader || null]
             ])
         )
         return commission.promise as Promise<SetupStudyResponse>

@@ -6,6 +6,7 @@
  */
 
 import { BaseAsset, DataResource } from './application'
+import { ConnectorWriteFileOptions } from './connector'
 import { FileSystemItem } from './reader'
 import { StudyContext } from './study'
 
@@ -15,6 +16,10 @@ import { StudyContext } from './study'
 export interface BaseDataset extends BaseAsset {
     /** List of dataset resources that have been marked active. */
     activeResources: BaseAsset[]
+    /** Does this dataset have an active input data source. */
+    hasInputSource: boolean
+    /** Does this dataset have an active output data source. */
+    hasOutputSource: boolean
     /** Array of resources in this dataset. */
     resources: DataResource[]
     /** Sorting scheme used to order the resources in `resources` array. */
@@ -56,6 +61,12 @@ export interface BaseDataset extends BaseAsset {
      */
     removeResource (resource: DataResource | string | number): DataResource | null
     /**
+     * Set the output conflict resolution strategy. This will determine what is done if a file of the same name already
+     * exists on the output data source.
+     * @param value - The conflict resolution strategy.
+     */
+    setOutputConflictResolution (value: ConnectorWriteFileOptions): void
+    /**
      * Set instructions for resource sorting when retrieving them via the `resources` property or one of the getters.
      * @param sorting - new sorting instructions.
      */
@@ -77,6 +88,13 @@ export interface BaseDataset extends BaseAsset {
      * Unload and remove all the resources registered to this dataset.
      */
     unload (): Promise<void>
+    /**
+     * Write data to the output data source.
+     * @param path - The path to the output data source.
+     * @param data - The data to write.
+     * @returns A promise that resolves to true if the write was successful, false otherwise.
+     */
+    writeToOutputDataSource (path: string, data: Blob | string): Promise<boolean>
 }
 /**
  * A special loader type for loading the various studies within a dataset.

@@ -29,6 +29,47 @@ export const deepClone = <T>(obj: T): T|null => {
 }
 
 /**
+ * Check if two objects or arrays are deeply equal.
+ */
+export const deepEqual = <T extends { [key: string]: any }>(obj1: T, obj2: T): boolean => {
+    if (typeof obj1 !== typeof obj2) {
+        return false
+    }
+    if (obj1 === obj2) {
+        return true
+    }
+    if (typeof obj1 !== 'object' || typeof obj2 !== 'object') {
+        return false
+    }
+    if (Array.isArray(obj1) && Array.isArray(obj2)) {
+        if (obj1.length !== obj2.length) {
+            return false
+        }
+        for (let i = 0; i < obj1.length; i++) {
+            if (!Array.isArray(obj1[i])) {
+                if (!obj2.includes(obj1[i])) {
+                    return false
+                }
+            } else if (!deepEqual(obj1[i], obj2[i])) {
+                return false
+            }
+        }
+        return true
+    }
+    const keys1 = Object.keys(obj1)
+    const keys2 = Object.keys(obj2)
+    if (keys1.length !== keys2.length) {
+        return false
+    }
+    for (const key of keys1) {
+        if (!keys2.includes(key) || !deepEqual(obj1[key], obj2[key])) {
+            return false
+        }
+    }
+    return true
+}
+
+/**
  * Enumerate over an array, returning [index, item].
  * @param iterable - Any array.
  * @example

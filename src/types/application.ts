@@ -9,10 +9,11 @@ import {
     AppSettings,
     BaseModuleSettings,
     ConfigSchema,
+    ConfigStudyLoader,
     ResourceConfig,
     SettingsValue,
 } from './config'
-import { DatasourceConnector } from './connector'
+import { ConnectorMode, DatasourceConnector } from './connector'
 import { DatasetLoader, MediaDataset } from './dataset'
 import { FileSystemItem, ReaderMode, WriterMode } from './reader'
 import { BiosignalPlot } from './plot'
@@ -36,6 +37,10 @@ import type { WebDAVClient } from 'webdav'
  * Configuration properties for the main application.
  */
 export type ApplicationConfig = {
+    /**
+     * Allow authenticating connections in an insecure context (over HTTP).
+     */
+    allowInsecureAuth?: boolean
     /**
      * Path from which to load additional application assets, e.g. local settings.
      * Defaults to the same folder as the application file if left blank.
@@ -113,16 +118,16 @@ export interface BaseAsset {
      *
      * This is a helper method that formats the custom event details correctly.
      * @param property - Name of the property to change.
-     * @param newValue - The new value of the property.
-     * @param oldValue - The old value of the property.
+     * @param newValue - The new value of the property (optional).
+     * @param oldValue - The old value of the property (optional).
      * @param phase - Phase of the event (optional, default 'after').
      * @param event - Custom override for the property change event name (optional).
      * @returns False if the event default was prevented, true otherwise.
      */
     dispatchPropertyChangeEvent<T> (
-        property: keyof BaseAsset,
-        newValue: T,
-        oldValue: T,
+        property: keyof this,
+        newValue?: T,
+        oldValue?: T,
         phase?: ScopedEventPhase,
         event?: string
     ): boolean
@@ -178,6 +183,10 @@ export interface BaseAsset {
         subscriber: string,
         phase?: ScopedEventPhase
     ): void
+    /**
+     * Return serialized properties that belong to this asset.
+     */
+    serialize (): Record<string, unknown>
     /**
      * Alias for `addEventListener`.
      */
@@ -318,11 +327,14 @@ export interface EpicurrentsApp {
      * Load a study from the given file, folder or URL.
      * @param loader - Name of the loader to use for loading the study.
      * @param source - URL(s) to study data file(s) or a file system item.
-     * @param name - Optional name for the study.
+     * @param options - Optional study and access options.
      * @returns Promise with the resource from the loaded study or null on failure.
      */
-    loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string)
-              : Promise<DataResource|null>
+    loadStudy (
+        loader: string,
+        source: string | string[] | FileSystemItem,
+        options?: ConfigStudyLoader
+    ): Promise<DataResource|null>
     /**
      * Open the provided resource.
      * @param resource - The resource to open.
@@ -545,13 +557,21 @@ export type SafeObject = Modify<{ [name: string]: unknown }, NullProtoObject>
 export interface StateManager extends RuntimeState, BaseAsset {
     /**
      * Add a new connector to the list of available connectors.
-     * @param name - Name of the connector.
+     * @param name - Name of the connector used in the UI.
      * @param url - URL of the connector.
      * @param username - Username for the connector.
      * @param password - Password for the connector.
+     * @param mode - Optional mode for the connector (default read).
      * @param wdClient - Optional override for the WebDAV client instance.
      */
-    addConnector (name: string, url: string, username: string, password: string, wdClient?: WebDAVClient): void
+    addConnector (
+        name: string,
+        url: string,
+        username: string,
+        password: string,
+        mode?: ConnectorMode,
+        wdClient?: WebDAVClient
+    ): void
     /**
      * Add a new dataset to the list of datasets.
      * @param dataset - New dataset to add.
@@ -666,4 +686,20 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * @param getWorker - The worker method to use instead, or null to use default.
      */
     setWorkerOverride (name: string, getWorker: (() => Worker)|null): void
+}
+
+/**
+ * Generic response to an asynchronous task.
+ */
+export type TaskResponse = {
+    /** Indicates if the task was successful. */
+    success: boolean
+    /** The data returned by the task, if successful. */
+    data?: unknown
+    /** Error information, if an error was caught. */
+    error?: Error
+    /** Optional message providing additional information about the task outcome (for logging etc.). */
+    message?: string
+    /** The raw HTTP response if the task was unsuccessful. */
+    response?: Response
 }

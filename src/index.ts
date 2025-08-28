@@ -15,7 +15,6 @@ import {
     BiosignalMutex,
     BiosignalStudyLoader,
     ErrorResource,
-    ErrorResponse,
     FileSystemDirectory,
     FileSystemFile,
     GenericAsset,
@@ -57,7 +56,6 @@ export {
     BiosignalMutex,
     BiosignalStudyLoader,
     ErrorResource,
-    ErrorResponse,
     FileSystemDirectory,
     FileSystemFile,
     GenericAsset,
@@ -146,6 +144,8 @@ import type {
     SettingsValue,
     StudyLoader,
     WriterMode,
+    StateManager,
+    ConfigStudyLoader,
 } from '#types'
 import * as util from '#util'
 export { util }
@@ -175,11 +175,12 @@ export class Epicurrents implements EpicurrentsApp {
     /**
      * Application state.
      */
-    #runtime = new RuntimeStateManager()
+    #runtime: StateManager
 
     constructor () {
         if (typeof window.__EPICURRENTS__ === 'undefined') {
             window.__EPICURRENTS__ = {
+                APP: null,
                 EVENT_BUS: null,
                 RUNTIME: null,
             }
@@ -187,7 +188,9 @@ export class Epicurrents implements EpicurrentsApp {
         if (window.__EPICURRENTS__.RUNTIME) {
             Log.error(`A previous runtime state manager was set to global __EPICURRENTS__ object.`, SCOPE)
         }
+        window.__EPICURRENTS__.APP = this
         window.__EPICURRENTS__.EVENT_BUS = this.eventBus
+        this.#runtime = new RuntimeStateManager()
         window.__EPICURRENTS__.RUNTIME = this.runtime
     }
 
@@ -289,32 +292,35 @@ export class Epicurrents implements EpicurrentsApp {
         return true
     }
 
-    async loadStudy (loader: string, source: string | string[] | FileSystemItem, name?: string) {
+    async loadStudy (
+        loader: string,
+        source: string | string[] | FileSystemItem,
+        options: ConfigStudyLoader = {}
+    ) {
         const context = this.#runtime.APP.studyImporters.get(loader)
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
             // Add an error resource in place of the resource that failed to load.
-            const errorResource = new ErrorResource(name || 'Unknown', 'error', undefined)
+            const errorResource = new ErrorResource(options.name || 'Unknown', 'error', undefined)
             this.#runtime.addResource('UNKNOWN', errorResource)
             return null
         }
         if (this.#memoryManager) {
             context.loader.registerMemoryManager(this.#memoryManager)
         }
-        const config = { name: name }
         const study = typeof source === 'string'
-            ? await context.loader.loadFromUrl(source, config)
+            ? await context.loader.loadFromUrl(source, options)
             : Array.isArray(source) ? await context.loader.loadFromDirectory(
                                                 MixedFileSystemItem.UrlsToFsItem(...source),
-                                                config
+                                                options
                                             )
-            : source.files.length ? await context.loader.loadFromDirectory(source, config)
-            : source.file ? await context.loader.loadFromFile(source.file, config)
+            : source.files.length ? await context.loader.loadFromDirectory(source, options)
+            : source.file ? await context.loader.loadFromFile(source.file, options)
                           : null
         if (!study) {
             // Add an error resource in place of the resource that failed to load.
             const errorResource = new ErrorResource(
-                name || 'Unknown',
+                options.name || 'Unknown',
                 context.loader.resourceModality,
                 undefined
             )
@@ -326,7 +332,7 @@ export class Epicurrents implements EpicurrentsApp {
         if (resource) {
             this.#runtime.addResource(context.loader.resourceModality, resource)
             // Start preparing the resource, but return it immediately.
-            resource.prepare().then(success => {
+            resource.prepare(options).then(success => {
                 if (!success) {
                     Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
                 }
