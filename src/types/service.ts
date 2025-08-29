@@ -477,3 +477,67 @@ export type WorkerResponse = {
         [prop: string]: unknown
     }
 }
+/** Worker substitutes are drop-in replacements for actual Workers but run in the main thread. */
+export type WorkerSubstitute = {
+    /** Method to call if an error occurs. */
+    onerror: ((error: Error) => unknown) | null
+    /** Method to call when a message is received. */
+    onmessage: ((message: Pick<WorkerMessage, 'data'>) => unknown) | null
+    /** Method to call when a message fails to be processed. */
+    onmessageerror: ((error: Error) => unknown) | null
+    /** Dispatch an event in the worker substitute. */
+    dispatchEvent (event: Event): boolean
+    /**
+     * Post a message to the worker substitute.
+     * @param message - Message data properties, including `action` and `rn` from the incoming message.
+     * @returns A promise that resolves when the message has been posted (optional).
+     */
+    postMessage (message: WorkerMessage['data']): void | Promise<void>
+    /**
+     * Return a failure message.
+     * @param message - Message data properties, including `action` and `rn` from the incoming message.
+     * @param reason - Optional reason for the failure.
+     */
+    returnFailure (message: WorkerMessage['data'], reason?: string): void
+    /**
+     * Return a message.
+     * @param message - Message data properties, including `action` and `rn` from the incoming message.
+     */
+    returnMessage (message: WorkerMessage['data']): void
+    /**
+     * Return a success message.
+     * @param message - Message data properties, including `action` and `rn` from the incoming message.
+     */
+    returnSuccess (message: WorkerMessage['data']): void
+    /**
+     * Terminate the worker substitute.
+     */
+    terminate (): void
+    /**
+     * Add an event listener to the worker substitute. This method is analogous with the Worker equivalent but only
+     * supports part of the features.
+     * @param type - Type of event to listen for (only 'message' is supported).
+     * @param listener - Callback function to handle the event.
+     * @param options - Optional options for the event listener.
+     */
+    addEventListener <K extends keyof WorkerEventMap>(
+        type: K,
+        listener: (this: Worker, ev: WorkerEventMap[K]) => unknown,
+        options?: boolean | AddEventListenerOptions | undefined
+    ): void
+    /**
+     * Remove an event listener from the worker substitute.
+     * @param type - Type of event to listen for (only 'message' is supported).
+     * @param listener - Callback function to handle the event.
+     * @param options - Optional options for the event listener.
+     */
+    removeEventListener <K extends keyof WorkerEventMap>(
+        type: K,
+        listener: (this: Worker, ev: WorkerEventMap[K]) => unknown,
+        options?: boolean | EventListenerOptions | undefined
+    ): void
+    /**
+     * Shut down this worker substitute.
+     */
+    shutdown (): void
+}

@@ -405,7 +405,7 @@ import type {
     WorkerCommission,
     WorkerMessage,
     WorkerResponse,
-
+    WorkerSubstitute,
 } from './service'
 export {
     ActionWatcher,
@@ -433,6 +433,7 @@ export {
     WorkerCommission,
     WorkerMessage,
     WorkerResponse,
+    WorkerSubstitute,
 }
 
 /////////////////////////////////////////////////
