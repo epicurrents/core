@@ -6,7 +6,7 @@
  */
 
 import GenericResource from '#assets/GenericResource'
-import type { DataResource } from '#types/application'
+import type { DataResource, TaskResponse } from '#types/application'
 import type { ConnectorWriteFileOptions, DatasourceConnector } from '#types/connector'
 import type {
     BaseDataset,
@@ -231,10 +231,13 @@ export default abstract class GenericDataset extends GenericResource implements 
         Log.debug(`Dataset ${this._name} and associated resources unloaded.`, SCOPE)
     }
 
-    async writeToOutputDataSource (path: string, data: Blob | string): Promise<boolean> {
+    async writeToOutputDataSource (path: string, data: Blob | string): Promise<TaskResponse> {
         if (!this._connectorOut || !this._connectorOut.mode.includes('w')) {
-            Log.error(`Cannot submit data to output data source: no writable connector defined.`, SCOPE)
-            return Promise.resolve(false)
+            Log.error(`Cannot write to data source: no writable connector defined.`, SCOPE)
+            return {
+                success: false,
+                message: 'Cannot write to data source: no writable connector defined.'
+            }
         }
         const content = typeof data === 'string' ? data : await data.arrayBuffer()
         return this._connectorOut.writeFile(path, content, this._outputConflictResolution)

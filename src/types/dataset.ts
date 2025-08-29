@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset, DataResource } from './application'
+import { BaseAsset, DataResource, TaskResponse } from './application'
 import { ConnectorWriteFileOptions } from './connector'
 import { FileSystemItem } from './reader'
 import { StudyContext } from './study'
@@ -94,7 +94,7 @@ export interface BaseDataset extends BaseAsset {
      * @param data - The data to write.
      * @returns A promise that resolves to true if the write was successful, false otherwise.
      */
-    writeToOutputDataSource (path: string, data: Blob | string): Promise<boolean>
+    writeToOutputDataSource (path: string, data: Blob | string): Promise<TaskResponse>
 }
 /**
  * A special loader type for loading the various studies within a dataset.

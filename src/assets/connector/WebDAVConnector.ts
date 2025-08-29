@@ -192,6 +192,33 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         )
     }
 
+    async createDirectory (path: string) {
+        if (this._mode === WebDAVConnector.ConnectorMode.Read) {
+            Log.error('Cannot create a directory in read-only mode.', SCOPE)
+            return {
+                success: false,
+                message: 'Cannot create a directory in read-only mode.'
+            }
+        }
+        if (await this._client.exists(path)) {
+            Log.error(`Directory already exists on WebDAV server: ${path}`, SCOPE)
+            return {
+                success: false,
+                message: `Path already exists on WebDAV server: ${path}`
+            }
+        }
+        try {
+            await this._client.createDirectory(path)
+            return { success: true }
+        } catch (e) {
+            Log.error(`Failed to create directory on WebDAV server: ${e}`, SCOPE)
+            return {
+                success: false,
+                message: `Failed to create directory on WebDAV server. Make sure you have the necessary permissions.`
+            }
+        }
+    }
+
     async getFileContents (path: string, options?: ConnectorGetFileContentsOptions) {
         if (this._mode === WebDAVConnector.ConnectorMode.Write && !options?.ignoreMode) {
             Log.warn('Cannot read file contents in write mode.', SCOPE)
@@ -251,8 +278,11 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
 
     async writeFile (subpath: string, content: ArrayBuffer | string, options?: ConnectorWriteFileOptions) {
         if (this._mode === WebDAVConnector.ConnectorMode.Read && !options?.ignoreMode) {
-            Log.error('Cannot write file in read mode.', SCOPE)
-            return false
+            Log.error('Cannot write a file in read-only mode.', SCOPE)
+            return {
+                success: false,
+                message: 'Cannot write a file in read-only mode.'
+            }
         }
         const path = this._path + (subpath.startsWith('/') ? subpath : `/${subpath}`)
         let exists = false
@@ -263,13 +293,19 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
                 Log.debug(`File to write does not exist on WebDAV server: ${path}`, SCOPE)
             } else {
                 Log.error(`Failed to check if file exists on WebDAV server: ${e}`, SCOPE)
-                return false
+                return {
+                    success: false,
+                    message: 'Failed to check if file exists on WebDAV server. Make sure you have the necessary permissions.'
+                }
             }
         }
         if (exists) {
             if (!options?.overwrite) {
                 Log.error(`File already exists at ${path}.`, SCOPE)
-                return false
+                return {
+                    success: false,
+                    message: 'File already exists at the specified path.'
+                }
             }
             let filePath = ''
             if (options.handleExisting?.rename) {
@@ -306,8 +342,11 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
             Log.debug(`File written successfully to ${path}`, SCOPE)
         } catch (e) {
             Log.error(`Failed to write file to WebDAV server: ${e}`, SCOPE)
-            return false
+            return {
+                success: false,
+                message: 'Failed to write file to WebDAV server. Make sure you have the necessary permissions.'
+            }
         }
-        return true
+        return { success: true }
     }
 }

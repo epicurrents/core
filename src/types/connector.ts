@@ -93,6 +93,12 @@ export interface DatasourceConnector extends BaseAsset {
      */
     createClient (credentials: ConnectorCredentials, source?: string, useDigestAuth?: boolean): void
     /**
+     * Create a directory on the WebDAV server to the specified subpath.
+     * @param subpath - The subpath to create the directory at.
+     * @returns A promise that resolves to a `TaskResponse` indicating the result of the operation.
+     */
+    createDirectory (subpath: string): Promise<TaskResponse>
+    /**
      * Get the content of a file at the specified `subpath`.
      * @param subpath - The subpath to the file or directory to get contents for.
      * @param options - Optional options to change the behavior of the request.
@@ -122,5 +128,9 @@ export interface DatasourceConnector extends BaseAsset {
      * @param options - Optional options for writing the file, such as how to handle existing files.
      * @returns A promise that resolves to true if the file was written successfully, false otherwise.
      */
-    writeFile (subpath: string, content: ArrayBuffer | string, options?: ConnectorWriteFileOptions): Promise<boolean>
+    writeFile (
+        subpath: string,
+        content: ArrayBuffer | string,
+        options?: ConnectorWriteFileOptions
+    ): Promise<TaskResponse>
 }
