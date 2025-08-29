@@ -273,7 +273,13 @@ export default abstract class GenericService extends GenericAsset implements Ass
         if (data.action === 'log') {
             const { event, extra, level, scope } = message.data
             if (event && level && scope) {
-                Log.add(level as keyof typeof Log.LEVELS, event as string, scope as string, extra)
+                Log.add(
+                    level as keyof typeof Log.LEVELS,
+                    event as string,
+                    scope as string,
+                    message.data.sensitive as boolean | undefined,
+                    extra
+                )
             }
             return true
         } else if (data.action === 'update-settings') {
