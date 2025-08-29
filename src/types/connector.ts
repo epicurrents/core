@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { BaseAsset } from './application'
+import { BaseAsset, TaskResponse } from './application'
 import { FileSystemItem } from './reader'
 import type { WebDAVClient } from 'webdav'
 
@@ -72,22 +72,32 @@ export type ConnectorWriteFileOptions = {
  * A connector for a dataset. The connector can be used to access and manage datasets on a remote server.
  */
 export interface DatasourceConnector extends BaseAsset {
+    /** The authentication header to use for requests. */
+    authHeader: string
     /** The I/O mode the connector supports. */
     mode: ConnectorMode
+    /** The path to the resource within the dataset. */
+    path: string
     /** Source URL of the dataset(s). */
     source: string
     /**
      * Authenticate to the dataset source.
-     * @returns A promise that resolves to true if authentication was successful, false otherwise.
+     * @returns A promise that resolves to true if authentication was successful, otherwise returns a `TaskResponse`.
      */
-    authenticate () : Promise<boolean>
+    authenticate () : Promise<TaskResponse>
     /**
      * Create a WebDAV client with the supplied `credentials` and optional `source` URL.
      * @param credentials - Credentials for the connection.
-     * @param source - Optional new source URL for the connection.
+     * @param source - Optional combined source URL and path for the connection.
      * @param useDigestAuth - If true, always use Digest authentication for username-based authentication.
      */
     createClient (credentials: ConnectorCredentials, source?: string, useDigestAuth?: boolean): void
+    /**
+     * Create a directory on the WebDAV server to the specified subpath.
+     * @param subpath - The subpath to create the directory at.
+     * @returns A promise that resolves to a `TaskResponse` indicating the result of the operation.
+     */
+    createDirectory (subpath: string): Promise<TaskResponse>
     /**
      * Get the content of a file at the specified `subpath`.
      * @param subpath - The subpath to the file or directory to get contents for.
@@ -101,10 +111,11 @@ export interface DatasourceConnector extends BaseAsset {
     getFileContents (subpath: string, options?: ConnectorGetFileContentsOptions): Promise<Blob|object|string|null>
     /**
      * List the contents of the dataset source.
-     * @param id - The ID of the dataset to list contents for.
+     * @param subpath - Optional subpath to list contents for. If not provided, lists the current path contents.
+     * @param deep - If the source supports it, include subdirectories in the listing (default true).
      * @returns A promise that resolves to an array of file system items representing the contents of the dataset or null if the request fails.
      */
-    listContents (id: string): Promise<FileSystemItem|null>
+    listContents (subpath?: string, deep?: boolean): Promise<FileSystemItem|null>
     /**
      * Set the WebDAV client to use for the connection.
      * @param client - WebDAV client to set for the connection.
@@ -117,5 +128,9 @@ export interface DatasourceConnector extends BaseAsset {
      * @param options - Optional options for writing the file, such as how to handle existing files.
      * @returns A promise that resolves to true if the file was written successfully, false otherwise.
      */
-    writeFile (subpath: string, content: ArrayBuffer | string, options?: ConnectorWriteFileOptions): Promise<boolean>
+    writeFile (
+        subpath: string,
+        content: ArrayBuffer | string,
+        options?: ConnectorWriteFileOptions
+    ): Promise<TaskResponse>
 }

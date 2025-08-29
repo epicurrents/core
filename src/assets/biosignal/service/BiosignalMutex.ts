@@ -742,7 +742,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         const rangeEnd = await this.outputRangeEnd
         if (rangeStart === null || rangeEnd === null) {
             // Meta fields have not been initialized correctly.
-            Log.error(`Output meta fields have not been inizialied correctly.`, SCOPE)
+            Log.error(`Output meta fields have not been initialized correctly.`, SCOPE)
             return
         }
         if (signalPart.start < rangeStart || signalPart.end > rangeEnd) {

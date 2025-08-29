@@ -17,6 +17,7 @@ import type {
     ConnectorMode,
     DatasourceConnector,
     FileSystemItem,
+    TaskResponse,
 } from '#types'
 import type { ConnectorGetFileContentsOptions, ConnectorWriteFileOptions } from '#types/connector'
 import { Log } from 'scoped-event-log'
@@ -32,9 +33,11 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         Write: 'w',
         /** Read and write mode. */
         ReadWrite: 'rw',
-    }
+    } as Record<string, ConnectorMode>
+    protected _authHeader = ''
     protected _client: WebDAVClient
     protected _mode: ConnectorMode
+    protected _path: string = ''
     protected _source: string
     /**
      * Create a new WebDAV connector with the given properties.
@@ -54,13 +57,28 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         client?: WebDAVClient
     ) {
         super(name, 'connector')
-        this._source = source
+        if (source.endsWith('/')) {
+            this._source = source.slice(0, -1)
+        } else {
+            this._source = source
+        }
         this._mode = mode
         if (client) {
             this._client = client
         } else {
             this._client = this.createClient(credentials, source, useDigestAuth)
         }
+    }
+
+    get path () {
+        return this._path
+    }
+    set path (value: string) {
+        if (value.endsWith('/')) {
+            // Never end paths with a slash.
+            value = value.slice(0, -1)
+        }
+        this._setPropertyValue('path', value)
     }
     get source () {
         return this._source
@@ -76,6 +94,7 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
      * @param rootItem - Optional root FileSystemItem to use as the root of the new item.
      */
     _webDAVFilesToFileSystemItem (path: string, items: FileStat[], rootItem?: FileSystemItem): FileSystemItem {
+        // Keep a list of file system items for easily finding parent directories.
         const fsItems = [] as FileSystemItem[]
         const fileSystemItem = rootItem || {
             name: '',
@@ -83,14 +102,19 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
             files: [] as FileSystemItem[],
             path: path,
             type: 'directory',
-            url: `${this._source}/${path}`,
+            url: `${this._source}${path}`,
         } as FileSystemItem
+        fsItems.push(fileSystemItem)
         for (const item of items) {
             const basePath = item.filename.split('/').slice(0, -1).join('/')
-            const parent = fsItems.find((i) => i.path === basePath)
-            const link = item.type === 'file'
-                       ? this._client.getFileDownloadLink(item.filename)
-                       : `${this._source}/${item.filename}`
+            const parent = basePath.split('/').length > 1
+                         ? fsItems.find((i) => i.path === basePath)
+                         : fileSystemItem // Use root item as parent.
+            if (!parent) {
+                Log.warn(`Parent directory not found for item: ${item.filename}`, SCOPE)
+                continue
+            }
+            const link = `${this._source}/${item.filename}`
             const fsItem = {
                 name: item.basename,
                 directories: [],
@@ -108,11 +132,20 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
                     parent.files.push(fsItem)
                 }
             }
-            fsItems.push(fsItem)
+            if (fsItem.type === 'directory') {
+                // Add item to list of potential parent items.
+                fsItems.push(fsItem)
+            }
         }
         return fileSystemItem
     }
 
+    get authHeader () {
+        return this._authHeader
+    }
+    set authHeader (value: string) {
+        this._setPropertyValue('authHeader', value)
+    }
     get mode () {
         return this._mode
     }
@@ -124,10 +157,15 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         try {
             await this._client.exists('/')
         } catch (e) {
-            Log.error(`Failed to authenticate to WebDAV server: ${e}`, SCOPE)
-            return false
+            Log.error([`Failed to authenticate with WebDAV server.`, e as string], SCOPE)
+            return {
+                error: e,
+                message: `Failed to authenticate with WebDAV server.`,
+                // Include response if it is returned with the error.
+                response: (e as { response?: unknown }).response ? (e as { response: unknown }).response : undefined,
+            } as TaskResponse
         }
-        return true
+        return { success: true }
     }
 
     createClient (credentials: ConnectorCredentials, source?: string, useDigestAuth = false) {
@@ -138,23 +176,54 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
                             : credentials.username && credentials.password
                             ? AuthType.Password
                             : AuthType.Auto
+        if (authType === AuthType.Password) {
+            this._authHeader = `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`
+        } else {
+            this._authHeader = ''
+        }
         return createClient(source || this._source,
             {
                 authType: authType,
-                ha1: credentials.ha1,
-                password: credentials.password,
-                token: credentials.token,
-                username: credentials.username,
+                ha1: credentials.ha1 || undefined,
+                password: credentials.password || undefined,
+                token: credentials.token || undefined,
+                username: credentials.username || undefined,
             }
         )
     }
 
-    async getFileContents (subpath: string, options?: ConnectorGetFileContentsOptions) {
+    async createDirectory (path: string) {
+        if (this._mode === WebDAVConnector.ConnectorMode.Read) {
+            Log.error('Cannot create a directory in read-only mode.', SCOPE)
+            return {
+                success: false,
+                message: 'Cannot create a directory in read-only mode.'
+            }
+        }
+        if (await this._client.exists(path)) {
+            Log.error(`Directory already exists on WebDAV server: ${path}`, SCOPE)
+            return {
+                success: false,
+                message: `Path already exists on WebDAV server: ${path}`
+            }
+        }
+        try {
+            await this._client.createDirectory(path)
+            return { success: true }
+        } catch (e) {
+            Log.error(`Failed to create directory on WebDAV server: ${e}`, SCOPE)
+            return {
+                success: false,
+                message: `Failed to create directory on WebDAV server. Make sure you have the necessary permissions.`
+            }
+        }
+    }
+
+    async getFileContents (path: string, options?: ConnectorGetFileContentsOptions) {
         if (this._mode === WebDAVConnector.ConnectorMode.Write && !options?.ignoreMode) {
             Log.warn('Cannot read file contents in write mode.', SCOPE)
             return null
         }
-        const path = subpath.startsWith('/') ? subpath : `/${subpath}`
         try {
             const exists = await this._client.exists(path)
             const logFn = options?.probe ? Log.debug : Log.error
@@ -192,9 +261,14 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         }
     }
 
-    async listContents (subpath?: string) {
-        const path = subpath ? `/${subpath}` : '/'
-        const items = await this._client.getDirectoryContents(path) as FileStat[]
+    async listContents (subpath?: string, deep = true) {
+        const path = subpath
+                   ? subpath.startsWith('/') ? subpath : `/${subpath}`
+                     : this._path
+        const items = await this._client.getDirectoryContents(
+            path,
+            { deep: deep }
+        ) as FileStat[]
         return this._webDAVFilesToFileSystemItem(path, items)
     }
 
@@ -204,15 +278,34 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
 
     async writeFile (subpath: string, content: ArrayBuffer | string, options?: ConnectorWriteFileOptions) {
         if (this._mode === WebDAVConnector.ConnectorMode.Read && !options?.ignoreMode) {
-            Log.error('Cannot write file in read mode.', SCOPE)
-            return false
+            Log.error('Cannot write a file in read-only mode.', SCOPE)
+            return {
+                success: false,
+                message: 'Cannot write a file in read-only mode.'
+            }
         }
-        const path = subpath.startsWith('/') ? subpath : `/${subpath}`
-        const exists = await this._client.exists(path)
+        const path = this._path + (subpath.startsWith('/') ? subpath : `/${subpath}`)
+        let exists = false
+        try {
+            exists = await this._client.exists(path)
+        } catch (e) {
+            if ((e as { status?: number }).status === 404) {
+                Log.debug(`File to write does not exist on WebDAV server: ${path}`, SCOPE)
+            } else {
+                Log.error(`Failed to check if file exists on WebDAV server: ${e}`, SCOPE)
+                return {
+                    success: false,
+                    message: 'Failed to check if file exists on WebDAV server. Make sure you have the necessary permissions.'
+                }
+            }
+        }
         if (exists) {
             if (!options?.overwrite) {
                 Log.error(`File already exists at ${path}.`, SCOPE)
-                return false
+                return {
+                    success: false,
+                    message: 'File already exists at the specified path.'
+                }
             }
             let filePath = ''
             if (options.handleExisting?.rename) {
@@ -233,10 +326,15 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
                          : `${filePath}_v${timestamp}`
                 Log.debug(`Versioning existing file to ${filePath}`, SCOPE)
             }
-            try {
-                await this._client.moveFile(path, filePath, { overwrite: true })
-            } catch (e) {
-                Log.warn(`Failed to rename old file on WebDAV server: ${e}`, SCOPE)
+            if (options.handleExisting?.rename || options.handleExisting?.version) {
+                try {
+                    await this._client.moveFile(path, filePath, { overwrite: true })
+                } catch (e) {
+                    Log.warn(`Failed to rename old file on WebDAV server: ${e}`, SCOPE)
+                }
+            } else {
+                // If no instructions are provided, the default behavior is to overwrite the existing file.
+                Log.debug(`No instructions for existing file at ${path}, overwriting.`, SCOPE)
             }
         }
         try {
@@ -244,8 +342,11 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
             Log.debug(`File written successfully to ${path}`, SCOPE)
         } catch (e) {
             Log.error(`Failed to write file to WebDAV server: ${e}`, SCOPE)
-            return false
+            return {
+                success: false,
+                message: 'Failed to write file to WebDAV server. Make sure you have the necessary permissions.'
+            }
         }
-        return true
+        return { success: true }
     }
 }

@@ -7,12 +7,12 @@
  * @license    Apache-2.0
  */
 
-import { type WorkerMessage } from '#types'
+import type { WorkerSubstitute, WorkerMessage } from '#types'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'ServiceWorkerSubstitute'
 
-export default class ServiceWorkerSubstitute {
+export default class ServiceWorkerSubstitute implements WorkerSubstitute {
     protected _eventListeners = [] as {
         event: string,
         callback: (message: Pick<WorkerMessage, 'data'>) => unknown
@@ -25,7 +25,7 @@ export default class ServiceWorkerSubstitute {
     }
 
     dispatchEvent (_event: Event) {
-        Log.warn(`dispatchEvent is not implemented service worker replacement.`, SCOPE)
+        Log.warn(`dispatchEvent is not implemented in service worker substitute.`, SCOPE)
         return false
     }
 
@@ -34,18 +34,10 @@ export default class ServiceWorkerSubstitute {
             return
         }
         const action = message.action
-        Log.warn(`'${action}' is not implemented in service worker replacement.`, SCOPE)
-        this.returnMessage({
-            action: action,
-            success: false,
-            rn: message.rn,
-        })
+        Log.warn(`'${action}' is not implemented in service worker substitute.`, SCOPE)
+        this.returnFailure(message, `Action '${action}' is not implemented.`)
     }
-    /**
-     * Return a failure message.
-     * @param message - Message data properties, including `action` and `rn` from the incoming message.
-     * @param reason - Optional reason for the failure.
-     */
+
     returnFailure (message: WorkerMessage['data'], reason?: string) {
         this.returnMessage({
             ...message,
@@ -53,6 +45,7 @@ export default class ServiceWorkerSubstitute {
             success: false,
         })
     }
+
     returnMessage (message: WorkerMessage['data']) {
         for (const listener of this._eventListeners) {
             if (listener.event === 'message') {
@@ -64,19 +57,18 @@ export default class ServiceWorkerSubstitute {
             this.onmessage({ data: message })
         }
     }
-    /**
-     * Return a success message.
-     * @param message - Message data properties, including `action` and `rn` from the incoming message.
-     */
+
     returnSuccess (message: WorkerMessage['data']) {
         this.returnMessage({
             ...message,
             success: true,
         })
     }
+
     terminate () {
         this.shutdown()
     }
+
     addEventListener <K extends keyof WorkerEventMap>(
         type: K,
         listener: (this: Worker, ev: WorkerEventMap[K]) => unknown,
@@ -95,6 +87,7 @@ export default class ServiceWorkerSubstitute {
             callback: listener as unknown as (message: Pick<WorkerMessage, 'data'>) => unknown
         })
     }
+
     removeEventListener <K extends keyof WorkerEventMap>(
         type: K,
         listener: (this: Worker, ev: WorkerEventMap[K]) => unknown,
@@ -109,9 +102,7 @@ export default class ServiceWorkerSubstitute {
             }
         }
     }
-    /**
-     * Shut down this substitute worker.
-     */
+
     shutdown () {
         this._eventListeners.length = 0
         this.onerror = null

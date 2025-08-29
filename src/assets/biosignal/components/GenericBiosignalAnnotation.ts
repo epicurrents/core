@@ -6,6 +6,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
+import { settingsColorToRgba } from '#util'
 import type {
     BiosignalAnnotation,
     ConfigSchema,
@@ -61,7 +62,7 @@ const CONFIG_SCHEMA = {
 export default abstract class GenericBiosignalAnnotation extends GenericAsset implements BiosignalAnnotation {
     protected _annotator = ''
     protected _background = false
-    protected _channels = [] as number[]
+    protected _channels = [] as (number | string)[]
     protected _class = 'event' as BiosignalAnnotation['class']
     protected _duration: number
     protected _label: string
@@ -77,7 +78,7 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         // Required properties:
         name: string, start: number, duration: number, label: string,
         // Optional properties:
-        annoClass?: BiosignalAnnotation['class'], channels?: number[], priority?: number, text?: string,
+        annoClass?: BiosignalAnnotation['class'], channels?: (number | string)[], priority?: number, text?: string,
         visible?: boolean, background?: boolean, color?: SettingsColor, opacity?: number
     ) {
         super(name, 'annotation')
@@ -128,7 +129,7 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
     get channels () {
         return this._channels
     }
-    set channels (value: number[]) {
+    set channels (value: (number | string)[]) {
         this._setPropertyValue('channels', value)
     }
 
@@ -206,5 +207,23 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
 
     configure (config: ResourceConfig) {
         super.configure(config, CONFIG_SCHEMA, this)
+    }
+
+    serialize () {
+        return {
+            annotator: this.annotator,
+            background: this.background,
+            channels: this.channels,
+            class: this.class,
+            color: this.color ? settingsColorToRgba(this.color) : '',
+            duration: this.duration,
+            label: this.label,
+            opacity: this.opacity,
+            priority: this.priority,
+            start: this.start,
+            text: this.text,
+            type: this.type,
+            visible: this.visible,
+        }
     }
 }

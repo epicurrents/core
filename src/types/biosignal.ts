@@ -19,6 +19,7 @@ import {
     ConfigMapChannels,
     ConfigReleaseBuffers,
     SettingsColor,
+    UrlAccessOptions,
 } from './config'
 import { HighlightContext, SignalHighlight } from './plot'
 import {
@@ -40,7 +41,7 @@ import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-m
  */
 export type AnnotationTemplate = {
      /** List of channel numbers, empty for a general annotation. */
-    channels: number[]
+    channels: (number | string)[]
     /**
      * Annotation class. The default general purpose classes are:
      * - `activation` is any activation procedure that may have an effect on the EEG.
@@ -105,8 +106,8 @@ export interface BiosignalAnnotation extends BaseAsset {
     annotator: string | null
     /** Should this annotation be placed in the background (behind the plot). */
     background: boolean
-    /** List of channel numbers, empty for a general type annotation. */
-    channels: number[]
+    /** List of channel indices or `active` channel names, empty for a general type annotation. */
+    channels: (number | string)[]
     /**
      * Annotation class. The default general purpose classes are:
      * - `activation` is any activation procedure that may have an effect on the EEG.
@@ -153,6 +154,21 @@ export interface BiosignalAnnotation extends BaseAsset {
      * Changing this property triggers an additional event `appearance-changed`.
      */
     opacity?: number
+    serialize (): ReturnType<BaseAsset['serialize']> & {
+        annotator: string
+        background: boolean
+        channels: (number | string)[]
+        class: BiosignalAnnotation['class']
+        color: string
+        duration: number
+        label: string
+        priority: number
+        start: number
+        text: string
+        type: string
+        visible: boolean
+        opacity?: number
+    }
 }
 /**
  * Common base for all biosignal channel types.
@@ -456,11 +472,12 @@ export interface BiosignalDataService extends AssetService {
      * Prepare the worker with the given biosignal study.
      * @param header - BiosignalHeaderRecord for the study.
      * @param study - Study object to load.
+     * @param options - URL access options.
      * @param formatHeader - Possible format-specific header object, if needed by the worker.
      * @returns Promise that fulfills with the real duration of the recording, or 0 if loading failed.
      */
     setupWorker (
-        header: BiosignalHeaderRecord, study: StudyContext, formatHeader?: unknown
+        header: BiosignalHeaderRecord, study: StudyContext, options?: UrlAccessOptions, formatHeader?: unknown
     ): Promise<SetupStudyResponse>
     /**
      * Setup a simple signal data cache.

@@ -298,7 +298,7 @@ export type ConfigSchemaField = {
 export type ConfigStudyContext = {
     name?: string
 }
-export type ConfigStudyLoader = {
+export type ConfigStudyLoader = UrlAccessOptions & {
     collections?: { [key: string]: StudyContextCollection }
     loader?: string
     modality?: string
@@ -327,3 +327,10 @@ export type SettingsLine = {
 }
 export type SettingsValue = SettingsColor | boolean | number | string | undefined
 export type SettingsValueConstructor = BooleanConstructor | NumberConstructor | StringConstructor
+/**
+ * Options for accessing URL resources.
+ */
+export type UrlAccessOptions = {
+    /** Authorization header value to include in the request. */
+    authHeader?: string
+}

@@ -10,7 +10,11 @@ import EventBus from '#events/EventBus'
 import { deepClone, safeObjectFrom } from '#util'
 import { Log } from 'scoped-event-log'
 import { AssetEvents } from '#events/EventTypes'
-import type { BaseAsset, PropertyChangeHandler } from '#types/application'
+import type {
+    BaseAsset,
+    EpicurrentsApp,
+    PropertyChangeHandler,
+} from '#types/application'
 import type { ConfigSchema, ResourceConfig } from '#types/config'
 import type { EventWithPayload, PropertyChangeEvent } from '#types/event'
 import type {
@@ -68,6 +72,7 @@ export default abstract class GenericAsset implements BaseAsset {
         return errorId
     }
     private static USED_IDS = new Set<string>()
+    protected _app: EpicurrentsApp | null = null
     protected _configSchema: null | ConfigSchema = null
     protected _eventBus: ScopedEventBus
     protected _id: string
@@ -85,8 +90,11 @@ export default abstract class GenericAsset implements BaseAsset {
                 `Main application instance must be created before creating assets.`,
                 SCOPE
             )
+        } else if (!window.__EPICURRENTS__.APP || !window.__EPICURRENTS__.EVENT_BUS) {
+            Log.error(`An Epicurrents application must be instantiated before creating assets.`, SCOPE)
         } else {
-            this._eventBus = window.__EPICURRENTS__.EVENT_BUS || new EventBus()
+            this._app = window.__EPICURRENTS__.APP
+            this._eventBus = window.__EPICURRENTS__.EVENT_BUS
         }
         this._eventBus ??= new EventBus()
         this._id = GenericAsset.CreateUniqueId()
@@ -306,15 +314,15 @@ export default abstract class GenericAsset implements BaseAsset {
 
     dispatchPropertyChangeEvent<T> (
         property: keyof this,
-        newValue: T,
-        oldValue: T,
+        newValue?: T,
+        oldValue?: T,
         phase: ScopedEventPhase = 'after',
         event?: string,
     ) {
         const detail = {
             property: property,
-            newValue: newValue,
-            oldValue: oldValue,
+            newValue: newValue !== undefined ? newValue : this[property],
+            oldValue: oldValue !== undefined ? oldValue : this[property],
         } as PropertyChangeEvent<T>['detail']
         return this.dispatchEvent(event || `property-change:${property.toString()}`, phase, detail)
     }
@@ -355,6 +363,14 @@ export default abstract class GenericAsset implements BaseAsset {
         phase?: ScopedEventPhase
     ) {
         return this._eventBus.removeScopedEventListener(event, callback, subscriber, this.id, phase)
+    }
+
+    serialize () {
+        return {
+            id: this.id,
+            modality: this.modality,
+            name: this.name,
+        } as Record<string, unknown>
     }
 
     subscribe (

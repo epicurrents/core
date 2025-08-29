@@ -30,6 +30,7 @@ import {
 } from './conversions'
 import {
     deepClone,
+    deepEqual,
     enumerate,
     isEmptyObject,
     getOrSetValue,
@@ -82,6 +83,7 @@ export {
     combineSignalParts,
     concatTypedNumberArrays,
     deepClone,
+    deepEqual,
     enumerate,
     fftAnalysis,
     filterSignal,

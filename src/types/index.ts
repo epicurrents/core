@@ -21,6 +21,7 @@ import type {
     RuntimeState,
     SafeObject,
     StateManager,
+    TaskResponse,
 } from './application'
 export {
     ApplicationConfig,
@@ -41,6 +42,7 @@ export {
     RuntimeState,
     SafeObject,
     StateManager,
+    TaskResponse,
 }
 
 /////////////////////////////////////////////////
@@ -187,6 +189,7 @@ import type {
     SettingsLine,
     SettingsValue,
     SettingsValueConstructor,
+    UrlAccessOptions,
 } from './config'
 export {
     AppSettings,
@@ -211,6 +214,7 @@ export {
     SettingsLine,
     SettingsValue,
     SettingsValueConstructor,
+    UrlAccessOptions,
 }
 
 /////////////////////////////////////////////////
@@ -401,7 +405,7 @@ import type {
     WorkerCommission,
     WorkerMessage,
     WorkerResponse,
-
+    WorkerSubstitute,
 } from './service'
 export {
     ActionWatcher,
@@ -429,6 +433,7 @@ export {
     WorkerCommission,
     WorkerMessage,
     WorkerResponse,
+    WorkerSubstitute,
 }
 
 /////////////////////////////////////////////////

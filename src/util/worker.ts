@@ -30,7 +30,7 @@ export const inlineWorker = (
         Log.error(`Could not turn code string into blob, worker '${name}' creation failed.`, SCOPE)
     }
     const url = URL.createObjectURL(blob)
-    return { 
+    return {
         create: () => new Worker(URL.createObjectURL(blob), { type }),
         url,
     }
@@ -100,7 +100,7 @@ export const syncSettings = (
 /**
  * Validate that a commission message has all the require properties.
  * @param data - The data property of the worker message.
- * @param requiredProps - Required data properties as property constructor names or arrays of names.
+ * @param requiredProps - Required data properties as property constructor names or arrays of names. Properties with names ending with '?' are considered optional.
  * @param requiredSetup - Optional statement that checks if the setup required by this commission is complete.
  * @param returnMessage - Optional override for the postMessage method (if not in worker scope).
  * @returns False if data is invalid, or an object containing the validated properties.
@@ -126,20 +126,15 @@ export const validateCommissionProps = <T extends WorkerMessage['data']>(
         return validationFailure(`Received commission '${data.action}' before required setup was complete.`)
     }
     for (const prop of Object.entries(requiredProps)) {
-        if (!Object.hasOwn(data, prop[0]) || data[prop[0]] === undefined) {
-            if (prop[1].includes('undefined')) {
+        if (!Object.hasOwn(data, prop[0]) || data[prop[0]] === undefined || data[prop[0]] === null) {
+            if (!Array.isArray(prop[1]) && prop[1].endsWith('?')) {
                 continue
             }
             return validationFailure(`Received commission '${data.action}' without the required '${prop[0]}' property.`)
         }
         // Check if property can optionally be undefined and remove that.
-        if (Array.isArray(prop[1]) && prop[1].includes('undefined')) {
-            prop[1].splice(prop[1].indexOf('undefined'), 1)
-            // If only one option remains, flatten the array.
-            // This is not an optimal solution, optional properties should be handled some other way.
-            if (prop[1].length === 1) {
-                prop[1] = prop[1][0]
-            }
+        if (!Array.isArray(prop[1]) && prop[1].endsWith('?')) {
+            prop[1] = prop[1].slice(0, -1)
         }
         const dataProp = data[prop[0]] as object // May not be object, but we only use the constructor property.
         if (Array.isArray(prop[1])) {
@@ -147,19 +142,22 @@ export const validateCommissionProps = <T extends WorkerMessage['data']>(
                 return validationFailure(`Property '${prop[0]}' for commission '${data.action}' is not an array.`)
             }
             for (let i=0; i<prop[1].length; i++) {
-                const propItem = prop[1][i]
                 const dataItem = dataProp[i]
-                if (dataItem === undefined) {
+                if ((dataItem === undefined || dataItem === null) && !prop[1][i].endsWith('?')) {
                     return validationFailure(
                         `Property '${prop[0]}' for commission '${data.action}' ` +
                         `does not have the correct number of items: ` +
                         `expected ${prop[1].length}, received ${dataItem.length}.`
                     )
                 }
-                if (dataItem.constructor.name !== propItem) {
+                if (prop[1][i].endsWith('?')) {
+                    // Remove the question mark for matching the actual type.
+                    prop[1][i] = prop[1][i].slice(0, -1)
+                }
+                if (dataItem.constructor.name !== prop[1][i]) {
                     return validationFailure(
                         `Property '${prop[0]}' for commission '${data.action}' item type at index ${i} is wrong: ` +
-                        `expected ${propItem}, received ${dataItem.constructor.name}.`
+                        `expected ${prop[1][i]}, received ${dataItem.constructor.name}.`
                     )
                 }
             }

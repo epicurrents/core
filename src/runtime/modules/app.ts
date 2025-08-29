@@ -5,7 +5,8 @@
  * @license    Apache-2.0
  */
 
-import type { RuntimeAppModule, SafeObject } from '#root/src/types/application'
+import type { RuntimeAppModule, SafeObject } from '#types/application'
+import type { DatasourceConnector } from '#types/connector'
 import type { BiosignalPlot } from '#types/plot'
 import type {
     StudyExporterContext,
@@ -18,6 +19,7 @@ import type {
 const APP: SafeObject & RuntimeAppModule = {
     __proto__: null,
     activeDataset: null,
+    connectors: new Map<string, DatasourceConnector>(),
     datasets: [],
     id: '',
     moduleName: {

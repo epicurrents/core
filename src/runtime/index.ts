@@ -5,27 +5,28 @@
  * @license    Apache-2.0
  */
 
-import {
-    type AppSettings,
-    type BaseModuleSettings,
-    type ConfigDatasetLoader,
-    type SettingsValue,
+import type {
+    DataResource,
+    ResourceModule,
+    RuntimeResourceModule,
+    RuntimeState,
+    StateManager
+} from '#types/application'
+import type {
+    AppSettings,
+    BaseModuleSettings,
+    ConfigDatasetLoader,
+    SettingsValue,
 } from '#types/config'
-import {
-    type DataResource,
-    type ResourceModule,
-    type RuntimeResourceModule,
-    type RuntimeState,
-    type StateManager
-} from '#root/src/types/application'
-import { type DatasetLoader, type MediaDataset } from '#types/dataset'
-import { type FileSystemItem } from '#root/src/types/reader'
-import { type AssetService } from '#types/service'
-import { type StudyContext, type StudyLoader } from '#types/study'
+import type { ConnectorMode } from '#types/connector'
+import type { DatasetLoader, MediaDataset } from '#types/dataset'
+import type { FileSystemItem } from '#types/reader'
+import type { AssetService } from '#types/service'
+import type { StudyContext, StudyLoader } from '#types/study'
 import { Log } from 'scoped-event-log'
 import SETTINGS from '#config/Settings'
 import GenericAsset from '#assets/GenericAsset'
-import { MixedMediaDataset } from '#assets/dataset'
+import { MixedMediaDataset, WebDAVConnector } from '#assets/dataset'
 
 import { APP as APP_MODULE } from './modules'
 export { APP_MODULE }
@@ -135,20 +136,42 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this._setPropertyValue('isInitialized', value)
     }
 
+    addConnector (
+        name: string,
+        url: string,
+        username: string,
+        password: string,
+        mode?: ConnectorMode
+    ): void {
+        if (state.APP.connectors.has(name)) {
+            Log.warn(`Connector with name '${name}' already exists.`, SCOPE)
+            return
+        }
+        const connector = new WebDAVConnector(
+            name,
+            { username, password },
+            url,
+            mode || WebDAVConnector.ConnectorMode.Read
+        )
+        this.dispatchPayloadEvent('add-connector', connector, 'before')
+        state.APP.connectors.set(name, connector)
+        this.dispatchPayloadEvent('add-connector', connector)
+    }
+
     addDataset (dataset: MediaDataset, setAsActive = false) {
-        this.dispatchPayloadEvent('add-dateset', dataset, 'before')
+        this.dispatchPayloadEvent('add-dataset', dataset, 'before')
         state.APP.datasets.push(dataset)
         if (setAsActive) {
             this.setActiveDataset(dataset)
         }
-        this.dispatchPayloadEvent('add-dateset', dataset)
+        this.dispatchPayloadEvent('add-dataset', dataset)
     }
 
     addResource (modality: string, resource: DataResource, setAsActive = false) {
         const resourceModule = state.MODULES.get(modality)
         if (!resourceModule) {
             Log.error(
-                `Cound not add resource '${resource.name}' as no loaded resource module matches its modality ` +
+                `Could not add resource '${resource.name}' as no loaded resource module matches its modality ` +
                 `${modality}'.`,
             SCOPE)
             return
@@ -185,7 +208,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
 
     deactivateResource (resource: DataResource) {
         if (!resource.isActive) {
-            Log.debug(`Reasource to deactivate was not active to begin with.`, SCOPE)
+            Log.debug(`Resource to deactivate was not active to begin with.`, SCOPE)
             return
         }
         this.dispatchPayloadEvent('set-active-resource', null, 'before')
@@ -269,6 +292,17 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.addDataset(newSet)
         this.dispatchPayloadEvent('load-dataset', newSet, 'after')
         return newSet
+    }
+
+    removeConnector (name: string) {
+        if (!state.APP.connectors.has(name)) {
+            Log.warn(`Could not remove connector '${name}': it does not exist.`, SCOPE)
+            return
+        }
+        const connector = state.APP.connectors.get(name)
+        this.dispatchPayloadEvent('remove-connector', connector, 'before')
+        state.APP.connectors.delete(name)
+        this.dispatchPayloadEvent('remove-connector', connector)
     }
 
     removeResource (resource: DataResource | string | number, dataset?: MediaDataset) {

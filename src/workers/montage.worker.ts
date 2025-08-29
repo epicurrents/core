@@ -53,8 +53,8 @@ export class MontageWorker extends BaseWorker {
             msgData as MontageWorkerCommission['get-signals'],
             {
                 range: ['Number', 'Number'],
-                config: ['Object', 'undefined'],
-                montage: ['String', 'undefined'],
+                config: 'Object?',
+                montage: 'String?',
             },
             this._montage !== null
         )
@@ -115,7 +115,7 @@ export class MontageWorker extends BaseWorker {
             {
                 filters: 'String',
                 name: 'String',
-                channels: ['Array', 'undefined'],
+                channels: 'Array?',
             },
             this._montage !== null
         )

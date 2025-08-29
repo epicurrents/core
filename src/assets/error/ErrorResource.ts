@@ -12,7 +12,7 @@ import GenericResource from '#assets/GenericResource'
 //const SCOPE = 'ErrorResource'
 
 /**
- * Generic error resource that can be uden instead of an actual resource if it failed to load during study preparation
+ * Generic error resource that can be used instead of an actual resource if it failed to load during study preparation
  * (i.e. before a proper resource entity could be created). The `reason` property can be used to store and retrieve
  * detailed information about the error that occurred.
  */

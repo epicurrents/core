@@ -136,17 +136,17 @@ export default class GenericStudyLoader implements StudyLoader {
         return false
     }
 
-    async loadFromDirectory (dir: FileSystemItem, config?: ConfigStudyLoader): Promise<StudyContext|null> {
+    async loadFromDirectory (dir: FileSystemItem, options?: ConfigStudyLoader): Promise<StudyContext|null> {
         if (!this._fileReader) {
             Log.error(`Cannot load study from directory, file loader has not been set.`, SCOPE)
             return null
         }
-        if (!this._canLoadResource(config || {})) {
+        if (!this._canLoadResource(options || {})) {
             return null
         }
         // Pass the directory name as default study name.
         const study = studyContextTemplate()
-        Object.assign(study, { name: dir.name }, config)
+        Object.assign(study, { name: dir.name }, options)
         if (study) {
             Log.debug(`Started loading a study from directory (${dir.name}).`, SCOPE)
             for (let i=1; i<dir.files.length; i++) {
@@ -186,33 +186,33 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    async loadFromFile (file: File, config: ConfigStudyLoader = {}, study?: StudyContext):
+    async loadFromFile (file: File, options: ConfigStudyLoader = {}, study?: StudyContext):
                        Promise<StudyContext|null>
     {
         if (!this._fileReader) {
             Log.error(`Cannot load study from a file, file loader has not been set.`, SCOPE)
             return null
         }
-        if (!this._canLoadResource(config)) {
+        if (!this._canLoadResource(options)) {
             return null
         }
-        if (config.modality && !this._fileReader.isSupportedModality(config.modality)) {
-            Log.error(`Current file loader does not support modality ${config.modality}.`, SCOPE)
+        if (options.modality && !this._fileReader.isSupportedModality(options.modality)) {
+            Log.error(`Current file loader does not support modality ${options.modality}.`, SCOPE)
             return null
         }
         if (!study) {
             study = studyContextTemplate()
-            if (config) {
-                Object.assign(study, config)
+            if (options) {
+                Object.assign(study, options)
             }
         }
         if (!study.name) {
             // Use file name as default.
-            study.name = config.name || 'Study'
+            study.name = options.name || 'Study'
         }
-        Log.debug(`Started loading a study from file ${file.name} (${config.name}).`, SCOPE)
+        Log.debug(`Started loading a study from file ${file.name} (${options.name}).`, SCOPE)
         // Try to load the file, according to extension.
-        const fName = config.name || file.name
+        const fName = options.name || file.name
         if (this._fileReader.matchName(fName)) {
             this._fileReader.registerStudy(study)
             if (!(await this._fileReader.readFile(file, { name: fName }))) {
@@ -224,14 +224,14 @@ export default class GenericStudyLoader implements StudyLoader {
         return study
     }
 
-    async loadFromFsItem (fileTree: FileSystemItem, config: ConfigStudyLoader = {}):
+    async loadFromFsItem (fileTree: FileSystemItem, options: ConfigStudyLoader = {}):
                          Promise<StudyContextCollection[]>
     {
         if (!this._fileReader) {
             Log.error(`Cannot load study from a filesystem item, file loader has not been set.`, SCOPE)
             return []
         }
-        if (!this._canLoadResource(config)) {
+        if (!this._canLoadResource(options)) {
             return []
         }
         if (!fileTree) {
@@ -261,7 +261,7 @@ export default class GenericStudyLoader implements StudyLoader {
                         }
                         reader.readAsText(confFile.file as File)
                     }).then((json) => {
-                        config = Object.assign(json as { [key: string]: unknown }, config)
+                        options = Object.assign(json as { [key: string]: unknown }, options)
                     }).catch(e => {
                         Log.error(`Could not load config from ${confFile.path}.`, SCOPE, e)
                     })
@@ -269,12 +269,12 @@ export default class GenericStudyLoader implements StudyLoader {
                 }
             }
         }
-        // Make sure there is a collections and studies property on config.
-        if (!Object.hasOwn(config, 'collections')) {
-            config.collections = {}
+        // Make sure there is a collections and studies property on options.
+        if (!Object.hasOwn(options, 'collections')) {
+            options.collections = {}
         }
-        if (!Object.hasOwn(config, 'studies')) {
-            config.studies = {}
+        if (!Object.hasOwn(options, 'studies')) {
+            options.studies = {}
         }
         // Next, check if this is a single file dir or several dirs.
         if (!rootDir.directories.length && rootDir.files.length) {
@@ -292,7 +292,7 @@ export default class GenericStudyLoader implements StudyLoader {
                 }
             } else {
                 // Add all files as parts of the same study.
-                const study = this.loadFromDirectory(rootDir, config)
+                const study = this.loadFromDirectory(rootDir, options)
                 if (study) {
                     // Only add successfully loaded studies.
                     studies.push(study)
@@ -302,8 +302,8 @@ export default class GenericStudyLoader implements StudyLoader {
                 Object.assign(
                     { studies: studies },
                     { title: rootDir.name },
-                    config.collections ? config.collections[rootDir.name] : undefined,
-                    config.collections ? config.collections[rootDir.path] : undefined
+                    options.collections ? options.collections[rootDir.name] : undefined,
+                    options.collections ? options.collections[rootDir.path] : undefined
                 )
             )
         } else if (rootDir.directories.length) {
@@ -331,7 +331,7 @@ export default class GenericStudyLoader implements StudyLoader {
                         Log.warn(`${curDir.path} was omitted because it was empty.`, SCOPE)
                         continue
                     } else {
-                        const study = await this.loadFromDirectory(curDir, config)
+                        const study = await this.loadFromDirectory(curDir, options)
                         if (study) {
                             // Only add successfully loaded studies.
                             studies.push(study)
@@ -341,8 +341,8 @@ export default class GenericStudyLoader implements StudyLoader {
                 const collection = Object.assign(
                     { studies: studies },
                     { title: visitDir.name },
-                    config.collections ? config.collections[visitDir.name] : undefined,
-                    config.collections ? config.collections[visitDir.path] : undefined
+                    options.collections ? options.collections[visitDir.name] : undefined,
+                    options.collections ? options.collections[visitDir.path] : undefined
                 )
                 collections.push(collection)
             }
@@ -354,37 +354,38 @@ export default class GenericStudyLoader implements StudyLoader {
         return collections
     }
 
-    async loadFromUrl (fileUrl: string, config: ConfigStudyLoader = {}, study?: StudyContext):
+    async loadFromUrl (fileUrl: string, options: ConfigStudyLoader = {}, study?: StudyContext):
                       Promise<StudyContext|null>
     {
         if (!this._fileReader) {
             Log.error(`Cannot load study from a URL, file loader has not been set.`, SCOPE)
             return null
         }
-        if (!this._canLoadResource(config)) {
+        if (!this._canLoadResource(options)) {
             return null
         }
-        if (config.modality && !this._fileReader.isSupportedModality(config.modality)) {
-            Log.error(`Current file loader does not support modality ${config.modality}.`, SCOPE)
+        if (options.modality && !this._fileReader.isSupportedModality(options.modality)) {
+            Log.error(`Current file loader does not support modality ${options.modality}.`, SCOPE)
             return null
         }
         if (!study) {
             study = studyContextTemplate()
-            if (config) {
-                Object.assign(study, config)
+            if (options) {
+                Object.assign(study, options)
             }
         }
         if (!study.name) {
             // Use file name as default.
-            study.name = config.name || 'Study'
+            study.name = options.name || 'Study'
         }
-        Log.debug(`Started loading a study from URL ${fileUrl} (${config.name}).`, SCOPE)
         // Try to load the file, according to extension.
         const urlEnd = fileUrl.split('/').pop()
-        const fName = config.name || urlEnd || ''
+        const fName = options.name || urlEnd || ''
+        Log.debug(`Started loading a study from URL ${fileUrl} (${fName}).`, SCOPE)
         if (this._fileReader.matchName(fName)) {
+            options.name = fName
             this._fileReader.registerStudy(study)
-            if (!(await this._fileReader.readUrl(fileUrl, { name: fName }))) {
+            if (!(await this._fileReader.readUrl(fileUrl, options))) {
                 Log.error(`Failed to load study ${study.name}.`, SCOPE)
                 return null
             }
