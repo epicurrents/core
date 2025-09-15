@@ -23,14 +23,14 @@ import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
 import { Log } from 'scoped-event-log'
 import { EPS as FLOAT32_EPS } from '@stdlib/constants-float32'
 import { GenericBiosignalHeader } from '../biosignal'
+import GenericDataProcessor from './GenericDataProcessor'
 
 const SCOPE = 'SignalFileReader'
 
-export default abstract class GenericSignalProcessor implements SignalProcessorCache {
+export default abstract class GenericSignalProcessor extends GenericDataProcessor implements SignalProcessorCache {
 
     /** Map of annotations as <position in seconds, list of annotations>. */
     protected _annotations = new Map<number, AnnotationTemplate[]>()
-    protected _dataEncoding: TypedNumberArrayConstructor
     /** Number of data units to write into the file. */
     protected _dataUnitCount = 0
     /** Duration of single data unit in seconds. */
@@ -39,21 +39,15 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
     protected _dataUnitSize = 0
     /** Is the resulting file discontinuous. */
     protected _discontinuous = false
-    /** A plain fallback data cache in case mutex is not usable. */
-    protected _fallbackCache = null as SignalDataCache | null
     protected _fileTypeHeader: unknown | null = null
     protected _header: GenericBiosignalHeader | null = null
     /** Map of recording interruptions as <data position, length> in seconds. */
     protected _interruptions = new Map<number, number>() as SignalInterruptionMap
-    /** Data source mutex. */
-    protected _mutex = null as SignalCacheMutex | null
-    protected _sourceBuffer: ArrayBuffer | null = null
     protected _sourceDigitalSignals: TypedNumberArray[] | null = null
-    protected _totalDataLength = 0
     protected _totalRecordingLength = 0
 
     constructor (dataEncoding: TypedNumberArrayConstructor) {
-        this._dataEncoding = dataEncoding
+        super(dataEncoding)
     }
 
     protected get _cache (): SignalCacheMutex | SignalDataCache | null {
@@ -63,18 +57,6 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
             return this._fallbackCache
         }
         return null
-    }
-
-    get cacheReady () {
-        return this._cache !== null
-    }
-
-    get dataEncoding () {
-        return this._dataEncoding
-    }
-
-    get dataLength () {
-        return this._totalDataLength
     }
 
     get dataUnitSize () {
@@ -89,26 +71,6 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         return this._totalRecordingLength
     }
 
-    /**
-     * Expand the given blob into a file-like object.
-     * @param blob - Blob to modify.
-     * @param name - Name of the file.
-     * @param path - Path of the file, if applicable.
-     * @returns Pseudo-file created from the blob.
-     */
-    protected _blobToFile (blob: Blob | File, name: string, path?: string): File {
-        if (blob instanceof File || (blob as File).lastModified) {
-            // If the blob is already a file, just return it.
-            return blob as File
-        }
-        // Import properties expected of a file object.
-        Object.assign(blob, {
-            lastModified: Date.now(),
-            name: name,
-            webkitRelativePath: path || "",
-        })
-        return <File>blob
-    }
     /**
      * Convert cache time (i.e. time without interruptions) to recording time.
      * @param time - Cache time without interruptions.
@@ -224,18 +186,6 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         const priorIntrTotal = time > 0 ? this._getInterruptionTimeBetween(0, time) : 0
         // Avoid float rounding error when converting from stored 32 bit into internal 64 bit float.
         return Math.floor((time + FLOAT32_EPS - priorIntrTotal)/this._dataUnitDuration)
-    }
-
-    async cacheFile(_file: File, _startFrom?: number | undefined): Promise<void> {
-        Log.error(`cacheFile has not been overridden by child class.`, SCOPE)
-    }
-
-    async destroy () {
-        await this.releaseCache()
-        this._annotations.clear()
-        this._fallbackCache = null
-        this._interruptions.clear()
-        this._mutex = null
     }
 
     addNewAnnotations (...annotations: AnnotationTemplate[]) {
@@ -402,16 +352,6 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         }
     }
 
-    async releaseCache () {
-        this._cache?.releaseBuffers()
-        if (this._mutex) {
-            this._mutex = null
-        } else if (this._fallbackCache) {
-            this._fallbackCache = null
-        }
-        Log.debug(`Signal cache released.`, SCOPE)
-    }
-
     setAnnotations (annotations: AnnotationTemplate[]) {
         this._annotations.clear()
         for (const anno of annotations) {
@@ -440,11 +380,6 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         this._fileTypeHeader = header
     }
 
-    setupCache (): SignalDataCache | null {
-        Log.error(`setupCache has not been overridden in the child class.`, SCOPE)
-        return null
-    }
-
     setupCacheWithInput (
         _cache: SignalDataCache,
         _dataDuration: number,
@@ -452,11 +387,6 @@ export default abstract class GenericSignalProcessor implements SignalProcessorC
         _interruptions = [] as SignalInterruption[]
     ) {
         Log.error(`setupCacheWithInput must be overridden in the child class.`, SCOPE)
-    }
-
-    async setupMutex (_buffer: SharedArrayBuffer, _bufferStart: number): Promise<MutexExportProperties|null> {
-        Log.error(`setupMutex has not been overridden in the child class.`, SCOPE)
-        return null
     }
 
     async setupMutexWithInput (

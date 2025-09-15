@@ -1,18 +1,18 @@
 /**
- * Generic file writer.
+ * Generic study exporter.
  * @package    epicurrents/core
  * @copyright  2025 Sampsa Lohi
  * @license    Apache-2.0
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import type { FileFormatWriter } from '#types/reader'
+import type { FileFormatExporter } from '#types/reader'
 import type {
     StudyContext,
 } from '#types/study'
 import { MediaDataset } from '#root/src/types'
 
-export default abstract class GenericFileWriter extends GenericAsset implements FileFormatWriter {
+export default abstract class GenericStudyExporter extends GenericAsset implements FileFormatExporter {
     protected _description: string
     protected _format: string
     protected _sourceStudy: StudyContext | null = null
@@ -38,13 +38,13 @@ export default abstract class GenericFileWriter extends GenericAsset implements 
         this._sourceStudy = null
         super.destroy()
     }
+    exportStudyToDataset(_dataset: MediaDataset, _path: string): Promise<void> {
+        throw new Error('exportStudyToDataset must be overridden in the child class.')
+    }
+    exportStudyToFileSystem(): Promise<void> {
+        throw new Error('exportStudyToFileSystem must be overridden in the child class.')
+    }
     setSourceStudy(study: StudyContext): void {
         this._sourceStudy = study
-    }
-    writeFileToDataset(_dataset: MediaDataset, _path: string): Promise<void> {
-        throw new Error('writeFileToDataset must be overridden in the child class.')
-    }
-    writeFileToFileSystem(): Promise<void> {
-        throw new Error('writeFileToFileSystem must be overridden in the child class.')
     }
 }

@@ -1,21 +1,21 @@
 /**
- * Generic file loader.
+ * Generic study importer.
  * @package    epicurrents/core
  * @copyright  2021 Sampsa Lohi
  * @license    Apache-2.0
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { type AssociatedFileType, type FileFormatReader } from '#types/reader'
-import { type MemoryManager } from '#types/service'
-import {
-    type StudyContext,
-    type StudyContextFile,
-    type StudyLoader
+import type { AssociatedFileType, FileFormatImporter } from '#types/reader'
+import type { MemoryManager } from '#types/service'
+import type {
+    StudyContext,
+    StudyContextFile,
+    StudyLoader,
 } from '#types/study'
-import { studyContextTemplate } from '#assets/study/loaders/GenericStudyLoader'
+import { studyContextTemplate } from './GenericStudyLoader'
 
-export default abstract class GenericFileReader extends GenericAsset implements FileFormatReader {
+export default abstract class GenericStudyImporter extends GenericAsset implements FileFormatImporter {
     /**
      * File headers to mime type associations.
      * @remarks
@@ -129,11 +129,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         }
     }*/
 
-    isSupportedModality (modality: string) {
-        return this._modalities.includes(modality)
-    }
-
-    async readFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
+    async importFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
         if (typeof source === 'object' && Object.hasOwn(source, 'url')) {
             return source as StudyContextFile
         }
@@ -146,7 +142,7 @@ export default abstract class GenericFileReader extends GenericAsset implements 
         } as StudyContextFile
     }
 
-    async readUrl (source: string | StudyContextFile): Promise<StudyContextFile|null> {
+    async importUrl (source: string | StudyContextFile): Promise<StudyContextFile|null> {
         if (typeof source === 'object' && Object.hasOwn(source, 'url')) {
             return source as StudyContextFile
         }
@@ -157,6 +153,10 @@ export default abstract class GenericFileReader extends GenericAsset implements 
             modality: 'unknown',
             url: source as string,
         } as StudyContextFile
+    }
+
+    isSupportedModality (modality: string) {
+        return this._modalities.includes(modality)
     }
 
     matchName (fileName: string) {

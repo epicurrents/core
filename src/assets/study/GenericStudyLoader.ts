@@ -8,8 +8,8 @@
 import type { DataResource } from '#types/application'
 import type { ConfigStudyLoader } from '#types/config'
 import type {
-    FileFormatWriter,
-    FileFormatReader,
+    FileFormatExporter,
+    FileFormatImporter,
     FileSystemItem,
 } from '#root/src/types/reader'
 import type { MemoryManager } from '#types/service'
@@ -37,8 +37,8 @@ const CONFIG_FILE_NAME = 'epicurrents_study_config.json'
 const SCOPE = 'GenericStudyLoader'
 
 export default class GenericStudyLoader implements StudyLoader {
-    protected _fileReader: FileFormatReader | null = null
-    protected _fileWriter: FileFormatWriter | null = null
+    protected _studyExporter: FileFormatExporter | null = null
+    protected _studyImporter: FileFormatImporter | null = null
     protected _memoryManager: MemoryManager | null = null
     protected _name: string
     protected _resources: DataResource[] = []
@@ -49,24 +49,24 @@ export default class GenericStudyLoader implements StudyLoader {
      * @param name - Name of the loader.
      * @param scopes - Array of supported study scopes.
      * @param types - Array of supported study types.
-     * @param reader - Optional file reader to use when loading studies. Can also be set with `registerFileReader`.
-     * @param writer - Optional file writer to use for transcoding studies. Can also be set with `registerFileWriter`.
+     * @param importer - Optional study importer to use when loading studies. Can also be set with `registerStudyImporter`.
+     * @param exporter - Optional study exporter to use for transcoding studies. Can also be set with `registerStudyExporter`.
      * @param memoryManager - Optional memory manager to use with this loader.
      */
     constructor (
         name: string,
         modalities: string[],
-        reader?: FileFormatReader,
-        writer?: FileFormatWriter,
+        importer?: FileFormatImporter,
+        exporter?: FileFormatExporter,
         memoryManager?: ServiceMemoryManager
     ) {
         this._name = name
         this._supportedModalities = modalities
-        if (reader) {
-            this.registerFileReader(reader)
+        if (importer) {
+            this.registerStudyImporter(importer)
         }
-        if (writer) {
-            this.registerFileWriter(writer)
+        if (exporter) {
+            this.registerStudyExporter(exporter)
         }
         if (memoryManager) {
             this.registerMemoryManager(memoryManager)
@@ -87,17 +87,17 @@ export default class GenericStudyLoader implements StudyLoader {
         return true
     }
 
-    get fileReader () {
-        return this._fileReader
-    }
-
-    get fileWriter () {
-        return this._fileWriter
-    }
-
     get resourceModality () {
         // Override this in the child loader.
         return 'unknown'
+    }
+
+    get studyExporter () {
+        return this._studyExporter
+    }
+
+    get studyImporter () {
+        return this._studyImporter
     }
 
     get supportedModalities () {
@@ -137,7 +137,7 @@ export default class GenericStudyLoader implements StudyLoader {
     }
 
     async loadFromDirectory (dir: FileSystemItem, options?: ConfigStudyLoader): Promise<StudyContext|null> {
-        if (!this._fileReader) {
+        if (!this._studyImporter) {
             Log.error(`Cannot load study from directory, file loader has not been set.`, SCOPE)
             return null
         }
@@ -153,12 +153,12 @@ export default class GenericStudyLoader implements StudyLoader {
                 const dirFile = dir.files[i]
                 // Try to load the file, according to extension.
                 const fileConfig = { name: dirFile.name }
-                if (this._fileReader.matchName(dirFile.name)) {
-                    this._fileReader.registerStudy(study)
+                if (this._studyImporter.matchName(dirFile.name)) {
+                    this._studyImporter.registerStudy(study)
                     const readResult = dirFile.file
-                                        ? await this._fileReader.readFile(dirFile.file, fileConfig)
+                                        ? await this._studyImporter.importFile(dirFile.file, fileConfig)
                                         : dirFile.url
-                                          ? await this._fileReader.readUrl(dirFile.url, fileConfig)
+                                          ? await this._studyImporter.importUrl(dirFile.url, fileConfig)
                                           : null
                     if (!(readResult)) {
                         Log.error(`Failed to load study ${study.name}.`, SCOPE)
@@ -189,14 +189,14 @@ export default class GenericStudyLoader implements StudyLoader {
     async loadFromFile (file: File, options: ConfigStudyLoader = {}, study?: StudyContext):
                        Promise<StudyContext|null>
     {
-        if (!this._fileReader) {
+        if (!this._studyImporter) {
             Log.error(`Cannot load study from a file, file loader has not been set.`, SCOPE)
             return null
         }
         if (!this._canLoadResource(options)) {
             return null
         }
-        if (options.modality && !this._fileReader.isSupportedModality(options.modality)) {
+        if (options.modality && !this._studyImporter.isSupportedModality(options.modality)) {
             Log.error(`Current file loader does not support modality ${options.modality}.`, SCOPE)
             return null
         }
@@ -213,9 +213,9 @@ export default class GenericStudyLoader implements StudyLoader {
         Log.debug(`Started loading a study from file ${file.name} (${options.name}).`, SCOPE)
         // Try to load the file, according to extension.
         const fName = options.name || file.name
-        if (this._fileReader.matchName(fName)) {
-            this._fileReader.registerStudy(study)
-            if (!(await this._fileReader.readFile(file, { name: fName }))) {
+        if (this._studyImporter.matchName(fName)) {
+            this._studyImporter.registerStudy(study)
+            if (!(await this._studyImporter.importFile(file, { name: fName }))) {
                 Log.error(`Failed to load study ${study.name}.`, SCOPE)
                 return null
             }
@@ -227,7 +227,7 @@ export default class GenericStudyLoader implements StudyLoader {
     async loadFromFsItem (fileTree: FileSystemItem, options: ConfigStudyLoader = {}):
                          Promise<StudyContextCollection[]>
     {
-        if (!this._fileReader) {
+        if (!this._studyImporter) {
             Log.error(`Cannot load study from a filesystem item, file loader has not been set.`, SCOPE)
             return []
         }
@@ -357,14 +357,14 @@ export default class GenericStudyLoader implements StudyLoader {
     async loadFromUrl (fileUrl: string, options: ConfigStudyLoader = {}, study?: StudyContext):
                       Promise<StudyContext|null>
     {
-        if (!this._fileReader) {
+        if (!this._studyImporter) {
             Log.error(`Cannot load study from a URL, file loader has not been set.`, SCOPE)
             return null
         }
         if (!this._canLoadResource(options)) {
             return null
         }
-        if (options.modality && !this._fileReader.isSupportedModality(options.modality)) {
+        if (options.modality && !this._studyImporter.isSupportedModality(options.modality)) {
             Log.error(`Current file loader does not support modality ${options.modality}.`, SCOPE)
             return null
         }
@@ -382,10 +382,10 @@ export default class GenericStudyLoader implements StudyLoader {
         const urlEnd = fileUrl.split('/').pop()
         const fName = options.name || urlEnd || ''
         Log.debug(`Started loading a study from URL ${fileUrl} (${fName}).`, SCOPE)
-        if (this._fileReader.matchName(fName)) {
+        if (this._studyImporter.matchName(fName)) {
             options.name = fName
-            this._fileReader.registerStudy(study)
-            if (!(await this._fileReader.readUrl(fileUrl, options))) {
+            this._studyImporter.registerStudy(study)
+            if (!(await this._studyImporter.importUrl(fileUrl, options))) {
                 Log.error(`Failed to load study ${study.name}.`, SCOPE)
                 return null
             }
@@ -409,26 +409,26 @@ export default class GenericStudyLoader implements StudyLoader {
             }
         }
         this._study = study
-        this._fileReader?.registerStudy(this._study)
+        this._studyImporter?.registerStudy(this._study)
         return this._resources.length
-    }
-
-    registerFileReader (reader: FileFormatReader) {
-        this._fileReader = reader
-        reader.studyLoader = this
-        if (this._memoryManager) {
-            reader.registerMemoryManager(this._memoryManager)
-        }
-    }
-
-    registerFileWriter (writer: FileFormatWriter) {
-        this._fileWriter = writer
     }
 
     registerMemoryManager (manager: MemoryManager) {
         this._memoryManager = manager
-        if (this._fileReader) {
-            this._fileReader.registerMemoryManager(manager)
+        if (this._studyImporter) {
+            this._studyImporter.registerMemoryManager(manager)
+        }
+    }
+
+    registerStudyExporter (writer: FileFormatExporter) {
+        this._studyExporter = writer
+    }
+
+    registerStudyImporter (reader: FileFormatImporter) {
+        this._studyImporter = reader
+        reader.studyLoader = this
+        if (this._memoryManager) {
+            reader.registerMemoryManager(this._memoryManager)
         }
     }
 }

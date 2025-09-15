@@ -9,7 +9,7 @@ import { type FileSystemItem } from '#root/src/types/reader'
 import { type StudyContext, type OrderedLoadingProtocol } from '#types/study'
 import GenericStudyLoader from './GenericStudyLoader'
 import { Log } from 'scoped-event-log'
-import StudyCollection from '../StudyCollection'
+import StudyCollection from './StudyCollection'
 
 const SCOPE = "StudyLoadProtocol"
 

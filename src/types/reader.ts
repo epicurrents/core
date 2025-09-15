@@ -24,7 +24,7 @@ import {
     StudyLoader,
 } from './study'
 import { MediaDataset } from './dataset'
-import { TypedNumberArray, TypedNumberArrayConstructor } from './util'
+import { Modify, TypedNumberArray, TypedNumberArrayConstructor } from './util'
 import { GenericBiosignalHeader } from '../assets'
 import { UrlAccessOptions } from './config'
 
@@ -104,6 +104,73 @@ export type ConfigReadUrl = UrlAccessOptions & {
     signalReader?: ConfigReadSignals
     url?: string
 }
+/**
+ * A generic cache for storing data.
+ * @remarks
+ * The data cache does not have to extend BaseAsset, as it is only used to store immutable data and to process
+ * asynchronous requests, it does not need a serializable state of its own.
+ */
+export interface DataProcessorCache {
+    /**
+     * Read and cache properties from an entire file.
+     * @param file - The File object to read.
+     * @param startFrom - Optional starting byte position to start reading from.
+     * @remarks
+     * This method must have a format-specific implementation in the child class.
+     */
+    cacheFile (file: File, startFrom?: number): Promise<void>
+    /**
+     * Destroy the cache by removing all references and releasing any reserved resources. This process is irreversible.
+     */
+    destroy (): void | Promise<void>
+    /**
+     * Release allocated buffers and return to initial state.
+     * @returns Promise that resolves when the cache has been released.
+     */
+    releaseCache (): Promise<void>
+    /**
+     * Initialize a new, plain reader cache.
+     * @param bufferSize - Buffer size in bytes, if known.
+     * @returns Created cache on success, null on failure.
+     */
+    setupCache (bufferSize?: number): unknown | null
+    /**
+     * Set up a simple data cache as the data source for this montage.
+     * @param params - Implementation specific parameters for setting up the cache.
+     * @remarks
+     * This method must have an appropriate implementation in the child class.
+     */
+    setupCacheWithInput (...params: unknown[]): void
+    /**
+     * Initialize a new shared array mutex using the given `buffer`.
+     * @param buffer - Buffer to store the data in.
+     * @param bufferStart - Starting index within the buffer allocated to this mutex.
+     * @param bufferSize - Optional size of the buffer allocated to this mutex.
+     * @returns Export properties of the new mutex or null on failure.
+     */
+    setupMutex (
+        buffer: SharedArrayBuffer,
+        bufferStart: number,
+        bufferSize?: number,
+    ): Promise<MutexExportProperties|null>
+    /**
+     * Set up an input mutex as the source for file loading. This will create a new mutex for storing processed data
+     * and can only be done once.
+     * @param params - Implementation specific parameters for setting up the mutex.
+     * @returns Newly created mutex properties or null on failure.
+     * @remarks
+     * This method must have an appropriate implementation in the child class.
+     */
+    setupMutexWithInput (...params: unknown[]): Promise<MutexExportProperties|null>
+    /**
+     * Set up a shared worker for file loading. This will use a shared worker to query for input data.
+     * @param params - Implementation specific parameters for setting up the worker.
+     * @return Promise resolving to true on success, false on failure.
+     * @remarks
+     * This method must have an appropriate implementation in the child class.
+     */
+    setupSharedWorkerWithInput (...params: unknown[]): Promise<boolean>
+}
 
 export interface FileDecoder {
     /** Decoded input data. */
@@ -132,16 +199,7 @@ export interface FileDecoder {
 export interface FileEncoder extends BaseAsset {
     dataEncoding: TypedNumberArrayConstructor
 }
-/**
- * A file format module must export a reader and may optionally export a writer for the file type.
- */
-export type FileFormatModule = {
-    /** Reader instance for this file type (mandatory). */
-    reader: FileFormatReader
-    /** Writer instance for this file type (null if not supported by the module). */
-    writer: FileFormatWriter | null
-}
-export interface FileFormatReader extends BaseAsset {
+export interface FileFormatImporter extends BaseAsset {
     /** File types associated with this reader. */
     fileTypes: AssociatedFileType[]
     /** Only allow selecting accepted types in the file picker. */
@@ -161,15 +219,15 @@ export interface FileFormatReader extends BaseAsset {
      */
     getFileTypeWorker (override?: string): Worker | null
     /**
-     * Read a local file from the filesystem.
+     * Import a local file from the filesystem.
      * @param file - The `File` to load.
      */
-    readFile (file: StudyContextFile | File, config?: unknown): Promise<StudyContextFile | null>
+    importFile (file: StudyContextFile | File, config?: unknown): Promise<StudyContextFile | null>
     /**
-     * Load a remote file from the give `url`.
+     * Import a remote file from the give `url`.
      * @param url - The URL to load the file from.
      */
-    readUrl (url: StudyContextFile | string, config?: ConfigReadUrl): Promise<StudyContextFile | null>
+    importUrl (url: StudyContextFile | string, config?: ConfigReadUrl): Promise<StudyContextFile | null>
     /**
      * See if the given `modality` is supported by this reader.
      * @param modality - Modality to check.
@@ -199,35 +257,44 @@ export interface FileFormatReader extends BaseAsset {
      */
     setWorkerOverride (name: string, getWorker: (() => Worker)|null): void
 }
+/**
+ * A file format module must export a reader and may optionally export a writer for the file type.
+ */
+export type FileFormatModule = {
+    /** Reader instance for this file type (mandatory). */
+    reader: FileFormatImporter
+    /** Writer instance for this file type (null if not supported by the module). */
+    writer: FileFormatExporter | null
+}
 export type FileFormatReaderSpecs = {
     /** Patterns to match the filename against. */
     matchPatters: RegExp[]
 }
 /**
- * FileFormatWriter is an interface for writing files in a specific format.
+ * FileFormatExporter is an interface for exporting studies in a specific format.
  */
-export interface FileFormatWriter extends BaseAsset {
+export interface FileFormatExporter extends BaseAsset {
     /** Description of the produced files(s). */
     description: string
-    /** The file format that this writer produces. */
+    /** The file format that this exporter produces. */
     readonly format: string
     /**
-     * Set the source study for this writer.
-     * @param study - The `StudyContext` to use as the source for writing.
+     * Export the study to the given dataset.
+     * @param dataset - The dataset to export the study to.
+     * @param path - Path within the dataset to write the study to.
+     * @returns Promise that resolves when the study has been exported.
+     */
+    exportStudyToDataset (dataset: MediaDataset, path: string): Promise<void>
+    /**
+     * Export the study to the file system.
+     * @returns Promise that resolves when the study has been exported.
+     */
+    exportStudyToFileSystem (): Promise<void>
+    /**
+     * Set the source study for this exporter.
+     * @param study - The `StudyContext` to use as the source for exporting.
      */
     setSourceStudy (study: StudyContext): void
-    /**
-     * Write the file to the given dataset.
-     * @param dataset - The dataset to write the file to.
-     * @param path - Path within the dataset to write the file to.
-     * @returns Promise that resolves when the file has been written.
-     */
-    writeFileToDataset (dataset: MediaDataset, path: string): Promise<void>
-    /**
-     * Write the file to the file system.
-     * @returns Promise that resolves when the file has been written.
-     */
-    writeFileToFileSystem (): Promise<void>
 }
 export interface FileReader {
     readFilesFromSource(source: unknown): Promise<FileSystemItem|undefined>
@@ -264,6 +331,35 @@ export type FileSystemItemType = 'directory' | 'file'
  */
 export type ReadDirection = 'backward' | 'alternate' | 'forward'
 export type ReaderMode = 'file' | 'folder' | 'study' | 'url'
+/**
+ * Options for reading a file from a URL.
+ * @param authHeader - Optional authorization header to include in the request.
+ * @param callbackOnProgress - Optional callback for monitoring progress.
+ * @param chunkSize - Optional chunk size to use when loading the file, in bytes.
+ * @param startFrom - Optional starting point of the loading process, in bytes.
+ */
+export type ReadFileFromUrlOptions = UrlAccessOptions & {
+    /**
+     * Optional callback for monitoring progress.
+     * @param content - Content of the loaded batch.
+     * @param loaded - Amount of data loaded so far in bytes.
+     * @param total - Total size of the file in bytes.
+     */
+    callbackOnProgress?: (content: unknown, loaded: number, total: number) => void
+    /** Optional chunk size to use when loading the file, in bytes. */
+    chunkSize?: number
+    /** Optional starting point of the loading process, in bytes. */
+    startFrom?: number
+}
+export type ReadTextFromUrlOptions = Modify<ReadFileFromUrlOptions, {
+    /**
+     * Optional callback for monitoring progress.
+     * @param content - Text content of the loaded batch.
+     * @param loaded - Amount of data loaded so far in bytes.
+     * @param total - Total size of the file in bytes.
+     */
+    callbackOnProgress?: (content: string, loaded: number, total: number) => void
+}>
 /**
  * SignalDataEncoder provides methods for encoding signal data into a specific format.
  */
@@ -404,35 +500,54 @@ export type SignalFilePart = {
     start: number
 }
 /**
- * SignalFileReader has additional methods for reading the file header.
- */
-export interface SignalFileReader extends FileFormatReader {
-    /**
-     * Read information about the recording contained in this file from the file header. Information is also saved
-     * into the cached study's `meta.header` property for later use.
-     * @param source - Data source as an ArrayBuffer.
-     * @param config - Optional configuration for the operation.
-     * @returns Promise that resolves with the loaded header entity or null if an error occurred.
-     */
-    readHeader: (source: ArrayBuffer, config?: ConfigReadHeader) => Promise<unknown | null>
-}
-/**
  * SignalProcessorCache provide methods for storing and processing signal data. It doesn't have any direct interaction
  * with the file source, so it can be used both in the main thread and in workers.
  */
-export interface SignalProcessorCache {
+export interface SignalProcessorCache extends Modify<DataProcessorCache, {
     /**
-     * Encoding used for the signal data in the data source.
+     * Set up a simple signal cache as the data source for this montage.
+     * @param cache - The data cache to use.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param interruptions - Possible interruptions in the recording.
      */
-    readonly dataEncoding: TypedNumberArrayConstructor
+    setupCacheWithInput (
+        cache: SignalDataCache,
+        dataDuration: number,
+        recordingDuration: number,
+        interruptions?: SignalInterruption[],
+    ): void
     /**
-     * Has the cache been initialized.
+     * Set up an input mutex as the source for signal data loading. This will create a new mutex for storing processed
+     * signal data and can only be done once.
+     * @param input - Properties of the input data mutex.
+     * @param bufferStart - Starting index of the new mutex array in the buffer.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
+     * @param interruptions - Possible interruptions in the recording.
+     * @returns Newly created mutex properties or null on failure.
      */
-    cacheReady: boolean
+    setupMutexWithInput (
+        input: MutexExportProperties,
+        bufferStart: number,
+        dataDuration: number,
+        recordingDuration: number,
+        interruptions?: SignalInterruption[]
+    ): Promise<MutexExportProperties|null>
     /**
-     * Length of the actual data in seconds (excluding gaps).
+     * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
+     * @param input - Message port from the input worker.
+     * @param dataDuration - Duration of actual signal data in seconds.
+     * @param recordingDuration - Total duration of the recording (including interruptions) in seconds.
+     * @param interruptions - Possible interruptions in the recording.
      */
-    dataLength: number
+    setupSharedWorkerWithInput (
+        input: MessagePort,
+        dataDuration: number,
+        recordingDuration: number,
+        interruptions?: SignalInterruption[]
+    ): Promise<boolean>
+}> {
     /**
      * Is the source file discontinuous.
      */
@@ -474,10 +589,6 @@ export interface SignalProcessorCache {
      */
     getSignals (range: number[], config?: unknown): Promise<SignalCachePart|null>
     /**
-     * Release buffers removing all references to them and returning to initial state.
-     */
-    releaseCache (): Promise<void>
-    /**
      * Overwrite current annotations with a new set of annotations.
      * @param annotations - Annotations to set.
      */
@@ -487,66 +598,41 @@ export interface SignalProcessorCache {
      * @param interruptions - The new interruptions.
      */
     setInterruptions (interruptions: SignalInterruptionMap): void
+}
+/**
+ * SignalStudyImporter has additional methods for reading the file header.
+ */
+export interface SignalStudyImporter extends FileFormatImporter {
     /**
-     * Initialize a new, plain reader cache.
-     * @param dataDuration - Duration of the signal data in seconds, if known.
-     * @returns Created cache on success, null on failure.
+     * Read information about the recording contained in this file from the file header. Information is also saved
+     * into the cached study's `meta.header` property for later use.
+     * @param source - Data source as an ArrayBuffer.
+     * @param config - Optional configuration for the operation.
+     * @returns Promise that resolves with the loaded header entity or null if an error occurred.
      */
-    setupCache (dataDuration?: number): SignalDataCache | null
-    /**
-     * Set up a simple signal cache as the data source for this montage.
-     * @param cache - The data cache to use.
-     * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param interruptions - Possible interruptions in the recording.
-     */
-    setupCacheWithInput (
-        cache: SignalDataCache,
-        dataDuration: number,
-        recordingDuration: number,
-        interruptions?: SignalInterruption[],
-    ): void
-    /**
-     * Initialize a new shared array mutex using the given `buffer`.
-     * @param buffer - Buffer to store the signal data in.
-     * @param start - Starting index within the buffer allocated to this mutex.
-     * @returns Export properties of the new mutex or null on failure.
-     */
-    setupMutex (buffer: SharedArrayBuffer, bufferStart: number): Promise<MutexExportProperties|null>
-    /**
-     * Set up an input mutex as the source for signal data loading. This will create a new mutex for storing processed
-     * signal data and can only be done once.
-     * @param input - Properties of the input data mutex.
-     * @param bufferStart - Starting index of the new mutex array in the buffer.
-     * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
-     * @param interruptions - Possible interruptions in the recording.
-     * @returns Newly created mutex properties or null on failure.
-     */
-    setupMutexWithInput (
-        input: MutexExportProperties,
-        bufferStart: number,
-        dataDuration: number,
-        recordingDuration: number,
-        interruptions?: SignalInterruption[]
-    ): Promise<MutexExportProperties|null>
-    /**
-     * Set up a shared worker for file loading. This will use a shared worker to query for raw signal data.
-     * @param input - Message port from the input worker.
-     * @param dataDuration - Duration of actual signal data in seconds.
-     * @param recordingDuration - Total duration of the recording (including interruptions) in seconds.
-     * @param interruptions - Possible interruptions in the recording.
-     */
-    setupSharedWorkerWithInput (
-        input: MessagePort,
-        dataDuration: number,
-        recordingDuration: number,
-        interruptions?: SignalInterruption[]
-    ): Promise<boolean>
+    readHeader: (source: ArrayBuffer, config?: ConfigReadHeader) => Promise<unknown | null>
 }
 
 export type SuccessReject = (reason: string) => void
 export type SuccessResolve = (response: SuccessResponse) => void
 export type SuccessResponse = boolean
+
+export interface TextDataReader extends DataProcessorCache {
+    /**
+     * Read and cache the entire file from a URL.
+     * @param url - Optional override for the URL to read from.
+     * @param options - Optional method options.
+     * @returns True if successful, false otherwise.
+     */
+    readFileFromUrl (url?: string, options?: ReadTextFromUrlOptions): Promise<boolean>
+    /**
+     * Read a part of the text data from the source file.
+     * @param start - Starting byte position of the part to read.
+     * @param length - Length of the part to read.
+     * @returns The requested part of the file as a text string, or null if unable to read.
+     */
+    readPartFromFile (start: number, length: number): Promise<string | null>
+}
+
 /** Target for writing study export files. */
 export type WriterMode = 'file' | 'dataset'

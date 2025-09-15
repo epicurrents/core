@@ -10,7 +10,13 @@
 
 import { DataResource } from './application'
 import { ConfigStudyLoader } from './config'
-import { FileSystemItem, FileFormatReader, ReaderMode, FileFormatWriter, WriterMode } from './reader'
+import { 
+    FileSystemItem,
+    ReaderMode,
+    FileFormatExporter,
+    FileFormatImporter,
+    WriterMode
+} from './reader'
 import { MemoryManager } from './service'
 
 
@@ -124,9 +130,9 @@ export type StudyFileContext = {
  * Base interface for classes that are used to load and form studies from various data resources.
  */
 export interface StudyLoader {
-    /** File reader associated with this study loader. */
-    fileReader: null | FileFormatReader
-    fileWriter: null | FileFormatWriter
+    studyExporter: null | FileFormatExporter
+    /** Study importer associated with this study loader. */
+    studyImporter: null | FileFormatImporter
     resourceModality: string
     /** Resource modalities supported by this loader. */
     supportedModalities: string[]
@@ -173,15 +179,15 @@ export interface StudyLoader {
      */
     loadFromUrl (fileUrl: string, options?: ConfigStudyLoader, preStudy?: StudyContext): Promise<StudyContext|null>
     /**
-     * Register a new file reader for this study loader.
-     * @param mod - The new file format reader.
+     * Register a new study exporter for this study loader.
+     * @param mod - The new study exporter.
      */
-    registerFileReader (mod: FileFormatReader): void
+    registerStudyExporter (mod: FileFormatExporter): void
     /**
-     * Register a new file writer for this study loader.
-     * @param mod - The new file format writer.
+     * Register a new study importer for this study loader.
+     * @param mod - The new study importer.
      */
-    registerFileWriter (mod: FileFormatWriter): void
+    registerStudyImporter (mod: FileFormatImporter): void
     /**
      * Register the memory manager to use with this study loader.
      * @param manager - Memory manager to use.
