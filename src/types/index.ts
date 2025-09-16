@@ -274,13 +274,9 @@ export {
 
 import type {
     AudioRecording,
-    WavHeader,
-    WavSignalChannel,
 } from './media'
 export {
     AudioRecording,
-    WavHeader,
-    WavSignalChannel,
 }
 
 /////////////////////////////////////////////////
