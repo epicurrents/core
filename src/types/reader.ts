@@ -14,18 +14,18 @@ import {
     SignalInterruption,
     SignalInterruptionMap,
 } from './biosignal'
-import {
-    MemoryManager,
-    SignalCachePart,
-} from './service'
+import { MemoryManager, SignalCachePart } from './service'
 import {
     StudyContext,
     StudyContextFile,
     StudyLoader,
 } from './study'
 import { MediaDataset } from './dataset'
-import { Modify, TypedNumberArray, TypedNumberArrayConstructor } from './util'
-import { GenericBiosignalHeader } from '../assets'
+import {
+    Modify,
+    TypedNumberArray,
+    TypedNumberArrayConstructor,
+} from './util'
 import { UrlAccessOptions } from './config'
 
 export type AnonymizationProperties = {
@@ -179,8 +179,9 @@ export interface FileDecoder {
      * Decode the data part of the input buffer.
      * @param header - Header to use for decoding.
      * @param buffer - Optional buffer to use instead of input buffer.
+     * @param extraParams - Optional decoder-specific parameters.
      */
-    decodeData (header: unknown, buffer?: ArrayBuffer): unknown
+    decodeData (header: unknown, buffer?: ArrayBuffer, ...extraParams: unknown[]): unknown
     /**
      * Decode the header part of the input buffer.
      */
@@ -214,7 +215,7 @@ export interface FileFormatImporter extends BaseAsset {
     destroy (): void
     /**
      * Get the appropriate worker for this file type.
-     * @param override - Possible override to use.
+     * @param override - Possible override to use for certain test modalities etc.
      * @returns Worker or null
      */
     getFileTypeWorker (override?: string): Worker | null
@@ -360,6 +361,28 @@ export type ReadTextFromUrlOptions = Modify<ReadFileFromUrlOptions, {
      */
     callbackOnProgress?: (content: string, loaded: number, total: number) => void
 }>
+export interface SignalDataDecoder extends FileDecoder {
+    /**
+    * Decode signal file data. Can only be called after the header is decoded or a header object is provided.
+    * @param header - Signal header to use instead of stored header.
+    * @param buffer - Buffer to use instead of stored buffer data (optional).
+    * @param dataOffset - Byte size of the header or byte index of the record to start from (optional).
+    * @param startRecord - Record number at dataOffset (default 0).
+    * @param range - Range of records to decode from buffer (optional, but required if a buffer is provided).
+    * @param priorOffset - Time offset of the prior data (i.e. total interruption time before buffer start, optional, default 0).
+    * @param returnRaw -Return the raw digital signals instead of physical signals (default false).
+    * @returns An object holding the decoded signals with possible annotations and data interruptions, or null if an error occurred.
+    */
+    decodeData (
+        header: unknown,
+        buffer?: ArrayBuffer,
+        dataOffset?: number,
+        startRecord?: number,
+        range?: number,
+        priorOffset?: number,
+        returnRaw?: boolean
+    ): SignalDecodeResult | null
+}
 /**
  * SignalDataEncoder provides methods for encoding signal data into a specific format.
  */
@@ -419,6 +442,12 @@ export interface SignalDataReader extends SignalProcessorCache {
      */
     cacheFile (file: File, startFrom?: number): Promise<void>
     /**
+     * Cache raw signals from the file at the given URL.
+     * @param startFrom - Start caching from the given time point (in seconds) - optional.
+     * @returns Success (true/false).
+     */
+    cacheSignals (startFrom?: number): Promise<boolean>
+    /**
      * Destroy the reader and release all resources.
      * @returns Promise that resolves when the reader has been destroyed.
      */
@@ -430,12 +459,10 @@ export interface SignalDataReader extends SignalProcessorCache {
      */
     readFileFromUrl (url?: string): Promise<boolean>
     /**
-     * Read a single part from the cached file.
-     * @param startFrom - Starting point of the loading process in seconds of file duration.
-     * @param dataLength - Length of the requested data in seconds.
-     * @returns Promise containing the signal file part or null.
+     * Set the update callback to get loading updates.
+     * @param callback - A method that takes the loading update as a parameter.
      */
-    readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart | null>
+    setUpdateCallback (callback: ((update: { [prop: string]: unknown }) => void) | null): void
 }
 /**
  * SignalDataReader serves as an interface for file writing. After setting the required metadata and a signal data
@@ -446,7 +473,7 @@ export interface SignalDataWriter extends SignalProcessorCache {
      * Set the biosignal header for the file to be written.
      * @param header - The biosignal header to use.
      */
-    setBiosignalHeader (header: GenericBiosignalHeader): void
+    setBiosignalHeader (header: BiosignalHeaderRecord): void
     /**
      * Set the file type specific header for the file to be written.
      * @param header - The file type header to use.
@@ -481,6 +508,17 @@ export interface SignalDataWriter extends SignalProcessorCache {
      * @returns A ReadableStream that will relay the file data as it is being encoded or null if not available.
      */
     writeRecordingToStream (): ReadableStream | null
+}
+/**
+ * Result of decoding a signal part.
+ */
+export type SignalDecodeResult = {
+    /** Decoded signals as an array of channels each containing a time series of values. */
+    signals: number[][]
+    /** Possible annotations for the decoded signals. */
+    annotations?: AnnotationTemplate[]
+    /** Possible interruptions in the decoded signals. */
+    interruptions?: SignalInterruptionMap
 }
 /**
  * Partially loaded signal file containing:

@@ -30,7 +30,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _data: Float32Array[] = []
     protected _duration = 0
     protected _hasStarted = false
-    protected _playing = false
+    protected _isPlaying = false
     protected _playEndedCallbacks: (() => unknown)[] = []
     protected _playStartedCallbacks: (() => unknown)[] = []
     protected _position = 0
@@ -77,7 +77,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     }
 
     get isPlaying () {
-        return this._playing
+        return this._isPlaying
     }
     protected set isPlaying (value: boolean) {
         // This is not meant for external use.
@@ -267,8 +267,8 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
             // The source sampling rate may be higher than our audio device sampling rate,
             // in which case we must downsample.
             const chanData = new Float32Array(nSamples)
-            // This will handle simple downsampling if source has higher sampling rate
-            // than the native audio device. Supersampling is not suppert yet.
+            // This will handle simple down-sampling if source has higher sampling rate
+            // than the native audio device. Super-sampling is not supported yet.
             const dsFactor = data[i].length/nSamples
             if (samplingRate < this._audio.sampleRate) {
                 Log.warn(`Source sampling rate (${samplingRate} Hz) is lower than audio device sampling rate ` +

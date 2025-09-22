@@ -69,14 +69,11 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return true
     }
 
-    /**
-     * Start the process of caching raw signals from the preset URL.
-     */
-    async cacheSignalsFromUrl (): Promise<CacheSignalsResponse> {
+    async cacheSignals (): Promise<CacheSignalsResponse> {
         if (!(await this._isStudyReady())) {
             return false
         }
-        const commission = this._commissionWorker('cache-signals-from-url')
+        const commission = this._commissionWorker('cache-signals')
         return commission.promise as Promise<CacheSignalsResponse>
     }
 
@@ -107,8 +104,18 @@ export default abstract class GenericBiosignalService extends GenericService imp
         if (!data) {
             return false
         }
-        // Cache signals is called from the worker, it has no commission.
+        const commission = this._getCommissionForMessage(message)
+        // Cache signals is called from the worker, it may have no commission.
         if (data.action === 'cache-signals') {
+            if (commission && data.complete) {
+                if (data.success) {
+                    Log.debug(`Finished caching signals from File or URL.`, SCOPE)
+                } else {
+                    Log.error(`Caching signals from File or URL failed.`, SCOPE)
+                }
+                commission.resolve(data.success as CacheSignalsResponse)
+                return true
+            }
             const range = data.range as number[]
             this._recording.signalCacheStatus = [...range]
             const annotations = data.annotations as AnnotationTemplate[] | undefined
@@ -127,19 +134,10 @@ export default abstract class GenericBiosignalService extends GenericService imp
             return true
         }
         // Other responses must have a matching commission.
-        const commission = this._getCommissionForMessage(message)
         if (!commission) {
             return false
         }
-        if (data.action === 'cache-signals-from-url') {
-            if (data.success) {
-                Log.debug(`Finished caching signals from URL.`, SCOPE)
-            } else {
-                Log.error(`Caching signals from URL failed.`, SCOPE)
-            }
-            commission.resolve(data.success as CacheSignalsResponse)
-            return true
-        } else if (data.action === 'get-signals') {
+        if (data.action === 'get-signals') {
             if (!data.success) {
                 Log.error("Loading signals failed!", SCOPE, data.error as Error)
                 commission.resolve(null)

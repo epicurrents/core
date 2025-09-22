@@ -441,9 +441,9 @@ export interface BiosignalDataService extends AssetService {
     /** Start index of the individual signal buffers in the managed memory buffer. */
     signalBufferStart: number
     /**
-     * Start the process of caching raw signals from the preset URL.
+     * Start the process of caching raw signals from the preset File or URL.
      */
-    cacheSignalsFromUrl (): Promise<CacheSignalsResponse>
+    cacheSignals (): Promise<CacheSignalsResponse>
     /**
      * Destroy the service and release all resources.
      * @remarks

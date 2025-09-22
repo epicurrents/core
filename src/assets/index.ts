@@ -40,8 +40,6 @@ import {
 import {
     FileSystemDirectory,
     FileSystemFile,
-    GenericStudyExporter,
-    GenericStudyImporter,
     GenericSignalProcessor,
     GenericSignalReader,
     GenericSignalWriter,
@@ -50,6 +48,8 @@ import {
     MixedFileSystemItem,
 } from './reader'
 import {
+    GenericStudyExporter,
+    GenericStudyImporter,
     GenericStudyLoader,
     StudyCollection,
     studyContextTemplate,

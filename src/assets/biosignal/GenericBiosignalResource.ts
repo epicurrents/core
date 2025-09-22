@@ -426,7 +426,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         // Start caching file data if recording was activated.
         if (this.isActive && !this._signalCacheStatus[1]) {
             Log.debug('Starting to cache signals from file.', SCOPE)
-            return this._service?.cacheSignalsFromUrl() || false
+            return this._service?.cacheSignals() || false
         }
         return false
     }
