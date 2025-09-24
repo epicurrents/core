@@ -145,9 +145,13 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
             return
         }
         this._audio = new AudioContext()
-        const nSamples = Math.floor(this._audio.sampleRate*this._duration)
-        this._sampleCount = nSamples
-        const buffer = this._audio.createBuffer(this._data.length, nSamples, this._audio.sampleRate)
+        const sampleRate = this._samplingRate || this._audio.sampleRate
+        if (!this.sampleCount) {
+            // Calculate sample count based on duration and audio device sampling rate.
+            const nSamples = Math.floor(sampleRate*this._duration)
+            this._sampleCount = nSamples
+        }
+        const buffer = this._audio.createBuffer(this._data.length, this._sampleCount, sampleRate)
         for (let i=0; i<buffer.numberOfChannels; i++) {
             const data = buffer.getChannelData(i)
             data.set(this._data[i].slice(0))
