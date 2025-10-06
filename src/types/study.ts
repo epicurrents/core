@@ -9,7 +9,7 @@
  */
 
 import { DataResource } from './application'
-import { ConfigStudyLoader } from './config'
+import { ConfigStudyLoader, UrlAccessOptions } from './config'
 import { 
     FileSystemItem,
     ReaderMode,
@@ -41,14 +41,33 @@ export interface OrderedLoadingProtocol {
     removeLoader (loader: StudyLoader | number): void
 }
 /**
+ * API access options for querying study information.
+ */
+export type StudyContextAPI = UrlAccessOptions & {
+    /** 
+     * HTTP method to use for the API request. If `GET`, possible parameters will be added to the end of the request
+     * URL. If `POST`, parameters will be sent in the request body as JSON.
+     */
+    method: 'GET' | 'POST'
+    /** API response type, such as json. */
+    type: string
+    /**
+     * URL to access an API for querying study data. Query to this URL must return all the essential study information
+     * (metadata).
+     */
+    url: string
+}
+/**
  * A generic study.
  */
  export type StudyContext = {
-    /** Any data that should be immediately available, such as the parsed EDF headers. */
+    /** URL to access an API for querying study data. */
+    api: StudyContextAPI | null
+    /** Any data that should be immediately available. */
     data: unknown
     /** An array files contained in the study. */
     files: StudyContextFile[]
-    /** Primary file format of this study. */
+    /** Primary format of the source, such as file format or API type. */
     format: string
     /** Metadata detailing the resource. */
     meta: unknown
