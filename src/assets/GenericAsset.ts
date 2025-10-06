@@ -295,9 +295,12 @@ export default abstract class GenericAsset implements BaseAsset {
     }
 
     destroy () {
+        // Deactivate the asset and remove all event listeners afterwards.
+        if (this._isActive) {
+            this.isActive = false
+        }
         this.removeAllEventListeners()
         this._eventBus = null as unknown as ScopedEventBus
-        this._isActive = false
         this.dispatchEvent(GenericAsset.EVENTS.DESTROY)
     }
 

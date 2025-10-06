@@ -95,7 +95,30 @@ export default abstract class GenericResource extends GenericAsset implements Da
 
     getMainProperties () {
         // Override this in a child class.
-        return new Map()
+        const props = new Map()
+        // Show universal state-related information.
+        if (this.state === 'error') {
+            props.set(this._errorReason, null)
+        } else if (this.state === 'added') {
+            props.set('Waiting to load...', null)
+        } else if (this.state === 'loading') {
+            props.set('Loading study details...', null)
+        } else if (this.state === 'loaded') {
+            props.set('Initializing...', null)
+        } else if (this.state === 'ready') {
+            // Dependencies may still be loading.
+            if (this._dependenciesMissing.length > 0) {
+                const totalDeps = this._dependenciesMissing.length + this._dependenciesReady.length
+                props.set(
+                    'Loading dependency {n}/{t}...',
+                    {
+                        n: totalDeps - this._dependenciesMissing.length + 1,
+                        t: totalDeps,
+                    }
+                )
+            }
+        }
+        return props
     }
     async prepare () {
         // Override this in a child class.
