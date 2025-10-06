@@ -461,6 +461,33 @@ export type NullProtoObject = {
  */
 export type PropertyChangeHandler = <T>(newValue?: T, oldValue?: T) => unknown
 /**
+ * A resource that serves as a collection for a set of interconnected resources.
+ */
+export interface DataResourceCollection extends DataResource {
+    /** Possible date of the resources in this collection. */
+    date?: Date | null
+    /** Index of the default resource in this collection. */
+    defaultResource: number
+    /** Array of resources in this collection. */
+    resources: DataResource[]
+    /**
+     * Add a resource to the collection.
+     * @param resource - The resource to add.
+     * @param setAsDefault - Whether to set this resource as the default.
+     */
+    addResource (resource: DataResource, setAsDefault?: boolean): void
+    /**
+     * Get a resource in the collection.
+     * @param resource - Id or index (in the resources array) of the resource to get.
+     */
+    getResource (resource: number | string): DataResource | null
+    /**
+     * Remove a resource from the collection. This will permanently destroy the resource.
+     * @param resource - The resource to remove, or its id or index in the resources array.
+     */
+    removeResource (resource: DataResource | string | number): void
+}
+/**
  * Module containing the required runtime and settings properties for a given resource type.
  */
 export type ResourceModule = {

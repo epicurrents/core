@@ -97,7 +97,9 @@ export {
 }
 import GenericAsset from './GenericAsset'
 import GenericResource from './GenericResource'
+import ResourceCollection from './ResourceCollection'
 export {
     GenericAsset,
     GenericResource,
+    ResourceCollection,
 }
