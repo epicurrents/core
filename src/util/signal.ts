@@ -169,7 +169,7 @@ const calculateReferencedSignals = async (
  * // with each group separated by 2 times the amount of spacing of the individual channels inside each group.
  */
 export const calculateSignalOffsets = (
-    channels: BiosignalChannelProperties[],
+    channels: (BiosignalChannelProperties | MontageChannel)[],
     config?: ConfigChannelLayout
 ) => {
     // Check if this is an 'as recorded' montage.
@@ -254,7 +254,7 @@ export const calculateSignalOffsets = (
             groupSpacing = true
         }
         for (let j=0; j<configLayout[i]; j++) {
-            const chan = channels[chanIdx] as MontageChannel
+            const chan = channels[chanIdx]
             // Check that number of layout channels hasn't exceeded number of actual channels.
             if (chan === undefined) {
                 Log.warn(
@@ -918,7 +918,7 @@ export const mapMontageChannels = (
     /**
      * Helper method for producing a prototype channel and injecting any available properties into it.
      */
-    const getChannel = (props?: BiosignalChannelProperties): MontageChannel => {
+    const getChannel = (props?: BiosignalChannelProperties): BiosignalChannelProperties => {
         // If visibility is set in config, use it. Otherwise hide if meta channel.
         const visible = props?.visible !== undefined ? props.visible
                         : props?.modality === 'meta' ? false : true
@@ -932,21 +932,35 @@ export const mapMontageChannels = (
             averaged: props?.averaged || false,
             samplingRate: props?.samplingRate || 0,
             sampleCount: props?.sampleCount || 0,
+            contralateralChannel: props?.contralateralChannel,
             scale: props?.scale || 0,
             sensitivity: props?.sensitivity || 0,
             displayPolarity: props?.displayPolarity || 0,
             offset: props?.offset || 0.5,
             visible: visible,
             unit: props?.unit || '?',
-        } as MontageChannel
+        } as BiosignalChannelProperties
         return newChan
+    }
+    /**
+     * Helper method for converting biosignal channel properties into montage channels.
+     */
+    const convertToMontageChannel = (...channels: BiosignalChannelProperties[]): MontageChannel | MontageChannel[] => {
+        const montageChannels = channels.map(c => { return {...c, contralateralChannel: null } }) as MontageChannel[]
+        for (let i=0; i<montageChannels.length; i++) {
+            const contralateral = montageChannels.find(
+                c => c.name && c.name === channels[i].contralateralChannel
+            ) || null
+            montageChannels[i].contralateralChannel = contralateral
+        }
+        return montageChannels.length === 1 ? montageChannels[0] : montageChannels
     }
     // Check that we have a valid setup.
     if (!setup) {
         Log.error(`Cannot map channels for montage; missing an electrode setup.`, SCOPE)
         return []
     }
-    const channels = []
+    const channels = [] as BiosignalChannelProperties[]
     if (!config) {
         // Construct an 'as recorded' montage.
         for (const chan of setup.channels) {
@@ -958,6 +972,7 @@ export const mapMontageChannels = (
                     laterality: chan.laterality,
                     active: chan.index,
                     samplingRate: chan.samplingRate,
+                    contralateralChannel: chan.contralateralChannel,
                     scale: chan.scale,
                     displayPolarity: chan.displayPolarity,
                     unit: chan.unit,
@@ -965,7 +980,8 @@ export const mapMontageChannels = (
             )
         }
         calculateSignalOffsets(channels)
-        return channels
+        // Find contralateral channels and convert into montage channel type.
+        return convertToMontageChannel(...channels) as MontageChannel[]
     } else {
         // This method makes alterations to the configuration object so clone it to avoid side effects.
         const configClone = deepClone(config)
@@ -1128,6 +1144,7 @@ export const mapMontageChannels = (
                         reference: refs,
                         averaged: chan.averaged,
                         samplingRate: chan.samplingRate || actSR,
+                        contralateralChannel: chan.contralateralChannel,
                         scale: chan.scale,
                         displayPolarity: chan.polarity,
                         unit: chan.unit || actUnit,
@@ -1144,6 +1161,7 @@ export const mapMontageChannels = (
                     laterality: chan.laterality,
                     active: active ?? undefined,
                     samplingRate: actSR,
+                    contralateralChannel: chan.contralateralChannel,
                     scale: chan.scale,
                     displayPolarity: chan.polarity,
                     unit: chan.unit || actUnit,
@@ -1162,7 +1180,7 @@ export const mapMontageChannels = (
             yPadding: config.yPadding || 1,
         }
     )
-    return channels
+    return convertToMontageChannel(...channels) as MontageChannel[]
 }
 
 /**
@@ -1302,7 +1320,7 @@ export const shouldFilterSignal = (
  *                 - `showMissingChannels` boolean - Show an empty space where a missing channel should be.
  */
 export const shouldDisplayChannel = (
-    channel: BiosignalChannelProperties | null,
+    channel: BiosignalChannelProperties | MontageChannel | null,
     useRaw: boolean,
     config?: {
         showHiddenChannels: boolean

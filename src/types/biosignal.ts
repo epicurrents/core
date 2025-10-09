@@ -320,6 +320,8 @@ export type BiosignalChannelProperties = {
     active?: number | DerivedChannelProperties
     /** Is the signal on this channel average referenced. */
     averaged?: boolean
+    /** Name of the contralateral channel (if applicable). */
+    contralateralChannel?: string
     /** Polarity of the signal on this channel. */
     displayPolarity?: -1 | 0 | 1
     /** ? */
@@ -1267,6 +1269,16 @@ export interface MontageChannel extends BiosignalChannel, BaseAsset {
     active: number | DerivedChannelProperties
     /** Does this channel use a common average reference. */
     averaged: boolean
+    /**
+     * The montage channel in the corresponding contralateral (homologous) position.
+     *
+     * The matching depends on the channel names following the international standard (10-x) EEG naming conventions.
+     * The channel name should start with the standard channel designator (e.g. 'F3', 'C4', 'Pz' etc.) and may be
+     * followed by additional suffixes. The matching is case-insensitive.
+     *
+     * Results may be unpredictable if the naming is non-standard.
+     */
+    contralateralChannel: MontageChannel | null
     /** Set of reference channel indices; multiple channels will be averaged using optional weights. */
     reference: DerivedChannelProperties
 }
@@ -1372,6 +1384,8 @@ export interface SetupChannel extends BiosignalChannelTemplate {
     active: number | DerivedChannelProperties
     /** Set to true if the raw signal uses average reference, so it is not applied twice. */
     averaged: boolean
+    /** Name of the contralateral channel (if applicable). If omitted, this will be inferred from the channel name. */
+    contralateralChannel?: string
     /** Non-default polarity of this channel's signal. */
     displayPolarity: SignalPolarity
     /** Index of the matched raw signal. */

@@ -24,6 +24,7 @@ import ServiceMemoryManager from '#assets/service/ServiceMemoryManager'
 
 export const studyContextTemplate = () => {
     return {
+        api: null,
         data: null,
         files: [],
         format: '',
