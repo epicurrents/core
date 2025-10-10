@@ -74,14 +74,14 @@ export default abstract class GenericMontageChannel extends GenericBiosignalChan
         if (!exactName) {
             // If no contralateral channel name was given, we try to deduce it from the channel name.
             // This works only for standard EEG channel names in a common reference montage.
-            if (!this._montage.hasCommonReference) {
+            if (!this._montage.hasCommonReference || (this.name.match(/([acfopt]+)(\d+)/ig)?.length || 0) > 1) {
                 Log.warn(
                     `Cannot deduce contralateral channel name for '${this.name}' without a common reference montage.`,
                     SCOPE
                 )
                 return null
             }
-            const nameProps = this.name.match(/([a-zA-Z]+)(\d+)(.+)?/)
+            const nameProps = this.name.match(/([acfopt]+)(\d+)(.+)?/i)
             if (!nameProps) {
                 Log.warn(
                     `Cannot deduce contralateral channel name for non-standard channel name '${this.name}'.`,
