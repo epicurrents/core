@@ -224,12 +224,16 @@ export {
 import type {
     ConnectorCredentials,
     ConnectorMode,
+    DatabaseConnector,
     DatasourceConnector,
+    FileSystemConnector,
 } from './connector'
 export {
     ConnectorCredentials,
     ConnectorMode,
+    DatabaseConnector,
     DatasourceConnector,
+    FileSystemConnector,
 }
 
 /////////////////////////////////////////////////

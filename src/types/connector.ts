@@ -69,15 +69,44 @@ export type ConnectorWriteFileOptions = {
     overwrite?: boolean
 }
 /**
+ * A connector for a database accessed via a web API.
+ */
+export interface DatabaseConnector extends DatasourceConnector {
+    /**
+     * Execute a query against the database.
+     * @param query - The query string to execute.
+     * @param params - Optional parameters for the query.
+     * @param options - Optional query options.
+     * @returns A promise that resolves to a `TaskResponse` containing the results of the query.
+     */
+    query (query: string, params?: Record<string, unknown>, options?: DatabaseQueryOptions): Promise<TaskResponse>
+}
+/**
+ * Options for database queries.
+ */
+export type DatabaseQueryOptions = {
+    /** The HTTP method to use for queries. */
+    method: 'GET' | 'POST'
+    /** The delimiter to use for CSV results (default is comma). */
+    csvDelimiter?: string
+    /** The desired format of the query result ('json', 'csv', or 'xml'). */
+    format?: QueryResultFormat
+    /** If true, include column names in the result (default false). */
+    includeColumnNames?: boolean
+    /**
+     * How parameters are included in the query.
+     * - `get`: Include parameters as URL query parameters (default).
+     * - `inject`: Inject parameters directly into the query string (param names in URL must be enclosed in curly braces).
+     * - `post`: Include parameters in the request body as JSON (overrides the default request method).
+     */
+    paramMethod?: 'get' | 'inject' | 'post'
+}
+/**
  * A connector for a dataset. The connector can be used to access and manage datasets on a remote server.
  */
 export interface DatasourceConnector extends BaseAsset {
     /** The authentication header to use for requests. */
     authHeader: string
-    /** The I/O mode the connector supports. */
-    mode: ConnectorMode
-    /** The path to the resource within the dataset. */
-    path: string
     /** Source URL of the dataset(s). */
     source: string
     /**
@@ -85,6 +114,15 @@ export interface DatasourceConnector extends BaseAsset {
      * @returns A promise that resolves to true if authentication was successful, otherwise returns a `TaskResponse`.
      */
     authenticate () : Promise<TaskResponse>
+}
+/**
+ * A connector for a filesystem-based dataset, such as one accessed via WebDAV.
+ */
+export interface FileSystemConnector extends DatasourceConnector {
+    /** The I/O mode the connector supports. */
+    mode: ConnectorMode
+    /** The path to the resource within the dataset. */
+    path: string
     /**
      * Create a WebDAV client with the supplied `credentials` and optional `source` URL.
      * @param credentials - Credentials for the connection.
@@ -134,3 +172,8 @@ export interface DatasourceConnector extends BaseAsset {
         options?: ConnectorWriteFileOptions
     ): Promise<TaskResponse>
 }
+
+/**
+ * Data format of the query result.
+ */
+export type QueryResultFormat = 'json' | 'csv' | 'xml'
