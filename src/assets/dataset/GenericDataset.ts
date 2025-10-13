@@ -7,7 +7,7 @@
 
 import GenericResource from '#assets/GenericResource'
 import type { DataResource, TaskResponse } from '#types/application'
-import type { ConnectorWriteFileOptions, DatasourceConnector } from '#types/connector'
+import type { ConnectorWriteFileOptions, FileSystemConnector } from '#types/connector'
 import type {
     BaseDataset,
     ResourceSortingInstructions,
@@ -19,8 +19,8 @@ import { deepClone } from '#util'
 const SCOPE = 'GenericDataset'
 
 export default abstract class GenericDataset extends GenericResource implements BaseDataset {
-    protected _connectorIn: DatasourceConnector | null
-    protected _connectorOut: DatasourceConnector | null
+    protected _connectorIn: FileSystemConnector | null
+    protected _connectorOut: FileSystemConnector | null
     protected _outputConflictResolution: ConnectorWriteFileOptions = { overwrite: true }
     protected _resources: DataResource[] = []
     protected _resourceSorting: ResourceSortingInstructions
@@ -34,8 +34,8 @@ export default abstract class GenericDataset extends GenericResource implements 
     constructor (
         name: string,
         connectors?: {
-            input?: DatasourceConnector
-            output?: DatasourceConnector
+            input?: FileSystemConnector
+            output?: FileSystemConnector
         },
         sortingScheme?: ResourceSortingScheme,
         modality?: string
