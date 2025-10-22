@@ -377,7 +377,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             return null
         }
         // If pre-caching is enabled, check the cache for existing signals for this range.
-        const updated = this._settings.montages.preCache && await this.getSignalUpdatedRange()
+        const updated = this._settings.precacheMontages && await this.getSignalUpdatedRange()
         if (!updated || updated.start === NUMERIC_ERROR_VALUE ||  updated.start > range[0] || updated.end < range[1]) {
             // Retrieve missing signals (result channels will be filtered according to include/exclude).
             requestedSigs = (await this.calculateSignalsForPart(range[0], range[1], false, config)) as SignalCachePart
@@ -616,7 +616,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             )
         await this._mutex.initSignalBuffers(
             cacheProps,
-            this._settings.montages.preCache ? dataDuration : 0, // Montage precaching is not implemented yet.
+            this._settings.precacheMontages ? dataDuration : 0, // Montage pre-caching is not implemented yet.
             input.buffer,
             bufferStart
         )

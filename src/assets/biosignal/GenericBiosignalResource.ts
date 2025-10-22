@@ -131,10 +131,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                                     .modules[modality] as unknown as CommonBiosignalSettings
         super(name, modality, source)
         // Set default filters.
-        this._filterChannelTypes = TYPE_SETTINGS?.filterChannelTypes || []
-        this._filters.highpass = TYPE_SETTINGS?.filters.highpass.default || 0
-        this._filters.lowpass = TYPE_SETTINGS?.filters.lowpass.default || 0
-        this._filters.notch = TYPE_SETTINGS?.filters.notch.default || 0
+        this._filterChannelTypes ?? TYPE_SETTINGS?.filterChannelTypes
+        this._filters.highpass = TYPE_SETTINGS?.defaultFilters?.highpass || 0
+        this._filters.lowpass = TYPE_SETTINGS?.defaultFilters?.lowpass || 0
+        this._filters.notch = TYPE_SETTINGS?.defaultFilters?.notch || 0
     }
 
     get activeMontage () {

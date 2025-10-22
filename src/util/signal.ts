@@ -690,7 +690,7 @@ export const getChannelFilters = (
     defaultFilters: BiosignalFilters,
     settings: CommonBiosignalSettings
 ): BiosignalFilters => {
-    const applyDefaults = settings.filterChannelTypes[channel.modality]
+    const applyDefaults = settings.filterChannelTypes?.[channel.modality]
     const highpass = channel.highpassFilter
                      || (applyDefaults?.includes('highpass') ? defaultFilters.highpass : 0) || 0
     const lowpass = channel.lowpassFilter
@@ -762,7 +762,7 @@ export const getFilterPadding = (
     if (!filters // Padding information is wanted if these are omitted.
         || shouldFilterSignal(channel, filters, settings)
     ) {
-        filtSize = Math.round(channel.samplingRate*settings.filterPaddingSeconds)
+        filtSize = Math.round(channel.samplingRate*(settings.filterPaddingSeconds || 0))
         filtPad = dataRange === null
                   // Always add full padding on both ends if the whole signal is requested.
                   ? [filtSize, filtSize]
