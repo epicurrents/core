@@ -821,6 +821,22 @@ export const getIncludedChannels = <T extends Array<unknown>>(
 }
 
 /**
+ * Get the scale factor for the given physical unit.
+ * @param unit - Name of the physical unit of the signal.
+ * @returns Scale factor for the unit.
+ */
+export const getSignalScale = (unit: string): number => {
+    const unitLower = unit.toLowerCase()
+    if (unitLower === 'uv' || unitLower === 'µv' || unitLower.startsWith('microvolt')) {
+        return 1e-6
+    }
+    if (unitLower === 'mv' || unitLower.startsWith('millivolt')) {
+        return 1e-3
+    }
+    return 1
+}
+
+/**
  * Interpolate missing datapoints in sparsely sampled signals.
  * @param signal signal as Float32Array
  * @param targetLen desired signal length (as count of datapoints)

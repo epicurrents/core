@@ -13,14 +13,13 @@ const SCOPE = 'BiosignalAudio'
 
 /**
  * The maximum absolute value of the raw data (expressed in uV).
- * When creating the audio buffer source, all signal data is
- * normalized against this value, meaning that raw data exceeding
- * it is clipped.
+ * When creating the audio buffer source, all signal data is normalized against this value, meaning that raw data
+ * exceeding it is clipped.
  * @remarks
- * The value of 50,000 was chosen for convednience because Synergy
- * uses that value by default when normalizing its WAV exports.
+ * The value of 32,768 was chosen because it is the maximum value for a 16-bit signed integer used by the WAV file
+ * format, for example.
  */
-const SAMPLE_MAX_VALUE = 50_000
+const SAMPLE_MAX_VALUE = 32_768
 
 export default class BiosignalAudio extends GenericAsset implements AudioRecording {
     protected _audio: AudioContext | null = null
@@ -34,6 +33,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _playEndedCallbacks: (() => unknown)[] = []
     protected _playStartedCallbacks: (() => unknown)[] = []
     protected _position = 0
+    protected _previousGain = 1.0
     protected _sampleCount = 0
     protected _sampleMaxAbsValue = 1
     protected _samplingRate = 0
@@ -134,6 +134,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._buffer = null
         this._compressor = null
         this._data.length = 0
+        this._previousGain = 1.0
         this._signals.length = 0
         this._source = null
         this._volume = null
@@ -158,6 +159,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         }
         this._source = this._audio.createBufferSource()
         this._source.buffer = buffer
+        this._previousGain = 1.0
     }
 
     async loadFile (fileBuffer: ArrayBuffer) {
@@ -178,6 +180,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this.dispatchPropertyChangeEvent('signals', this.signals, prevSignals)
         this._setPropertyValue('duration', this._source.buffer.duration)
         this._setPropertyValue('sampleCount', Math.floor(this._audio.sampleRate*this._duration))
+        this._previousGain = 1.0
     }
 
     pause () {
@@ -190,7 +193,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._setPropertyValue('isPlaying', false)
     }
 
-    async play (position = 0, gain = 1.0) {
+    async play (position = 0, gain = this._previousGain) {
         if (!this._audio) {
             await this.loadBuffer()
         }
@@ -256,7 +259,8 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         if (gain < 0) {
             gain = 0
         }
-        // Plain 1/sensitivity results in too loud volume, we'll tone it down a bit more.
+        this._previousGain = gain
+        // We need to tone the volume down a bit (TODO: Allow user-defined scaling).
         this._volume.gain.value = gain*SAMPLE_MAX_VALUE/10
     }
 
@@ -292,6 +296,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         }
         this._source = this._audio.createBufferSource()
         this._source.buffer = buffer
+        this._previousGain = 1.0
     }
 
     stop () {
