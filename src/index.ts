@@ -118,18 +118,6 @@ import SETTINGS from './config/Settings'
 export {
     SETTINGS,
 }
-import {
-    CanvasPlot,
-    PlotColor,
-    WebGlPlot,
-    WebGlPlotTrace,
-} from './plots'
-export {
-    CanvasPlot,
-    PlotColor,
-    WebGlPlot,
-    WebGlPlotTrace,
-}
 import RuntimeStateManager from './runtime'
 export {
     RuntimeStateManager,

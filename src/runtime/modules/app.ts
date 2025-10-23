@@ -7,7 +7,6 @@
 
 import type { RuntimeAppModule, SafeObject } from '#types/application'
 import type { DatasourceConnector } from '#types/connector'
-import type { BiosignalPlot } from '#types/plot'
 import type {
     StudyExporterContext,
     StudyImporterContext,
@@ -27,7 +26,6 @@ const APP: SafeObject & RuntimeAppModule = {
         full: 'Application',
         short: 'App',
     },
-    plots: new Map<string, BiosignalPlot>(),
     runningId: 0,
     studyExporters: new Map<string, StudyExporterContext>(),
     studyImporters: new Map<string, StudyImporterContext>(),

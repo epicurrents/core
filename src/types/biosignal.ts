@@ -21,7 +21,6 @@ import {
     SettingsColor,
     UrlAccessOptions,
 } from './config'
-import { HighlightContext, SignalHighlight } from './plot'
 import {
     AssetService,
     CacheSignalsResponse,
@@ -644,11 +643,6 @@ export interface BiosignalMontage extends BaseAsset {
     filters: BiosignalFilters
     /** Does this recording use common reference for signals. */
     hasCommonReference: boolean
-    /**
-     * Highlights for montage signal segments.
-     * `key` is the id of the source of the highlights.
-     */
-    highlights: { [key: string]: HighlightContext }
     /** Descriptive name for this montage. */
     label: string
     /** Unique, identifying name for this montage. */
@@ -662,21 +656,6 @@ export interface BiosignalMontage extends BaseAsset {
     setup: BiosignalSetup
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
-    /**
-     * Add a new highlight context to this montage.
-     * @param name - Unique name for the context.
-     * @param context - The context to add.
-     * @returns false if context already exists, true otherwise
-     */
-    addHighlightContext (name: string, context: HighlightContext): boolean
-    /**
-     * Add the given `highlights`to the given context.
-     * Duplicate highlights (that already exist in the context) are skipped.
-     * @param ctxName - Name of the context for these highlights.
-     * @param highlights - Highlights to add.
-     * @returns
-     */
-    addHighlights (ctxName: string, ...highlights: SignalHighlight[]): void
     /**
      * Start the process of caching signals from the source.
      * @param ranges - Ranges to cache in seconds `[start, end]` (defaults to whole recording).
@@ -721,27 +700,6 @@ export interface BiosignalMontage extends BaseAsset {
      * @param config - Optional configuration (TODO: config definitions).
      */
     releaseBuffers (config?: ConfigReleaseBuffers): Promise<void>
-    /**
-     * Remove all highlights from all contexts in this montage.
-     */
-    removeAllHighlights (): void
-    /**
-     * Remove all highlights from the given context.
-     * @param ctxName - Name of the context.
-     */
-    removeAllHighlightsFrom (ctxName: string): void
-    /**
-     * Remove highlights at given indices from the given source.
-     * @param ctxName - Name of the context.
-     * @param indices - Indices of highlights to remove.
-     */
-    removeHighlights (ctxName: string, ...indices: number[]): void
-    /**
-     * Remove all matching highlights from the given context.
-     * @param ctxName - Name of the highlight context.
-     * @param matcherFn - Function to check if highlight matches.
-     */
-    removeMatchingHighlights (ctxName: string, matcherFn: ((highlight: SignalHighlight) => boolean)): void
     /**
      * Not yet implemented (TODO: Remove entriley?).
      */

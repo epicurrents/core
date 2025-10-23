@@ -27,7 +27,6 @@ import type {
     ConfigSchema,
     ResourceConfig,
 } from '#types/config'
-import type { HighlightContext, SignalHighlight } from '#types/plot'
 import type {
     MemoryManager,
     SignalCachePart,
@@ -80,7 +79,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         lowpass: 0,
         notch: 0,
     } as BiosignalFilters
-    protected _highlights = new Map<string, HighlightContext>()
+    protected _highlights = new Map<string, unknown>()
     protected _label: string
     protected _reference: BiosignalMontageReferenceSignal = null
     protected _recording: BiosignalResource
@@ -139,7 +138,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._reference?.common || false
     }
     get highlights () {
-        const highlightsObj = new Object(null) as { [key:string]: HighlightContext }
+        const highlightsObj = new Object(null) as { [key:string]: unknown }
         for (const [context, highlights] of this._highlights) {
             highlightsObj[context] = highlights
         }
@@ -174,43 +173,13 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     //                   METHODS                     //
     ///////////////////////////////////////////////////
 
-    addHighlightContext (name: string, context: HighlightContext) {
+    addHighlightContext (name: string, context: unknown) {
         if (this._highlights.get(name)) {
             Log.error(`Could not add duplicate highlight context ${name}.`, SCOPE)
             return false
         }
         this._highlights.set(name, context)
         return true
-    }
-
-    addHighlights (ctxName: string, ...highlights: SignalHighlight[]) {
-        const prevState = this.highlights
-        const context = this._highlights.get(ctxName)
-        if (!context) {
-            Log.warn(`Tried to add highlights to a non-existing source ${ctxName}.`, SCOPE)
-            return
-        }
-        let anyNew = false
-        highlight_loop:
-        for (const hl of highlights) {
-            hl.channels.sort((a, b) => a - b)
-            for (const ex of context.highlights) {
-                if (hl.type == ex.type && hl.start === ex.start && hl.end === ex.end) {
-                    // Don't add the same highlight again
-                    if (hl.channels.every((v, i) => v === ex.channels[i])) {
-                        continue highlight_loop
-                    }
-                }
-            }
-            context.highlights.push(hl)
-            anyNew = true
-        }
-        if (anyNew) {
-            // Highlights may be added in any order, but may need to be processed
-            // consecutively, so sort them by start time.
-            context.highlights.sort((a, b) => a.start - b.start)
-            this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
-        }
     }
 
     async cacheSignals (..._ranges: [number, number][]) {
@@ -315,58 +284,11 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
     }
 
-    removeAllHighlightsFrom (ctxName: string) {
-        const prevState = this.highlights
-        const context = this._highlights.get(ctxName)
-        if (!context) {
-            Log.warn(`Tried to remove all highlights from a non-existing context ${ctxName}.`, SCOPE)
-            return
-        }
-        context.highlights.splice(0)
-        this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
-    }
-
     removeAllEventListeners (subscriber?: string) {
         for (const chan of this._channels) {
             chan.removeAllEventListeners(subscriber)
         }
         super.removeAllEventListeners(subscriber)
-    }
-
-    removeHighlights (ctxName: string, ...indices: number[]) {
-        const prevState = this.highlights
-        const context = this._highlights.get(ctxName)
-        if (!context) {
-            Log.warn(`Tried to remove highlights from a non-exsting source ${ctxName}.`, SCOPE)
-            return
-        }
-        let offset = 0
-        for (const idx of indices) {
-            const adjIdx = idx - offset
-            if (adjIdx < 0 || adjIdx > context.highlights.length - 1) {
-                Log.warn(`Adjusted index ${adjIdx} from index ${idx} is out of bouds for highlight array of length ${context.highlights.length}.`, SCOPE)
-                continue
-            }
-            context.highlights.splice((idx - offset), 1)
-            offset++
-        }
-        if (offset) {
-            this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
-        }
-    }
-
-    removeMatchingHighlights (ctxName: string, matcherFn: ((highlight: SignalHighlight) => boolean)) {
-        const context = this._highlights.get(ctxName)
-        if (!context) {
-            Log.warn(`Tried to remove matching highlights from a non-exsting source ${ctxName}.`, SCOPE)
-            return
-        }
-        for (let i=0; i<context.highlights.length; i++) {
-            if (matcherFn(context.highlights[i])) {
-                context.highlights.splice(i, 1)
-                i--
-            }
-        }
     }
 
     resetChannels(): void {

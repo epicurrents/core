@@ -284,39 +284,6 @@ export {
 }
 
 /////////////////////////////////////////////////
-//                   PLOT                      //
-/////////////////////////////////////////////////
-
-import type {
-    BiosignalPlot,
-    BiosignalPlotConfig,
-    BiosignalTrace,
-    HighlightContext,
-    PlotCircleStyles,
-    PlotLineStyles,
-    PlotTraceSelection,
-    SignalHighlight,
-    SignalPoI,
-    WebGlCompatibleColor,
-    WebGlPlotConfig,
-    WebGlTrace,
-} from './plot'
-export {
-    BiosignalPlot,
-    BiosignalPlotConfig,
-    BiosignalTrace,
-    HighlightContext,
-    PlotCircleStyles,
-    PlotLineStyles,
-    PlotTraceSelection,
-    SignalHighlight,
-    SignalPoI,
-    WebGlCompatibleColor,
-    WebGlPlotConfig,
-    WebGlTrace,
-}
-
-/////////////////////////////////////////////////
 //                   READER                    //
 /////////////////////////////////////////////////
 

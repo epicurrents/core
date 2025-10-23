@@ -16,7 +16,6 @@ import {
 import { ConnectorMode, DatasourceConnector } from './connector'
 import { DatasetLoader, MediaDataset } from './dataset'
 import { FileSystemItem, ReaderMode, WriterMode } from './reader'
-import { BiosignalPlot } from './plot'
 import { AssetService } from './service'
 import {
     StudyContext,
@@ -517,8 +516,6 @@ export type RuntimeAppModule = NullProtoObject & {
         full: string
         short: string
     }
-    /** List of available plots as <name, plot-instance|null>. */
-    plots: Map<string, BiosignalPlot | null>
     runningId: number
     studyExporters: Map<string, StudyExporterContext>
     studyImporters: Map<string, StudyImporterContext>
