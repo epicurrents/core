@@ -7,7 +7,8 @@
 
 import { PropertyChangeHandler } from './application'
 import {
-    BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelTemplate,
     BiosignalFilterType,
@@ -154,8 +155,12 @@ export type ClonableModuleSettings = {
  * Settings common to all biosignal type resources.
  */
 export type CommonBiosignalSettings = {
-    annotations: {
-        convertPatterns: [string, BiosignalAnnotation][]
+    events: {
+        convertPatterns: [string, BiosignalAnnotationEvent][]
+        ignorePatterns: string[]
+    }
+    labels: {
+        convertPatterns: [string, BiosignalAnnotationLabel][]
         ignorePatterns: string[]
     }
     /** Show channels that tha have been marked hidden on the EEG trace. */

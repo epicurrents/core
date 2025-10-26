@@ -50,8 +50,12 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    AnnotationEventTemplate,
+    AnnotationLabelTemplate,
     AnnotationTemplate,
     BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,
@@ -106,8 +110,12 @@ import type {
     WorkerMontage,
 } from './biosignal'
 export {
+    AnnotationEventTemplate,
+    AnnotationLabelTemplate,
     AnnotationTemplate,
     BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,

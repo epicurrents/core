@@ -205,7 +205,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 if (this._updateCallback) {
                     this._updateCallback({
                         action: 'cache-signals',
-                        annotations: this.getAnnotations([startTime, endTime]),
+                        events: this.getEvents([startTime, endTime]),
                         // Interruption information can change as the file is loaded, they must always be reset.
                         interruptions: this.getInterruptions(undefined, true),
                         range: [updated.start, updated.end],
@@ -419,9 +419,9 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     end: end,
                 }
             }
-            // Cache possible new annotations.
-            if (sigData.annotations?.length) {
-                this.addNewAnnotations(...sigData.annotations)
+            // Cache possible new events.
+            if (sigData.events?.length) {
+                this.addNewEvents(...sigData.events)
             }
             if (sigData.interruptions?.size) {
                 this.addNewInterruptions(sigData.interruptions)
@@ -449,7 +449,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 signals: cacheSignals,
                 start: start,
                 end: end,
-                annotations: sigData.annotations,
+                events: sigData.events,
                 interruptions: sigData.interruptions,
             }
         } catch (e: unknown) {

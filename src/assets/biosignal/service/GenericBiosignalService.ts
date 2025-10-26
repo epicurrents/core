@@ -6,7 +6,7 @@
  */
 
 import type {
-    AnnotationTemplate,
+    AnnotationEventTemplate,
     BiosignalDataService,
     BiosignalHeaderRecord,
     BiosignalResource,
@@ -118,9 +118,9 @@ export default abstract class GenericBiosignalService extends GenericService imp
             }
             const range = data.range as number[]
             this._recording.signalCacheStatus = [...range]
-            const annotations = data.annotations as AnnotationTemplate[] | undefined
-            if (annotations?.length) {
-                this._recording.addAnnotationsFromTemplates(...annotations)
+            const events = data.events as AnnotationEventTemplate[] | undefined
+            if (events?.length) {
+                this._recording.addEventsFromTemplates(...events)
             }
             const interruptions = data.interruptions as SignalInterruption[] | undefined
             if (interruptions?.length) {

@@ -9,7 +9,8 @@ import {
     NUMERIC_ERROR_VALUE,
 } from '#util'
 import type {
-    AnnotationTemplate,
+    AnnotationEventTemplate,
+    AnnotationLabelTemplate,
     SignalCacheMutex,
     SignalCachePart,
     SignalDataCache,
@@ -29,8 +30,6 @@ const SCOPE = 'SignalFileReader'
 
 export default abstract class GenericSignalProcessor extends GenericDataProcessor implements SignalProcessorCache {
 
-    /** Map of annotations as <position in seconds, list of annotations>. */
-    protected _annotations = new Map<number, AnnotationTemplate[]>()
     /** Number of data units to write into the file. */
     protected _dataUnitCount = 0
     /** Duration of single data unit in seconds. */
@@ -39,10 +38,14 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
     protected _dataUnitSize = 0
     /** Is the resulting file discontinuous. */
     protected _discontinuous = false
+    /** Map of events as <position in seconds, list of events>. */
+    protected _events = new Map<number, AnnotationEventTemplate[]>()
     protected _fileTypeHeader: unknown | null = null
     protected _header: GenericBiosignalHeader | null = null
     /** Map of recording interruptions as <data position, length> in seconds. */
     protected _interruptions = new Map<number, number>() as SignalInterruptionMap
+    /** List of labels. */
+    protected _labels = [] as AnnotationLabelTemplate[]
     protected _sourceDigitalSignals: TypedNumberArray[] | null = null
     protected _totalRecordingLength = 0
 
@@ -188,31 +191,46 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         return Math.floor((time + FLOAT32_EPS - priorIntrTotal)/this._dataUnitDuration)
     }
 
-    addNewAnnotations (...annotations: AnnotationTemplate[]) {
-        // Arrange the annotations by record.
-        const annoMap = new Map<number, AnnotationTemplate[]>()
-        for (const anno of annotations) {
-            if (!anno) {
-                // Don't add empty annotations.
+    addNewEvents (...events: AnnotationEventTemplate[]) {
+        // Arrange the events by record.
+        const eventMap = new Map<number, AnnotationEventTemplate[]>()
+        for (const event of events) {
+            if (!event) {
+                // Don't add empty events.
                 continue
             }
-            const annoRec = Math.round(anno.start/this._dataUnitSize)
-            const recordAnnos = annoMap.get(annoRec)
-            if (!recordAnnos) {
-                annoMap.set(annoRec, [anno])
+            const eventRec = Math.round(event.start/this._dataUnitSize)
+            const recordEvents = eventMap.get(eventRec)
+            if (!recordEvents) {
+                eventMap.set(eventRec, [event])
             } else {
-                recordAnnos.push(anno)
+                recordEvents.push(event)
             }
         }
         new_loop:
-        for (const [newKey, newAnno] of annoMap) {
-            for (const exsistingKey of Object.keys(this._annotations)) {
+        for (const [newKey, newEvents] of eventMap) {
+            for (const [exsistingKey, existingEvent] of Object.entries(this._events)) {
                 if (newKey === parseFloat(exsistingKey)) {
                     // This record has already been processed, don't duplicate.
                     continue new_loop
+                } else  {
+                    for (const newEvent of newEvents) {
+                        if (
+                            newEvent.start === existingEvent.start &&
+                            newEvent.duration === existingEvent.duration &&
+                            newEvent.class === existingEvent.class &&
+                            newEvent.label === existingEvent.label &&
+                            newEvent.priority === existingEvent.priority &&
+                            newEvent.type === existingEvent.type &&
+                            newEvent.codes?.every(code => existingEvent.codes?.includes(code))
+                        ) {
+                            // This event is identical to an existing one, don't duplicate.
+                            continue new_loop
+                        }
+                    }
                 }
             }
-            this._annotations.set(newKey, newAnno)
+            this._events.set(newKey, newEvents)
         }
     }
 
@@ -224,6 +242,7 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
             }
             for (const exsisting of this._interruptions) {
                 if (intr[0] === exsisting[0]) {
+                    // A single position cannot have multiple interruptions.
                     continue new_loop
                 }
             }
@@ -233,31 +252,52 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         this._interruptions = new Map([...this._interruptions.entries()].sort((a, b) => a[0] - b[0]))
     }
 
-    getAnnotations (range?: number[]) {
+    addNewLabels (...labels: AnnotationLabelTemplate[]) {
+        // Arrange the events by record.
+        const labelList = [] as AnnotationLabelTemplate[]
+        for (const label of labels) {
+            if (!label) {
+                // Don't add empty labels.
+                continue
+            }
+            if (this._labels.find(
+                lbl => lbl.name === label.name && lbl.class === label.class && lbl.label === label.label
+                       && lbl.priority === label.priority && lbl.type === label.type
+                       && lbl.codes?.every(code => label.codes?.includes(code))
+            )) {
+                // This label has already been processed, don't duplicate.
+                continue
+            }
+            labelList.push(label)
+        }
+        this._labels.push(...labelList)
+    }
+
+    getEvents (range?: number[]) {
         const [start, end] = range && range.length === 2
                              ? [range[0], Math.min(range[1], this._totalRecordingLength)]
                              : [0, this._totalRecordingLength]
-        if (!this._cache) {
-            Log.error(`Cannot load annoations before signal cache has been initiated.`, SCOPE)
-            return []
-        }
         if (start < 0 || start >= this._totalRecordingLength) {
-            Log.error(`Requested annotation range ${start} - ${end} was out of recording bounds.`, SCOPE)
+            Log.error(`Requested event range ${start} - ${end} was out of recording bounds.`, SCOPE)
             return []
         }
         if (start >= end) {
-            Log.error(`Requested annotation range ${start} - ${end} was empty or invalid.`, SCOPE)
+            Log.error(`Requested event range ${start} - ${end} was empty or invalid.`, SCOPE)
             return []
         }
-        const annotations = [] as AnnotationTemplate[]
-        for (const annos of this._annotations.entries()) {
-            for (const anno of annos[1]) {
-                if (anno.start >= start && anno.start < end) {
-                    annotations.push(anno)
+        const events = [] as AnnotationEventTemplate[]
+        for (const event of this._events.entries()) {
+            for (const evt of event[1]) {
+                if (evt.start >= start && evt.start < end) {
+                    events.push(evt)
                 }
             }
         }
-        return annotations
+        return events
+    }
+
+    getLabels () {
+        return this._labels
     }
 
     getInterruptions (range = [] as number[], useCacheTime = false): SignalInterruption[] {
@@ -352,24 +392,24 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         }
     }
 
-    setAnnotations (annotations: AnnotationTemplate[]) {
-        this._annotations.clear()
-        for (const anno of annotations) {
-            if (!anno) {
-                continue
-            }
-            const existingAnnos = this._annotations.get(anno.start)
-            if (existingAnnos) {
-                // If there are already annotations at this position, add to them.
-                existingAnnos.push(anno)
-            } else {
-                this._annotations.set(anno.start, [anno])
-            }
-        }
-    }
-
     setBiosignalHeader(header: GenericBiosignalHeader): void {
         this._header = header
+    }
+
+    setEvents (events: AnnotationEventTemplate[]) {
+        this._events.clear()
+        for (const evt of events) {
+            if (!evt) {
+                continue
+            }
+            const existingEvents = this._events.get(evt.start)
+            if (existingEvents) {
+                // If there are already events at this position, add to them.
+                existingEvents.push(evt)
+            } else {
+                this._events.set(evt.start, [evt])
+            }
+        }
     }
 
     setInterruptions (interruptions: SignalInterruptionMap) {
@@ -378,6 +418,10 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
 
     setFileTypeHeader(header: unknown): void {
         this._fileTypeHeader = header
+    }
+
+    setLabels (labels: AnnotationLabelTemplate[]) {
+        this._labels = labels
     }
 
     setupCacheWithInput (

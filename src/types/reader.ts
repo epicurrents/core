@@ -8,6 +8,8 @@
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import {
+    AnnotationEventTemplate,
+    AnnotationLabelTemplate,
     AnnotationTemplate,
     BiosignalHeaderRecord,
     SignalDataCache,
@@ -515,8 +517,8 @@ export interface SignalDataWriter extends SignalProcessorCache {
 export type SignalDecodeResult = {
     /** Decoded signals as an array of channels each containing a time series of values. */
     signals: number[][]
-    /** Possible annotations for the decoded signals. */
-    annotations?: AnnotationTemplate[]
+    /** Possible events for the decoded signals. */
+    events?: AnnotationEventTemplate[]
     /** Possible interruptions in the decoded signals. */
     interruptions?: SignalInterruptionMap
 }
@@ -595,21 +597,31 @@ export interface SignalProcessorCache extends Modify<DataProcessorCache, {
      */
     totalLength: number
     /**
-     * Add new, unique annotations to the annotation cache.
-     * @param annotations - New annotations to check and cache.
+     * Add new, unique events to the event cache.
+     * @param events - New events to check and cache.
      */
-    addNewAnnotations (...annotations: AnnotationTemplate[]): void
+    addNewEvents (...events: AnnotationEventTemplate[]): void
     /**
      * Add new, unique interruptions to the recording interruption cache.
      * @param newInterruptions - New interruptions to check and cache.
      */
     addNewInterruptions (newInterruptions: SignalInterruptionMap): void
     /**
-     * Get any cached annotations from data units in the provided `range`.
-     * @param range - Recording range in seconds [included, excluded].
-     * @returns List of annotations as BiosignalAnnotation[].
+     * Add new, unique labels to the cache.
+     * @param labels - New labels to check and cache.
      */
-    getAnnotations (range?: number[]): AnnotationTemplate[]
+    addNewLabels (...labels: AnnotationLabelTemplate[]): void
+    /**
+     * Get any cached events from data units in the provided `range`.
+     * @param range - Recording range in seconds [included, excluded].
+     * @returns List of events as AnnotationEventTemplate[].
+     */
+    getEvents (range?: number[]): AnnotationEventTemplate[]
+    /**
+     * Get cached annotation labels.
+     * @returns List of labels as AnnotationLabelTemplate[].
+     */
+    getLabels (): AnnotationLabelTemplate[]
     /**
      * Retrieve recording interruptions in the given `range`.
      * @param range - Time range to check in seconds.
@@ -627,15 +639,20 @@ export interface SignalProcessorCache extends Modify<DataProcessorCache, {
      */
     getSignals (range: number[], config?: unknown): Promise<SignalCachePart|null>
     /**
-     * Overwrite current annotations with a new set of annotations.
-     * @param annotations - Annotations to set.
+     * Overwrite current events with a new set of events.
+     * @param events - Events to set.
      */
-    setAnnotations (annotations: AnnotationTemplate[]): void
+    setEvents (events: AnnotationEventTemplate[]): void
     /**
      * Set new recording interruptions for the source data.
      * @param interruptions - The new interruptions.
      */
     setInterruptions (interruptions: SignalInterruptionMap): void
+    /**
+     * Overwrite current labels with a new set of labels.
+     * @param labels - The new labels.
+     */
+    setLabels (labels: AnnotationLabelTemplate[]): void
 }
 /**
  * SignalStudyImporter has additional methods for reading the file header.

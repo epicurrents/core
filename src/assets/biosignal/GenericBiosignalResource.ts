@@ -11,9 +11,11 @@ import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#
 import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
 import type {
+    AnnotationLabelTemplate,
+    AnnotationEventTemplate,
     BiosignalFilters,
-    AnnotationTemplate,
-    BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalCursor,
     BiosignalDataService,
     BiosignalFilterType,
@@ -93,12 +95,12 @@ const SCOPE = 'GenericBiosignalResource'
 export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
     // Protected properties.
     protected _activeMontage: BiosignalMontage | null = null
-    protected _annotations: BiosignalAnnotation[] = []
     protected _cacheProps: SignalDataCache | null = null
     protected _channels: SourceChannel[] = []
     protected _cursors: BiosignalCursor[] = []
     protected _dataDuration: number = 0
     protected _displayViewStart: number = 0
+    protected _events: BiosignalAnnotationEvent[] = []
     protected _filterChannelTypes = {} as { [type: string]: BiosignalFilterType[] }
     protected _filters = {
         bandreject: [],
@@ -107,6 +109,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         notch: 0,
     } as BiosignalFilters
     protected _interruptions: SignalInterruptionMap = new Map<number, number>()
+    protected _labels: BiosignalAnnotationLabel[] = []
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
@@ -141,20 +144,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._activeMontage
     }
 
-    get annotations () {
-        return this._annotations
-    }
-    set annotations (value: BiosignalAnnotation[]) {
-        for (const newAnno of value) {
-            if (!newAnno.id) {
-                newAnno.id = GenericBiosignalResource.CreateUniqueId()
-            }
-        }
-        // Sort the annotations in ascending order according to start time.
-        value.sort((a, b) => a.start - b.start)
-        this._setPropertyValue('annotations', value)
-    }
-
     get channels () {
         return this._channels
     }
@@ -179,6 +168,20 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
     set displayViewStart (value: number) {
         this._setPropertyValue('displayViewStart', value)
+    }
+
+    get events () {
+        return this._events
+    }
+    set events (value: BiosignalAnnotationEvent[]) {
+        for (const newAnno of value) {
+            if (!newAnno.id) {
+                newAnno.id = GenericBiosignalResource.CreateUniqueId()
+            }
+        }
+        // Sort the events in ascending order according to start time.
+        value.sort((a, b) => a.start - b.start)
+        this._setPropertyValue('events', value)
     }
 
     get filterChannelTypes () {
@@ -213,6 +216,18 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             montage.setInterruptions(this._interruptions)
         }
         this.dispatchPropertyChangeEvent('interruptions', this.interruptions, prevState)
+    }
+
+    get labels () {
+        return this._labels
+    }
+    set labels (value: BiosignalAnnotationLabel[]) {
+        for (const newLabel of value) {
+            if (!newLabel.id) {
+                newLabel.id = GenericBiosignalResource.CreateUniqueId()
+            }
+        }
+        this._setPropertyValue('labels', value)
     }
 
     get maxSampleCount () {
@@ -360,48 +375,48 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     //                   METHODS                     //
     // ///////////////////////////////////////////// //
 
-    addAnnotations (...annotations: BiosignalAnnotation[]) {
-        let anyChange = false
-        const prevState = [...this.annotations]
-        new_loop:
-        for (const newAnno of annotations) {
-            for (const oldAnno of this._annotations) {
-                if (
-                    (oldAnno.id && oldAnno.id === newAnno.id)
-                    || (
-                        oldAnno.start === newAnno.start
-                        && oldAnno.duration === newAnno.duration
-                        && oldAnno.type === newAnno.type
-                        && oldAnno.label === newAnno.label
-                        && oldAnno.channels.length === newAnno.channels.length
-                        && oldAnno.channels.every(val => newAnno.channels.includes(val))
-                    )
-                ) {
-                    continue new_loop
-                }
-            }
-            if (!newAnno.id) {
-                newAnno.id = GenericBiosignalResource.CreateUniqueId()
-            }
-            this._annotations.push(newAnno)
-            anyChange = true
-        }
-        if (anyChange) {
-            this._annotations.sort((a, b) => a.start - b.start)
-            this.dispatchPropertyChangeEvent('annotations', this.annotations, prevState)
-        }
-    }
-
-    addAnnotationsFromTemplates (..._templates: AnnotationTemplate[]) {
-        Log.warn(`addAnnotationsFromTemplates was not overridden in child class.`, SCOPE)
-    }
-
     addCursors (...cursors: BiosignalCursor[]) {
         const prevState = [...this.cursors]
         for (const curs of cursors) {
             this._cursors.push(curs)
         }
         this.dispatchPropertyChangeEvent('cursors', this.cursors, prevState)
+    }
+
+    addEvents (...events: BiosignalAnnotationEvent[]) {
+        let anyChange = false
+        const prevState = [...this.events]
+        new_loop:
+        for (const newEvent of events) {
+            for (const oldEvent of this._events) {
+                if (
+                    (oldEvent.id && oldEvent.id === newEvent.id)
+                    || (
+                        oldEvent.start === newEvent.start
+                        && oldEvent.duration === newEvent.duration
+                        && oldEvent.type === newEvent.type
+                        && oldEvent.label === newEvent.label
+                        && oldEvent.channels.length === newEvent.channels.length
+                        && oldEvent.channels.every(val => newEvent.channels.includes(val))
+                    )
+                ) {
+                    continue new_loop
+                }
+            }
+            if (!newEvent.id) {
+                newEvent.id = GenericBiosignalResource.CreateUniqueId()
+            }
+            this._events.push(newEvent)
+            anyChange = true
+        }
+        if (anyChange) {
+            this._events.sort((a, b) => a.start - b.start)
+            this.dispatchPropertyChangeEvent('events', this.events, prevState)
+        }
+    }
+
+    addEventsFromTemplates (..._templates: AnnotationEventTemplate[]) {
+        Log.warn(`addEventsFromTemplates was not overridden in child class.`, SCOPE)
     }
 
     addInterruptions (interruptions: SignalInterruptionMap) {
@@ -422,6 +437,38 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
+    addLabels (...labels: BiosignalAnnotationLabel[]) {
+        let anyChange = false
+        const prevState = [...this.labels]
+        new_loop:
+        for (const newLabel of labels) {
+            for (const oldLabel of this._labels) {
+                if (
+                    (oldLabel.id && oldLabel.id === newLabel.id)
+                    || (
+                        oldLabel.type === newLabel.type
+                        && oldLabel.label === newLabel.label
+                        && oldLabel.codes.every(val => newLabel.codes.includes(val))
+                    )
+                ) {
+                    continue new_loop
+                }
+            }
+            if (!newLabel.id) {
+                newLabel.id = GenericBiosignalResource.CreateUniqueId()
+            }
+            this._labels.push(newLabel)
+            anyChange = true
+        }
+        if (anyChange) {
+            this.dispatchPropertyChangeEvent('labels', this.labels, prevState)
+        }
+    }
+
+    addLabelsFromTemplates (..._templates: AnnotationLabelTemplate[]) {
+        Log.warn(`addLabelsFromTemplates was not overridden in child class.`, SCOPE)
+    }
+
     async cacheSignals (..._ranges: [number, number][]) {
         // Start caching file data if recording was activated.
         if (this.isActive && !this._signalCacheStatus[1]) {
@@ -438,10 +485,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     async destroy (): Promise<void> {
         this._activeMontage?.removeAllEventListeners()
         this._activeMontage = null
-        this._annotations.length = 0
         this._cacheProps = null
         this._channels.length = 0
         this._cursors.length = 0
+        this._events.length = 0
         this._filterChannelTypes = {}
         this._filters.bandreject.length = 0
         this._interruptions.clear()
@@ -661,29 +708,55 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.signalCacheStatus = [0, 0]
     }
 
-    removeAnnotations (...annos: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[] {
-        const prevState = [...this._annotations]
-        const deleted = [] as BiosignalAnnotation[]
+    removeEvents (...events: string[] | number[] | BiosignalAnnotationEvent[]): BiosignalAnnotationEvent[] {
+        const prevState = [...this._events]
+        const deleted = [] as BiosignalAnnotationEvent[]
         // All arguments must be of the same type, so we can check the first element.
-        if (typeof annos[0] === 'number') {
-            // Remaining IDs must be offset when annotations are removed from the preceding array.
+        if (typeof events[0] === 'number') {
+            // Remaining IDs must be offset when events are removed from the preceding array.
             // We must go through the IDs in ascending order for this to work.
-            const annoIdxs = (annos as number[]).sort((a, b) => a - b).map((v, i) => v - i)
-            for (const idx of annoIdxs) {
-                deleted.push(...this._annotations.splice(idx, 1))
+            const eventIdxs = (events as number[]).sort((a, b) => a - b).map((v, i) => v - i)
+            for (const idx of eventIdxs) {
+                deleted.push(...this._events.splice(idx, 1))
             }
         } else {
-            for (const anno of annos as string[] | BiosignalAnnotation[]) {
-                const annoId = typeof anno === 'string' ? anno : anno.id
-                for (let i=0; i<this._annotations.length; i++) {
-                    if (this._annotations[i].id === annoId) {
-                        deleted.push(...this._annotations.splice(i, 1))
+            for (const event of events as string[] | BiosignalAnnotationEvent[]) {
+                const eventId = typeof event === 'string' ? event : event.id
+                for (let i=0; i<this._events.length; i++) {
+                    if (this._events[i].id === eventId) {
+                        deleted.push(...this._events.splice(i, 1))
                         break
                     }
                 }
             }
         }
-        this.dispatchPropertyChangeEvent('annotations', this.annotations, prevState)
+        this.dispatchPropertyChangeEvent('events', this.events, prevState)
+        return deleted
+    }
+
+    removeLabels (...labels: string[] | number[] | BiosignalAnnotationLabel[]): BiosignalAnnotationLabel[] {
+        const prevState = [...this._labels]
+        const deleted = [] as BiosignalAnnotationLabel[]
+        // All arguments must be of the same type, so we can check the first element.
+        if (typeof labels[0] === 'number') {
+            // Remaining IDs must be offset when labels are removed from the preceding array.
+            // We must go through the IDs in ascending order for this to work.
+            const labelIdxs = (labels as number[]).sort((a, b) => a - b).map((v, i) => v - i)
+            for (const idx of labelIdxs) {
+                deleted.push(...this._labels.splice(idx, 1))
+            }
+        } else {
+            for (const label of labels as string[] | BiosignalAnnotationLabel[]) {
+                const labelId = typeof label === 'string' ? label : label.id
+                for (let i=0; i<this._labels.length; i++) {
+                    if (this._labels[i].id === labelId) {
+                        deleted.push(...this._labels.splice(i, 1))
+                        break
+                    }
+                }
+            }
+        }
+        this.dispatchPropertyChangeEvent('labels', this.labels, prevState)
         return deleted
     }
 
