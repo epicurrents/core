@@ -6,26 +6,28 @@
  */
 
 import { Log } from 'scoped-event-log'
-import {
-    type AnnotationTemplate,
-    type BiosignalFilters,
-    type BiosignalHeaderRecord,
-    type BiosignalHeaderSignal,
-    type SignalInterruptionMap,
+import type {
+    AnnotationEventTemplate,
+    AnnotationLabelTemplate,
+    BiosignalFilters,
+    BiosignalHeaderRecord,
+    BiosignalHeaderSignal,
+    SignalInterruptionMap,
 } from '#types/biosignal'
 
 const SCOPE = 'GenericBiosignalHeader'
 
 export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
-    private _annotations: AnnotationTemplate[]
     private _dataDuration: number
     private _dataUnitCount: number
     private _dataUnitDuration: number
     private _dataUnitSize: number
-    private _discontinous: boolean
+    private _discontinuous: boolean
     private _duration: number
+    private _events: AnnotationEventTemplate[]
     private _fileType: string
     private _interruptions: SignalInterruptionMap
+    private _labels: AnnotationLabelTemplate[]
     private _maxSamplingRate: number = 0
     private _patientId: string
     private _recordingId: string
@@ -44,29 +46,27 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         signalProperties: BiosignalHeaderSignal[],
         recordingStartTime = null as Date | null,
         discontinuous = false,
-        annotations = [] as AnnotationTemplate[],
+        events = [] as AnnotationEventTemplate[],
+        labels = [] as AnnotationLabelTemplate[],
         interruptions = new Map() as SignalInterruptionMap,
     ) {
-        this._annotations = annotations
-        this._interruptions = interruptions
         this._dataDuration = dataUnitCount*dataUnitDuration
         this._dataUnitCount = dataUnitCount
         this._dataUnitDuration = dataUnitDuration
         this._dataUnitSize = dataUnitSize
-        this._discontinous = discontinuous
+        this._discontinuous = discontinuous
         this._duration = this._dataDuration +
                          Array.from(interruptions.values())
                               .reduce(function (a, b) { return a + b }, 0)
+        this._events = events
         this._fileType = fileType
+        this._interruptions = interruptions
+        this._labels = labels
         this._patientId = patientId
         this._recordingId = recordingId
         this._recordingStartTime = recordingStartTime
         this._signalCount = signalCount
         this._signalProperties = signalProperties
-    }
-
-    get annotations () {
-        return this._annotations
     }
 
     get dataDuration () {
@@ -89,6 +89,10 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         return this._duration
     }
 
+    get events () {
+        return this._events
+    }
+
     get fileType () {
         return this._fileType
     }
@@ -97,16 +101,20 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         return this._interruptions
     }
 
+    get labels () {
+        return this._labels
+    }
+
     get maxSamplingRate () {
         return this._maxSamplingRate
     }
 
     get discontinuous () {
-        return this._discontinous
+        return this._discontinuous
     }
     set discontinuous (value: boolean) {
         // This probably does not need a change event emitted.
-        this._discontinous = value
+        this._discontinuous = value
     }
 
     get patientId () {
@@ -123,13 +131,14 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
 
     get serializable () {
         return {
-            annotations: [],
             dataUnitCount: this.dataUnitCount,
             dataUnitDuration: this.dataUnitDuration,
             dataUnitSize: this.dataUnitSize,
             discontinuous: this.discontinuous,
+            events: [],
             fileType: this.fileType,
             interruptions: Array.from(this.interruptions.entries()),
+            labels: [],
             patientId: this.patientId,
             recordingId: this.recordingId,
             recordingStartTime: this.recordingStartTime,
@@ -150,14 +159,18 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         return this._dataUnitCount*this._dataUnitDuration
     }
 
-    addAnnotations (...items: AnnotationTemplate[]) {
-        this._annotations.push(...items)
+    addEvents (...items: AnnotationEventTemplate[]) {
+        this._events.push(...items)
     }
 
     addInterruptions (items: SignalInterruptionMap) {
         for (const intr of items) {
             this._interruptions.set(intr[0], intr[1])
         }
+    }
+
+    addLabels (...items: AnnotationLabelTemplate[]) {
+        this._labels.push(...items)
     }
 
     /* Helper methods for retrieving signal properties. */

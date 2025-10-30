@@ -201,7 +201,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     Log.error(`Inserting new signals to cache failed.`, SCOPE)
                     return NUMERIC_ERROR_VALUE
                 }
-                // Report signal cache progress and send new annotation and interruption information.
+                // Report signal cache progress and send new event and interruption information.
                 if (this._updateCallback) {
                     this._updateCallback({
                         action: 'cache-signals',

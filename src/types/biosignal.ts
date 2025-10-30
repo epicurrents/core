@@ -39,7 +39,7 @@ import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-m
  * Object template to use when constructing a biosignal annotation.
  */
 export type AnnotationEventTemplate = AnnotationTemplate & {
-     /** List of channel numbers, empty for a general annotation. */
+     /** List of channel numbers, empty for a general event. */
     channels: (number | string)[]
     /**
      * Annotation class. The default general purpose classes are:
@@ -56,11 +56,11 @@ export type AnnotationEventTemplate = AnnotationTemplate & {
      * - `question` is a *quiz* question, which may have answers.
      */
     class: BiosignalAnnotationEvent['class']
-    /** Duration of the annotation, in seconds (zero for instant annotation). */
+    /** Duration of the event, in seconds (zero for instant event). */
     duration: BiosignalAnnotationEvent['duration']
     /**
-     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
-     * Predefined priorities for the default annotation classes are:
+     * Priority of this event (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default event classes are:
      * - `activation` = 300
      * - `comment` = 200
      * - `event` = 400
@@ -69,21 +69,24 @@ export type AnnotationEventTemplate = AnnotationTemplate & {
     priority: BiosignalAnnotationEvent['priority']
     /** Annotation starting time, in seconds after the recording start. */
     start: BiosignalAnnotationEvent['start']
-    /** Should this annotation be placed in the background (behind the traces). */
+    /**
+     * Should this event be placed in the background (behind the traces).
+     * TODO: Remove and create a separate annotation class for this.
+     */
     background?: BiosignalAnnotationEvent['background']
-    /** Color override for the annotation type's default color. */
+    /** Color override for the event type's default color. */
     color?: BiosignalAnnotationEvent['color']
-    /** Additional opacity multiplier for the annotation opacity set in the `color` property. */
+    /** Additional opacity multiplier for the event opacity set in the `color` property. */
     opacity?: BiosignalAnnotationEvent['opacity']
     /**
-     * Is this annotation visible (default true).
-     * Should be set to false for any educational annotation types that should not be immediately visible when the
+     * Is this event visible (default true).
+     * Should be set to false for any educational event types that should not be immediately visible when the
      * recording is opened (such as quiz answers).
      */
     visible?: BiosignalAnnotationEvent['visible']
 }
 /**
- * Object template to use when constructing a biosignal annotation.
+ * Object template to use when constructing a biosignal label.
  */
 export type AnnotationLabelTemplate = AnnotationTemplate & {
     /**
@@ -169,7 +172,10 @@ export interface BiosignalAnnotation extends BaseAsset {
  * Annotation for a single moment or period of time in a biosignal resource.
  */
 export interface BiosignalAnnotationEvent extends BiosignalAnnotation {
-    /** Should this annotation be placed in the background (behind the plot). */
+    /**
+     * Should this event be placed in the background (behind the plot).
+     * TODO: Remove and create a separate montage annotation class for this.
+     */
     background: boolean
     /** List of channel indices or `active` channel names, empty for a general type event. */
     channels: (number | string)[]
@@ -188,7 +194,7 @@ export interface BiosignalAnnotationEvent extends BiosignalAnnotation {
      * - `question` is a *quiz* question, which may have answers.
      */
     class: "activation" | "answer" | "comment" | "event" | "example" | "question" | "technical" | "trigger"
-    /** Duration of the event, in seconds (zero for instant annotation). */
+    /** Duration of the event, in seconds (zero for instant event). */
     duration: number
     /**
      * Priority of this event (lower number has lower priority). Priority must be a number greater than zero.
@@ -209,7 +215,7 @@ export interface BiosignalAnnotationEvent extends BiosignalAnnotation {
      */
     color?: SettingsColor
     /**
-     * Additional opacity multiplier for the annotation opacity set in the `color` property.
+     * Additional opacity multiplier for the event opacity set in the `color` property.
      * Changing this property triggers an additional event `appearance-changed`.
      */
     opacity?: number
@@ -599,8 +605,6 @@ export type BiosignalFilterType = 'highpass' | 'lowpass' | 'notch'
  * A record containing the essential metadata of a biosignal recording.
  */
 export interface BiosignalHeaderRecord {
-    /** List of annotations for this recording. */
-    annotations: AnnotationTemplate[]
     /** Duration of the actual data (excluding gaps) in seconds. */
     dataDuration: number
     /** List of interriptions in the recording as <start time, length> in seconds. */
@@ -615,6 +619,10 @@ export interface BiosignalHeaderRecord {
     discontinuous: boolean
     /** Total recording duration including gaps. */
     duration: number
+    /** List of events for this recording. */
+    events: AnnotationEventTemplate[]
+    /** List of labels for this recording. */
+    labels: AnnotationLabelTemplate[]
     /**  Maximum signal sampling rate in recording. */
     maxSamplingRate: number
     /** The original data source file type (such as 'edf', 'edf+'...). */
@@ -627,13 +635,14 @@ export interface BiosignalHeaderRecord {
     recordingStartTime: Date | null
     /** The serializable properties that can be posted between main thread and workers. */
     serializable: {
-        annotations: string[]
         dataUnitCount: number
         dataUnitDuration: number
         dataUnitSize: number
         discontinuous: boolean
+        events: string[]
         fileType: string
         interruptions: number[][]
+        labels: string[]
         patientId: string
         recordingId: string
         recordingStartTime: Date | null
@@ -647,17 +656,23 @@ export interface BiosignalHeaderRecord {
     /** The total duration of this recording in seconds (including data gaps). */
     totalDuration: number
     /**
-     * Add the given annotations to this header record.
-     * The annotations are transferred to the actual recording at the time of instantiation.
-     * @param items - Annotations to add.
+     * Add the given events to this header record.
+     * The events are transferred to the actual recording at the time of instantiation.
+     * @param items - Events to add.
      */
-    addAnnotations (...items: BiosignalAnnotation[]): void
+    addEvents (...items: BiosignalAnnotationEvent[]): void
     /**
      * Add the given recording interruptions to this header record.
      * The interruptions are transferred to the actual recording at the time of instantiation.
      * @param items - Recording interruptions to add.
      */
     addInterruptions (items: SignalInterruptionMap): void
+    /**
+     * Add the given labels to this header record.
+     * The labels are transferred to the actual recording at the time of instantiation.
+     * @param items - Labels to add.
+     */
+    addLabels (...items: BiosignalAnnotationLabel[]): void
     /**
     * Get the label for a given signal index.
     * @param index - Index of the signal.

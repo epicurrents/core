@@ -146,7 +146,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
                     start: data.start,
                     end: data.end,
                     signals: data.signals,
-                    annotations: data.annotations,
+                    events: data.events,
                     interruptions: data.interruptions,
                 } as SignalCacheResponse)
             }

@@ -1,14 +1,6 @@
 import { BaseModuleSettings, CommonBiosignalSettings } from '../../src/types'
 
 export const BIOSIG_SETTINGS = {
-    annotations: {
-        color: [0,0,0,0],
-        convertPatterns: [],
-        idColors: {},
-        ignorePatterns: [],
-        typeColors: {},
-        width: 0
-    },
     antialiasing: false,
     border: {
     },
@@ -17,6 +9,14 @@ export const BIOSIG_SETTINGS = {
     defaultSetups: [],
     displayPolarity: -1,
     downsampleLimit: 0,
+    events: {
+        color: [0,0,0,0],
+        convertPatterns: [],
+        idColors: {},
+        ignorePatterns: [],
+        typeColors: {},
+        width: 0
+    },
     filterPaddingSeconds: 10,
     filters: {
         highpass: {
@@ -33,6 +33,10 @@ export const BIOSIG_SETTINGS = {
         }
     },
     groupSpacing: 1.5,
+    labels: {
+        convertPatterns: [],
+        ignorePatterns: [],
+    },
     majorGrid: {
         show: true,
         color: [0, 0, 0, 0.25],
@@ -65,5 +69,7 @@ export const BIOSIG_SETTINGS = {
     timeline: {
         labelSpacing: 10
     },
+    unloadOnClose: false,
+    useMemoryManager: false,
     yPadding: 2,
 } as BaseModuleSettings & CommonBiosignalSettings
