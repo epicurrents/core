@@ -19,6 +19,7 @@ import {
 import {
     hexToSettingsColor,
     lastFractOnlyIfSignificant,
+    modifyStudyContext,
     padTime,
     rgbaToSettingsColor,
     roundTo,
@@ -104,6 +105,7 @@ export {
     lastFractOnlyIfSignificant,
     mapMontageChannels,
     mapSignalsToSamplingRates,
+    modifyStudyContext,
     nullPromise,
     padTime,
     partsNotCached,
