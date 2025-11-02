@@ -6,6 +6,7 @@
  */
 
 import { type SettingsColor } from '#types/config'
+import { DatabaseQueryOptions } from '../types'
 
 /**
  * Convert a cameCase name into kebab-case.
@@ -88,6 +89,42 @@ export const lastFractOnlyIfSignificant = (num: number, digits: number) => {
         return fullDigs
     }
     return fullDigs.replace(/\.?0+$/, '')
+}
+
+/**
+ * Convert the fields in the given item or items according to the provided options.
+ * @param items - The items to convert.
+ * @param options - Conversion options.
+ * @returns The converted items.
+ */
+export const modifyStudyContext = (items: unknown, options?: DatabaseQueryOptions): unknown => {
+    if (
+        (!options?.nameMap || Object.keys(options.nameMap).length === 0) &&
+        (!options?.overrideProperties || Object.keys(options.overrideProperties).length === 0)
+    ) {
+        return items
+    }
+    const convert = (obj: Record<string, unknown>): Record<string, unknown> => {
+        if (!obj || typeof obj !== 'object') {
+            return obj
+        }
+        const newObj: Record<string, unknown> = {}
+        if (options?.nameMap) {
+            for (const [key, value] of Object.entries(obj)) {
+                newObj[options.nameMap[key] || key] = value
+            }
+        }
+        if (options?.overrideProperties) {
+            Object.assign(newObj, options.overrideProperties)
+        }
+        return newObj
+    }
+    if (Array.isArray(items)) {
+        return items.map(item => convert(item))
+    } else if (items && typeof items === 'object') {
+        return convert(items as Record<string, unknown>)
+    }
+    return items
 }
 
 /**
