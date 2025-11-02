@@ -61,6 +61,8 @@ import {
 } from './signal'
 import {
     inlineWorker,
+    returnFailure,
+    returnSuccess,
     syncSettings,
     validateCommissionProps,
     type RelayLogMessage,
@@ -105,8 +107,10 @@ export {
     nullPromise,
     padTime,
     partsNotCached,
-    resampleSignal,
     RelayLogMessage,
+    resampleSignal,
+    returnFailure,
+    returnSuccess,
     rgbaToSettingsColor,
     roundTo,
     safeObjectFrom,
