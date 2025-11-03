@@ -13,9 +13,13 @@ import {
     ResourceConfig,
     SettingsValue,
 } from './config'
-import { ConnectorMode, DatasourceConnector } from './connector'
+import { ConnectorType, DatasourceConnector } from './connector'
 import { DatasetLoader, MediaDataset } from './dataset'
-import { FileSystemItem, ReaderMode, WriterMode } from './reader'
+import {
+    FileSystemItem,
+    ReaderMode,
+    WriterMode,
+} from './reader'
 import { AssetService } from './service'
 import {
     StudyContext,
@@ -31,7 +35,6 @@ import {
     ScopedEventHooks,
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
-import type { WebDAVClient } from 'webdav'
 /**
  * Configuration properties for the main application.
  */
@@ -582,19 +585,19 @@ export interface StateManager extends RuntimeState, BaseAsset {
     /**
      * Add a new connector to the list of available connectors.
      * @param name - Name of the connector used in the UI.
+     * @param type - Type of the connector.
      * @param url - URL of the connector.
      * @param username - Username for the connector.
      * @param password - Password for the connector.
-     * @param mode - Optional mode for the connector (default read).
-     * @param wdClient - Optional override for the WebDAV client instance.
+     * @param options - Additional options for the connector.
      */
     addConnector (
         name: string,
+        type: ConnectorType,
         url: string,
         username: string,
         password: string,
-        mode?: ConnectorMode,
-        wdClient?: WebDAVClient
+        options?: unknown
     ): void
     /**
      * Add a new dataset to the list of datasets.

@@ -22,6 +22,7 @@ import type {
 import type {
     ConnectorGetFileContentsOptions,
     ConnectorWriteFileOptions,
+    WebDAVConnectorOptions,
 } from '#types/connector'
 import { Log } from 'scoped-event-log'
 
@@ -45,19 +46,18 @@ export default class WebDAVConnector extends GenericAsset implements FileSystemC
     /**
      * Create a new WebDAV connector with the given properties.
      * @param name - Name of the connector.
-     * @param credentials - Credentials for the connector.
      * @param source - The source URL for the connector.
-     * @param mode - The mode of the connector ('read', 'write', or 'readwrite').
-     * @param useDigestAuth - If true, always use Digest authentication for username-based authentication.
-     * @param client - Optional WebDAV client instance to use.
+     * @param credentials - Credentials for the connector.
+     * @param options - Additional options:
+     * - `client`: Optional WebDAV client instance to use.
+     * - `mode`: The mode of the connector ('read', 'write', or 'readwrite').
+     * - `useDigestAuth`: If true, always use Digest authentication for username-based authentication.
      */
     constructor (
         name: string,
-        credentials: ConnectorCredentials,
         source: string,
-        mode: ConnectorMode,
-        useDigestAuth = false,
-        client?: WebDAVClient
+        credentials: ConnectorCredentials,
+        options?: WebDAVConnectorOptions
     ) {
         super(name, 'connector')
         if (source.endsWith('/')) {
@@ -65,12 +65,8 @@ export default class WebDAVConnector extends GenericAsset implements FileSystemC
         } else {
             this._source = source
         }
-        this._mode = mode
-        if (client) {
-            this._client = client
-        } else {
-            this._client = this.createClient(credentials, source, useDigestAuth)
-        }
+        this._client = options?.client || this.createClient(credentials, source, options?.useDigestAuth)
+        this._mode = options?.mode || WebDAVConnector.ConnectorMode.Read
     }
 
     get path () {
@@ -88,6 +84,10 @@ export default class WebDAVConnector extends GenericAsset implements FileSystemC
     }
     set source (value: string) {
         this._setPropertyValue('source', value)
+    }
+
+    get type () {
+        return 'filesystem' as const
     }
     
     /**

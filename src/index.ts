@@ -142,6 +142,7 @@ import type {
     WriterMode,
     StateManager,
     ConfigStudyLoader,
+    DatabaseQueryOptions,
 } from '#types'
 import * as util from '#util'
 export { util }
@@ -291,7 +292,7 @@ export class Epicurrents implements EpicurrentsApp {
     async loadStudy (
         loader: string,
         source: string | string[] | FileSystemItem,
-        options: ConfigStudyLoader = {}
+        options: ConfigStudyLoader & DatabaseQueryOptions = {}
     ) {
         const context = this.#runtime.APP.studyImporters.get(loader)
         if (!context) {

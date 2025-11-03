@@ -6,12 +6,14 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
+import { modifyStudyContext } from '#util/conversions'
 import type {
     ConnectorCredentials,
     DatabaseConnector,
+    StudyContext,
     TaskResponse,
 } from '#types'
-import type { DatabaseQueryOptions } from '#types/connector'
+import type { ConnectorMode, DatabaseQueryOptions } from '#types/connector'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'DatabaseAPIConnector'
@@ -22,7 +24,7 @@ const SCOPE = 'DatabaseAPIConnector'
 export default class DatabaseAPIConnector extends GenericAsset implements DatabaseConnector {
     protected _authHeader = ''
     protected _credentials?: ConnectorCredentials
-    protected _method: 'GET' | 'POST'
+    protected _listContentsOptions?: DatabaseQueryOptions
     protected _path: string = ''
     protected _source: string
     /**
@@ -37,25 +39,18 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
     constructor (
         name: string,
         source: string,
-        method: 'GET' | 'POST' = 'GET',
         apiCredentials?: ConnectorCredentials,
         webCredentials?: ConnectorCredentials,
+        listContentsOptions?: DatabaseQueryOptions,
     ) {
         super(name, 'connector')
         this._credentials = apiCredentials
         this._source = source
-        this._method = method
+        this._listContentsOptions = listContentsOptions
         if (webCredentials?.username && webCredentials?.password) {
             // Create basic auth header if username and password are provided.
             this._authHeader = `Basic ${btoa(`${webCredentials.username}:${webCredentials.password}`)}`
         }
-    }
-
-    get source () {
-        return this._source
-    }
-    set source (value: string) {
-        this._setPropertyValue('source', value)
     }
 
     get authHeader () {
@@ -65,11 +60,20 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
         this._setPropertyValue('authHeader', value)
     }
 
-    get method () {
-        return this._method
+    get mode () {
+        // Database connectors cannot control the mode of the operation, they are always considered read-write.
+        return 'rw' as ConnectorMode
     }
-    set method (value: 'GET' | 'POST') {
-        this._setPropertyValue('method', value)
+
+    get source () {
+        return this._source
+    }
+    set source (value: string) {
+        this._setPropertyValue('source', value)
+    }
+
+    get type () {
+        return 'database' as const
     }
     
     /**
@@ -85,7 +89,8 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
                 i--
                 continue
             }
-            if (parts[i].endsWith('/')) {
+            // Only retain leading slash for the first part and trailing slash for the last part.
+            if (i < parts.length - 1 && parts[i].endsWith('/')) {
                 parts[i] = parts[i].slice(0, -1)
             }
             if (i > 0 && parts[i].startsWith('/')) {
@@ -135,17 +140,18 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
 
     /**
      * Authenticate to the data source.
-     * @param path - Optional subpath to authenticate against (not used in this connector).
+     * @param path - Optional subpath to authenticate against (if not the default 'auth').
      * @returns A promise that resolves to true if authentication was successful, otherwise returns a `TaskResponse`.
      */
     async authenticate (path?: string) {
         try {
-            const url = this._combineURLPath(this._source, path || '')
+            const url = this._combineURLPath(this._source, path || 'auth/')
             const response = await fetch(url, {
-                method: 'HEAD',
-                headers: {
+                method: 'POST',
+                headers: this._authHeader ? {
                     'Authorization': this._authHeader
-                }
+                } : undefined,
+                body: this._credentials ? JSON.stringify(this._credentials) : undefined,
             })
             if (!response.ok) {
                 Log.error(`Authentication failed with status ${response.status}: ${response.statusText}`, SCOPE)
@@ -155,8 +161,10 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
                     success: false,
                 } as TaskResponse
             }
+            // Include possible additional information like user properties from the response.
+            const data = response.headers.get('Content-Type') === 'application/json' ? await response.json() : null
             // If authentication was successful, return a success response.
-            return { success: true }
+            return { success: true, ...data }
         } catch (e) {
             Log.error(`Failed to authenticate with API server. ${e as string}`, SCOPE)
             return {
@@ -167,6 +175,30 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
                 success: false,
             } as TaskResponse
         } 
+    }
+    async listContents (subpath?: string, options = this._listContentsOptions): Promise<StudyContext[]|null> {
+        try {
+            const url = this._combineURLPath(this._source, subpath || 'contents')
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this._authHeader ? {
+                    'Authorization': this._authHeader
+                } : undefined,
+            })
+            if (!response.ok) {
+                Log.error(`Listing contents failed with status ${response.status}: ${response.statusText}`, SCOPE)
+                return null
+            }
+            // TODO: Other responses in addition to JSON.
+            if (response.headers.get('Content-Type') === 'application/json') {
+                const data = modifyStudyContext(await response.json(), options) as StudyContext[]
+                return data
+            }
+        } catch (e) {
+            Log.error(`Failed to list contents from API server. ${e as string}`, SCOPE)
+            return null
+        }
+        return null
     }
     /**
      * Execute a query against the database API.
@@ -184,7 +216,7 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
         let url = this._combineURLPath(this._source, path)
         const fetchOptions: RequestInit = {
             // Method may be overridden for example for login requests.
-            method: options?.paramMethod === 'post' ? 'POST' : this._method,
+            method: options?.paramMethod === 'post' ? 'POST' : 'GET',
             headers: {
                 'Authorization': this._authHeader,
                 'Content-Type': 'application/json',
@@ -216,16 +248,17 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
                     success: false,
                 }
             }
+            const data = modifyStudyContext(await response.json(), options) as StudyContext[]
+            if (options?.overrideProperties) {
+                Object.assign(data, options.overrideProperties)
+            }
             if (!options?.format || options.format === 'json') {
                 // Default to JSON format.
-                const data = await response.json()
                 return { data: data, success: true }
             } else if (options.format === 'csv') {
-                const data = await response.json()
                 const csv = await this._resultToCSV(data, options.csvDelimiter)
                 return { data: csv, success: true }
             } else if (options.format === 'xml') {
-                const data = await response.json()
                 const xml = await this._resultToXML(data)
                 return { data: xml, success: true }
             }

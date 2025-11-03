@@ -7,7 +7,12 @@
 
 import GenericResource from '#assets/GenericResource'
 import type { DataResource, TaskResponse } from '#types/application'
-import type { ConnectorWriteFileOptions, FileSystemConnector } from '#types/connector'
+import type { 
+    ConnectorWriteFileOptions,
+    DatabaseConnector,
+    DatasourceConnector,
+    FileSystemConnector,
+} from '#types/connector'
 import type {
     BaseDataset,
     ResourceSortingInstructions,
@@ -19,8 +24,8 @@ import { deepClone } from '#util'
 const SCOPE = 'GenericDataset'
 
 export default abstract class GenericDataset extends GenericResource implements BaseDataset {
-    protected _connectorIn: FileSystemConnector | null
-    protected _connectorOut: FileSystemConnector | null
+    protected _connectorIn: DatasourceConnector | null
+    protected _connectorOut: DatasourceConnector | null
     protected _outputConflictResolution: ConnectorWriteFileOptions = { overwrite: true }
     protected _resources: DataResource[] = []
     protected _resourceSorting: ResourceSortingInstructions
@@ -34,8 +39,8 @@ export default abstract class GenericDataset extends GenericResource implements 
     constructor (
         name: string,
         connectors?: {
-            input?: FileSystemConnector
-            output?: FileSystemConnector
+            input?: DatasourceConnector
+            output?: DatasourceConnector
         },
         sortingScheme?: ResourceSortingScheme,
         modality?: string
@@ -43,11 +48,15 @@ export default abstract class GenericDataset extends GenericResource implements 
         super(name, modality || 'dataset')
         this._connectorIn = connectors?.input || null
         this._connectorOut = connectors?.output || null
-        if (this._connectorIn?.mode.includes('r')) {
+        if (!this._app) {
+            Log.warn(`Application instance not available in dataset constructor.`, SCOPE)
+        } else if (this._fsConnectorIn?.mode.includes('r')) {
             // Add possible resources already present in the data source.
-            this._connectorIn.listContents().then(async rootItem => {
-                if (rootItem?.files.length && this._app) {
-                    for (const file of rootItem.files) {
+            this._fsConnectorIn.listContents().then(async response => {
+                if (!response) {
+                    Log.warn(`Could not list contents of input data source for dataset ${this._name}.`, SCOPE)
+                } else if (response.files.length) {
+                    for (const file of response.files) {
                         if (!file.name || !file.url) {
                             Log.warn(`Data source file is missing name or url, skipping.`, SCOPE)
                             continue
@@ -71,11 +80,66 @@ export default abstract class GenericDataset extends GenericResource implements 
                     }
                 }
             })
+        } else if (this._dbConnectorIn) {
+            this._dbConnectorIn.listContents().then(async response => {
+                if (Array.isArray(response)) {
+                    for (const ctx of response) {
+                        if (!ctx.name || !ctx.api || !ctx.modality) {
+                            Log.warn(`Data source context is missing required parameters, skipping.`, SCOPE)
+                            continue
+                        }
+                        // Attempt to load the resource.
+                        const study = await this._app!.loadStudy(
+                            `${ctx.modality}/api-url`,
+                            ctx.api.url,
+                            {
+                                name: ctx.name,
+                                authHeader: this._connectorIn!.authHeader || undefined,
+                            }
+                        )
+                        if (!study) {
+                            Log.error(`Failed to load study from API item ${ctx.name}.`, SCOPE)
+                        }
+                    }
+                } else {
+                    Log.warn(`No contents found in input data source for dataset ${this._name}.`, SCOPE)
+                }
+            })
         }
         this._resourceSorting = {
             order: [],
             scheme: sortingScheme || 'id',
+        } 
+    }
+
+    /** Returns the input connector if it is a `database` connector, `null` otherwise. */
+    protected get _dbConnectorIn (): DatabaseConnector | null {
+        if (this._connectorIn?.type === 'database') {
+            return this._connectorIn as DatabaseConnector
         }
+        return null
+    }
+    /** Returns the output connector if it is a `database` connector, `null` otherwise. */
+    protected get _dbConnectorOut (): DatabaseConnector | null {
+        if (this._connectorOut?.type === 'database') {
+            return this._connectorOut as DatabaseConnector
+        }
+        return null
+    }
+
+    /** Returns the input connector if it is a `filesystem` connector, `null` otherwise. */
+    protected get _fsConnectorIn (): FileSystemConnector | null {
+        if (this._connectorIn?.type === 'filesystem') {
+            return this._connectorIn as FileSystemConnector
+        }
+        return null
+    }
+    /** Returns the output connector if it is a `filesystem` connector, `null` otherwise. */
+    protected get _fsConnectorOut (): FileSystemConnector | null {
+        if (this._connectorOut?.type === 'filesystem') {
+            return this._connectorOut as FileSystemConnector
+        }
+        return null
     }
 
     get activeResources () {
@@ -232,7 +296,7 @@ export default abstract class GenericDataset extends GenericResource implements 
     }
 
     async writeToOutputDataSource (path: string, data: Blob | string): Promise<TaskResponse> {
-        if (!this._connectorOut || !this._connectorOut.mode.includes('w')) {
+        if (!this._fsConnectorOut || !this._fsConnectorOut.mode.includes('w')) {
             Log.error(`Cannot write to data source: no writable connector defined.`, SCOPE)
             return {
                 success: false,
@@ -240,6 +304,6 @@ export default abstract class GenericDataset extends GenericResource implements 
             }
         }
         const content = typeof data === 'string' ? data : await data.arrayBuffer()
-        return this._connectorOut.writeFile(path, content, this._outputConflictResolution)
+        return this._fsConnectorOut.writeFile(path, content, this._outputConflictResolution)
     }
 }

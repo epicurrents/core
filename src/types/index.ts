@@ -232,15 +232,19 @@ export {
 import type {
     ConnectorCredentials,
     ConnectorMode,
+    ConnectorType,
     DatabaseConnector,
     DatasourceConnector,
+    DatabaseQueryOptions,
     FileSystemConnector,
 } from './connector'
 export {
     ConnectorCredentials,
     ConnectorMode,
+    ConnectorType,
     DatabaseConnector,
     DatasourceConnector,
+    DatabaseQueryOptions,
     FileSystemConnector,
 }
 

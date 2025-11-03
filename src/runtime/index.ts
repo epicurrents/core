@@ -18,7 +18,11 @@ import type {
     ConfigDatasetLoader,
     SettingsValue,
 } from '#types/config'
-import type { ConnectorMode } from '#types/connector'
+import type {
+    ConnectorType,
+    DatabaseQueryOptions,
+    WebDAVConnectorOptions,
+} from '#types/connector'
 import type { DatasetLoader, MediaDataset } from '#types/dataset'
 import type { FileSystemItem } from '#types/reader'
 import type { AssetService } from '#types/service'
@@ -26,6 +30,7 @@ import type { StudyContext, StudyLoader } from '#types/study'
 import { Log } from 'scoped-event-log'
 import SETTINGS from '#config/Settings'
 import GenericAsset from '#assets/GenericAsset'
+import DatabaseAPIConnector from '#assets/connector/DatabaseAPIConnector'
 import { MixedMediaDataset, WebDAVConnector } from '#assets/dataset'
 
 import { APP as APP_MODULE } from './modules'
@@ -138,21 +143,30 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
 
     addConnector (
         name: string,
+        type: ConnectorType,
         url: string,
         username: string,
         password: string,
-        mode?: ConnectorMode
+        options?: unknown
     ): void {
         if (state.APP.connectors.has(name)) {
             Log.warn(`Connector with name '${name}' already exists.`, SCOPE)
             return
         }
-        const connector = new WebDAVConnector(
-            name,
-            { username, password },
-            url,
-            mode || WebDAVConnector.ConnectorMode.Read
-        )
+        const connector = type === 'filesystem'
+                        ? new WebDAVConnector(
+                            name,
+                            url,
+                            { username, password },
+                            options as WebDAVConnectorOptions,
+                        )
+                        : new DatabaseAPIConnector(
+                            name,
+                            url,
+                            { username, password },
+                            { username, password },
+                            options as DatabaseQueryOptions,
+                        )
         this.dispatchPayloadEvent('add-connector', connector, 'before')
         state.APP.connectors.set(name, connector)
         this.dispatchPayloadEvent('add-connector', connector)
