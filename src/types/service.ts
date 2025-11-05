@@ -507,8 +507,9 @@ export type WorkerSubstitute = {
     /**
      * Return a success message.
      * @param message - Message data properties, including `action` and `rn` from the incoming message.
+     * @param results - Optional additional result properties to return with the message.
      */
-    returnSuccess (message: WorkerMessage['data']): void
+    returnSuccess (message: WorkerMessage['data'], results?: Record<string, unknown>): void
     /**
      * Terminate the worker substitute.
      */
