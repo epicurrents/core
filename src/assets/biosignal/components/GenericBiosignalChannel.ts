@@ -144,33 +144,15 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
                 top: extraProperties.offset?.top !== undefined ? extraProperties.offset.top : 1
             }
         // Zero means that viewer's master sensitivity is used
-        this._sensitivity = extraProperties.sensitivity !== undefined ? extraProperties.sensitivity : 0
+        this._sensitivity = extraProperties.sensitivity || 0
         // The following numeric values have 0 as a default, so they can be checked more leniently
-        if (extraProperties.displayPolarity) {
-            this._displayPolarity = extraProperties.displayPolarity
-        }
-        if (extraProperties.highpassFilter) {
-            this._filters.highpass = extraProperties.highpassFilter
-        }
-        if (extraProperties.lowpassFilter) {
-            this._filters.lowpass = extraProperties.lowpassFilter
-        }
-        if (extraProperties.notchFilter) {
-            this._filters.notch = extraProperties.notchFilter
-        }
-        if (extraProperties.originalSampleCount) {
-            this._originalSampleCount = extraProperties.originalSampleCount
-        } else if (extraProperties.sampleCount) {
-            this._originalSampleCount = extraProperties.sampleCount
-        }
-        if (extraProperties.originalSamplingRate) {
-            this._originalSamplingRate = extraProperties.originalSamplingRate
-        } else {
-            this._originalSamplingRate = samplingRate
-        }
-        if (extraProperties.sampleCount) {
-            this._sampleCount = extraProperties.sampleCount
-        }
+        this._displayPolarity = extraProperties.displayPolarity || 0
+        this._filters.highpass = extraProperties.highpassFilter || null
+        this._filters.lowpass = extraProperties.lowpassFilter || null
+        this._filters.notch = extraProperties.notchFilter || null
+        this._originalSampleCount = extraProperties.originalSampleCount || extraProperties.sampleCount || 0
+        this._originalSamplingRate = extraProperties.originalSamplingRate || samplingRate || 0
+        this._sampleCount = extraProperties.sampleCount || 0
     }
 
     get averaged () {
@@ -363,7 +345,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         for (const mark of markers) {
             this._markers.push(mark)
             if (this._markers.length <= ALWAYS_ACTIVE_COUNT) {
-                mark.active = true
+                mark.isActive = true
             }
         }
     }

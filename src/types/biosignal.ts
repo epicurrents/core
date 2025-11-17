@@ -317,8 +317,8 @@ export interface BiosignalChannel {
     scale: number
     /** Individual signal sensitivity as a multiplier. */
     sensitivity: number
-    /** The computed channel signal. */
-    signal: Float32Array
+    /** The computed channel signal. Null if signals should be fetched from the service. */
+    signal: Float32Array | null
     /** Unit of the signal on this channel (e.g. 'uV'). */
     unit: string
     /** Is this channel visible to the user. */
@@ -383,30 +383,32 @@ export type BiosignalChannelFilters = {
 /**
  * A marker containing a certain value at certain position of the channel signal.
  */
-export type BiosignalChannelMarker = {
+export interface BiosignalChannelMarker extends BaseAsset {
+    /** Channel that this marker belongs to. */
+    channel: BiosignalChannel
+    /** Is this marker currently being dragged. */
+    dragging: boolean
     /**
      * Is this marker active in the calculation of signal properties.
      * Inactive markers are usually shown too, but with different styling.
      */
-    active: boolean
-    channel: BiosignalChannel
-    /** Is this marker currently being dragged. */
-    dragging: boolean
+    isActive: boolean
+    /** Label visible to the user. */
     label: string
-    position: number
-    /** CSS styles to apply to the marker. */
-    style: string
-    value: number
+    /** Position of the marker in seconds. */
+    position: number | null
+    /** Value of the marker used in calculations (e.g. signal amplitude at marker position). */
+    value: number | null
     /**
      * Set a new position for the marker, triggering appropriate update watchers.
      * @param position - The new value of the marker.
      */
-    setPosition (position: number): void
+    setPosition (position: number | null): void
     /**
-     * Set a ner value for the marker, triggering appropriate update watchers.
+     * Set a new value for the marker, triggering appropriate update watchers.
      * @param value - The new value of the marker.
      */
-    setValue (value: number): void
+    setValue (value: number | null): void
 }
 /**
  * Basic properties of the biosignal channel entity to be used when loading configurations from JSON.
@@ -1060,6 +1062,13 @@ export interface BiosignalResource extends DataResource {
     signalCacheStatus: number[]
     /** Recording start time. */
     startTime: Date | null
+    /** Subject properties for reference value calculation. */
+    subject: {
+        age?: number
+        height?: number
+        sex?: 'female' | 'male'
+        weight?: number
+    } | null
     /** Active timebase value. */
     timebase: number
     /**

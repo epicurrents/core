@@ -2,6 +2,7 @@ import GenericBiosignalResource from './GenericBiosignalResource'
 import {
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
     GenericBiosignalEvent,
     GenericBiosignalHeader,
     GenericBiosignalLabel,
@@ -29,6 +30,7 @@ export {
     BiosignalStudyLoader,
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
     GenericBiosignalEvent,
     GenericBiosignalHeader,
     GenericBiosignalLabel,

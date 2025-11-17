@@ -10,7 +10,6 @@ import type { DatasourceConnector } from '#types/connector'
 import type { MediaDataset } from '#types/dataset'
 import type { StudyContext } from '#types/study'
 import GenericDataset from '#assets/dataset/GenericDataset'
-import GenericResource from '#assets/GenericResource'
 
 export default class MixedMediaDataset extends GenericDataset implements MediaDataset {
     protected _errorReason = ''
@@ -23,21 +22,11 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
     constructor (name: string, connectors?: { input?: DatasourceConnector, output?: DatasourceConnector }) {
         super(name, connectors)
     }
-    get resources () {
-        return this._resources as GenericResource[]
-    }
-    set resources (value: GenericResource[]) {
-        this._setPropertyValue('resources', value)
-    }
     get source () {
         return this._source
     }
     set source (value: StudyContext | null) {
         this._setPropertyValue('source', value)
-    }
-
-    addResource (resource: GenericResource) {
-        super.addResource(resource)
     }
 
     destroy (): Promise<void> {

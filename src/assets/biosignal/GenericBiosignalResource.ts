@@ -122,6 +122,12 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _setup: BiosignalSetup | null = null
     protected _signalCacheStatus: number[] = [0, 0]
     protected _startTime: Date | null = null
+    protected _subject: {
+        age?: number
+        gender?: string
+        height?: number
+        weight?: number
+    } | null = null
     protected _timebase = 0
     protected _timebaseUnit = ''
     protected _totalDuration: number = 0
@@ -317,6 +323,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
     set startTime (value: Date | null) {
         this._setPropertyValue('startTime', value)
+    }
+
+    get subject () {
+        return this._subject
+    }
+    set subject (value: { age?: number, height?: number, sex?: 'female' | 'male', weight?: number } | null) {
+        this._setPropertyValue('subject', value)
     }
 
     get timebase () {
@@ -556,7 +569,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             const endSignalIndex = range.length === 2
                                    ? Math.round(range[1]*chan.samplingRate) : undefined
             if (
-                !chan.signal.length ||
+                !chan.signal?.length ||
                 startSignalIndex >= chan.signal.length ||
                 (endSignalIndex && endSignalIndex >= chan.signal.length)
             ) {

@@ -255,6 +255,7 @@ export {
 import type {
     BaseDataset,
     DatasetLoader,
+    DatasetResourceContext,
     MediaDataset,
     ResourceSortingInstructions,
     ResourceSortingScheme,
@@ -262,6 +263,7 @@ import type {
 export {
     BaseDataset,
     DatasetLoader,
+    DatasetResourceContext,
     MediaDataset,
     ResourceSortingInstructions,
     ResourceSortingScheme,
@@ -272,12 +274,20 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    DataTableColumnConfiguration,
+    DataTableRowValue,
+    DataTableSection,
+    DataTableTemplate,
     DocumentResource,
     DocumentServiceReject,
     DocumentServiceResolve,
     DocumentServiceResponse,
 } from './document'
 export {
+    DataTableColumnConfiguration,
+    DataTableRowValue,
+    DataTableSection,
+    DataTableTemplate,
     DocumentResource,
     DocumentServiceReject,
     DocumentServiceResolve,

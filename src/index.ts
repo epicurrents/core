@@ -20,6 +20,7 @@ import {
     GenericAsset,
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
     GenericBiosignalEvent,
     GenericBiosignalHeader,
     GenericBiosignalLabel,
@@ -65,6 +66,7 @@ export {
     GenericAsset,
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
     GenericBiosignalEvent,
     GenericBiosignalHeader,
     GenericBiosignalLabel,
@@ -393,9 +395,14 @@ export class Epicurrents implements EpicurrentsApp {
             return
         }
         const setResources = this.#runtime.APP.activeDataset.resources
-        for (const resource of setResources) {
-            if (resource.id === id && resource.isReady) {
-                this.#runtime.setActiveResource(resource)
+        for (const ctx of setResources) {
+            if (ctx.resource.id === id && ctx.resource.isReady) {
+                if (ctx.resource.activeChildResource && ctx.resource.activeChildResource.isReady) {
+                    // If an active resource has an active child resource, select that.
+                    this.#runtime.setActiveResource(ctx.resource.activeChildResource)
+                } else {
+                    this.#runtime.setActiveResource(ctx.resource)
+                }
             }
         }
     }

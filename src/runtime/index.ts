@@ -23,7 +23,7 @@ import type {
     DatabaseQueryOptions,
     WebDAVConnectorOptions,
 } from '#types/connector'
-import type { DatasetLoader, MediaDataset } from '#types/dataset'
+import type { DatasetLoader, DatasetResourceContext, MediaDataset } from '#types/dataset'
 import type { FileSystemItem } from '#types/reader'
 import type { AssetService } from '#types/service'
 import type { StudyContext, StudyLoader } from '#types/study'
@@ -181,7 +181,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchPayloadEvent('add-dataset', dataset)
     }
 
-    addResource (modality: string, resource: DataResource, setAsActive = false) {
+    addResource (modality: string, resource: DataResource | DatasetResourceContext, setAsActive = false) {
         const resourceModule = state.MODULES.get(modality)
         if (!resourceModule) {
             Log.error(
@@ -190,6 +190,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             SCOPE)
             return
         }
+        const resourceContext = 'resource' in resource ? resource : { resource }
         let activeSet = state.APP.activeDataset
         if (!activeSet) {
             Log.debug(`No active dataset when adding resource, creating a new one.`, SCOPE)
@@ -197,26 +198,29 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             this.addDataset(activeSet, true)
         } else {
             for (const existing of activeSet.resources) {
-                if (existing.id === resource.id) {
+                if (existing.resource.id === resourceContext.resource.id) {
                     Log.warn(`Tried to add a resource that already exists in current dataset.`, SCOPE)
                     return
                 }
             }
         }
         for (const preEx of activeSet.resources) {
-            if (preEx.id === resource.id) {
-                Log.warn(`Resource '${resource.name}' already existed in currently active dataset.`, SCOPE)
+            if (preEx.resource.id === resourceContext.resource.id) {
+                Log.warn(
+                    `Resource '${resourceContext.resource.name}' already existed in currently active dataset.`,
+                    SCOPE
+                )
                 if (setAsActive) {
-                    this.setActiveResource(resource)
+                    this.setActiveResource(resourceContext.resource)
                 }
                 return
             }
         }
-        this.dispatchPayloadEvent('add-resource', resource, 'before')
-        activeSet.resources.push(resource)
-        this.dispatchPayloadEvent('add-resource', resource)
+        this.dispatchPayloadEvent('add-resource', resourceContext, 'before')
+        activeSet.resources.push(resourceContext)
+        this.dispatchPayloadEvent('add-resource', resourceContext)
         if (setAsActive) {
-            this.setActiveResource(resource)
+            this.setActiveResource(resourceContext.resource)
         }
     }
 
@@ -352,9 +356,9 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchPayloadEvent('set-active-resource', resource, 'before')
         if (resource) {
             if (deactivateOthers) {
-                for (const res of activeSet.resources.values()) {
-                    if (res.isActive && res.id !== resource.id)  {
-                        res.isActive = false
+                for (const ctx of activeSet.resources.values()) {
+                    if (ctx.resource.isActive && ctx.resource.id !== resource.id)  {
+                        ctx.resource.isActive = false
                     }
                 }
             }

@@ -207,6 +207,10 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
+    /** Currently active child resource, if any. */
+    activeChildResource: DataResource | null
+    /** Array of child resources, if any. */
+    childResources: DataResource[]
     /** Any dependencies of this resource that are not yet ready to use. */
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
@@ -549,6 +553,12 @@ export type RuntimeResourceModule = {
      * @returns unknown
      */
     setPropertyValue (property: string, value: unknown, resource?: DataResource, state?: StateManager): unknown
+    /**
+     * Get a resource from its serialized representation, if available for this resource type.
+     * @param serialized - Serialized representation of the resource.
+     * @returns The resource or null if it could not be deserialized.
+     */
+    getResourceFromSerialized?: ((serialized: unknown) => DataResource | null)
 }
 /**
  * Setup properties for runtime modules.

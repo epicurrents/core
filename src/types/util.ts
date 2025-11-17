@@ -6,6 +6,15 @@
  */
 
 /**
+ * Deep partial type, making all properties and nested properties optional.
+ * @privateRemarks
+ * From: https://stackoverflow.com/a/61132308
+ */
+export type DeepPartial<T> = T extends object ? {
+    [P in keyof T]?: DeepPartial<T[P]>;
+} : T;
+
+/**
  * Strict key and value types in a Record/Object when retrieving using the `Object.entries()` method.
  * @example
  * type MyType = { a: number, b: string, c: boolean }

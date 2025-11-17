@@ -20,6 +20,18 @@ export default abstract class GenericResource extends GenericAsset implements Da
      */
     static readonly EVENTS = { ...GenericAsset.EVENTS, ...ResourceEvents }
 
+    /**
+     * Create a resource from its serialized representation. Not all resource types support deserialization.
+     * @param _serialized - A serialized object presenting a resource.
+     * @returns The deserialized resource instance, or null if deserialization fails or is not supported.
+     */
+    static readonly fromSerialized = (_serialized: Partial<GenericResource>): GenericResource | null => {
+        Log.error('GenericResource cannot be deserialized directly. Use a subclass instead.', SCOPE)
+        return null
+    }
+
+    protected _activeChildResource: DataResource | null = null
+    protected _childResources: DataResource[] = []
     protected _dependenciesMissing: string[] = []
     protected _dependenciesReady: string[] = []
     protected _errorReason = ''
@@ -35,6 +47,18 @@ export default abstract class GenericResource extends GenericAsset implements Da
         }
     }
 
+    get activeChildResource () {
+        return this._activeChildResource
+    }
+    set activeChildResource (value: DataResource | null) {
+        this._setPropertyValue('activeChildResource', value)
+    }
+    get childResources () {
+        return this._childResources
+    }
+    set childResources (value: DataResource[]) {
+        this._setPropertyValue('childResources', value)
+    }
     get dependenciesMissing () {
         return this._dependenciesMissing
     }

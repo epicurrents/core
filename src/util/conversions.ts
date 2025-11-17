@@ -7,6 +7,7 @@
 
 import { type SettingsColor } from '#types/config'
 import { DatabaseQueryOptions, StudyContext } from '../types'
+import { deepClone } from './general'
 
 /**
  * Convert a cameCase name into kebab-case.
@@ -112,12 +113,12 @@ export const modifyStudyContext = (items: unknown, options?: DatabaseQueryOption
         // Apply name mapping.
         if (options?.nameMap) {
             for (const [key, value] of Object.entries(obj)) {
-                newObj[(options.nameMap[key] || key) as keyof StudyContext] = value as never
+                newObj[(options.nameMap[key] || key) as keyof StudyContext] = deepClone(value) as never
             }
         }
         // Assign any override properties.
         if (options?.overrideProperties) {
-            Object.assign(newObj, options.overrideProperties)
+            Object.assign(newObj, deepClone(options.overrideProperties))
         }
         // Convert API URLs.
         if (options.paramMethod === 'inject') {
