@@ -567,7 +567,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             const startSignalIndex = range.length >= 1
                                      ? Math.round(range[0]*chan.samplingRate) : 0
             const endSignalIndex = range.length === 2
-                                   ? Math.round(range[1]*chan.samplingRate) : undefined
+                                   ? Math.round(range[1]*chan.samplingRate) - 1 : undefined
             if (
                 !chan.signal?.length ||
                 startSignalIndex >= chan.signal.length ||
