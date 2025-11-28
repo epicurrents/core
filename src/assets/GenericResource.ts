@@ -126,7 +126,7 @@ export default abstract class GenericResource extends GenericAsset implements Da
         } else if (this.state === 'added') {
             props.set('Waiting to load...', null)
         } else if (this.state === 'loading') {
-            props.set('Loading study details...', null)
+            props.set('Loading details...', null)
         } else if (this.state === 'loaded') {
             props.set('Initializing...', null)
         } else if (this.state === 'ready') {
