@@ -35,7 +35,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _position = 0
     protected _previousGain = 1.0
     protected _sampleCount = 0
-    protected _sampleMaxAbsValue = 1
+    protected _sampleMaxAbsValue: number
     protected _samplingRate = 0
     /** This is the non-normalized signal data measured in physical units. */
     protected _signals: Float32Array[] = []
@@ -43,8 +43,9 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _startTime = 0
     protected _volume: GainNode | null = null
 
-    constructor (name: string, data?: ArrayBuffer) {
+    constructor (name: string, data?: ArrayBuffer, sampleMaxValue = SAMPLE_MAX_VALUE) {
         super(name, 'audio')
+        this._sampleMaxAbsValue = sampleMaxValue || 0
         if (data) {
             this.loadFile(data)
         }
@@ -265,7 +266,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     }
 
     setSignals (length: number, samplingRate: number, ...data: Float32Array[]) {
-        this._audio = new AudioContext()
+        this._audio = new AudioContext({ sampleRate: samplingRate })
         const nSamples = Math.floor(samplingRate*length)
         this._setPropertyValue('sampleCount', nSamples)
         const buffer = this._audio.createBuffer(data.length, nSamples, samplingRate)
@@ -283,7 +284,9 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
                          `(${this._audio.sampleRate} Hz).`, SCOPE)
             }
             for (let j=0; j<nSamples; j++) {
-                chanData.set([data[i][Math.floor(j*dsFactor)]/SAMPLE_MAX_VALUE], j)
+                const value = this._sampleMaxAbsValue ? data[i][Math.floor(j*dsFactor)]/this._sampleMaxAbsValue
+                                                      : data[i][Math.floor(j*dsFactor)]
+                chanData.set([Math.max(-1, Math.min(1, value))], j)
             }
             if (!this._samplingRate) {
                 this._setPropertyValue('samplingRate', samplingRate)
