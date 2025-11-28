@@ -22,15 +22,15 @@ import type {
 import { Log } from 'scoped-event-log'
 import ServiceMemoryManager from '#assets/service/ServiceMemoryManager'
 
-export const studyContextTemplate = () => {
+export const studyContextTemplate = (metaProps?: ConfigStudyLoader) => {
     return {
         api: null,
         data: null,
         files: [],
         format: '',
-        meta: {},
-        modality: 'unknown',
-        name: '',
+        meta: metaProps || {} as unknown,
+        modality: metaProps?.modality || 'unknown',
+        name: metaProps?.name || '',
         version: '1.0'
     } as StudyContext
 }
@@ -80,9 +80,11 @@ export default class GenericStudyLoader implements StudyLoader {
      */
     protected _canLoadResource (config: ConfigStudyLoader): boolean {
         if (config.loader && config.loader !== this._name) {
+            Log.error(`Current loader ${this._name} does not support protocol ${config.loader}.`, SCOPE)
             return false
         }
         if (config.modality && !this.isSupportedModality(config.modality)) {
+            Log.error(`Current loader ${this._name} does not support modality ${config.modality}.`, SCOPE)
             return false
         }
         return true
@@ -366,18 +368,15 @@ export default class GenericStudyLoader implements StudyLoader {
             return null
         }
         if (options.modality && !this._studyImporter.isSupportedModality(options.modality)) {
-            Log.error(`Current file loader does not support modality ${options.modality}.`, SCOPE)
+            Log.error(`Current importer '${this._studyImporter.name}' does not support modality ${options.modality}.`, SCOPE)
             return null
         }
         if (!study) {
-            study = studyContextTemplate()
-            if (options) {
-                Object.assign(study, options)
-            }
+            study = studyContextTemplate(options)
         }
         if (!study.name) {
-            // Use file name as default.
-            study.name = options.name || 'Study'
+            // We need to have some name for the study.
+            study.name = 'Study'
         }
         // Try to load the file, according to extension.
         const urlEnd = fileUrl.split('/').pop()

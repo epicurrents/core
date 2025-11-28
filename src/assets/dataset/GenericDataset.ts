@@ -94,7 +94,7 @@ export default abstract class GenericDataset extends GenericResource implements 
                             `${ctx.modality}/api-url`,
                             ctx.api.url,
                             {
-                                name: ctx.name,
+                                ...ctx,
                                 authHeader: this._connectorIn!.authHeader || undefined,
                             }
                         )
