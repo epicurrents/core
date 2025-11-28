@@ -56,6 +56,11 @@ export type DataTableTemplate = {
     sections: DataTableSection[]
     /** Id of the subcontext for this table. */
     subcontext: string | null
+    /** 
+     * If set to true, this table is considered to contain metadata and should be ignored in summaries and aggregations.
+     * Metadata tables usually follow a scheme of key-value pairs.
+     */
+    isMetadata?: boolean
 }
 
 /**
