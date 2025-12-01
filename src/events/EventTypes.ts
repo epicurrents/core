@@ -9,7 +9,8 @@
 
 import type {
     BaseDataset,
-    BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalMontage,
     DataResource,
     VideoAttachment,
@@ -153,13 +154,14 @@ export enum BiosignalResourceEvents {
  * Names of property change events emitted by the biosignal resource class (in addition to resource events).
  */
 export enum BiosignalPropertyEvents {
-    ANNOTATIONS = 'property-change:annotations',
     DATA_DURATION = 'property-change:dataDuration',
     DISPLAY_VIEW_START = 'property-change:displayViewStart',
+    EVENTS = 'property-change:events',
     HIGHPASS_FILTER = 'property-change:highpassFilter',
+    LABELS = 'property-change:labels',
     LOWPASS_FILTER = 'property-change:lowpassFilter',
     MONTAGES = 'property-change:montages',
-    NOTCH_FILTER = 'property-change:nothcFilter',
+    NOTCH_FILTER = 'property-change:notchFilter',
     SAMPLE_COUNT = 'property-change:sampleCount',
     SAMPLING_RATE = 'property-change:samplingRate',
     SENSITIVITY = 'property-change:sensitivity',
@@ -173,10 +175,11 @@ export enum BiosignalPropertyEvents {
  * Property change events emitted by the biosignal resource class.
  */
 export type BiosignalPropertyEvent = ResourcePropertyEvent & {
-    [BiosignalPropertyEvents.ANNOTATIONS]: PropertyChangeEvent<BiosignalAnnotation[]>
     [BiosignalPropertyEvents.DATA_DURATION]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.DISPLAY_VIEW_START]: PropertyChangeEvent<number>
+    [BiosignalPropertyEvents.EVENTS]: PropertyChangeEvent<BiosignalAnnotationEvent[]>
     [BiosignalPropertyEvents.HIGHPASS_FILTER]: PropertyChangeEvent<number>
+    [BiosignalPropertyEvents.LABELS]: PropertyChangeEvent<BiosignalAnnotationLabel[]>
     [BiosignalPropertyEvents.LOWPASS_FILTER]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.MONTAGES]: PropertyChangeEvent<BiosignalMontage[]>
     [BiosignalPropertyEvents.NOTCH_FILTER]: PropertyChangeEvent<number>

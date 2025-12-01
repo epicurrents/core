@@ -21,7 +21,6 @@ import {
     SettingsColor,
     UrlAccessOptions,
 } from './config'
-import { HighlightContext, SignalHighlight } from './plot'
 import {
     AssetService,
     CacheSignalsResponse,
@@ -39,8 +38,8 @@ import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-m
 /**
  * Object template to use when constructing a biosignal annotation.
  */
-export type AnnotationTemplate = {
-     /** List of channel numbers, empty for a general annotation. */
+export type AnnotationEventTemplate = AnnotationTemplate & {
+     /** List of channel numbers, empty for a general event. */
     channels: (number | string)[]
     /**
      * Annotation class. The default general purpose classes are:
@@ -56,28 +55,72 @@ export type AnnotationTemplate = {
      * - `example` is an example of a feature, finding, technique etc.
      * - `question` is a *quiz* question, which may have answers.
      */
-    class: BiosignalAnnotation['class']
-    /** Duration of the annotation, in seconds (zero for instant annotation). */
-    duration: BiosignalAnnotation['duration']
-    /** Text label for the annotation (visible on the interface and annotation list). */
-    label: BiosignalAnnotation['label']
+    class: BiosignalAnnotationEvent['class']
+    /** Duration of the event, in seconds (zero for instant event). */
+    duration: BiosignalAnnotationEvent['duration']
     /**
-     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
-     * Predefined priorities for the default annotation classes are:
+     * Priority of this event (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default event classes are:
      * - `activation` = 300
      * - `comment` = 200
      * - `event` = 400
      * - `technical` = 100
      */
-    priority: BiosignalAnnotation['priority']
+    priority: BiosignalAnnotationEvent['priority']
     /** Annotation starting time, in seconds after the recording start. */
-    start: BiosignalAnnotation['start']
+    start: BiosignalAnnotationEvent['start']
+    /**
+     * Should this event be placed in the background (behind the traces).
+     * TODO: Remove and create a separate annotation class for this.
+     */
+    background?: BiosignalAnnotationEvent['background']
+    /** Color override for the event type's default color. */
+    color?: BiosignalAnnotationEvent['color']
+    /** Additional opacity multiplier for the event opacity set in the `color` property. */
+    opacity?: BiosignalAnnotationEvent['opacity']
+    /**
+     * Is this event visible (default true).
+     * Should be set to false for any educational event types that should not be immediately visible when the
+     * recording is opened (such as quiz answers).
+     */
+    visible?: BiosignalAnnotationEvent['visible']
+}
+/**
+ * Object template to use when constructing a biosignal label.
+ */
+export type AnnotationLabelTemplate = AnnotationTemplate & {
+    /**
+     * Label class. The default general purpose label classes are:
+     * - `evaluation` contains the evaluation results.
+     * - `label` is a generic label.
+     * - `technical` describes the technical quality of the recording.
+     */
+    class: BiosignalAnnotationLabel['class']
+    /**
+     * Priority of this label (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default label classes are:
+     * - `evaluation` = 300
+     * - `label` = 200
+     * - `technical` = 100
+     */
+    priority: number
+}
+/**
+ * Object template to use when constructing a biosignal annotation.
+ */
+export type AnnotationTemplate = {
+    /** Annotation class. */
+    class: BiosignalAnnotation['class']
+    /** Text label for the annotation (visible on the interface and annotation list). */
+    label: BiosignalAnnotation['label']
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     */
+    priority: BiosignalAnnotation['priority']
     /** Author of this annotation. */
     annotator?: BiosignalAnnotation['annotator']
-    /** Should this annotation be placed in the background (behind the traces). */
-    background?: BiosignalAnnotation['background']
-    /** Color override for the annotation type's default color. */
-    color?: BiosignalAnnotation['color']
+    /** Standardized codes for this annotation. */
+    codes?: (number | string)[]
     /**
      * Unique identifier for matching educational annotations (for programmatically altering their visibility etc.).
      *
@@ -85,17 +128,11 @@ export type AnnotationTemplate = {
      * Cannot use `id` for this as it is automatically generated.
      */
     name?: BiosignalAnnotation['name']
-    /** Additional opacity multiplier for the annotation opacity set in the `color` property. */
-    opacity?: BiosignalAnnotation['opacity']
     /** Additional commentary regarding the annotation. */
     text?: BiosignalAnnotation['text']
-    /** Identifier for a pre-set annotation type. */
+    /** Identifier for a pre-set annotation type. Can also be used as a descriptor for annotation code(s). */
     type?: BiosignalAnnotation['type']
-    /**
-     * Is this annotation visible (default true).
-     * Should be set to false for any educational annotation types that should not be immediately visible when the
-     * recording is opened (such as quiz answers).
-     */
+    /** Is this annotation visible in the annotation listing (default true). */
     visible?: BiosignalAnnotation['visible']
 }
 /**
@@ -104,12 +141,46 @@ export type AnnotationTemplate = {
 export interface BiosignalAnnotation extends BaseAsset {
     /** Author of this annotation. */
     annotator: string | null
-    /** Should this annotation be placed in the background (behind the plot). */
+    /** Annotation class. */
+    class: string
+    /** Standardized codes for this annotation. */
+    codes: (number | string)[]
+    /** Text label for the annotation (visible on the interface and annotation list). */
+    label: string
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     */
+    priority: number
+    /** Additional commentary regarding the annotation. */
+    text: string
+    /** Identifier for a pre-set annotation type. Can also be used as a descriptor for annotation code(s). */
+    type: string
+    /** Is this annotation visible. */
+    visible: boolean
+    serialize (): ReturnType<BaseAsset['serialize']> & {
+        annotator: string
+        class: BiosignalAnnotation['class']
+        codes: (number | string)[]
+        label: string
+        priority: number
+        text: string
+        type: string
+        visible: boolean
+    }
+}
+/**
+ * Annotation for a single moment or period of time in a biosignal resource.
+ */
+export interface BiosignalAnnotationEvent extends BiosignalAnnotation {
+    /**
+     * Should this event be placed in the background (behind the plot).
+     * TODO: Remove and create a separate montage annotation class for this.
+     */
     background: boolean
-    /** List of channel indices or `active` channel names, empty for a general type annotation. */
+    /** List of channel indices or `active` channel names, empty for a general type event. */
     channels: (number | string)[]
     /**
-     * Annotation class. The default general purpose classes are:
+     * Event class. The default general purpose event classes are:
      * - `activation` is any activation procedure that may have an effect on the EEG.
      * - `comment` is free-from commentary, may be unrelated to the recording itself.
      * - `event` describes something taking place during the recording at that exact moment.
@@ -123,34 +194,28 @@ export interface BiosignalAnnotation extends BaseAsset {
      * - `question` is a *quiz* question, which may have answers.
      */
     class: "activation" | "answer" | "comment" | "event" | "example" | "question" | "technical" | "trigger"
-    /** Duration of the annotation, in seconds (zero for instant annotation). */
+    /** Duration of the event, in seconds (zero for instant event). */
     duration: number
-    /** Text label for the annotation (visible on the interface and annotation list). */
-    label: string
     /**
-     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
-     * Predefined priorities for the default annotation classes are:
+     * Priority of this event (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default event classes are:
      * - `activation` = 300
      * - `comment` = 200
      * - `event` = 400
      * - `technical` = 100
      */
     priority: number
-    /** Annotation starting position, in seconds. */
+    /** Event starting position, in seconds. */
     start: number
-    /** Additional commentary regarding the annotation. */
-    text: string
-    /** Identifier for a pre-set annotation type. */
-    type: string
-    /** Is this annotation visible. */
+    /** Is this event visible. */
     visible: boolean
     /**
-     * Color override for the annotation type's default color.
+     * Color override for the event type's default color.
      * Changing this property triggers an additional event `appearance-changed`.
      */
     color?: SettingsColor
     /**
-     * Additional opacity multiplier for the annotation opacity set in the `color` property.
+     * Additional opacity multiplier for the event opacity set in the `color` property.
      * Changing this property triggers an additional event `appearance-changed`.
      */
     opacity?: number
@@ -159,6 +224,7 @@ export interface BiosignalAnnotation extends BaseAsset {
         background: boolean
         channels: (number | string)[]
         class: BiosignalAnnotation['class']
+        codes: (number | string)[]
         color: string
         duration: number
         label: string
@@ -168,6 +234,36 @@ export interface BiosignalAnnotation extends BaseAsset {
         type: string
         visible: boolean
         opacity?: number
+    }
+}
+/**
+ * Annotation for a single moment or period of time in a biosignal resource.
+ */
+export interface BiosignalAnnotationLabel extends BiosignalAnnotation {
+    /**
+     * Label class. The default general purpose label classes are:
+     * - `evaluation` contains the evaluation results.
+     * - `label` is a generic label.
+     * - `technical` describes the technical quality of the recording.
+     */
+    class: "evaluation" | "label" | "technical"
+    /**
+     * Priority of this label (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default label classes are:
+     * - `evaluation` = 300
+     * - `label` = 200
+     * - `technical` = 100
+     */
+    priority: number
+    serialize (): ReturnType<BaseAsset['serialize']> & {
+        annotator: string
+        class: BiosignalAnnotationLabel['class']
+        codes: (number | string)[]
+        label: string
+        priority: number
+        text: string
+        type: string
+        visible: boolean
     }
 }
 /**
@@ -221,8 +317,8 @@ export interface BiosignalChannel {
     scale: number
     /** Individual signal sensitivity as a multiplier. */
     sensitivity: number
-    /** The computed channel signal. */
-    signal: Float32Array
+    /** The computed channel signal. Null if signals should be fetched from the service. */
+    signal: Float32Array | null
     /** Unit of the signal on this channel (e.g. 'uV'). */
     unit: string
     /** Is this channel visible to the user. */
@@ -287,30 +383,32 @@ export type BiosignalChannelFilters = {
 /**
  * A marker containing a certain value at certain position of the channel signal.
  */
-export type BiosignalChannelMarker = {
+export interface BiosignalChannelMarker extends BaseAsset {
+    /** Channel that this marker belongs to. */
+    channel: BiosignalChannel
+    /** Is this marker currently being dragged. */
+    dragging: boolean
     /**
      * Is this marker active in the calculation of signal properties.
      * Inactive markers are usually shown too, but with different styling.
      */
-    active: boolean
-    channel: BiosignalChannel
-    /** Is this marker currently being dragged. */
-    dragging: boolean
+    isActive: boolean
+    /** Label visible to the user. */
     label: string
-    position: number
-    /** CSS styles to apply to the marker. */
-    style: string
-    value: number
+    /** Position of the marker in seconds. */
+    position: number | null
+    /** Value of the marker used in calculations (e.g. signal amplitude at marker position). */
+    value: number | null
     /**
      * Set a new position for the marker, triggering appropriate update watchers.
      * @param position - The new value of the marker.
      */
-    setPosition (position: number): void
+    setPosition (position: number | null): void
     /**
-     * Set a ner value for the marker, triggering appropriate update watchers.
+     * Set a new value for the marker, triggering appropriate update watchers.
      * @param value - The new value of the marker.
      */
-    setValue (value: number): void
+    setValue (value: number | null): void
 }
 /**
  * Basic properties of the biosignal channel entity to be used when loading configurations from JSON.
@@ -320,6 +418,8 @@ export type BiosignalChannelProperties = {
     active?: number | DerivedChannelProperties
     /** Is the signal on this channel average referenced. */
     averaged?: boolean
+    /** Name of the contralateral channel (if applicable). */
+    contralateralChannel?: string
     /** Polarity of the signal on this channel. */
     displayPolarity?: -1 | 0 | 1
     /** ? */
@@ -441,9 +541,9 @@ export interface BiosignalDataService extends AssetService {
     /** Start index of the individual signal buffers in the managed memory buffer. */
     signalBufferStart: number
     /**
-     * Start the process of caching raw signals from the preset URL.
+     * Start the process of caching raw signals from the preset File or URL.
      */
-    cacheSignalsFromUrl (): Promise<CacheSignalsResponse>
+    cacheSignals (): Promise<CacheSignalsResponse>
     /**
      * Destroy the service and release all resources.
      * @remarks
@@ -507,8 +607,6 @@ export type BiosignalFilterType = 'highpass' | 'lowpass' | 'notch'
  * A record containing the essential metadata of a biosignal recording.
  */
 export interface BiosignalHeaderRecord {
-    /** List of annotations for this recording. */
-    annotations: AnnotationTemplate[]
     /** Duration of the actual data (excluding gaps) in seconds. */
     dataDuration: number
     /** List of interriptions in the recording as <start time, length> in seconds. */
@@ -523,6 +621,10 @@ export interface BiosignalHeaderRecord {
     discontinuous: boolean
     /** Total recording duration including gaps. */
     duration: number
+    /** List of events for this recording. */
+    events: AnnotationEventTemplate[]
+    /** List of labels for this recording. */
+    labels: AnnotationLabelTemplate[]
     /**  Maximum signal sampling rate in recording. */
     maxSamplingRate: number
     /** The original data source file type (such as 'edf', 'edf+'...). */
@@ -535,13 +637,14 @@ export interface BiosignalHeaderRecord {
     recordingStartTime: Date | null
     /** The serializable properties that can be posted between main thread and workers. */
     serializable: {
-        annotations: string[]
         dataUnitCount: number
         dataUnitDuration: number
         dataUnitSize: number
         discontinuous: boolean
+        events: string[]
         fileType: string
         interruptions: number[][]
+        labels: string[]
         patientId: string
         recordingId: string
         recordingStartTime: Date | null
@@ -555,17 +658,23 @@ export interface BiosignalHeaderRecord {
     /** The total duration of this recording in seconds (including data gaps). */
     totalDuration: number
     /**
-     * Add the given annotations to this header record.
-     * The annotations are transferred to the actual recording at the time of instantiation.
-     * @param items - Annotations to add.
+     * Add the given events to this header record.
+     * The events are transferred to the actual recording at the time of instantiation.
+     * @param items - Events to add.
      */
-    addAnnotations (...items: BiosignalAnnotation[]): void
+    addEvents (...items: BiosignalAnnotationEvent[]): void
     /**
      * Add the given recording interruptions to this header record.
      * The interruptions are transferred to the actual recording at the time of instantiation.
      * @param items - Recording interruptions to add.
      */
     addInterruptions (items: SignalInterruptionMap): void
+    /**
+     * Add the given labels to this header record.
+     * The labels are transferred to the actual recording at the time of instantiation.
+     * @param items - Labels to add.
+     */
+    addLabels (...items: BiosignalAnnotationLabel[]): void
     /**
     * Get the label for a given signal index.
     * @param index - Index of the signal.
@@ -642,11 +751,6 @@ export interface BiosignalMontage extends BaseAsset {
     filters: BiosignalFilters
     /** Does this recording use common reference for signals. */
     hasCommonReference: boolean
-    /**
-     * Highlights for montage signal segments.
-     * `key` is the id of the source of the highlights.
-     */
-    highlights: { [key: string]: HighlightContext }
     /** Descriptive name for this montage. */
     label: string
     /** Unique, identifying name for this montage. */
@@ -660,21 +764,6 @@ export interface BiosignalMontage extends BaseAsset {
     setup: BiosignalSetup
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
-    /**
-     * Add a new highlight context to this montage.
-     * @param name - Unique name for the context.
-     * @param context - The context to add.
-     * @returns false if context already exists, true otherwise
-     */
-    addHighlightContext (name: string, context: HighlightContext): boolean
-    /**
-     * Add the given `highlights`to the given context.
-     * Duplicate highlights (that already exist in the context) are skipped.
-     * @param ctxName - Name of the context for these highlights.
-     * @param highlights - Highlights to add.
-     * @returns
-     */
-    addHighlights (ctxName: string, ...highlights: SignalHighlight[]): void
     /**
      * Start the process of caching signals from the source.
      * @param ranges - Ranges to cache in seconds `[start, end]` (defaults to whole recording).
@@ -719,27 +808,6 @@ export interface BiosignalMontage extends BaseAsset {
      * @param config - Optional configuration (TODO: config definitions).
      */
     releaseBuffers (config?: ConfigReleaseBuffers): Promise<void>
-    /**
-     * Remove all highlights from all contexts in this montage.
-     */
-    removeAllHighlights (): void
-    /**
-     * Remove all highlights from the given context.
-     * @param ctxName - Name of the context.
-     */
-    removeAllHighlightsFrom (ctxName: string): void
-    /**
-     * Remove highlights at given indices from the given source.
-     * @param ctxName - Name of the context.
-     * @param indices - Indices of highlights to remove.
-     */
-    removeHighlights (ctxName: string, ...indices: number[]): void
-    /**
-     * Remove all matching highlights from the given context.
-     * @param ctxName - Name of the highlight context.
-     * @param matcherFn - Function to check if highlight matches.
-     */
-    removeMatchingHighlights (ctxName: string, matcherFn: ((highlight: SignalHighlight) => boolean)): void
     /**
      * Not yet implemented (TODO: Remove entriley?).
      */
@@ -950,8 +1018,6 @@ export type BiosignalReferenceChannelTemplate = {
 export interface BiosignalResource extends DataResource {
     /** Currently active montage. */
     activeMontage: BiosignalMontage | null
-    /** List of annotations. */
-    annotations: BiosignalAnnotation[]
     /** List of channels as recorded. */
     channels: SourceChannel[]
     /** Cursors for marking points in time on the plot. */
@@ -965,6 +1031,8 @@ export interface BiosignalResource extends DataResource {
     dataCache: MutexExportProperties | SignalDataCache | null
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
+    /** List of events. */
+    events: BiosignalAnnotationEvent[]
     /**
      * Interruptions in source signal data as an array of
      * { `start`: number (in seconds of recording time), `duration`: number (in seconds) }.
@@ -976,6 +1044,8 @@ export interface BiosignalResource extends DataResource {
     filterChannelTypes: { [type: string]: BiosignalFilterType[] }
     /** Get the currently active filters. */
     filters: BiosignalFilters
+    /** List of labels. */
+    labels: BiosignalAnnotationLabel[]
     /** List of available, initialized montages. */
     montages: BiosignalMontage[]
     /** Montage that displays the recording configuration. */
@@ -992,6 +1062,13 @@ export interface BiosignalResource extends DataResource {
     signalCacheStatus: number[]
     /** Recording start time. */
     startTime: Date | null
+    /** Subject properties for reference value calculation. */
+    subject: {
+        age?: number
+        height?: number
+        sex?: 'female' | 'male'
+        weight?: number
+    } | null
     /** Active timebase value. */
     timebase: number
     /**
@@ -1009,25 +1086,35 @@ export interface BiosignalResource extends DataResource {
     /** This resource's currently visible channels (primarily montage channels if a montage is active). */
     visibleChannels: (MontageChannel | SourceChannel)[]
     /**
-     * Add a set of new annotations to this recording.
-     * @param annotations - New annotations.
-     */
-    addAnnotations (...items: BiosignalAnnotation[]): void
-    /**
-     * Add new annotations to the recording from the given templates.
-     * @param templates - Templates to use for the annotations.
-     */
-    addAnnotationsFromTemplates (...templates: AnnotationTemplate[]): void
-    /**
      * Add the given `cursors` to this resource.
      * @param cursors - Cursors to add.
      */
     addCursors (...cursors: BiosignalCursor[]): void
     /**
+     * Add a set of new events to this recording.
+     * @param events - New events.
+     */
+    addEvents (...items: BiosignalAnnotationEvent[]): void
+    /**
+     * Add new events to the recording from the given templates.
+     * @param templates - Templates to use for the events.
+     */
+    addEventsFromTemplates (...templates: AnnotationEventTemplate[]): void
+    /**
      * Add new interruptions to the recording in the form of a data gap map.
      * @param interruptions - Map of new interruptions to add `<start data time, duration>`.
      */
     addInterruptions (interruptions: SignalInterruptionMap): void
+    /**
+     * Add a set of new labels to this recording.
+     * @param labels - New labels.
+     */
+    addLabels (...items: BiosignalAnnotationLabel[]): void
+    /**
+     * Add new labels to the recording from the given templates.
+     * @param templates - Templates to use for the labels.
+     */
+    addLabelsFromTemplates (...templates: AnnotationLabelTemplate[]): void
     /**
      * Start the process of caching signals from the saved URL.
      * @param ranges - Optional ranges to cache in seconds `[start, end]` (NYI, defaults to the whole recording).
@@ -1112,11 +1199,17 @@ export interface BiosignalResource extends DataResource {
      */
     releaseBuffers (): Promise<void>
     /**
-     * Remove the given `annotations` from this recording, returning them as an array.
-     * @param annotations - Annotation objects or IDs, or indices within the annotations array.
-     * @returns An array containing the removed annotations.
+     * Remove the given `events` from this recording, returning them as an array.
+     * @param events - Event objects or IDs, or indices within the events array.
+     * @returns An array containing the removed events.
      */
-    removeAnnotations (...annotations: string[] | number[] | BiosignalAnnotation[]): BiosignalAnnotation[]
+    removeEvents (...events: string[] | number[] | BiosignalAnnotationEvent[]): BiosignalAnnotationEvent[]
+    /**
+     * Remove the given `labels` from this recording, returning them as an array.
+     * @param labels - Label objects or IDs, or indices within the labels array.
+     * @returns An array containing the removed labels.
+     */
+    removeLabels (...labels: string[] | number[] | BiosignalAnnotationLabel[]): BiosignalAnnotationLabel[]
     /**
      * Set the given montage as active.
      * @param montage - Montage index or name.
@@ -1267,6 +1360,16 @@ export interface MontageChannel extends BiosignalChannel, BaseAsset {
     active: number | DerivedChannelProperties
     /** Does this channel use a common average reference. */
     averaged: boolean
+    /**
+     * The montage channel in the corresponding contralateral (homologous) position.
+     *
+     * The matching depends on the channel names following the international standard (10-x) EEG naming conventions.
+     * The channel name should start with the standard channel designator (e.g. 'F3', 'C4', 'Pz' etc.) and may be
+     * followed by additional suffixes. The matching is case-insensitive.
+     *
+     * Results may be unpredictable if the naming is non-standard.
+     */
+    contralateralChannel: MontageChannel | null
     /** Set of reference channel indices; multiple channels will be averaged using optional weights. */
     reference: DerivedChannelProperties
 }
@@ -1372,6 +1475,8 @@ export interface SetupChannel extends BiosignalChannelTemplate {
     active: number | DerivedChannelProperties
     /** Set to true if the raw signal uses average reference, so it is not applied twice. */
     averaged: boolean
+    /** Name of the contralateral channel (if applicable). If omitted, this will be inferred from the channel name. */
+    contralateralChannel?: string
     /** Non-default polarity of this channel's signal. */
     displayPolarity: SignalPolarity
     /** Index of the matched raw signal. */

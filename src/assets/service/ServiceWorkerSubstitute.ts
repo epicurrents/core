@@ -58,9 +58,10 @@ export default class ServiceWorkerSubstitute implements WorkerSubstitute {
         }
     }
 
-    returnSuccess (message: WorkerMessage['data']) {
+    returnSuccess (message: WorkerMessage['data'], results?: Record<string, unknown>) {
         this.returnMessage({
             ...message,
+            ...results,
             success: true,
         })
     }

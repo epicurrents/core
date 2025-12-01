@@ -15,16 +15,20 @@ import GenericAsset from '#assets/GenericAsset'
 import type {
     ConnectorCredentials,
     ConnectorMode,
-    DatasourceConnector,
+    FileSystemConnector,
     FileSystemItem,
     TaskResponse,
 } from '#types'
-import type { ConnectorGetFileContentsOptions, ConnectorWriteFileOptions } from '#types/connector'
+import type {
+    ConnectorGetFileContentsOptions,
+    ConnectorWriteFileOptions,
+    WebDAVConnectorOptions,
+} from '#types/connector'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'WebDAVConnector'
 
-export default class WebDAVConnector extends GenericAsset implements DatasourceConnector {
+export default class WebDAVConnector extends GenericAsset implements FileSystemConnector {
     /** Connector I/O operation modes. */
     static readonly ConnectorMode = {
         /** Read-only mode. */
@@ -42,19 +46,18 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
     /**
      * Create a new WebDAV connector with the given properties.
      * @param name - Name of the connector.
-     * @param credentials - Credentials for the connector.
      * @param source - The source URL for the connector.
-     * @param mode - The mode of the connector ('read', 'write', or 'readwrite').
-     * @param useDigestAuth - If true, always use Digest authentication for username-based authentication.
-     * @param client - Optional WebDAV client instance to use.
+     * @param credentials - Credentials for the connector.
+     * @param options - Additional options:
+     * - `client`: Optional WebDAV client instance to use.
+     * - `mode`: The mode of the connector ('read', 'write', or 'readwrite').
+     * - `useDigestAuth`: If true, always use Digest authentication for username-based authentication.
      */
     constructor (
         name: string,
-        credentials: ConnectorCredentials,
         source: string,
-        mode: ConnectorMode,
-        useDigestAuth = false,
-        client?: WebDAVClient
+        credentials: ConnectorCredentials,
+        options?: WebDAVConnectorOptions
     ) {
         super(name, 'connector')
         if (source.endsWith('/')) {
@@ -62,12 +65,8 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         } else {
             this._source = source
         }
-        this._mode = mode
-        if (client) {
-            this._client = client
-        } else {
-            this._client = this.createClient(credentials, source, useDigestAuth)
-        }
+        this._client = options?.client || this.createClient(credentials, source, options?.useDigestAuth)
+        this._mode = options?.mode || WebDAVConnector.ConnectorMode.Read
     }
 
     get path () {
@@ -87,13 +86,40 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
         this._setPropertyValue('source', value)
     }
 
+    get type () {
+        return 'filesystem' as const
+    }
+    
+    /**
+     * Combine multiple URL parts into a single URL path.
+     * @param parts - URL parts to combine.
+     * @returns The combined URL path.
+     */
+    protected _combineURLPath (...parts: string[]) {
+        for (let i = 0; i < parts.length; i++) {
+            if (!parts[i]?.length) {
+                // Remove empty parts.
+                parts.splice(i, 1)
+                i--
+                continue
+            }
+            if (parts[i].endsWith('/')) {
+                parts[i] = parts[i].slice(0, -1)
+            }
+            if (i > 0 && parts[i].startsWith('/')) {
+                parts[i] = parts[i].slice(1)
+            }
+        }
+        return parts.join('/')
+    }
+
     /**
      * Convert WebDAV file stats to a FileSystemItem.
      * @param path - The path to the directory or file.
      * @param items - Array of FileStat objects representing the files and directories.
      * @param rootItem - Optional root FileSystemItem to use as the root of the new item.
      */
-    _webDAVFilesToFileSystemItem (path: string, items: FileStat[], rootItem?: FileSystemItem): FileSystemItem {
+    protected _webDAVFilesToFileSystemItem (path: string, items: FileStat[], rootItem?: FileSystemItem): FileSystemItem {
         // Keep a list of file system items for easily finding parent directories.
         const fsItems = [] as FileSystemItem[]
         const fileSystemItem = rootItem || {
@@ -114,7 +140,7 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
                 Log.warn(`Parent directory not found for item: ${item.filename}`, SCOPE)
                 continue
             }
-            const link = `${this._source}/${item.filename}`
+            const link = this._combineURLPath(this._source, item.filename)
             const fsItem = {
                 name: item.basename,
                 directories: [],
@@ -163,6 +189,7 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
                 message: `Failed to authenticate with WebDAV server.`,
                 // Include response if it is returned with the error.
                 response: (e as { response?: unknown }).response ? (e as { response: unknown }).response : undefined,
+                success: false,
             } as TaskResponse
         }
         return { success: true }
@@ -284,7 +311,7 @@ export default class WebDAVConnector extends GenericAsset implements DatasourceC
                 message: 'Cannot write a file in read-only mode.'
             }
         }
-        const path = this._path + (subpath.startsWith('/') ? subpath : `/${subpath}`)
+        const path = this._combineURLPath(this._path, subpath)
         let exists = false
         try {
             exists = await this._client.exists(path)

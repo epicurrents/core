@@ -7,16 +7,16 @@
 
 import type { VideoAttachment } from '#types/biosignal'
 import type { ConfigStudyContext, ConfigStudyLoader } from '#types/config'
-import type { FileFormatReader, FileFormatWriter } from '#root/src/types/reader'
+import type { FileFormatExporter, FileFormatImporter } from '#root/src/types/reader'
 import type { StudyContext } from '#types/study'
-import GenericStudyLoader from '#assets/study/loaders/GenericStudyLoader'
+import GenericStudyLoader from '#assets/study/GenericStudyLoader'
 
 //const SCOPE = 'BiosignalStudyLoader'
 
 export default class BiosignalStudyLoader extends GenericStudyLoader {
 
-    constructor (name: string, modalities: string[], reader: FileFormatReader, writer?: FileFormatWriter) {
-        super(name, modalities, reader, writer)
+    constructor (name: string, modalities: string[], importer: FileFormatImporter, exporter?: FileFormatExporter) {
+        super(name, modalities, importer, exporter)
     }
 
     async loadFromUrl(fileUrl: string, config?: ConfigStudyLoader, preStudy?: StudyContext):

@@ -13,10 +13,13 @@ import {
     ResourceConfig,
     SettingsValue,
 } from './config'
-import { ConnectorMode, DatasourceConnector } from './connector'
+import { ConnectorType, DatasourceConnector } from './connector'
 import { DatasetLoader, MediaDataset } from './dataset'
-import { FileSystemItem, ReaderMode, WriterMode } from './reader'
-import { BiosignalPlot } from './plot'
+import {
+    FileSystemItem,
+    ReaderMode,
+    WriterMode,
+} from './reader'
 import { AssetService } from './service'
 import {
     StudyContext,
@@ -32,7 +35,6 @@ import {
     ScopedEventHooks,
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
-import type { WebDAVClient } from 'webdav'
 /**
  * Configuration properties for the main application.
  */
@@ -205,6 +207,10 @@ export interface BaseAsset {
  * It defines all the properties that should be accessible even when the specific resource type is not known.
  */
  export interface DataResource extends BaseAsset {
+    /** Currently active child resource, if any. */
+    activeChildResource: DataResource | null
+    /** Array of child resources, if any. */
+    childResources: DataResource[]
     /** Any dependencies of this resource that are not yet ready to use. */
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
@@ -461,6 +467,33 @@ export type NullProtoObject = {
  */
 export type PropertyChangeHandler = <T>(newValue?: T, oldValue?: T) => unknown
 /**
+ * A resource that serves as a collection for a set of interconnected resources.
+ */
+export interface DataResourceCollection extends DataResource {
+    /** Possible date of the resources in this collection. */
+    date?: Date | null
+    /** Index of the default resource in this collection. */
+    defaultResource: number
+    /** Array of resources in this collection. */
+    resources: DataResource[]
+    /**
+     * Add a resource to the collection.
+     * @param resource - The resource to add.
+     * @param setAsDefault - Whether to set this resource as the default.
+     */
+    addResource (resource: DataResource, setAsDefault?: boolean): void
+    /**
+     * Get a resource in the collection.
+     * @param resource - Id or index (in the resources array) of the resource to get.
+     */
+    getResource (resource: number | string): DataResource | null
+    /**
+     * Remove a resource from the collection. This will permanently destroy the resource.
+     * @param resource - The resource to remove, or its id or index in the resources array.
+     */
+    removeResource (resource: DataResource | string | number): void
+}
+/**
  * Module containing the required runtime and settings properties for a given resource type.
  */
 export type ResourceModule = {
@@ -490,8 +523,6 @@ export type RuntimeAppModule = NullProtoObject & {
         full: string
         short: string
     }
-    /** List of available plots as <name, plot-instance|null>. */
-    plots: Map<string, BiosignalPlot | null>
     runningId: number
     studyExporters: Map<string, StudyExporterContext>
     studyImporters: Map<string, StudyImporterContext>
@@ -522,6 +553,12 @@ export type RuntimeResourceModule = {
      * @returns unknown
      */
     setPropertyValue (property: string, value: unknown, resource?: DataResource, state?: StateManager): unknown
+    /**
+     * Get a resource from its serialized representation, if available for this resource type.
+     * @param serialized - Serialized representation of the resource.
+     * @returns The resource or null if it could not be deserialized.
+     */
+    getResourceFromSerialized?: ((serialized: unknown) => DataResource | null)
 }
 /**
  * Setup properties for runtime modules.
@@ -558,19 +595,19 @@ export interface StateManager extends RuntimeState, BaseAsset {
     /**
      * Add a new connector to the list of available connectors.
      * @param name - Name of the connector used in the UI.
+     * @param type - Type of the connector.
      * @param url - URL of the connector.
      * @param username - Username for the connector.
      * @param password - Password for the connector.
-     * @param mode - Optional mode for the connector (default read).
-     * @param wdClient - Optional override for the WebDAV client instance.
+     * @param options - Additional options for the connector.
      */
     addConnector (
         name: string,
+        type: ConnectorType,
         url: string,
         username: string,
         password: string,
-        mode?: ConnectorMode,
-        wdClient?: WebDAVClient
+        options?: unknown
     ): void
     /**
      * Add a new dataset to the list of datasets.

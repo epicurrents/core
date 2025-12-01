@@ -4,7 +4,10 @@ import {
     BiosignalStudyLoader,
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
+    GenericBiosignalEvent,
     GenericBiosignalHeader,
+    GenericBiosignalLabel,
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalService,
@@ -40,15 +43,16 @@ import {
 import {
     FileSystemDirectory,
     FileSystemFile,
-    GenericFileReader,
-    GenericFileWriter,
     GenericSignalProcessor,
     GenericSignalReader,
     GenericSignalWriter,
+    GenericTextReader,
     LocalFileReader,
     MixedFileSystemItem,
 } from './reader'
 import {
+    GenericStudyExporter,
+    GenericStudyImporter,
     GenericStudyLoader,
     StudyCollection,
     studyContextTemplate,
@@ -64,22 +68,26 @@ export {
     FileSystemFile,
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
+    GenericBiosignalEvent,
     GenericBiosignalHeader,
+    GenericBiosignalLabel,
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalService,
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
-    GenericFileReader,
-    GenericFileWriter,
     GenericMontageChannel,
     GenericService,
     GenericSignalProcessor,
     GenericSignalReader,
     GenericSignalWriter,
+    GenericStudyExporter,
+    GenericStudyImporter,
     GenericStudyLoader,
     GenericSourceChannel,
+    GenericTextReader,
     LocalFileReader,
     MixedFileSystemItem,
     MixedMediaDataset,
@@ -95,7 +103,9 @@ export {
 }
 import GenericAsset from './GenericAsset'
 import GenericResource from './GenericResource'
+import ResourceCollection from './ResourceCollection'
 export {
     GenericAsset,
     GenericResource,
+    ResourceCollection,
 }

@@ -15,17 +15,17 @@ import { StudyContext } from './study'
  */
 export interface BaseDataset extends BaseAsset {
     /** List of dataset resources that have been marked active. */
-    activeResources: BaseAsset[]
+    activeResources: DataResource[]
     /** Does this dataset have an active input data source. */
     hasInputSource: boolean
     /** Does this dataset have an active output data source. */
     hasOutputSource: boolean
     /** Array of resources in this dataset. */
-    resources: DataResource[]
+    resources: DatasetResourceContext[]
     /** Sorting scheme used to order the resources in `resources` array. */
     resourceSorting: ResourceSortingInstructions
     /**
-     * Resources in this dataset sorted by the sorting scheme.
+     * Resources in this dataset sorted by the sorting scheme. Hidden resources are excluded.
      * @example
      * // alphabetical: Sorted alphabetically with the initial letter of the name serving as map key
      *    Map<initial, resource[]>
@@ -34,13 +34,13 @@ export interface BaseDataset extends BaseAsset {
      * // type: Sorted by type as set in `order` and secondarily by the order they were added into the dataset in.
      *    Map<resource.type, resource[]>
      */
-    sortedResources: Map<string, DataResource[]>
+    sortedResources: Map<string, DatasetResourceContext[]>
     /**
      * Add a new resource into this dataset.
      * @param resource - The resource to add.
      * @emits `add-resource` with the new resource as payload.
      */
-    addResource (resource: DataResource): void
+    addResource (resource: DatasetResourceContext | DataResource): void
     /**
      * Destroy the dataset and all its resources.
      * @emits `destroy` with the dataset as payload.
@@ -59,7 +59,7 @@ export interface BaseDataset extends BaseAsset {
      * @returns The removed resource or null on failure.
      * @emits `remove-resource` with the removed resource as payload.
      */
-    removeResource (resource: DataResource | string | number): DataResource | null
+    removeResource (resource: DataResource | string | number): DatasetResourceContext | null
     /**
      * Set the output conflict resolution strategy. This will determine what is done if a file of the same name already
      * exists on the output data source.
@@ -108,6 +108,15 @@ export interface DatasetLoader {
      * @return A promise that fulfills when the dataset has been fully loaded.
      */
     loadDataset (dir: FileSystemItem, callback: (study: StudyContext) => Promise<void>, config?: unknown): Promise<void>
+}
+/** Context for a resource in the dataset. */
+export type DatasetResourceContext = {
+    /** The data resource. */
+    resource: DataResource
+    /** If true, hide the resource in listings. */
+    hidden?: boolean
+    /** Optional name to display instead of the resource name. */
+    name?: string
 }
 /**
  * Dataset for holding media resources. These include signal recordings and traditional types of media.

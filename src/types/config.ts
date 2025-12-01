@@ -7,7 +7,8 @@
 
 import { PropertyChangeHandler } from './application'
 import {
-    BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelTemplate,
     BiosignalFilterType,
@@ -154,18 +155,38 @@ export type ClonableModuleSettings = {
  * Settings common to all biosignal type resources.
  */
 export type CommonBiosignalSettings = {
-    annotations: {
-        convertPatterns: [string, BiosignalAnnotation][]
+    events: {
+        convertPatterns: [string, BiosignalAnnotationEvent][]
         ignorePatterns: string[]
     }
-    defaultMontages: { [setup: string]: [string, string][] }
-    defaultSetups: string[]
+    labels: {
+        convertPatterns: [string, BiosignalAnnotationLabel][]
+        ignorePatterns: string[]
+    }
+    /** Show channels that tha have been marked hidden on the EEG trace. */
+    showHiddenChannels: boolean
+    /** Show channels that are missing from the source file on the EEG trace. */
+    showMissingChannels: boolean
+    /** Should the resource be automatically unloaded from memory when it is closed. */
+    unloadOnClose: boolean
+    /////////////////////
+    // Filter settings //
+    /////////////////////
+    /** Default filters to apply to new biosignal recordings. */
+    defaultFilters?: {
+        /** Default highpass filter frequency in Hz (0 to disable). */
+        highpass: number
+        /** Default lowpass filter frequency in Hz (0 to disable). */
+        lowpass: number
+        /** Default notch filter frequency in Hz (0 to disable). */
+        notch: number
+    }
     /**
      * Channel types and the associated default filter types that should be applied to this channel.
      * @example
      * { eeg: ['highpass', 'lowpass', 'notch'] }
      */
-    filterChannelTypes: {
+    filterChannelTypes?: {
         [type: string]: BiosignalFilterType[]
     }
     /**
@@ -174,40 +195,15 @@ export type CommonBiosignalSettings = {
      * the more padding is needed to avoid significant artefacts. Use this amount of signal data (in seconds) as
      * padding at both ends.
      */
-    filterPaddingSeconds: number
-    filters: {
-        highpass: {
-            availableValues: number[]
-            default: number
-        }
-        lowpass: {
-            availableValues: number[]
-            default: number
-        }
-        notch: {
-            availableValues: number[]
-            default: number
-        }
-    }
-    montages: {
-        /** Maximum number of montages to keep cached. */
-        cacheMax: number
-        /** Should montage signals be pre-cached into a biosignal mutex. */
-        preCache: boolean
-    }
-    /** The frequency that the notch filter should be applied to by default (0 to disable). */
-    notchDefaultFrequency: 50 | 60 | 0
-    /** Scale to apply to a signal's amplitude as an exponent of 10. */
-    scale: {
-        availableValues: number[]
-        default: number
-    }
-    /** Show channels that tha have been marked hidden on the EEG trace. */
-    showHiddenChannels: boolean
-    /** Show channels that are missing from the source file on the EEG trace. */
-    showMissingChannels: boolean
-    /** Should the resource be automatically unloaded from memory when it is closed. */
-    unloadOnClose: boolean
+    filterPaddingSeconds?: number
+    /////////////////////////
+    // Setups and montages //
+    /////////////////////////
+    /** Default montages for different setups. */
+    defaultMontages?: { [setup: string]: [string, string][] }
+    defaultSetups?: string[]
+    /** How many montages to precache. */
+    precacheMontages?: number
 }
 export type ConfigBiosignalMontage = {
     /** Descriptive name for this montage (overrides possible default name). */

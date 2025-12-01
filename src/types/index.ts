@@ -50,8 +50,12 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    AnnotationEventTemplate,
+    AnnotationLabelTemplate,
     AnnotationTemplate,
     BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,
@@ -106,8 +110,12 @@ import type {
     WorkerMontage,
 } from './biosignal'
 export {
+    AnnotationEventTemplate,
+    AnnotationLabelTemplate,
     AnnotationTemplate,
     BiosignalAnnotation,
+    BiosignalAnnotationEvent,
+    BiosignalAnnotationLabel,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,
@@ -224,12 +232,20 @@ export {
 import type {
     ConnectorCredentials,
     ConnectorMode,
+    ConnectorType,
+    DatabaseConnector,
     DatasourceConnector,
+    DatabaseQueryOptions,
+    FileSystemConnector,
 } from './connector'
 export {
     ConnectorCredentials,
     ConnectorMode,
+    ConnectorType,
+    DatabaseConnector,
     DatasourceConnector,
+    DatabaseQueryOptions,
+    FileSystemConnector,
 }
 
 /////////////////////////////////////////////////
@@ -239,6 +255,7 @@ export {
 import type {
     BaseDataset,
     DatasetLoader,
+    DatasetResourceContext,
     MediaDataset,
     ResourceSortingInstructions,
     ResourceSortingScheme,
@@ -246,6 +263,7 @@ import type {
 export {
     BaseDataset,
     DatasetLoader,
+    DatasetResourceContext,
     MediaDataset,
     ResourceSortingInstructions,
     ResourceSortingScheme,
@@ -256,12 +274,20 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    DataTableColumnConfiguration,
+    DataTableRowValue,
+    DataTableSection,
+    DataTableTemplate,
     DocumentResource,
     DocumentServiceReject,
     DocumentServiceResolve,
     DocumentServiceResponse,
 } from './document'
 export {
+    DataTableColumnConfiguration,
+    DataTableRowValue,
+    DataTableSection,
+    DataTableTemplate,
     DocumentResource,
     DocumentServiceReject,
     DocumentServiceResolve,
@@ -274,46 +300,9 @@ export {
 
 import type {
     AudioRecording,
-    WavHeader,
-    WavSignalChannel,
 } from './media'
 export {
     AudioRecording,
-    WavHeader,
-    WavSignalChannel,
-}
-
-/////////////////////////////////////////////////
-//                   PLOT                      //
-/////////////////////////////////////////////////
-
-import type {
-    BiosignalPlot,
-    BiosignalPlotConfig,
-    BiosignalTrace,
-    HighlightContext,
-    PlotCircleStyles,
-    PlotLineStyles,
-    PlotTraceSelection,
-    SignalHighlight,
-    SignalPoI,
-    WebGlCompatibleColor,
-    WebGlPlotConfig,
-    WebGlTrace,
-} from './plot'
-export {
-    BiosignalPlot,
-    BiosignalPlotConfig,
-    BiosignalTrace,
-    HighlightContext,
-    PlotCircleStyles,
-    PlotLineStyles,
-    PlotTraceSelection,
-    SignalHighlight,
-    SignalPoI,
-    WebGlCompatibleColor,
-    WebGlPlotConfig,
-    WebGlTrace,
 }
 
 /////////////////////////////////////////////////
@@ -325,26 +314,32 @@ import type {
     ConfigReadHeader,
     ConfigReadSignals,
     ConfigReadUrl,
+    DataProcessorCache,
     FileDecoder,
     FileEncoder,
+    FileFormatExporter,
+    FileFormatImporter,
     FileFormatModule,
-    FileFormatReader,
     FileFormatReaderSpecs,
-    FileFormatWriter,
     FileReader,
     FileSystemItem,
     FileSystemItemType,
     ReadDirection,
     ReaderMode,
+    ReadFileFromUrlOptions,
+    ReadTextFromUrlOptions,
+    SignalDataDecoder,
     SignalDataEncoder,
     SignalDataReader,
     SignalDataWriter,
+    SignalDecodeResult,
     SignalFilePart,
-    SignalFileReader,
     SignalProcessorCache,
+    SignalStudyImporter,
     SuccessReject,
     SuccessResolve,
     SuccessResponse,
+    TextDataReader,
     WriterMode,
 } from './reader'
 export {
@@ -352,26 +347,32 @@ export {
     ConfigReadHeader,
     ConfigReadSignals,
     ConfigReadUrl,
+    DataProcessorCache,
     FileDecoder,
     FileEncoder,
+    FileFormatExporter,
+    FileFormatImporter,
     FileFormatModule,
-    FileFormatReader,
     FileFormatReaderSpecs,
-    FileFormatWriter,
     FileReader,
     FileSystemItem,
     FileSystemItemType,
     ReadDirection,
     ReaderMode,
+    ReadFileFromUrlOptions,
+    ReadTextFromUrlOptions,
+    SignalDataDecoder,
     SignalDataEncoder,
     SignalDataReader,
     SignalDataWriter,
+    SignalDecodeResult,
     SignalFilePart,
-    SignalFileReader,
     SignalProcessorCache,
+    SignalStudyImporter,
     SuccessReject,
     SuccessResolve,
     SuccessResponse,
+    TextDataReader,
     WriterMode,
 }
 

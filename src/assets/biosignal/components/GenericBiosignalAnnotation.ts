@@ -6,109 +6,41 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import { settingsColorToRgba } from '#util'
-import type {
-    BiosignalAnnotation,
-    ConfigSchema,
-    ResourceConfig,
-    SettingsColor,
-} from '#types'
-
-/**
- * Configuration schema for biosignal annotations.
- */
-const CONFIG_SCHEMA = {
-    context: 'biosignal_annotation',
-    fields: [
-        // Properties that can be modified with an external config.
-        {
-            name: 'background',
-            type: 'boolean',
-        },
-        {
-            name: 'duration',
-            type: 'number',
-        },
-        {
-            name: 'label',
-            type: 'string',
-        },
-        {
-            name: 'opacity',
-            type: 'number',
-        },
-        {
-            name: 'priority',
-            type: 'number',
-        },
-        {
-            name: 'start',
-            type: 'number',
-        },
-        {
-            name: 'text',
-            type: 'string',
-        },
-        {
-            name: 'visible',
-            type: 'boolean',
-        },
-    ],
-    name: 'Biosignal annotation configuration',
-    type: 'epicurrents_configuration',
-    version: '1.0',
-} as ConfigSchema
+import type { BiosignalAnnotation, } from '#types'
 
 export default abstract class GenericBiosignalAnnotation extends GenericAsset implements BiosignalAnnotation {
     protected _annotator = ''
-    protected _background = false
-    protected _channels = [] as (number | string)[]
     protected _class = 'event' as BiosignalAnnotation['class']
-    protected _duration: number
+    protected _codes = [] as (number | string)[]
     protected _label: string
     protected _priority = 0
-    protected _start: number
     protected _text = ''
-    protected _type = 'annotation'
-    protected _visible = true
-    protected _color?: SettingsColor
-    protected _opacity?: number
+    protected _type: string
+    protected _visible: boolean
 
     constructor (
         // Required properties:
-        name: string, start: number, duration: number, label: string,
+        name: string, label: string, type: string,
         // Optional properties:
-        annoClass?: BiosignalAnnotation['class'], channels?: (number | string)[], priority?: number, text?: string,
-        visible?: boolean, background?: boolean, color?: SettingsColor, opacity?: number
+        annoClass?: BiosignalAnnotation['class'], codes?: (number | string)[], priority?: number, text?: string,
+        visible = true,
     ) {
-        super(name, 'annotation')
-        this._duration = duration
+        super(name, type)
         this._label = label
-        this._start = start
+        this._type = type
+        this._visible = visible
         // Optional properties.
         if (annoClass !== undefined) {
             this._class = annoClass
         }
-        if (channels !== undefined) {
-            this._channels = channels
+        if (codes !== undefined) {
+            this._codes = codes
         }
         if (priority !== undefined) {
             this._priority = priority
         }
         if (text !== undefined) {
             this._text = text
-        }
-        if (visible !== undefined) {
-            this._visible = visible
-        }
-        if (background !== undefined) {
-            this._background = background
-        }
-        if (color !== undefined) {
-            this._color = color
-        }
-        if (opacity !== undefined) {
-            this._opacity = opacity
         }
     }
 
@@ -119,20 +51,6 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         this._setPropertyValue('annotator', value)
     }
 
-    get background () {
-        return this._background
-    }
-    set background (value: boolean) {
-        this._setPropertyValue('background', value)
-    }
-
-    get channels () {
-        return this._channels
-    }
-    set channels (value: (number | string)[]) {
-        this._setPropertyValue('channels', value)
-    }
-
     get class () {
         return this._class
     }
@@ -140,19 +58,11 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         this._setPropertyValue('class', value)
     }
 
-    get color () {
-        return this._color
+    get codes () {
+        return this._codes
     }
-    set color (value: SettingsColor | undefined) {
-        this._setPropertyValue('color', value)
-        this.dispatchEvent('appearance-changed')
-    }
-
-    get duration () {
-        return this._duration
-    }
-    set duration (value: number) {
-        this._setPropertyValue('duration', value)
+    set codes (value: (number | string)[]) {
+        this._setPropertyValue('codes', value)
     }
 
     get label () {
@@ -162,26 +72,11 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         this._setPropertyValue('label', value)
     }
 
-    get opacity () {
-        return this._opacity
-    }
-    set opacity (value: number | undefined) {
-        this._setPropertyValue('opacity', value)
-        this.dispatchEvent('appearance-changed')
-    }
-
     get priority () {
         return this._priority
     }
     set priority (value: number) {
         this._setPropertyValue('priority', value)
-    }
-
-    get start () {
-        return this._start
-    }
-    set start (value: number) {
-        this._setPropertyValue('start', value)
     }
 
     get text () {
@@ -205,22 +100,13 @@ export default abstract class GenericBiosignalAnnotation extends GenericAsset im
         this._setPropertyValue('visible', value)
     }
 
-    configure (config: ResourceConfig) {
-        super.configure(config, CONFIG_SCHEMA, this)
-    }
-
     serialize () {
         return {
             annotator: this.annotator,
-            background: this.background,
-            channels: this.channels,
             class: this.class,
-            color: this.color ? settingsColorToRgba(this.color) : '',
-            duration: this.duration,
+            codes: this.codes,
             label: this.label,
-            opacity: this.opacity,
             priority: this.priority,
-            start: this.start,
             text: this.text,
             type: this.type,
             visible: this.visible,

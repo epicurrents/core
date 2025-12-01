@@ -47,6 +47,44 @@ export type RelayLogMessage = (
 ) => void
 
 /**
+ * Return a success response to the service.
+ * @param data - The worker message data containing the rn and action.
+ * @param results - Optional additional result properties to return.
+ */
+export const returnSuccess = (
+    data: { rn: number, action: string },
+    results?: Record<string, unknown>
+) => {
+    if (typeof WorkerGlobalScope === 'undefined') {
+        throw new Error('returnSuccess can only be used inside a worker scope.')
+    }
+    postMessage({
+        rn: data.rn,
+        action: data.action,
+        success: true,
+        ...results
+    })
+}
+/**
+ * Return a failure response to the service.
+ * @param data - The worker message data containing the rn and action.
+ * @param error - The error message(s) to return.
+ */
+export const returnFailure = (
+    data: { rn: number, action: string },
+    error: string | string[]
+) => {
+    if (typeof WorkerGlobalScope === 'undefined') {
+        throw new Error('returnFailure can only be used inside a worker scope.')
+    }
+    postMessage({
+        rn: data.rn,
+        action: data.action,
+        success: false,
+        error: error,
+    })
+}
+/**
  * Synchronize the given settings with main application. The message parameter should be:
  * - The `postMessage` method when setting up sync with main application.
  * - The `message` object when checking a message from the main application for an update in settings.

@@ -8,6 +8,7 @@
 import { BaseAsset, TaskResponse } from './application'
 import { FileSystemItem } from './reader'
 import type { WebDAVClient } from 'webdav'
+import { StudyContext } from './study'
 
 /**
  * Credentials for authenticating to a data source.
@@ -46,6 +47,8 @@ export type ConnectorGetFileContentsOptions = {
 }
 /** Supported I/O modes for dataset connectors. */
 export type ConnectorMode = 'r' | 'w' | 'rw'
+
+export type ConnectorType = 'database' | 'filesystem'
 /**
  * Options for writing a file to a connector.
  * @property handleExisting - How to handle an existing file when overwriting with a new one.
@@ -69,6 +72,47 @@ export type ConnectorWriteFileOptions = {
     overwrite?: boolean
 }
 /**
+ * A connector for a database accessed via a web API.
+ */
+export interface DatabaseConnector extends DatasourceConnector {
+    /** The type of the connector. */
+    type: 'database'
+    // Set correct return type.
+    listContents (subpath?: string, options?: DatabaseQueryOptions): Promise<StudyContext[]|null>
+    /**
+     * Execute a query against the database API.
+     * @param query - The query string to execute.
+     * @param params - Optional parameters for the query.
+     * @param options - Optional query options.
+     * @returns A promise that resolves to a `TaskResponse` containing the results of the query.
+     */
+    query (query: string, params?: Record<string, unknown>, options?: DatabaseQueryOptions): Promise<TaskResponse>
+}
+/**
+ * Options for database queries.
+ */
+export type DatabaseQueryOptions = {
+    /** The HTTP method to use for queries. */
+    method?: 'GET' | 'POST'
+    /** The delimiter to use for CSV results (default is comma). */
+    csvDelimiter?: string
+    /** The desired format of the query result ('json', 'csv', or 'xml'). */
+    format?: QueryResultFormat
+    /** If true, include column names in the result (default false). */
+    includeColumnNames?: boolean
+    /** A mapping of original column names to new names. */
+    nameMap?: Record<string, string>
+    /** Properties to override in the result object. */
+    overrideProperties?: Record<string, unknown>
+    /**
+     * How parameters are included in the query.
+     * - `get`: Include parameters as URL query parameters (default).
+     * - `inject`: Inject parameters directly into the query string (param names in URL must be enclosed in curly braces).
+     * - `post`: Include parameters in the request body as JSON (overrides the default request method).
+     */
+    paramMethod?: 'get' | 'inject' | 'post'
+}
+/**
  * A connector for a dataset. The connector can be used to access and manage datasets on a remote server.
  */
 export interface DatasourceConnector extends BaseAsset {
@@ -76,15 +120,32 @@ export interface DatasourceConnector extends BaseAsset {
     authHeader: string
     /** The I/O mode the connector supports. */
     mode: ConnectorMode
-    /** The path to the resource within the dataset. */
-    path: string
     /** Source URL of the dataset(s). */
     source: string
+    /** The type of the connector. */
+    type: ConnectorType
     /**
      * Authenticate to the dataset source.
      * @returns A promise that resolves to true if authentication was successful, otherwise returns a `TaskResponse`.
      */
-    authenticate () : Promise<TaskResponse>
+    authenticate (params?: unknown) : Promise<TaskResponse>
+    /**
+     * List the contents of the dataset source. For a filesystem connector, this should list files and directories.
+     * For a database connector, this should list items in the database. 
+     * @param subpath - Optional subpath or API path to list contents for. If not provided, lists the current path contents.
+     * @param options - Request options.
+     * @returns A promise that resolves to an array of file system items representing the contents of the dataset or null if the request fails.
+     */
+    listContents (subpath?: string, options?: unknown): Promise<FileSystemItem|StudyContext[]|null>
+}
+/**
+ * A connector for a filesystem-based dataset, such as one accessed via WebDAV.
+ */
+export interface FileSystemConnector extends DatasourceConnector {
+    /** The path to the resource within the dataset. */
+    path: string
+    /** The type of the connector. */
+    type: 'filesystem'
     /**
      * Create a WebDAV client with the supplied `credentials` and optional `source` URL.
      * @param credentials - Credentials for the connection.
@@ -110,9 +171,10 @@ export interface DatasourceConnector extends BaseAsset {
      */
     getFileContents (subpath: string, options?: ConnectorGetFileContentsOptions): Promise<Blob|object|string|null>
     /**
-     * List the contents of the dataset source.
-     * @param subpath - Optional subpath to list contents for. If not provided, lists the current path contents.
-     * @param deep - If the source supports it, include subdirectories in the listing (default true).
+     * List the contents of the dataset source. For a filesystem connector, this should list files and directories.
+     * For a database connector, this should list items in the database. 
+     * @param subpath - Optional subpath or API path to list contents for. If not provided, lists the current path contents.
+     * @param deep - If the source supports it, include possible subdirectories in the listing (default true).
      * @returns A promise that resolves to an array of file system items representing the contents of the dataset or null if the request fails.
      */
     listContents (subpath?: string, deep?: boolean): Promise<FileSystemItem|null>
@@ -133,4 +195,18 @@ export interface DatasourceConnector extends BaseAsset {
         content: ArrayBuffer | string,
         options?: ConnectorWriteFileOptions
     ): Promise<TaskResponse>
+}
+
+/**
+ * Data format of the query result.
+ */
+export type QueryResultFormat = 'json' | 'csv' | 'xml'
+
+/**
+ * Options for creating a WebDAV connector.
+ */
+export type WebDAVConnectorOptions = {
+    client?: WebDAVClient
+    mode?: ConnectorMode
+    useDigestAuth?: boolean
 }

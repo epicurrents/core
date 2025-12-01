@@ -6,6 +6,8 @@
  */
 
 import { type SettingsColor } from '#types/config'
+import { DatabaseQueryOptions, StudyContext } from '../types'
+import { deepClone } from './general'
 
 /**
  * Convert a cameCase name into kebab-case.
@@ -88,6 +90,80 @@ export const lastFractOnlyIfSignificant = (num: number, digits: number) => {
         return fullDigs
     }
     return fullDigs.replace(/\.?0+$/, '')
+}
+
+/**
+ * Convert the fields in the given StudyContext item or items according to the provided options.
+ * @param items - The StudyContext items to convert.
+ * @param options - Conversion options.
+ * @returns The converted items.
+ */
+export const modifyStudyContext = (items: unknown, options?: DatabaseQueryOptions): unknown => {
+    if (
+        (!options?.nameMap || Object.keys(options.nameMap).length === 0) &&
+        (!options?.overrideProperties || Object.keys(options.overrideProperties).length === 0)
+    ) {
+        return items
+    }
+    const convert = (obj: StudyContext): StudyContext => {
+        if (!obj || typeof obj !== 'object') {
+            return obj
+        }
+        const newObj: Partial<StudyContext> = {}
+        // Apply name mapping.
+        if (options?.nameMap) {
+            for (const [key, value] of Object.entries(obj)) {
+                newObj[(options.nameMap[key] || key) as keyof StudyContext] = deepClone(value) as never
+            }
+        }
+        // Assign any override properties.
+        if (options?.overrideProperties) {
+            Object.assign(newObj, deepClone(options.overrideProperties))
+        }
+        // Convert API URLs.
+        if (options.paramMethod === 'inject') {
+            if (newObj.api?.url) {
+                const urlParts = newObj.api.url.split(/\{(\w+?)\}/g)
+                let newUrl = urlParts[0]
+                for (let i = 1; i < urlParts.length; i++) {
+                    if (i % 2 === 0) {
+                        newUrl += urlParts[i]
+                    } else {
+                        const paramValue = newObj[urlParts[i] as keyof StudyContext]
+                        if (paramValue !== undefined && paramValue !== null) {
+                            newUrl += encodeURIComponent(String(paramValue))
+                        }
+                    }
+                }
+                newObj.api.url = newUrl
+            }
+            // Convert file URLs.
+            if (newObj.files?.length) {
+                for (const file of newObj.files) {
+                    const urlParts = file.url.split(/\{(\w+?)\}/g)
+                    let newUrl = urlParts[0]
+                    for (let i=1; i<urlParts.length; i++) {
+                        if (i % 2 === 0) {
+                            newUrl += urlParts[i]
+                        } else {
+                            const paramValue = file[urlParts[i] as keyof typeof file]
+                            if (paramValue !== undefined && paramValue !== null) {
+                                newUrl += encodeURIComponent(String(paramValue))
+                            }
+                        }
+                    }
+                    file.url = newUrl
+                }
+            }
+        }
+        return newObj as StudyContext
+    }
+    if (Array.isArray(items)) {
+        return items.map(item => convert(item))
+    } else if (items && typeof items === 'object') {
+        return convert(items as StudyContext)
+    }
+    return items
 }
 
 /**

@@ -20,15 +20,16 @@ import {
     GenericAsset,
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
+    GenericBiosignalEvent,
     GenericBiosignalHeader,
+    GenericBiosignalLabel,
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalService,
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
-    GenericFileReader,
-    GenericFileWriter,
     GenericMontageChannel,
     GenericResource,
     GenericService,
@@ -36,13 +37,17 @@ import {
     GenericSignalReader,
     GenericSignalWriter,
     GenericSourceChannel,
+    GenericStudyExporter,
+    GenericStudyImporter,
     GenericStudyLoader,
+    GenericTextReader,
     LocalFileReader,
     MixedFileSystemItem,
     MixedMediaDataset,
     MontageProcessor,
     MontageService,
     MontageWorkerSubstitute,
+    ResourceCollection,
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
@@ -61,15 +66,16 @@ export {
     GenericAsset,
     GenericBiosignalAnnotation,
     GenericBiosignalChannel,
+    GenericBiosignalChannelMarker,
+    GenericBiosignalEvent,
     GenericBiosignalHeader,
+    GenericBiosignalLabel,
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalService,
     GenericBiosignalSetup,
     GenericDataset,
     GenericDocumentResource,
-    GenericFileReader,
-    GenericFileWriter,
     GenericMontageChannel,
     GenericResource,
     GenericService,
@@ -77,13 +83,17 @@ export {
     GenericSignalReader,
     GenericSignalWriter,
     GenericSourceChannel,
+    GenericStudyExporter,
+    GenericStudyImporter,
     GenericStudyLoader,
+    GenericTextReader,
     LocalFileReader,
     MixedFileSystemItem,
     MixedMediaDataset,
     MontageProcessor,
     MontageService,
     MontageWorkerSubstitute,
+    ResourceCollection,
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
@@ -114,18 +124,6 @@ import SETTINGS from './config/Settings'
 export {
     SETTINGS,
 }
-import {
-    CanvasPlot,
-    PlotColor,
-    WebGlPlot,
-    WebGlPlotTrace,
-} from './plots'
-export {
-    CanvasPlot,
-    PlotColor,
-    WebGlPlot,
-    WebGlPlotTrace,
-}
 import RuntimeStateManager from './runtime'
 export {
     RuntimeStateManager,
@@ -146,6 +144,7 @@ import type {
     WriterMode,
     StateManager,
     ConfigStudyLoader,
+    DatabaseQueryOptions,
 } from '#types'
 import * as util from '#util'
 export { util }
@@ -295,7 +294,7 @@ export class Epicurrents implements EpicurrentsApp {
     async loadStudy (
         loader: string,
         source: string | string[] | FileSystemItem,
-        options: ConfigStudyLoader = {}
+        options: ConfigStudyLoader & DatabaseQueryOptions = {}
     ) {
         const context = this.#runtime.APP.studyImporters.get(loader)
         if (!context) {
@@ -396,9 +395,14 @@ export class Epicurrents implements EpicurrentsApp {
             return
         }
         const setResources = this.#runtime.APP.activeDataset.resources
-        for (const resource of setResources) {
-            if (resource.id === id && resource.isReady) {
-                this.#runtime.setActiveResource(resource)
+        for (const ctx of setResources) {
+            if (ctx.resource.id === id && ctx.resource.isReady) {
+                if (ctx.resource.activeChildResource && ctx.resource.activeChildResource.isReady) {
+                    // If an active resource has an active child resource, select that.
+                    this.#runtime.setActiveResource(ctx.resource.activeChildResource)
+                } else {
+                    this.#runtime.setActiveResource(ctx.resource)
+                }
             }
         }
     }

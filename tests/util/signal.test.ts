@@ -67,33 +67,20 @@ const baseSettings: CommonBiosignalSettings = {
         eeg: ['highpass', 'lowpass', 'notch'],
         ecg: ['lowpass']
     },
-    annotations: {
+    defaultMontages: {},
+    defaultSetups: [],
+    events: {
         convertPatterns: [],
         ignorePatterns: []
     },
-    defaultMontages: {},
-    defaultSetups: [],
     filterPaddingSeconds: 0,
-    filters: {
-        highpass: {
-            availableValues: [],
-            default: 0
-        },
-        lowpass: {
-            availableValues: [],
-            default: 0
-        },
-        notch: {
-            availableValues: [],
-            default: 0
-        }
-    },
-    montages: {
-        cacheMax: 0,
-        preCache: false
+    labels: {
+        convertPatterns: [],
+        ignorePatterns: []
     },
     showHiddenChannels: false,
-    showMissingChannels: false
+    showMissingChannels: false,
+    unloadOnClose: true,
 }
 
 describe('Signal utilities', () => {

@@ -13,14 +13,13 @@ const SCOPE = 'BiosignalAudio'
 
 /**
  * The maximum absolute value of the raw data (expressed in uV).
- * When creating the audio buffer source, all signal data is
- * normalized against this value, meaning that raw data exceeding
- * it is clipped.
+ * When creating the audio buffer source, all signal data is normalized against this value, meaning that raw data
+ * exceeding it is clipped.
  * @remarks
- * The value of 50,000 was chosen for convednience because Synergy
- * uses that value by default when normalizing its WAV exports.
+ * The value of 32,768 was chosen because it is the maximum value for a 16-bit signed integer used by the WAV file
+ * format, for example.
  */
-const SAMPLE_MAX_VALUE = 50_000
+const SAMPLE_MAX_VALUE = 32_768
 
 export default class BiosignalAudio extends GenericAsset implements AudioRecording {
     protected _audio: AudioContext | null = null
@@ -30,12 +29,13 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _data: Float32Array[] = []
     protected _duration = 0
     protected _hasStarted = false
-    protected _playing = false
+    protected _isPlaying = false
     protected _playEndedCallbacks: (() => unknown)[] = []
     protected _playStartedCallbacks: (() => unknown)[] = []
     protected _position = 0
+    protected _previousGain = 1.0
     protected _sampleCount = 0
-    protected _sampleMaxAbsValue = 1
+    protected _sampleMaxAbsValue: number
     protected _samplingRate = 0
     /** This is the non-normalized signal data measured in physical units. */
     protected _signals: Float32Array[] = []
@@ -43,8 +43,9 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _startTime = 0
     protected _volume: GainNode | null = null
 
-    constructor (name: string, data?: ArrayBuffer) {
+    constructor (name: string, data?: ArrayBuffer, sampleMaxValue = SAMPLE_MAX_VALUE) {
         super(name, 'audio')
+        this._sampleMaxAbsValue = sampleMaxValue || 0
         if (data) {
             this.loadFile(data)
         }
@@ -77,7 +78,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     }
 
     get isPlaying () {
-        return this._playing
+        return this._isPlaying
     }
     protected set isPlaying (value: boolean) {
         // This is not meant for external use.
@@ -134,6 +135,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._buffer = null
         this._compressor = null
         this._data.length = 0
+        this._previousGain = 1.0
         this._signals.length = 0
         this._source = null
         this._volume = null
@@ -145,15 +147,20 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
             return
         }
         this._audio = new AudioContext()
-        const nSamples = Math.floor(this._audio.sampleRate*this._duration)
-        this._sampleCount = nSamples
-        const buffer = this._audio.createBuffer(this._data.length, nSamples, this._audio.sampleRate)
+        const sampleRate = this._samplingRate || this._audio.sampleRate
+        if (!this.sampleCount) {
+            // Calculate sample count based on duration and audio device sampling rate.
+            const nSamples = Math.floor(sampleRate*this._duration)
+            this._sampleCount = nSamples
+        }
+        const buffer = this._audio.createBuffer(this._data.length, this._sampleCount, sampleRate)
         for (let i=0; i<buffer.numberOfChannels; i++) {
             const data = buffer.getChannelData(i)
             data.set(this._data[i].slice(0))
         }
         this._source = this._audio.createBufferSource()
         this._source.buffer = buffer
+        this._previousGain = 1.0
     }
 
     async loadFile (fileBuffer: ArrayBuffer) {
@@ -174,6 +181,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this.dispatchPropertyChangeEvent('signals', this.signals, prevSignals)
         this._setPropertyValue('duration', this._source.buffer.duration)
         this._setPropertyValue('sampleCount', Math.floor(this._audio.sampleRate*this._duration))
+        this._previousGain = 1.0
     }
 
     pause () {
@@ -186,7 +194,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._setPropertyValue('isPlaying', false)
     }
 
-    async play (position = 0, gain = 1.0) {
+    async play (position = 0, gain = this._previousGain) {
         if (!this._audio) {
             await this.loadBuffer()
         }
@@ -252,12 +260,13 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         if (gain < 0) {
             gain = 0
         }
-        // Plain 1/sensitivity results in too loud volume, we'll tone it down a bit more.
+        this._previousGain = gain
+        // We need to tone the volume down a bit (TODO: Allow user-defined scaling).
         this._volume.gain.value = gain*SAMPLE_MAX_VALUE/10
     }
 
     setSignals (length: number, samplingRate: number, ...data: Float32Array[]) {
-        this._audio = new AudioContext()
+        this._audio = new AudioContext({ sampleRate: samplingRate })
         const nSamples = Math.floor(samplingRate*length)
         this._setPropertyValue('sampleCount', nSamples)
         const buffer = this._audio.createBuffer(data.length, nSamples, samplingRate)
@@ -267,15 +276,17 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
             // The source sampling rate may be higher than our audio device sampling rate,
             // in which case we must downsample.
             const chanData = new Float32Array(nSamples)
-            // This will handle simple downsampling if source has higher sampling rate
-            // than the native audio device. Supersampling is not suppert yet.
+            // This will handle simple down-sampling if source has higher sampling rate
+            // than the native audio device. Super-sampling is not supported yet.
             const dsFactor = data[i].length/nSamples
             if (samplingRate < this._audio.sampleRate) {
                 Log.warn(`Source sampling rate (${samplingRate} Hz) is lower than audio device sampling rate ` +
                          `(${this._audio.sampleRate} Hz).`, SCOPE)
             }
             for (let j=0; j<nSamples; j++) {
-                chanData.set([data[i][Math.floor(j*dsFactor)]/SAMPLE_MAX_VALUE], j)
+                const value = this._sampleMaxAbsValue ? data[i][Math.floor(j*dsFactor)]/this._sampleMaxAbsValue
+                                                      : data[i][Math.floor(j*dsFactor)]
+                chanData.set([Math.max(-1, Math.min(1, value))], j)
             }
             if (!this._samplingRate) {
                 this._setPropertyValue('samplingRate', samplingRate)
@@ -288,6 +299,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         }
         this._source = this._audio.createBufferSource()
         this._source.buffer = buffer
+        this._previousGain = 1.0
     }
 
     stop () {
