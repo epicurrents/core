@@ -69,7 +69,7 @@
     "fili": "^2.0.3",
     "onnxruntime-web": "^1.14.0",
     "scoped-event-bus": "^0.2.2",
-    "scoped-event-log": "^2.0.1",
+    "scoped-event-log": "^2.2.0",
     "webdav": "^5.8.0"
   },
   "devDependencies": {
