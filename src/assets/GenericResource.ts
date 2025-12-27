@@ -7,7 +7,11 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import type { DataResource, ResourceState } from '#types/application'
+import type {
+    AnnotationLabel,
+    DataResource,
+    ResourceState,
+} from '#types/application'
 import type { StudyContext } from '#types/study'
 import { Log } from 'scoped-event-log'
 import { ResourceEvents } from '#events'
@@ -32,9 +36,11 @@ export default abstract class GenericResource extends GenericAsset implements Da
 
     protected _activeChildResource: DataResource | null = null
     protected _childResources: DataResource[] = []
+    protected _datasetId: string | null = null
     protected _dependenciesMissing: string[] = []
     protected _dependenciesReady: string[] = []
     protected _errorReason = ''
+    protected _labels: AnnotationLabel[] = []
     /** Is this record selected as active in the UI. */
     protected _loaded = false
     protected _source: StudyContext | null = null
@@ -44,6 +50,10 @@ export default abstract class GenericResource extends GenericAsset implements Da
         super(name, modality)
         if (source) {
             this._source = source
+            // TODO: Implement meta property handling in all resource classes.
+            if (source.meta?.datasetId) {
+                this._datasetId = source.meta.datasetId as string
+            }
         }
     }
 
@@ -58,6 +68,12 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     set childResources (value: DataResource[]) {
         this._setPropertyValue('childResources', value)
+    }
+    get datasetId () {
+        return this._datasetId
+    }
+    set datasetId (value: string | null) {
+        this._setPropertyValue('datasetId', value)
     }
     get dependenciesMissing () {
         return this._dependenciesMissing
@@ -79,6 +95,17 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     get isReady () {
         return this._dependenciesMissing.length === 0 && this._state === 'ready'
+    }
+    get labels () {
+        return this._labels
+    }
+    set labels (value: AnnotationLabel[]) {
+        for (const newLabel of value) {
+            if (!newLabel.id) {
+                newLabel.id = GenericResource.CreateUniqueId()
+            }
+        }
+        this._setPropertyValue('labels', value)
     }
     get source () {
         return this._source

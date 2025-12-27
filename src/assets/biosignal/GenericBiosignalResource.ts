@@ -7,15 +7,21 @@
  */
 
 import { ResourceEvents } from '#events'
-import { shouldDisplayChannel, getIncludedChannels, combineSignalParts } from '#util/signal'
+import {
+    combineSignalParts,
+    getIncludedChannels,
+    shouldDisplayChannel,
+} from '#util/signal'
 import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
+import type {
+    AnnotationLabel
+} from '#types/application'
 import type {
     AnnotationLabelTemplate,
     AnnotationEventTemplate,
     BiosignalFilters,
     BiosignalAnnotationEvent,
-    BiosignalAnnotationLabel,
     BiosignalCursor,
     BiosignalDataService,
     BiosignalFilterType,
@@ -109,7 +115,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         notch: 0,
     } as BiosignalFilters
     protected _interruptions: SignalInterruptionMap = new Map<number, number>()
-    protected _labels: BiosignalAnnotationLabel[] = []
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
@@ -222,18 +227,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             montage.setInterruptions(this._interruptions)
         }
         this.dispatchPropertyChangeEvent('interruptions', this.interruptions, prevState)
-    }
-
-    get labels () {
-        return this._labels
-    }
-    set labels (value: BiosignalAnnotationLabel[]) {
-        for (const newLabel of value) {
-            if (!newLabel.id) {
-                newLabel.id = GenericBiosignalResource.CreateUniqueId()
-            }
-        }
-        this._setPropertyValue('labels', value)
     }
 
     get maxSampleCount () {
@@ -450,7 +443,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
-    addLabels (...labels: BiosignalAnnotationLabel[]) {
+    addLabels (...labels: AnnotationLabel[]) {
         let anyChange = false
         const prevState = [...this.labels]
         new_loop:
@@ -747,9 +740,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return deleted
     }
 
-    removeLabels (...labels: string[] | number[] | BiosignalAnnotationLabel[]): BiosignalAnnotationLabel[] {
+    removeLabels (...labels: string[] | number[] | AnnotationLabel[]): AnnotationLabel[] {
         const prevState = [...this._labels]
-        const deleted = [] as BiosignalAnnotationLabel[]
+        const deleted = [] as AnnotationLabel[]
         // All arguments must be of the same type, so we can check the first element.
         if (typeof labels[0] === 'number') {
             // Remaining IDs must be offset when labels are removed from the preceding array.
@@ -759,7 +752,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 deleted.push(...this._labels.splice(idx, 1))
             }
         } else {
-            for (const label of labels as string[] | BiosignalAnnotationLabel[]) {
+            for (const label of labels as string[] | AnnotationLabel[]) {
                 const labelId = typeof label === 'string' ? label : label.id
                 for (let i=0; i<this._labels.length; i++) {
                     if (this._labels[i].id === labelId) {

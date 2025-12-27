@@ -8,9 +8,9 @@
  */
 
 import type {
+    AnnotationLabel,
     BaseDataset,
     BiosignalAnnotationEvent,
-    BiosignalAnnotationLabel,
     BiosignalMontage,
     DataResource,
     VideoAttachment,
@@ -179,7 +179,7 @@ export type BiosignalPropertyEvent = ResourcePropertyEvent & {
     [BiosignalPropertyEvents.DISPLAY_VIEW_START]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.EVENTS]: PropertyChangeEvent<BiosignalAnnotationEvent[]>
     [BiosignalPropertyEvents.HIGHPASS_FILTER]: PropertyChangeEvent<number>
-    [BiosignalPropertyEvents.LABELS]: PropertyChangeEvent<BiosignalAnnotationLabel[]>
+    [BiosignalPropertyEvents.LABELS]: PropertyChangeEvent<AnnotationLabel[]>
     [BiosignalPropertyEvents.LOWPASS_FILTER]: PropertyChangeEvent<number>
     [BiosignalPropertyEvents.MONTAGES]: PropertyChangeEvent<BiosignalMontage[]>
     [BiosignalPropertyEvents.NOTCH_FILTER]: PropertyChangeEvent<number>

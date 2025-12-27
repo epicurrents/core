@@ -5,10 +5,15 @@
  * @license    Apache-2.0
  */
 
-import GenericBiosignalAnnotation from './GenericBiosignalAnnotation'
+import GenericAnnotation from '#assets/annotation/GenericAnnotation'
 import { settingsColorToRgba } from '#util'
-import type { ConfigSchema, ResourceConfig, SettingsColor } from '#types'
-import { BiosignalAnnotationEvent } from '#root/src/types/biosignal'
+import type {
+    AssetSerializeOptions,
+    BiosignalAnnotationEvent,
+    ConfigSchema,
+    ResourceConfig,
+    SettingsColor,
+} from '#types'
 
 /**
  * Configuration schema for biosignal annotations.
@@ -63,7 +68,7 @@ const CONFIG_SCHEMA = {
     version: '1.0',
 } as ConfigSchema
 
-export default abstract class GenericBiosignalEvent extends GenericBiosignalAnnotation implements BiosignalAnnotationEvent {
+export default abstract class GenericBiosignalEvent extends GenericAnnotation implements BiosignalAnnotationEvent {
     protected _annotator = ''
     protected _background = false
     protected _channels = [] as (number | string)[]
@@ -86,7 +91,7 @@ export default abstract class GenericBiosignalEvent extends GenericBiosignalAnno
         priority?: number, text?: string, visible?: boolean, background?: boolean, color?: SettingsColor,
         opacity?: number
     ) {
-        super(name, label, 'event', annoClass, codes, priority, text, visible)
+        super(name, [start, duration], 'event', label, annoClass, codes, priority, text, visible)
         this._duration = duration
         this._label = label
         this._start = start
@@ -172,13 +177,17 @@ export default abstract class GenericBiosignalEvent extends GenericBiosignalAnno
         super.configure(config, CONFIG_SCHEMA, this)
     }
 
-    serialize () {
-        const base = super.serialize()
+    serialize (options?: AssetSerializeOptions) {
+        const base = super.serialize(options)
         return {
             ...base,
             background: this.background,
-            channels: this.channels,
-            color: this.color ? settingsColorToRgba(this.color) : '',
+            channels: this.channels.length > 0
+                      ? this.channels
+                      : (options?.nullIfEmpty?.includes('channels') ? null : []),
+            color: this.color
+                   ? settingsColorToRgba(this.color)
+                   : (options?.nullIfEmpty?.includes('color') ? null : ''),
             duration: this.duration,
             opacity: this.opacity,
             start: this.start,

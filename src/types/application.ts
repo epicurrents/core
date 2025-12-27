@@ -36,6 +36,100 @@ import {
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
 /**
+ * Annotation describing a resource or some feature of it.
+ */
+export interface Annotation extends BaseAsset {
+    /** Author of this annotation. */
+    annotator: string | null
+    /** Annotation class. */
+    class: string
+    /** Standardized codes for this annotation. */
+    codes: (number | string)[]
+    /**
+     * Text label for the annotation (visible on annotation listings).
+     * If left empty, it will return a string representation of the value (array values joined by commas).
+     */
+    label: string
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     */
+    priority: number
+    /** Additional commentary regarding the annotation. */
+    text: string
+    /** Identifier for a pre-set annotation type. Can also be used as a descriptor for annotation code(s). */
+    type: string
+    /** The raw value of the label. Will be used as the visible label for the annotation if `label` is `undefined`. */
+    value: boolean | number | number[] | string | string[]
+    /** Is this annotation visible. */
+    visible: boolean
+    serialize (options?: AssetSerializeOptions): ReturnType<BaseAsset['serialize']> & {
+        annotator: string | null
+        class: Annotation['class'] | null
+        codes: (number | string)[] | null
+        label: string | null
+        priority: number
+        text: string | null
+        type: string | null
+        value: boolean | number | number[] | string | string[] | null
+        visible: boolean
+    }
+}
+/**
+ * Label annotation describing the asset as a whole.
+ */
+export interface AnnotationLabel extends Annotation {
+    /**
+     * Label class. The default general purpose label classes are:
+     * - `evaluation` contains the evaluation results.
+     * - `label` is a generic label.
+     * - `technical` describes the technical quality of the recording.
+     */
+    class: "evaluation" | "label" | "technical"
+    /**
+     * Priority of this label (lower number has lower priority). Priority must be a number greater than zero.
+     * Predefined priorities for the default label classes are:
+     * - `evaluation` = 300
+     * - `label` = 200
+     * - `technical` = 100
+     */
+    priority: number
+    serialize (options?: AssetSerializeOptions): ReturnType<Annotation['serialize']> & {
+        class: AnnotationLabel['class'] | null
+    }
+}
+/**
+ * Object template to use when constructing an annotation.
+ */
+export type AnnotationTemplate = {
+    /** Annotation class. */
+    class: Annotation['class']
+    /**
+     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
+     */
+    priority: Annotation['priority']
+    /** The raw value of the annotation. Will be used as the visible label for the annotation if `label` is `undefined`. */
+    value: boolean | number | number[] | string | string[]
+    /** Author of this annotation. */
+    annotator?: Annotation['annotator']
+    /** Standardized codes for this annotation. */
+    codes?: (number | string)[]
+    /** Text label for the annotation to override the value in annotation listings. */
+    label?: Annotation['label']
+    /**
+     * Unique identifier for matching educational annotations (for programmatically altering their visibility etc.).
+     *
+     * @remarks
+     * Cannot use `id` for this as it is automatically generated.
+     */
+    name?: Annotation['name']
+    /** Additional commentary regarding the annotation. */
+    text?: Annotation['text']
+    /** Identifier for a pre-set annotation type. Can also be used as a descriptor for annotation code(s). */
+    type?: Annotation['type']
+    /** Is this annotation visible in the annotation listing (default true). */
+    visible?: Annotation['visible']
+}
+/**
  * Configuration properties for the main application.
  */
 export type ApplicationConfig = {
@@ -58,6 +152,13 @@ export type ApplicationConfig = {
      * Should SharedArrayBuffers (if available) be used to manage memory.
      */
     useSAB?: boolean
+}
+/**
+ * Options for serializing an annotation.
+ */
+export type AssetSerializeOptions = {
+    /** List of property names that should be set to null if they are empty. Only applies to string and array properties (not boolean or number properties). */
+    nullIfEmpty?: string[]
 }
 /**
  * The most basic type defining properties that must exist in every asset.
@@ -187,8 +288,9 @@ export interface BaseAsset {
     ): void
     /**
      * Return serialized properties that belong to this asset.
+     * @param options - Options for serialization.
      */
-    serialize (): Record<string, unknown>
+    serialize (options?: AssetSerializeOptions): Record<string, unknown>
     /**
      * Alias for `addEventListener`.
      */
@@ -211,6 +313,8 @@ export interface BaseAsset {
     activeChildResource: DataResource | null
     /** Array of child resources, if any. */
     childResources: DataResource[]
+    /** Possible resource identifier used in the dataset this resource belongs to. */
+    datasetId: string | null
     /** Any dependencies of this resource that are not yet ready to use. */
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
@@ -219,6 +323,8 @@ export interface BaseAsset {
     errorReason: string
     /** Is the resource ready for use. */
     isReady: boolean
+    /** List of label annotations. */
+    labels: AnnotationLabel[]
     /** Source study for this resource. */
     source: StudyContext | null
     /**

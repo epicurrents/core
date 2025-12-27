@@ -1,13 +1,20 @@
 import {
+    GenericAnnotation,
+    ResourceLabel,
+} from './annotation'
+export {
+    GenericAnnotation,
+    ResourceLabel,
+}
+
+import {
     BiosignalCache,
     BiosignalMutex,
     BiosignalStudyLoader,
-    GenericBiosignalAnnotation,
     GenericBiosignalChannel,
     GenericBiosignalChannelMarker,
     GenericBiosignalEvent,
     GenericBiosignalHeader,
-    GenericBiosignalLabel,
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalService,
@@ -66,12 +73,10 @@ export {
     ErrorResource,
     FileSystemDirectory,
     FileSystemFile,
-    GenericBiosignalAnnotation,
     GenericBiosignalChannel,
     GenericBiosignalChannelMarker,
     GenericBiosignalEvent,
     GenericBiosignalHeader,
-    GenericBiosignalLabel,
     GenericBiosignalMontage,
     GenericBiosignalResource,
     GenericBiosignalService,

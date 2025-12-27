@@ -1,19 +1,23 @@
 /**
- * Generic biosignal label annotation.
+ * Generic label annotation.
  * @package    epicurrents/core
  * @copyright  2025 Sampsa Lohi
  * @license    Apache-2.0
  */
 
-import GenericBiosignalAnnotation from './GenericBiosignalAnnotation'
-import type { ConfigSchema, ResourceConfig } from '#types'
-import { BiosignalAnnotationLabel } from '#root/src/types/biosignal'
+import GenericAnnotation from './GenericAnnotation'
+import type {
+    AnnotationLabel,
+    AssetSerializeOptions,
+    ConfigSchema,
+    ResourceConfig,
+} from '#types'
 
 /**
- * Configuration schema for biosignal annotations.
+ * Configuration schema for resource label annotations.
  */
 const CONFIG_SCHEMA = {
-    context: 'biosignal_annotation_label',
+    context: 'resource_label',
     fields: [
         // Properties that can be modified with an external config.
         {
@@ -41,29 +45,29 @@ const CONFIG_SCHEMA = {
             type: 'boolean',
         },
     ],
-    name: 'Biosignal annotation label configuration',
+    name: 'Annotation label configuration',
     type: 'epicurrents_configuration',
     version: '1.0',
 } as ConfigSchema
 
-export default abstract class GenericBiosignalLabel extends GenericBiosignalAnnotation implements BiosignalAnnotationLabel {
-    protected _class = 'label' as BiosignalAnnotationLabel['class']
+export default class ResourceLabel extends GenericAnnotation implements AnnotationLabel {
+    protected _class = 'label' as AnnotationLabel['class']
     protected _type = 'label'
 
     constructor (
         // Required properties:
-        name: string, label: string,
+        name: string, value: boolean | number | number[] | string | string[],
         // Optional properties:
-        labelClass?: BiosignalAnnotationLabel['class'], codes?: (number | string)[], priority?: number, text?: string,
+        label?: string, labelClass?: AnnotationLabel['class'], codes?: (number | string)[], priority?: number, text?: string,
         visible?: boolean,
     ) {
-        super(name, label, 'label', labelClass, codes, priority, text, visible)
+        super(name, value, 'label', label, labelClass, codes, priority, text, visible)
     }
 
     get class () {
         return this._class
     }
-    set class (value: BiosignalAnnotationLabel['class']) {
+    set class (value: AnnotationLabel['class']) {
         this._setPropertyValue('class', value)
     }
 
@@ -71,10 +75,10 @@ export default abstract class GenericBiosignalLabel extends GenericBiosignalAnno
         super.configure(config, CONFIG_SCHEMA, this)
     }
 
-    serialize () {
+    serialize (options?: AssetSerializeOptions) {
         return {
-            ...super.serialize(),
-            class: this._class,
+            ...super.serialize(options),
+            class: this._class || (options?.nullIfEmpty?.includes('class') ? null : ''),
         }
     }
 }

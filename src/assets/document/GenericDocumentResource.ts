@@ -37,6 +37,9 @@ export default abstract class GenericDocumentResource extends GenericResource im
 
     constructor (name: string, modality: string, format: string, source: StudyContext) {
         super(name, modality, source)
+        if (source.meta?.scale) {
+            this._scale = source.meta.scale as number
+        }
         this._sourceFormat = format
     }
 

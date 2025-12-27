@@ -6,6 +6,10 @@
  */
 
 import {
+    Annotation,
+    AnnotationLabel,
+    AnnotationTemplate,
+    AssetSerializeOptions,
     BaseAsset,
     DataResource,
     SafeObject
@@ -95,7 +99,7 @@ export type AnnotationLabelTemplate = AnnotationTemplate & {
      * - `label` is a generic label.
      * - `technical` describes the technical quality of the recording.
      */
-    class: BiosignalAnnotationLabel['class']
+    class: AnnotationLabel['class']
     /**
      * Priority of this label (lower number has lower priority). Priority must be a number greater than zero.
      * Predefined priorities for the default label classes are:
@@ -106,72 +110,9 @@ export type AnnotationLabelTemplate = AnnotationTemplate & {
     priority: number
 }
 /**
- * Object template to use when constructing a biosignal annotation.
- */
-export type AnnotationTemplate = {
-    /** Annotation class. */
-    class: BiosignalAnnotation['class']
-    /** Text label for the annotation (visible on the interface and annotation list). */
-    label: BiosignalAnnotation['label']
-    /**
-     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
-     */
-    priority: BiosignalAnnotation['priority']
-    /** Author of this annotation. */
-    annotator?: BiosignalAnnotation['annotator']
-    /** Standardized codes for this annotation. */
-    codes?: (number | string)[]
-    /**
-     * Unique identifier for matching educational annotations (for programmatically altering their visibility etc.).
-     *
-     * @remarks
-     * Cannot use `id` for this as it is automatically generated.
-     */
-    name?: BiosignalAnnotation['name']
-    /** Additional commentary regarding the annotation. */
-    text?: BiosignalAnnotation['text']
-    /** Identifier for a pre-set annotation type. Can also be used as a descriptor for annotation code(s). */
-    type?: BiosignalAnnotation['type']
-    /** Is this annotation visible in the annotation listing (default true). */
-    visible?: BiosignalAnnotation['visible']
-}
-/**
  * Annotation for a single moment or period of time in a biosignal resource.
  */
-export interface BiosignalAnnotation extends BaseAsset {
-    /** Author of this annotation. */
-    annotator: string | null
-    /** Annotation class. */
-    class: string
-    /** Standardized codes for this annotation. */
-    codes: (number | string)[]
-    /** Text label for the annotation (visible on the interface and annotation list). */
-    label: string
-    /**
-     * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
-     */
-    priority: number
-    /** Additional commentary regarding the annotation. */
-    text: string
-    /** Identifier for a pre-set annotation type. Can also be used as a descriptor for annotation code(s). */
-    type: string
-    /** Is this annotation visible. */
-    visible: boolean
-    serialize (): ReturnType<BaseAsset['serialize']> & {
-        annotator: string
-        class: BiosignalAnnotation['class']
-        codes: (number | string)[]
-        label: string
-        priority: number
-        text: string
-        type: string
-        visible: boolean
-    }
-}
-/**
- * Annotation for a single moment or period of time in a biosignal resource.
- */
-export interface BiosignalAnnotationEvent extends BiosignalAnnotation {
+export interface BiosignalAnnotationEvent extends Annotation {
     /**
      * Should this event be placed in the background (behind the plot).
      * TODO: Remove and create a separate montage annotation class for this.
@@ -219,51 +160,13 @@ export interface BiosignalAnnotationEvent extends BiosignalAnnotation {
      * Changing this property triggers an additional event `appearance-changed`.
      */
     opacity?: number
-    serialize (): ReturnType<BaseAsset['serialize']> & {
-        annotator: string
+    serialize (options?: AssetSerializeOptions): ReturnType<Annotation['serialize']> & {
         background: boolean
-        channels: (number | string)[]
-        class: BiosignalAnnotation['class']
-        codes: (number | string)[]
-        color: string
+        channels: (number | string)[] | null
+        color: string | null
         duration: number
-        label: string
-        priority: number
         start: number
-        text: string
-        type: string
-        visible: boolean
         opacity?: number
-    }
-}
-/**
- * Annotation for a single moment or period of time in a biosignal resource.
- */
-export interface BiosignalAnnotationLabel extends BiosignalAnnotation {
-    /**
-     * Label class. The default general purpose label classes are:
-     * - `evaluation` contains the evaluation results.
-     * - `label` is a generic label.
-     * - `technical` describes the technical quality of the recording.
-     */
-    class: "evaluation" | "label" | "technical"
-    /**
-     * Priority of this label (lower number has lower priority). Priority must be a number greater than zero.
-     * Predefined priorities for the default label classes are:
-     * - `evaluation` = 300
-     * - `label` = 200
-     * - `technical` = 100
-     */
-    priority: number
-    serialize (): ReturnType<BaseAsset['serialize']> & {
-        annotator: string
-        class: BiosignalAnnotationLabel['class']
-        codes: (number | string)[]
-        label: string
-        priority: number
-        text: string
-        type: string
-        visible: boolean
     }
 }
 /**
@@ -674,7 +577,7 @@ export interface BiosignalHeaderRecord {
      * The labels are transferred to the actual recording at the time of instantiation.
      * @param items - Labels to add.
      */
-    addLabels (...items: BiosignalAnnotationLabel[]): void
+    addLabels (...items: AnnotationLabel[]): void
     /**
     * Get the label for a given signal index.
     * @param index - Index of the signal.
@@ -1044,8 +947,6 @@ export interface BiosignalResource extends DataResource {
     filterChannelTypes: { [type: string]: BiosignalFilterType[] }
     /** Get the currently active filters. */
     filters: BiosignalFilters
-    /** List of labels. */
-    labels: BiosignalAnnotationLabel[]
     /** List of available, initialized montages. */
     montages: BiosignalMontage[]
     /** Montage that displays the recording configuration. */
@@ -1109,7 +1010,7 @@ export interface BiosignalResource extends DataResource {
      * Add a set of new labels to this recording.
      * @param labels - New labels.
      */
-    addLabels (...items: BiosignalAnnotationLabel[]): void
+    addLabels (...items: AnnotationLabel[]): void
     /**
      * Add new labels to the recording from the given templates.
      * @param templates - Templates to use for the labels.
@@ -1209,7 +1110,7 @@ export interface BiosignalResource extends DataResource {
      * @param labels - Label objects or IDs, or indices within the labels array.
      * @returns An array containing the removed labels.
      */
-    removeLabels (...labels: string[] | number[] | BiosignalAnnotationLabel[]): BiosignalAnnotationLabel[]
+    removeLabels (...labels: string[] | number[] | AnnotationLabel[]): AnnotationLabel[]
     /**
      * Set the given montage as active.
      * @param montage - Montage index or name.

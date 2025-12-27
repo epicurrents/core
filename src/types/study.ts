@@ -10,7 +10,7 @@
 
 import { DataResource } from './application'
 import { ConfigStudyLoader, UrlAccessOptions } from './config'
-import { 
+import {
     FileSystemItem,
     ReaderMode,
     FileFormatExporter,
@@ -44,7 +44,7 @@ export interface OrderedLoadingProtocol {
  * API access options for querying study information.
  */
 export type StudyContextAPI = UrlAccessOptions & {
-    /** 
+    /**
      * HTTP method to use for the API request. If `GET`, possible parameters will be added to the end of the request
      * URL. If `POST`, parameters will be sent in the request body as JSON.
      */
@@ -70,7 +70,7 @@ export type StudyContextAPI = UrlAccessOptions & {
     /** Primary format of the source, such as file format or API type. */
     format: string
     /** Metadata detailing the resource. */
-    meta: unknown
+    meta: Record<string, unknown>
     /** Resource modality. */
     modality: string
     /** Descriptive name of the resource. */

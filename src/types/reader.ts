@@ -6,11 +6,10 @@
  */
 
 import { MutexExportProperties } from 'asymmetric-io-mutex'
-import { BaseAsset } from './application'
+import { AnnotationTemplate, BaseAsset } from './application'
 import {
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
-    AnnotationTemplate,
     BiosignalHeaderRecord,
     SignalDataCache,
     SignalInterruption,

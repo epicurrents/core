@@ -3,7 +3,11 @@
 /////////////////////////////////////////////////
 
 import type {
+    Annotation,
+    AnnotationLabel,
+    AnnotationTemplate,
     ApplicationConfig,
+    AssetSerializeOptions,
     BaseAsset,
     DataResource,
     EpicurrentsApp,
@@ -24,7 +28,11 @@ import type {
     TaskResponse,
 } from './application'
 export {
+    Annotation,
+    AnnotationLabel,
+    AnnotationTemplate,
     ApplicationConfig,
+    AssetSerializeOptions,
     BaseAsset,
     DataResource,
     EpicurrentsApp,
@@ -52,10 +60,7 @@ export {
 import type {
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
-    AnnotationTemplate,
-    BiosignalAnnotation,
     BiosignalAnnotationEvent,
-    BiosignalAnnotationLabel,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,
@@ -112,10 +117,7 @@ import type {
 export {
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
-    AnnotationTemplate,
-    BiosignalAnnotation,
     BiosignalAnnotationEvent,
-    BiosignalAnnotationLabel,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,

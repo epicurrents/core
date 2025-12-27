@@ -5,10 +5,9 @@
  * @license    Apache-2.0
  */
 
-import { PropertyChangeHandler } from './application'
+import { AnnotationLabel, PropertyChangeHandler } from './application'
 import {
     BiosignalAnnotationEvent,
-    BiosignalAnnotationLabel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelTemplate,
     BiosignalFilterType,
@@ -160,7 +159,7 @@ export type CommonBiosignalSettings = {
         ignorePatterns: string[]
     }
     labels: {
-        convertPatterns: [string, BiosignalAnnotationLabel][]
+        convertPatterns: [string, AnnotationLabel][]
         ignorePatterns: string[]
     }
     /** Show channels that tha have been marked hidden on the EEG trace. */
