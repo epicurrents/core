@@ -7,7 +7,7 @@
 
 import GenericResource from '#assets/GenericResource'
 import type { DataResource, TaskResponse } from '#types/application'
-import type { 
+import type {
     ConnectorWriteFileOptions,
     DatabaseConnector,
     DatasourceConnector,
@@ -110,7 +110,7 @@ export default abstract class GenericDataset extends GenericResource implements 
         this._resourceSorting = {
             order: [],
             scheme: sortingScheme || 'id',
-        } 
+        }
     }
 
     /** Returns the input connector if it is a `database` connector, `null` otherwise. */
