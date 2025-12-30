@@ -9,7 +9,11 @@ import GenericAsset from '#assets/GenericAsset'
 import type { Annotation, AssetSerializeOptions } from '#types'
 
 export default abstract class GenericAnnotation extends GenericAsset implements Annotation {
-    protected _annotator = ''
+
+    /** Name used as the annotator for new annotations. */
+    static ANNOTATOR_NAME = ''
+
+    protected _annotator: string
     protected _class = 'event' as Annotation['class']
     protected _codes = [] as (number | string)[]
     protected _label = ''
@@ -30,6 +34,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         this._value = value
         this._type = type
         this._visible = visible
+        this._annotator = GenericAnnotation.ANNOTATOR_NAME
         // Optional properties.
         if (label !== undefined) {
             this._label = label
