@@ -59,7 +59,7 @@ export interface Annotation extends BaseAsset {
     /** Identifier for a pre-set annotation type. Can also be used as a descriptor for annotation code(s). */
     type: string
     /** The raw value of the label. Will be used as the visible label for the annotation if `label` is `undefined`. */
-    value: boolean | number | number[] | string | string[]
+    value: boolean | number | number[] | string | string[] | null
     /** Is this annotation visible. */
     visible: boolean
     serialize (options?: AssetSerializeOptions): ReturnType<BaseAsset['serialize']> & {
