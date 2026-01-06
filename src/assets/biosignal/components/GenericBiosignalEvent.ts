@@ -10,6 +10,7 @@ import { settingsColorToRgba } from '#util'
 import type {
     AssetSerializeOptions,
     BiosignalAnnotationEvent,
+    BiosignalAnnotationEventOptions,
     ConfigSchema,
     ResourceConfig,
     SettingsColor,
@@ -69,17 +70,13 @@ const CONFIG_SCHEMA = {
 } as ConfigSchema
 
 export default abstract class GenericBiosignalEvent extends GenericAnnotation implements BiosignalAnnotationEvent {
-    protected _annotator = ''
+
     protected _background = false
     protected _channels = [] as (number | string)[]
     protected _class = 'event' as BiosignalAnnotationEvent['class']
     protected _duration: number
     protected _label: string
-    protected _priority = 0
     protected _start: number
-    protected _text = ''
-    protected _type = 'event'
-    protected _visible = true
     protected _color?: SettingsColor
     protected _opacity?: number
 
@@ -87,39 +84,18 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
         // Required properties:
         name: string, start: number, duration: number, label: string,
         // Optional properties:
-        annoClass?: BiosignalAnnotationEvent['class'], channels?: (number | string)[], codes?: (number | string)[],
-        priority?: number, text?: string, visible?: boolean, background?: boolean, color?: SettingsColor,
-        opacity?: number
+        options: BiosignalAnnotationEventOptions = {},
     ) {
-        super(name, [start, duration], 'event', label, annoClass, codes, priority, text, visible)
+        options.label = label
+        super(name, [start, duration], 'event', options)
         this._duration = duration
         this._label = label
         this._start = start
         // Optional properties.
-        if (annoClass !== undefined) {
-            this._class = annoClass
-        }
-        if (channels !== undefined) {
-            this._channels = channels
-        }
-        if (priority !== undefined) {
-            this._priority = priority
-        }
-        if (text !== undefined) {
-            this._text = text
-        }
-        if (visible !== undefined) {
-            this._visible = visible
-        }
-        if (background !== undefined) {
-            this._background = background
-        }
-        if (color !== undefined) {
-            this._color = color
-        }
-        if (opacity !== undefined) {
-            this._opacity = opacity
-        }
+        this._background = options.background ?? false
+        this._channels = options.channels ?? []
+        this._color = options.color
+        this._opacity = options.opacity
     }
 
     get background () {

@@ -8,6 +8,7 @@
 import {
     Annotation,
     AnnotationLabel,
+    AnnotationOptions,
     AnnotationTemplate,
     AssetSerializeOptions,
     BaseAsset,
@@ -38,6 +39,7 @@ import {
 } from './service'
 import { StudyContext } from './study'
 import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-mutex'
+import { Modify } from './util'
 
 /**
  * Object template to use when constructing a biosignal annotation.
@@ -169,6 +171,19 @@ export interface BiosignalAnnotationEvent extends Annotation {
         opacity?: number
     }
 }
+/** Optional properties for constructing a biosignal annotation event. */
+export type BiosignalAnnotationEventOptions = Modify<AnnotationOptions, {
+    /** Should this event be placed in the background (behind the traces). */
+    background?: boolean
+    /** List of channel numbers or labels, empty for a global event. */
+    channels?: (number | string)[]
+    /** Event class. */
+    class?: BiosignalAnnotationEvent['class']
+    /** Annotation color. */
+    color?: SettingsColor
+    /** Additional opacity multiplier for the event color. */
+    opacity?: number
+}>
 /**
  * Common base for all biosignal channel types.
  */

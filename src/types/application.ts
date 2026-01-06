@@ -125,7 +125,7 @@ export type AnnotationTemplate = {
      */
     priority: Annotation['priority']
     /** The raw value of the annotation. Will be used as the visible label for the annotation if `label` is `undefined`. */
-    value: boolean | number | number[] | string | string[]
+    value: Annotation['value']
     /** Author of this annotation. */
     annotator?: Annotation['annotator']
     /** Standardized codes for this annotation. */
