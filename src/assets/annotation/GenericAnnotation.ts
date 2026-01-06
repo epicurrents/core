@@ -6,19 +6,16 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import type { Annotation, AssetSerializeOptions } from '#types'
+import type { Annotation, AnnotationOptions, AssetSerializeOptions } from '#types'
 
 export default abstract class GenericAnnotation extends GenericAsset implements Annotation {
 
-    /** Name used as the annotator for new annotations. */
-    static ANNOTATOR_NAME = ''
-
     protected _annotator: string
-    protected _class = 'event' as Annotation['class']
-    protected _codes = [] as (number | string)[]
-    protected _label = ''
-    protected _priority = 0
-    protected _text = ''
+    protected _class: Annotation['class']
+    protected _codes: (number | string)[]
+    protected _label: string
+    protected _priority: number
+    protected _text: string
     protected _type: string
     protected _value: boolean | number | number[] | string | string[]
     protected _visible: boolean
@@ -27,30 +24,19 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         // Required properties:
         name: string, value: boolean | number | number[] | string | string[], type: string,
         // Optional properties:
-        label?: string, annoClass?: Annotation['class'], codes?: (number | string)[], priority?: number, text?: string,
-        visible = true,
+        options?: AnnotationOptions,
     ) {
         super(name, type)
         this._value = value
         this._type = type
-        this._visible = visible
-        this._annotator = GenericAnnotation.ANNOTATOR_NAME
         // Optional properties.
-        if (label !== undefined) {
-            this._label = label
-        }
-        if (annoClass !== undefined) {
-            this._class = annoClass
-        }
-        if (codes !== undefined) {
-            this._codes = codes
-        }
-        if (priority !== undefined) {
-            this._priority = priority
-        }
-        if (text !== undefined) {
-            this._text = text
-        }
+        this._annotator = options?.annotator ?? ''
+        this._class = options?.class ?? 'event'
+        this._codes = options?.codes ?? []
+        this._label = options?.label ?? ''
+        this._priority = options?.priority ?? 0
+        this._text = options?.text ?? ''
+        this._visible = options?.visible ?? true
     }
 
     get annotator () {

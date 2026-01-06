@@ -8,6 +8,7 @@
 import GenericAnnotation from './GenericAnnotation'
 import type {
     AnnotationLabel,
+    AnnotationOptions,
     AssetSerializeOptions,
     ConfigSchema,
     ResourceConfig,
@@ -58,10 +59,9 @@ export default class ResourceLabel extends GenericAnnotation implements Annotati
         // Required properties:
         name: string, value: boolean | number | number[] | string | string[],
         // Optional properties:
-        label?: string, labelClass?: AnnotationLabel['class'], codes?: (number | string)[], priority?: number, text?: string,
-        visible?: boolean,
+        options?: AnnotationOptions,
     ) {
-        super(name, value, 'label', label, labelClass, codes, priority, text, visible)
+        super(name, value, 'label', options)
     }
 
     get class () {

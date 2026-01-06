@@ -97,6 +97,23 @@ export interface AnnotationLabel extends Annotation {
         class: AnnotationLabel['class'] | null
     }
 }
+/** Optional properties for constructing an annotation. */
+export type AnnotationOptions = {
+    /** Author of this annotation. */
+    annotator?: string
+    /** Annotation class. */
+    class?: Annotation['class']
+    /** Standardized codes for this annotation. */
+    codes?: (number | string)[]
+    /** Text label for the annotation (visible on annotation listings). */
+    label?: string
+    /** Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero. */
+    priority?: number
+    /** Additional commentary regarding the annotation. */
+    text?: string
+    /** Is this annotation visible. */
+    visible?: boolean
+}
 /**
  * Object template to use when constructing an annotation.
  */

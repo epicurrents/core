@@ -5,6 +5,7 @@
 import type {
     Annotation,
     AnnotationLabel,
+    AnnotationOptions,
     AnnotationTemplate,
     ApplicationConfig,
     AssetSerializeOptions,
@@ -30,6 +31,7 @@ import type {
 export {
     Annotation,
     AnnotationLabel,
+    AnnotationOptions,
     AnnotationTemplate,
     ApplicationConfig,
     AssetSerializeOptions,
