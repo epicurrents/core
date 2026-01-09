@@ -20,8 +20,11 @@ import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import SharedWorkerCache from '#assets/biosignal/service/SharedWorkerCache'
 import { GenericSignalReader } from '#assets/reader'
 import type {
+    BiosignalDownsamplingMethod,
     BiosignalFilters,
     BiosignalSetup,
+    BiosignalTrendDerivation,
+    BiosignalTrendProperties,
     DerivedChannelProperties,
     MontageChannel,
     SetupChannel,
@@ -51,6 +54,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
     } as BiosignalFilters
     protected _settings: CommonBiosignalSettings
     protected _setup = null as BiosignalSetup | null
+    protected _trends = new Map<string, BiosignalTrendProperties>()
 
     constructor (settings: CommonBiosignalSettings) {
         super(Float32Array)
@@ -344,6 +348,70 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         } else {
             return derived
         }
+    }
+
+    async computeTrendEpoch (name: string, epochIndex: number) {
+        const trendProps = this._trends.get(name)
+        if (!trendProps) {
+            Log.error(`Cannot compute trend '${name}': missing trend properties.`, SCOPE)
+            return false
+        }
+        if (epochIndex < 0 || epochIndex*Math.max(trendProps.epochLength, 1) >= this._totalRecordingLength) {
+            Log.error(`Cannot compute trend '${name}': invalid epoch index ${epochIndex}.`, SCOPE)
+            return false
+        }
+        // Compute signals for each individual channel.
+        const sourceSignals = [] as number[][]
+        const referenceSignals = [] as number[][]
+        const startTime = Math.max(0, epochIndex*trendProps.epochLength)
+        const endTime = Math.min(startTime + trendProps.epochLength, this._totalRecordingLength)
+        const nSamples = Math.round((endTime - startTime)*trendProps.samplingRate)
+        if (!nSamples) {
+            Log.error(`Cannot compute trend '${name}': invalid epoch time range ${startTime} - ${endTime}.`, SCOPE)
+            return false
+        }
+        const sourceSigParts = await this.getSignals(
+            [startTime, endTime],
+            { include: trendProps.derivation.sourceChannels }
+        )
+        if (sourceSigParts?.signals.length) {
+            if (sourceSigParts.signals.length > 1) {
+                const sourceSignals = [] as number[]
+                for (let i=0; i<nSamples; i++) {
+                    const sampleValues = [] as number[]
+                    for (const sig of sourceSigParts.signals) {
+                        sampleValues.push(sig.data[i])
+                    }
+                    sourceSignals.push(
+                        sampleValues.reduce((sum, a) => sum + a, 0)/sampleValues.length
+                    )
+                }
+            } else {
+                sourceSignals.push(Array.from(sourceSigParts.signals[0].data))
+            }
+        }
+        const refSigParts = await this.getSignals(
+            [startTime, endTime],
+            { include: trendProps.derivation.referenceChannels }
+        )
+        if (refSigParts?.signals.length) {
+            if (refSigParts.signals.length > 1) {
+                const referenceSignals = [] as number[]
+                for (let i=0; i<nSamples; i++) {
+                    const sampleValues = [] as number[]
+                    for (const sig of refSigParts.signals) {
+                        sampleValues.push(sig.data[i])
+                    }
+                    referenceSignals.push(
+                        sampleValues.reduce((sum, a) => sum + a, 0)/sampleValues.length
+                    )
+                }
+            } else {
+                referenceSignals.push(Array.from(refSigParts.signals[0].data))
+            }
+        }
+        // TODO: Compute the trend using sourceSignals and referenceSignals.
+        return true
     }
 
     async destroy () {
@@ -658,6 +726,61 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         }
         this._fallbackCache = new SharedWorkerCache(input, postMessage)
         Log.debug(`Shared worker cache setup complete.`, SCOPE)
+        return true
+    }
+
+    async setupTrend (
+        name: string,
+        derivation: BiosignalTrendDerivation,
+        samplingRate: number,
+        epochLength: number,
+        downsamplingMethod: BiosignalDownsamplingMethod
+    ) {
+
+        // Compute epoch length from derivation epoch length and sampling rate.
+        let sourceHz = this._channels[derivation.sourceChannels[0]]?.samplingRate || 0
+        let sigLen = this._channels[derivation.sourceChannels[0]]?.sampleCount || 0
+        if (!sourceHz) {
+            Log.error(`Cannot determine source channel sampling rate for trend '${name}'.`, SCOPE)
+        } else if (!sigLen) {
+            Log.error(`Cannot determine source channel signal length for trend '${name}'.`, SCOPE)
+        } else {
+            for (let i=1; i<derivation.sourceChannels.length; i++) {
+                if ((this._channels[derivation.sourceChannels[i]]?.samplingRate || 0) !== sourceHz) {
+                    Log.error(`Source channels have differing sampling rates for trend '${name}'.`, SCOPE)
+                    sourceHz = 0
+                    break
+                } else if ((this._channels[derivation.sourceChannels[i]]?.sampleCount || 0) !== sigLen) {
+                    Log.error(`Source channels have differing signal lengths for trend '${name}'.`, SCOPE)
+                    sigLen = 0
+                    break
+                }
+            }
+            for (const ref of derivation.referenceChannels) {
+                if ((this._channels[ref]?.samplingRate || 0) !== sourceHz) {
+                    Log.error(`Reference channels have differing sampling rates for trend '${name}'.`, SCOPE)
+                    sourceHz = 0
+                    break
+                } else if ((this._channels[ref]?.sampleCount || 0) !== sigLen) {
+                    Log.error(`Reference channels have differing signal lengths for trend '${name}'.`, SCOPE)
+                    sigLen = 0
+                    break
+                }
+            }
+        }
+        if (!sourceHz) {
+            Log.error(`Cannot set up trend '${name}': invalid channel sampling rate.`, SCOPE)
+            return false
+        } else if (!sigLen) {
+            Log.error(`Cannot set up trend '${name}': invalid channel signal length.`, SCOPE)
+            return false
+        }
+        this._trends.set(name, {
+            derivation,
+            samplingRate,
+            epochLength,
+            downsamplingMethod
+        })
         return true
     }
 }

@@ -32,6 +32,7 @@ import {
     MemoryManager,
     MessageHandled,
     SetupStudyResponse,
+    SetupWorkerResponse,
     SignalCacheResponse,
     SignalCachePart,
     WorkerResponse,
@@ -505,6 +506,15 @@ export interface BiosignalDataService extends AssetService {
     setupCache (dataDuration: number): Promise<SignalDataCache|null>
 }
 /**
+ * Downsampling method applied to a signal.
+ * - `average`: Calculates the average of the samples within the downsampling window.
+ * - `max`: Takes the maximum value of the samples within the downsampling window.
+ * - `max-abs`: Takes the value with the maximum absolute of the samples within the downsampling window (negative or positive).
+ * - `min`: Takes the minimum value of the samples within the downsampling window.
+ * - `sum`: Calculates the sum of the samples within the downsampling window.
+ */
+export type BiosignalDownsamplingMethod = 'average' | 'max' | 'max-abs' | 'min' | 'sum'
+/**
  * Filter types for biosignal resources.
  */
 export type BiosignalFilters = {
@@ -836,6 +846,19 @@ export interface BiosignalMontageService extends AssetService {
      */
     cacheMontageSignals (): void
     /**
+     * Compute the trend signal according to the derivation properties.
+     * @emits trend-complete - Emitted from the class when trend computation is complete.
+     * @emits trend-epoch - Emitted from the class after each trend epoch is computed.
+     */
+    computeTrend (): {
+        /** Cancel the current trend computation. */
+        cancel: () => void
+        /** Register a callback to be executed when an epoch is ready. */
+        onEpochReady: (callback: (signal: number[], epochIndex: number, totalEpochs: number) => void) => void
+        /** Resolves when computation is complete or rejects if it is interrupted. */
+        result: Promise<unknown>
+    }
+    /**
      * Load montage signals within the given range.
      * @param range - Range in seconds [start (included), end (excluded)].
      * @param config - Optional configuration (TODO: Config definitions).
@@ -880,6 +903,21 @@ export interface BiosignalMontageService extends AssetService {
      * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
      */
     setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupSharedWorkerResponse>
+    /**
+     * Set up a trend signal in the worker.
+     * @param name - Identifying name for the trend.
+     * @param derivation - Signal derivation properties for the trend.
+     * @param samplingRate - Sampling rate of the trend signal.
+     * @param epochLength - Length of the epoch for the trend calculation.
+     * @param downsamplingMethod - Method used for downsampling the trend signal.
+     */
+    setupTrend (
+        name: string,
+        derivation: BiosignalTrendDerivation,
+        samplingRate: number,
+        epochLength: number,
+        downsamplingMethod?: BiosignalDownsamplingMethod
+    ): Promise<SetupWorkerResponse>
 }
 /**
  * Template for constructing a biosignal montage.
@@ -1220,6 +1258,59 @@ export type BiosignalStudyProperties = {
     /** A generic header record containing key properties of the underlying recording. */
     header: BiosignalHeaderRecord
 }
+/** A trend calculated from one or more biosignal channel signals. */
+export interface BiosignalTrend extends BaseAsset {
+    /** Derivation properties for this trend. */
+    derivation: BiosignalTrendDerivation
+    /** Downsampling method applied to the derived signal. */
+    downsamplingMethod: BiosignalDownsamplingMethod
+    /** Descriptive label for this trend. */
+    label: string
+    /** Sampling rate of this trend in Hz. */
+    samplingRate: number
+    /** Computed trend signal. */
+    signal: number[]
+    /**
+     * Cancel the ongoing trend computation.
+     */
+    cancelTrendComputation: () => void
+    /**
+     * Compute the trend signal according to the derivation properties. Resolves when computation is complete.
+     * @emits trend-complete - Emitted from the class when trend computation is complete.
+     * @emits trend-epoch - Emitted from the class after each trend epoch is computed.
+     * @emits trend-error - Emitted from the class if an error or interruption occurs during trend computation.
+     */
+    computeTrend (): Promise<unknown>
+}
+/** Definition of a biosignal trend derivation. */
+export type BiosignalTrendDerivation = {
+    /** Montage channel indices used as reference for this trend. */
+    referenceChannels: number[]
+    /** Montage channel indices used as source for this trend. */
+    sourceChannels: number[]
+    /** Trend type. */
+    type: BiosignalTrendType
+    /** Function applied to reference channels (e.g., averaging). */
+    referenceFunction?: BiosignalTrendFunction
+    /** Function applied to source channels (e.g., averaging). */
+    sourceFunction?: BiosignalTrendFunction
+}
+/** Function applied to channels in a biosignal trend derivation. */
+export type BiosignalTrendFunction = 'average' | 'difference' | 'sum'
+/** Required properties for biosignal trend computation. */
+export type BiosignalTrendProperties = {
+    /** Derivation properties for the trend. */
+    derivation: BiosignalTrendDerivation
+    /** Downsampling method used for the trend calculation. */
+    downsamplingMethod: BiosignalDownsamplingMethod
+    /** Length of each epoch in seconds. */
+    epochLength: number
+    /** Sampling rate of the trend in Hz. */
+    samplingRate: number
+}
+/** Type of biosignal trend derivation. */
+export type BiosignalTrendType = 'amplitude'
+/** Properties defining the position of a channel in the viewport. */
 export type ChannelPositionProperties = {
     /** Bottom edge position as a fraction of the viewport height. */
     bottom: number
@@ -1293,6 +1384,13 @@ export interface MontageChannel extends BiosignalChannel, BaseAsset {
  * Commission types for a montage worker with the action name as key and property types as value.
  */
 export type MontageWorkerCommission = {
+    /** Cancel an ongoing trend computation. */
+    'cancel-trend-computation': WorkerMessage['data']
+    /** Compute the trend signal for the given range. */
+    'compute-trend': WorkerMessage['data'] & {
+        /** Range of the signal in seconds (defaults to whole signal). */
+        range?: number[]
+    }
     /** Get montage signals for the given range */
     'get-signals': WorkerMessage['data'] & {
         /** Signals range in seconds as [start (included), end (excluded)]. */
@@ -1341,6 +1439,11 @@ export type MontageWorkerCommission = {
         input: MutexExportProperties
         /** Total recording duration in seconds. */
         recordingDuration: number
+    }
+    /** Set up a trend calculation in the worker. */
+    'setup-trend': WorkerMessage['data'] & BiosignalTrendProperties & {
+        /** Name of the trend. */
+        name: string
     }
     /** Set up the necessary properties; the worker should be ready to receive commissions after this. */
     'setup-worker': WorkerMessage['data'] & {
