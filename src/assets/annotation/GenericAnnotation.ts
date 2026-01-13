@@ -17,12 +17,12 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
     protected _priority: number
     protected _text: string
     protected _type: string
-    protected _value: boolean | number | number[] | string | string[]
+    protected _value: boolean | number | number[] | string | string[] | null
     protected _visible: boolean
 
     constructor (
         // Required properties:
-        name: string, value: boolean | number | number[] | string | string[], type: string,
+        name: string, value: boolean | number | number[] | string | string[] | null, type: string,
         // Optional properties:
         options?: AnnotationOptions,
     ) {
@@ -93,7 +93,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
     get value () {
         return this._value
     }
-    set value (value: boolean | number | number[] | string | string[]) {
+    set value (value: boolean | number | number[] | string | string[] | null) {
         this._setPropertyValue('value', value)
     }
 

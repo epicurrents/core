@@ -57,7 +57,7 @@ export default class ResourceLabel extends GenericAnnotation implements Annotati
 
     constructor (
         // Required properties:
-        name: string, value: boolean | number | number[] | string | string[],
+        name: string, value: boolean | number | number[] | string | string[] | null,
         // Optional properties:
         options?: AnnotationOptions,
     ) {
