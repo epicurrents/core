@@ -454,7 +454,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                     || (
                         oldLabel.type === newLabel.type
                         && oldLabel.label === newLabel.label
-                        && oldLabel.codes.every(val => newLabel.codes.includes(val))
+                        && Object.entries(oldLabel.codes).every(
+                            ([key, val]) => newLabel.codes[key] === val
+                        )
                     )
                 ) {
                     continue new_loop

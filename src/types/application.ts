@@ -44,7 +44,7 @@ export interface Annotation extends BaseAsset {
     /** Annotation class. */
     class: string
     /** Standardized codes for this annotation. */
-    codes: (number | string)[]
+    codes: Record<string, number | string>
     /**
      * Text label for the annotation (visible on annotation listings).
      * If left empty, it will return a string representation of the value (array values joined by commas).
@@ -65,7 +65,7 @@ export interface Annotation extends BaseAsset {
     serialize (options?: AssetSerializeOptions): ReturnType<BaseAsset['serialize']> & {
         annotator: string | null
         class: Annotation['class'] | null
-        codes: (number | string)[] | null
+        codes: Record<string, number | string> | null
         label: string | null
         priority: number
         text: string | null
@@ -104,7 +104,7 @@ export type AnnotationOptions = {
     /** Annotation class. */
     class?: Annotation['class']
     /** Standardized codes for this annotation. */
-    codes?: (number | string)[]
+    codes?: Record<string, number | string>
     /** Text label for the annotation (visible on annotation listings). */
     label?: string
     /** Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero. */
@@ -129,7 +129,7 @@ export type AnnotationTemplate = {
     /** Author of this annotation. */
     annotator?: Annotation['annotator']
     /** Standardized codes for this annotation. */
-    codes?: (number | string)[]
+    codes?: Record<string, number | string>
     /** Text label for the annotation to override the value in annotation listings. */
     label?: Annotation['label']
     /**

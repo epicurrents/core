@@ -222,7 +222,12 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
                             newEvent.label === existingEvent.label &&
                             newEvent.priority === existingEvent.priority &&
                             newEvent.type === existingEvent.type &&
-                            newEvent.codes?.every(code => existingEvent.codes?.includes(code))
+                            (
+                                (!newEvent.codes && !existingEvent.codes) ||
+                                (newEvent.codes && Object.entries(newEvent.codes).every(
+                                    ([key, val]) => existingEvent.codes?.[key] === val
+                                ))
+                            )
                         ) {
                             // This event is identical to an existing one, don't duplicate.
                             continue new_loop
@@ -262,8 +267,11 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
             }
             if (this._labels.find(
                 lbl => lbl.name === label.name && lbl.class === label.class && lbl.label === label.label
-                       && lbl.priority === label.priority && lbl.type === label.type
-                       && lbl.codes?.every(code => label.codes?.includes(code))
+                    && lbl.priority === label.priority && lbl.type === label.type
+                    && (
+                        (!lbl.codes && !label.codes) ||
+                        (lbl.codes && Object.entries(lbl.codes)?.every(([key, val]) => label.codes?.[key] === val))
+                       )
             )) {
                 // This label has already been processed, don't duplicate.
                 continue

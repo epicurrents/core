@@ -1320,6 +1320,21 @@ export type ChannelPositionProperties = {
     top: number
 }
 /**
+ * Properties for coded biosignal annotation events.
+ */
+export type CodedEventProperties = {
+    /** Unique code for the event. */
+    code: string
+    /** Descriptive name for the event. */
+    name: string
+    /** Significance of the event. */
+    significance?: 'abnormal' | 'artifact' | 'normal' | 'uncertain'
+    /** Optional detailed description of the event. */
+    description?: string
+    /** Event codes for additional standards. */
+    standardCodes?: Record<string, number | string>
+}
+/**
  * Indices of channels in the source file used for constructing a derived channel.
  *
  * If multiple indices are present, the channel is an average of the signals at those indices. Each channel may have a

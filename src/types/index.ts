@@ -101,6 +101,7 @@ import type {
     BiosignalTrendProperties,
     BiosignalTrendType,
     ChannelPositionProperties,
+    CodedEventProperties,
     DerivedChannelProperties,
     FftAnalysisResult,
     GetSignalsResponse,
@@ -165,6 +166,7 @@ export {
     BiosignalTrendProperties,
     BiosignalTrendType,
     ChannelPositionProperties,
+    CodedEventProperties,
     DerivedChannelProperties,
     FftAnalysisResult,
     GetSignalsResponse,
@@ -491,12 +493,16 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    DeepPartial,
+    DeepReadonly,
     Entries,
     Modify,
     TypedNumberArray,
     TypedNumberArrayConstructor,
 } from './util'
 export {
+    DeepPartial,
+    DeepReadonly,
     Entries,
     Modify,
     TypedNumberArray,
