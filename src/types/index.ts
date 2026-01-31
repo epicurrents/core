@@ -60,6 +60,7 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    AmplitudeEnvelopeElement,
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
     BiosignalAnnotationEvent,
@@ -125,6 +126,7 @@ import type {
     WorkerMontage,
 } from './biosignal'
 export {
+    AmplitudeEnvelopeElement,
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
     BiosignalAnnotationEvent,

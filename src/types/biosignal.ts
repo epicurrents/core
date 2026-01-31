@@ -43,6 +43,20 @@ import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-m
 import { Modify } from './util'
 
 /**
+ * A single element of an amplitude envelope, containing the maximum and minimum values and their indices.
+ */
+export type AmplitudeEnvelopeElement = {
+    max: {
+        index: number
+        value: number
+    }
+    min: {
+        index: number
+        value: number
+    }
+}
+
+/**
  * Object template to use when constructing a biosignal annotation.
  */
 export type AnnotationEventTemplate = AnnotationTemplate & {
