@@ -181,7 +181,14 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchPayloadEvent('add-dataset', dataset)
     }
 
-    addResource (modality: string, resource: DataResource | DatasetResourceContext, setAsActive = false) {
+    addResource (
+        modality: string,
+        resource: DataResource | DatasetResourceContext,
+        options = {} as {
+            dataset?: MediaDataset
+            setAsActive?: boolean
+        }
+    ) {
         const resourceModule = state.MODULES.get(modality)
         if (!resourceModule) {
             Log.error(
@@ -191,35 +198,35 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             return
         }
         const resourceContext = 'resource' in resource ? resource : { resource }
-        let activeSet = state.APP.activeDataset
-        if (!activeSet) {
+        let targetSet = options.dataset || state.APP.activeDataset
+        if (!targetSet) {
             Log.debug(`No active dataset when adding resource, creating a new one.`, SCOPE)
-            activeSet = new MixedMediaDataset(`Dataset ${state.APP.datasets.length + 1}`)
-            this.addDataset(activeSet, true)
+            targetSet = new MixedMediaDataset(`Dataset ${state.APP.datasets.length + 1}`)
+            this.addDataset(targetSet, true)
         } else {
-            for (const existing of activeSet.resources) {
+            for (const existing of targetSet.resources) {
                 if (existing.resource.id === resourceContext.resource.id) {
                     Log.warn(`Tried to add a resource that already exists in current dataset.`, SCOPE)
                     return
                 }
             }
         }
-        for (const preEx of activeSet.resources) {
+        for (const preEx of targetSet.resources) {
             if (preEx.resource.id === resourceContext.resource.id) {
                 Log.warn(
                     `Resource '${resourceContext.resource.name}' already existed in currently active dataset.`,
                     SCOPE
                 )
-                if (setAsActive) {
+                if (targetSet.isActive && options.setAsActive) {
                     this.setActiveResource(resourceContext.resource)
                 }
                 return
             }
         }
         this.dispatchPayloadEvent('add-resource', resourceContext, 'before')
-        activeSet.resources.push(resourceContext)
+        targetSet.resources.push(resourceContext)
         this.dispatchPayloadEvent('add-resource', resourceContext)
-        if (setAsActive) {
+        if (targetSet.isActive && options.setAsActive) {
             this.setActiveResource(resourceContext.resource)
         }
     }

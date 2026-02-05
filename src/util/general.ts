@@ -70,14 +70,14 @@ export const deepEqual = <T extends { [key: string]: any }>(obj1: T, obj2: T): b
 }
 
 /**
- * Enumerate over an array, returning [index, item].
- * @param iterable - Any array.
+ * Enumerate over an iterable, returning [index, item].
+ * @param iterable - Any iterable items.
  * @example
- * for (const [i, item] of enumerate(iterableArray)) {
- *      console.log(iterableArray[i] === item) // true
+ * for (const [i, item] of enumerate(iterableItems)) {
+ *      console.log(iterableItems[i] === item) // true
  * }
  */
-export const enumerate = function* (iterable: unknown[]) {
+export const enumerate = function* <T>(iterable: Iterable<T>) {
     let i = 0
     for (const x of iterable) {
         yield [i, x]

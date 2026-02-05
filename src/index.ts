@@ -297,11 +297,14 @@ export class Epicurrents implements EpicurrentsApp {
         options: ConfigStudyLoader & DatabaseQueryOptions = {}
     ) {
         const context = this.#runtime.APP.studyImporters.get(loader)
+        // Dataset option is only used here. (TODO: Remove other non-clonable options too?)
+        const { dataset } = options
+        delete options.dataset
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
             // Add an error resource in place of the resource that failed to load.
             const errorResource = new ErrorResource(options.name || 'Unknown', 'error', undefined)
-            this.#runtime.addResource('UNKNOWN', errorResource)
+            this.#runtime.addResource('UNKNOWN', errorResource, { dataset })
             return null
         }
         if (this.#memoryManager) {
@@ -323,13 +326,13 @@ export class Epicurrents implements EpicurrentsApp {
                 context.loader.resourceModality,
                 undefined
             )
-            this.#runtime.addResource(context.loader.resourceModality, errorResource)
+            this.#runtime.addResource(context.loader.resourceModality, errorResource, { dataset })
             return null
         }
         const nextIdx = await context.loader.useStudy(study)
         const resource = await context.loader.getResource(nextIdx)
         if (resource) {
-            this.#runtime.addResource(context.loader.resourceModality, resource)
+            this.#runtime.addResource(context.loader.resourceModality, resource, { dataset })
             // Start preparing the resource, but return it immediately.
             resource.prepare(options).then(success => {
                 if (!success) {
@@ -339,7 +342,7 @@ export class Epicurrents implements EpicurrentsApp {
             return resource
         } else {
             const errorResource = new ErrorResource(study.name, study.modality, study)
-            this.#runtime.addResource(context.loader.resourceModality, errorResource)
+            this.#runtime.addResource(context.loader.resourceModality, errorResource, { dataset })
         }
         return null
     }

@@ -73,6 +73,7 @@ export default abstract class GenericDataset extends GenericResource implements 
                             {
                                 name: file.name,
                                 authHeader: this._connectorIn!.authHeader || undefined,
+                                dataset: this,
                             }
                         )
                         if (!study) {
@@ -96,6 +97,7 @@ export default abstract class GenericDataset extends GenericResource implements 
                             {
                                 ...ctx,
                                 authHeader: this._connectorIn!.authHeader || undefined,
+                                dataset: this,
                             }
                         )
                         if (!study) {

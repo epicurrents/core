@@ -743,10 +743,19 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * Add a new `resource` with the given `modality`.
      * @param modality - Modality of the new resource.
      * @param resource - The resource to add.
-     * @param setAsActive - Should the new resource be set as active (default false).
+     * @param options - Additional options.
+     *        - `dataset` - Dataset to add the resource to (default use active dataset or create a new one).
+     *        - `setAsActive` - Should the new resource be set as active (default false).
      * @emits `add-resource` with the new resource as payload.
      */
-    addResource (modality: string, resource: DataResource, setAsActive?: boolean): void
+    addResource (
+        modality: string,
+        resource: DataResource,
+        options?: {
+            dataset?: MediaDataset
+            setAsActive?: boolean
+        }
+    ): void
     /**
      * Set the given `resource` as not active.
      * @param resource - Resource to deactivate.
