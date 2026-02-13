@@ -224,7 +224,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             }
         }
         this.dispatchPayloadEvent('add-resource', resourceContext, 'before')
-        targetSet.resources.push(resourceContext)
+        targetSet.addResource(resourceContext)
         this.dispatchPayloadEvent('add-resource', resourceContext)
         if (targetSet.isActive && options.setAsActive) {
             this.setActiveResource(resourceContext.resource)

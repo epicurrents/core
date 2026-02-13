@@ -168,6 +168,28 @@ export default abstract class GenericDataset extends GenericResource implements 
         return this._resources
     }
     set resources (value: DatasetResourceContext[]) {
+        // Check if any currently existing resources are being removed and unload them.
+        for (const existing of this._resources) {
+            if (!value.some(newCtx => newCtx.resource.id === existing.resource.id)) {
+                Log.debug(`Resource ${existing.resource.name} removed from dataset resources.`, SCOPE)
+                // Remove listeners related to the resource.
+                existing.resource.removeAllEventListeners(this.id)
+                // Unload the resource if it does not exist in any other dataset.
+                if (!this._app?.runtime.APP.datasets.some(
+                    ds => ds.id !== this.id && ds.resources.some(rCtx => rCtx.resource.id === existing.resource.id)
+                )) {
+                    existing.resource.unload()
+                }
+            }
+        }
+        // Add listeners for new resources.
+        for (const context of value) {
+            if (!this._resources.some(existing => existing.resource.id === context.resource.id)) {
+                context.resource.onPropertyChange('isActive', () => {
+                    this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
+                }, this.id)
+            }
+        }
         this._setPropertyValue('resources', value)
     }
 
@@ -213,22 +235,34 @@ export default abstract class GenericDataset extends GenericResource implements 
         return mapped
     }
 
-    addResource (context: DatasetResourceContext) {
-        for (const existing of this._resources) {
-            if (existing.resource.id === context.resource.id) {
+    addResource (...contexts: DatasetResourceContext[]) {
+        const toAdd = [] as DatasetResourceContext[]
+        for (const context of contexts) {
+            if (this._resources.some(existing => existing.resource.id === context.resource.id)) {
                 Log.debug(`Did not add a pre-existing resource to dataset resources.`, SCOPE)
-                return
+            } else {
+                toAdd.push(context)
             }
         }
-        this.dispatchPayloadEvent('add-resource', context, 'before')
-        const prevState = [...this.resources]
-        this._resources.push(context)
-        if (this._resourceSorting.scheme === 'id') {
-            this._resourceSorting.order.push(context.resource.id)
+        if (!toAdd.length) {
+            Log.debug(`No new resources to add to dataset resources.`, SCOPE)
+            return
         }
-        this.dispatchPayloadEvent('add-resource', context, 'after')
-        Log.debug(`Added ${context.resource.name} to dataset resources.`, SCOPE)
-        // Also dispatch a property change event.
+        const prevState = [...this.resources]
+        this.dispatchPayloadEvent('add-resource', toAdd.length === 1 ? toAdd[0] : toAdd, 'before')
+        for (const context of toAdd) {
+            // Listen to changes in the resource's active state and update the dataset's active resources accordingly.
+            context.resource.onPropertyChange('isActive', () => {
+                this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
+            }, this.id)
+            this._resources.push(context)
+            if (this._resourceSorting.scheme === 'id') {
+                this._resourceSorting.order.push(context.resource.id)
+            }
+            this.dispatchPayloadEvent('add-resource', context, 'after')
+            Log.debug(`Added ${context.resource.name} to dataset resources.`, SCOPE)
+            // Also dispatch a property change event.
+        }
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
     }
 
@@ -267,8 +301,14 @@ export default abstract class GenericDataset extends GenericResource implements 
         Log.debug(`Removed ${removed.resource.name} from dataset resources.`, SCOPE)
         // Also dispatch a property change event.
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
-        // Unload the removed resource.
-        removed.resource.unload()
+        // Remove listeners related to the resource.
+        removed.resource.removeAllEventListeners(this.id)
+        // Unload the removed resource if it is not used in any other dataset.
+        if (!this._app?.runtime.APP.datasets.some(
+            ds => ds.id !== this.id && ds.resources.some(rCtx => rCtx.resource.id === removed.resource.id)
+        )) {
+            removed.resource.unload()
+        }
         return removed
     }
 
