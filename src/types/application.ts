@@ -178,9 +178,21 @@ export type AssetSerializeOptions = {
     nullIfEmpty?: string[]
 }
 /**
+ * Resource state depicting the phase of loading and preparing the resource for use.
+ * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
+ * - `loading`: Resource data is being loaded from the source.
+ * - `loaded`: Data has been loaded, but resource is not yet initialized.
+ * - `ready`: Resource is initialized and ready for use.
+ * - `destroyed`: Resource has been unloaded and is no longer available.
+ * - `error`: There was a loading error.
+ */
+export type AssetState = 'added' | 'destroyed' | 'error' | 'loaded' | 'loading' | 'ready'
+/**
  * The most basic type defining properties that must exist in every asset.
  */
 export interface BaseAsset {
+    /** Message to display as the error state reason. */
+    errorReason: string
     /** Unique id (generated automatically). */
     id: string
     /** Is this asset selected as active. */
@@ -189,6 +201,16 @@ export interface BaseAsset {
     modality: string
     /* Below fields are given proper descriptions in sub-interfaces */
     name: string
+    /**
+     * Resource state depicting the phase of loading and preparing the resource for use.
+     * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
+     * - `loading`: Resource data is being loaded from the source.
+     * - `loaded`: Data has been loaded, but resource is not yet initialized.
+     * - `ready`: Resource is initialized and ready for use.
+     * - `destroyed`: Resource has been unloaded and is no longer available.
+     * - `error`: There was a loading error.
+     */
+    state: AssetState
     /**
      * Add a listener for an `event` or list of events.
      * @param event - Event or list of events to listen for.
@@ -336,24 +358,12 @@ export interface BaseAsset {
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
     dependenciesReady: string[]
-    /** Message to display as the error state reason. */
-    errorReason: string
     /** Is the resource ready for use. */
     isReady: boolean
     /** List of label annotations. */
     labels: AnnotationLabel[]
     /** Source study for this resource. */
     source: StudyContext | null
-    /**
-     * Resource state depicting the phase of loading and preparing the resource for use.
-     * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
-     * - `loading`: Resource data is being loaded from the source.
-     * - `loaded`: Data has been loaded, but resource is not yet initialized.
-     * - `ready`: Resource is initialized and ready for use.
-     * - `destroyed`: Resource has been unloaded and is no longer available.
-     * - `error`: There was a loading error.
-     */
-    state: ResourceState
     /**
      * Add `dependencies` to the list of missing dependencies for this resource.
      * @param dependencies - Dependency or dependencies to add.
@@ -623,16 +633,6 @@ export type ResourceModule = {
     runtime: RuntimeResourceModule
     settings: BaseModuleSettings
 }
-/**
- * Resource state depicting the phase of loading and preparing the resource for use.
- * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
- * - `loading`: Resource data is being loaded from the source.
- * - `loaded`: Data has been loaded, but resource is not yet initialized.
- * - `ready`: Resource is initialized and ready for use.
- * - `destroyed`: Resource has been unloaded and is no longer available.
- * - `error`: There was a loading error.
- */
-export type ResourceState = 'added' | 'destroyed' | 'error' | 'loaded' | 'loading' | 'ready'
 /**
  * This is the main application runtime module, which has a unique structure.
  */

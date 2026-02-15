@@ -11,6 +11,7 @@ import { deepClone, safeObjectFrom } from '#util'
 import { Log } from 'scoped-event-log'
 import { AssetEvents } from '#events/EventTypes'
 import type {
+    AssetState,
     BaseAsset,
     EpicurrentsApp,
     PropertyChangeHandler,
@@ -74,11 +75,13 @@ export default abstract class GenericAsset implements BaseAsset {
     private static USED_IDS = new Set<string>()
     protected _app: EpicurrentsApp | null = null
     protected _configSchema: null | ConfigSchema = null
+    protected _errorReason = ''
     protected _eventBus: ScopedEventBus
     protected _id: string
     protected _isActive: boolean = false
     protected _modality: string
     protected _name: string
+    protected _state: AssetState = 'added'
 
     constructor (name: string, modality: string) {
         // Make sure that reference to the global __EPICURRENTS__ object exists.
@@ -104,6 +107,12 @@ export default abstract class GenericAsset implements BaseAsset {
         setTimeout(() => this.dispatchEvent(AssetEvents.CREATE), 1)
     }
 
+    get errorReason () {
+        return this._errorReason
+    }
+    set errorReason (value: string) {
+        this._setPropertyValue('errorReason', value)
+    }
     get id () {
         return this._id
     }
@@ -130,6 +139,17 @@ export default abstract class GenericAsset implements BaseAsset {
             return
         }
         this._setPropertyValue('name', value)
+    }
+    get state () {
+        return this._state
+    }
+    set state (value: AssetState) {
+        const prevState = this._state
+        this._setPropertyValue('state', value)
+        if (prevState === 'error' && value !== 'error') {
+            // Reset error message if state changes from error into something else.
+            this._errorReason = ''
+        }
     }
 
     ///////////////////////////////////////////////////
@@ -300,8 +320,10 @@ export default abstract class GenericAsset implements BaseAsset {
             this.isActive = false
         }
         this.removeAllEventListeners()
-        this._eventBus = null as unknown as ScopedEventBus
         this.dispatchEvent(GenericAsset.EVENTS.DESTROY)
+        this.state = 'destroyed'
+        // Event bus reference is kept until the end of the destroy process to allow event dispatching.
+        this._eventBus = null as unknown as ScopedEventBus
     }
 
     dispatchEvent (event: string, phase: ScopedEventPhase = 'after', detail?: { [key: string]: unknown }) {
