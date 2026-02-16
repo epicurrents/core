@@ -6,6 +6,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
+import { safeObjectFrom } from '#util'
 import type {
     Annotation,
     AnnotationOptions,
@@ -29,7 +30,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
      * provide class-specific coded events.
      */
     static get CODED_EVENTS () {
-        return {} as Record<string,
+        return safeObjectFrom({}) as Record<string,
             Record<string, CodedEventProperties>
         >
     }
