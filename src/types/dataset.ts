@@ -15,13 +15,13 @@ import { StudyContext } from './study'
  */
 export interface BaseDataset extends BaseAsset {
     /** List of dataset resources that have been marked active. */
-    activeResources: DataResource[]
+    activeResources: ReadonlyArray<DataResource>
     /** Does this dataset have an active input data source. */
     hasInputSource: boolean
     /** Does this dataset have an active output data source. */
     hasOutputSource: boolean
     /** Array of resources in this dataset. */
-    resources: DatasetResourceContext[]
+    resources: ReadonlyArray<DatasetResourceContext>
     /** Sorting scheme used to order the resources in `resources` array. */
     resourceSorting: ResourceSortingInstructions
     /**

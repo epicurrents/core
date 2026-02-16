@@ -14,6 +14,7 @@ import type {
     FftAnalysisResult,
     MontageChannel,
     SetupChannel,
+    AmplitudeEnvelopeElement,
 } from '#types/biosignal'
 import { CommonBiosignalSettings, type ConfigChannelLayout } from '../types/config'
 import { type SignalCachePart } from '#types/service'
@@ -135,6 +136,30 @@ const calculateReferencedSignals = async (
     }
 }
 */
+
+/**
+ * Get amplitude envelope for the give `signal`, divided in windows of given size.
+ * @param signal - Signal data as number array or Float32Array.
+ * @param windowSize - Size of the sliding window. A single min/max pair will be extracted for each window.
+ * @returns Amplitude envelope as an array of min/max value pairs and their indices.
+ */
+export const calculateAmplitudeEnvelope = (
+    signal: number[] | Float32Array,
+    windowSize: number
+): AmplitudeEnvelopeElement[] => {
+    // Get global min and max values in sliding window.
+    const envelope = [] as AmplitudeEnvelopeElement[]
+    for (let i=0; i<Math.ceil(signal.length/windowSize); i++) {
+        const window = signal instanceof Float32Array
+                     ? signal.subarray(i*windowSize, Math.min((i + 1)*windowSize, signal.length))
+                     : signal.slice(i*windowSize, Math.min((i + 1)*windowSize, signal.length))
+        envelope[i] = getAmplitudeBoundaries(window)
+        // Correct indices to be relative to the entire signal.
+        envelope[i].min.index += i*windowSize
+        envelope[i].max.index += i*windowSize
+    }
+    return envelope
+}
 
 /**
  * Calculate and update signal offsets (from trace baseline) for given channels using the given layout configuration.
@@ -676,6 +701,71 @@ export const generateSineWave = (samplingRate: number, duration: number, ...comp
         }
     }
     return signal
+}
+
+/**
+ * Get the global minimum and maximum amplitude values and their indices from the given signal.
+ * @param signal - Signal data as number array or Float32Array.
+ * @returns An object containing the min and max values and their indices.
+ */
+export const getAmplitudeBoundaries = (signal: number[] | Float32Array): AmplitudeEnvelopeElement => {
+    const difference = (v: number[]): number[] => {
+        const diff: number[] = []
+        for (let i = 1; i < v.length; i++) {
+            diff.push(v[i] - v[i - 1])
+        }
+        return diff
+    }
+    const sign = (v: number[]): number[] => {
+        return v.map((value) => (value === 0 ? 0 : value >= 0 ? 1 : -1))
+    }
+    // Find local minima.
+    // A local minimum is indicated by a change from negative to positive in the difference signal.
+    const localMinima = difference(
+        // Simplify the difference signal to only its sign changes.
+        sign(
+            // Take the difference between adjacent samples to find out if the signal is increasing or decreasing.
+            difference(Array.from(signal))
+        )
+    // Keep only the positive changes, which indicate local minima. We could use > 1 here to only detect changes from
+    // -1 to 1 (strict minima), but using > 0 also captures changes from 0 to 1 (flat minima).
+    ).map(v => (v > 0 ? v : 0))
+    // Map local minima to their signal indices.
+    const lminIndices: number[] = []
+    localMinima.forEach((v, i) => {
+        if (v > 0) {
+            lminIndices.push(i + 1) // +1 because difference reduces length by 1
+        }
+    })
+    // Choose the lowest local minimum as the global minimum.
+    const globalMin = Math.min(...lminIndices.map(i => signal[i]))
+    // Select the first occurrence of the global minimum as the index.
+    const globalMinIdx = lminIndices.find(i => signal[i] === globalMin) || 0
+    // Find local maxima.
+    const localMaxima = difference(
+        sign(
+            difference(Array.from(signal))
+        )
+    // Here we instead take only the negative changes, which indicate local maxima.
+    ).map(v => (v < 0 ? -v : 0))
+    const lmaxIndices: number[] = []
+    localMaxima.forEach((v, i) => {
+        if (v > 0) {
+            lmaxIndices.push(i + 1)
+        }
+    })
+    const globalMax = Math.max(...lmaxIndices.map(i => signal[i]))
+    const globalMaxIdx = lmaxIndices.find(i => signal[i] === globalMax) || 0
+    return {
+        min: {
+            value: globalMin,
+            index: globalMinIdx,
+        },
+        max: {
+            value: globalMax,
+            index: globalMaxIdx,
+        }
+    }
 }
 
 /**

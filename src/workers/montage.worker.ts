@@ -7,6 +7,7 @@
 
 import type {
     BiosignalFilters,
+    //BiosignalTrendDerivation,
     MontageWorkerCommission,
     MontageWorkerCommissionAction,
     SetFiltersResponse,
@@ -27,6 +28,8 @@ export class MontageWorker extends BaseWorker {
         MontageWorkerCommissionAction,
         (message: WorkerMessage['data']) => Promise<boolean>
     >([
+        ['cancel-trend-computation', this.cancelTrendComputation],
+        ['compute-trend', this.computeTrend],
         ['get-signals', this.getSignals],
         ['map-channels', this.mapChannels],
         ['release-cache', this.releaseCache],
@@ -34,14 +37,54 @@ export class MontageWorker extends BaseWorker {
         ['set-filters', this.setFilters],
         ['setup-input-cache', this.setInputCache],
         ['setup-input-mutex', this.setupInputMutex],
+        ['setup-trend', this.setupTrend],
         ['setup-worker', this.setupWorker],
         ['update-settings', this.updateSettings],
     ])
     /** Montage processer. */
     protected _montage = null as MontageProcessor | null
     protected _name = ''
+
     constructor () {
         super()
+    }
+
+    /**
+     * Cancel an ongoing trend computation.
+     * @param msgData - Data from the worker message.
+     * @returns
+     */
+    async cancelTrendComputation (msgData: WorkerMessage['data']) {
+        if (this._montage) {
+            //this._montage.cancelTrendComputation()
+            Log.debug(`Trend computation cancelled.`, SCOPE)
+            return this._success(msgData)
+        } else {
+            return this._failure(msgData, 'Montage is not initialized.')
+        }
+    }
+    /**
+     * Computee trend signal for the given range.
+     * @param msgData - Data from the worker message.
+     * @returns
+     */
+    async computeTrend (msgData: WorkerMessage['data']) {
+        const data = validateCommissionProps(
+            msgData as MontageWorkerCommission['compute-trend'],
+            { range: 'Array?' },
+            this._montage !== null
+        )
+        if (!data) {
+            return this._failure(msgData)
+        }
+        try {
+            //const range = data.range as number[] | undefined
+            //await this._montage?.computeTrend(range)
+            Log.debug(`Trend computation complete.`, SCOPE)
+            return this._success(msgData)
+        } catch (e) {
+            return this._failure(msgData, e as string)
+        }
     }
     /**
      *
@@ -248,6 +291,30 @@ export class MontageWorker extends BaseWorker {
         }
         this._montage?.setInterruptions(newInterruptions)
         Log.debug(`New data interruptions set.`, SCOPE)
+        return this._success(msgData)
+    }
+    async setupTrend (msgData: WorkerMessage['data']) {
+        const data = validateCommissionProps(
+            msgData as MontageWorkerCommission['setup-trend'],
+            {
+                derivation: 'Object',
+                downsamplingMethod: 'String',
+                epochLength: 'Number',
+                name: 'String',
+                samplingRate: 'Number',
+            }
+        )
+        if (!data) {
+            return this._failure(msgData)
+        }
+        this._montage?.setupTrend(
+            data.name,
+            data.derivation,
+            data.samplingRate,
+            data.epochLength,
+            data.downsamplingMethod,
+        )
+        Log.debug(`Trend '${data.name}' setup complete.`, SCOPE)
         return this._success(msgData)
     }
     /**

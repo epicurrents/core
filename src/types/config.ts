@@ -13,6 +13,7 @@ import {
     BiosignalFilterType,
     SetupChannel,
 } from './biosignal'
+import { MediaDataset } from './dataset'
 import { StudyContextCollection } from './study'
 
 /**
@@ -295,6 +296,8 @@ export type ConfigStudyContext = {
 }
 export type ConfigStudyLoader = UrlAccessOptions & {
     collections?: { [key: string]: StudyContextCollection }
+    /** Possible dataset to add the resource to. */
+    dataset?: MediaDataset
     loader?: string
     modality?: string
     name?: string

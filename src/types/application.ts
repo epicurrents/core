@@ -44,7 +44,7 @@ export interface Annotation extends BaseAsset {
     /** Annotation class. */
     class: string
     /** Standardized codes for this annotation. */
-    codes: (number | string)[]
+    codes: Record<string, number | string>
     /**
      * Text label for the annotation (visible on annotation listings).
      * If left empty, it will return a string representation of the value (array values joined by commas).
@@ -65,7 +65,7 @@ export interface Annotation extends BaseAsset {
     serialize (options?: AssetSerializeOptions): ReturnType<BaseAsset['serialize']> & {
         annotator: string | null
         class: Annotation['class'] | null
-        codes: (number | string)[] | null
+        codes: Record<string, number | string> | null
         label: string | null
         priority: number
         text: string | null
@@ -104,7 +104,7 @@ export type AnnotationOptions = {
     /** Annotation class. */
     class?: Annotation['class']
     /** Standardized codes for this annotation. */
-    codes?: (number | string)[]
+    codes?: Record<string, number | string>
     /** Text label for the annotation (visible on annotation listings). */
     label?: string
     /** Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero. */
@@ -129,7 +129,7 @@ export type AnnotationTemplate = {
     /** Author of this annotation. */
     annotator?: Annotation['annotator']
     /** Standardized codes for this annotation. */
-    codes?: (number | string)[]
+    codes?: Record<string, number | string>
     /** Text label for the annotation to override the value in annotation listings. */
     label?: Annotation['label']
     /**
@@ -178,9 +178,21 @@ export type AssetSerializeOptions = {
     nullIfEmpty?: string[]
 }
 /**
+ * Resource state depicting the phase of loading and preparing the resource for use.
+ * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
+ * - `loading`: Resource data is being loaded from the source.
+ * - `loaded`: Data has been loaded, but resource is not yet initialized.
+ * - `ready`: Resource is initialized and ready for use.
+ * - `destroyed`: Resource has been unloaded and is no longer available.
+ * - `error`: There was a loading error.
+ */
+export type AssetState = 'added' | 'destroyed' | 'error' | 'loaded' | 'loading' | 'ready'
+/**
  * The most basic type defining properties that must exist in every asset.
  */
 export interface BaseAsset {
+    /** Message to display as the error state reason. */
+    errorReason: string
     /** Unique id (generated automatically). */
     id: string
     /** Is this asset selected as active. */
@@ -189,6 +201,16 @@ export interface BaseAsset {
     modality: string
     /* Below fields are given proper descriptions in sub-interfaces */
     name: string
+    /**
+     * Resource state depicting the phase of loading and preparing the resource for use.
+     * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
+     * - `loading`: Resource data is being loaded from the source.
+     * - `loaded`: Data has been loaded, but resource is not yet initialized.
+     * - `ready`: Resource is initialized and ready for use.
+     * - `destroyed`: Resource has been unloaded and is no longer available.
+     * - `error`: There was a loading error.
+     */
+    state: AssetState
     /**
      * Add a listener for an `event` or list of events.
      * @param event - Event or list of events to listen for.
@@ -336,24 +358,12 @@ export interface BaseAsset {
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
     dependenciesReady: string[]
-    /** Message to display as the error state reason. */
-    errorReason: string
     /** Is the resource ready for use. */
     isReady: boolean
     /** List of label annotations. */
     labels: AnnotationLabel[]
     /** Source study for this resource. */
     source: StudyContext | null
-    /**
-     * Resource state depicting the phase of loading and preparing the resource for use.
-     * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
-     * - `loading`: Resource data is being loaded from the source.
-     * - `loaded`: Data has been loaded, but resource is not yet initialized.
-     * - `ready`: Resource is initialized and ready for use.
-     * - `destroyed`: Resource has been unloaded and is no longer available.
-     * - `error`: There was a loading error.
-     */
-    state: ResourceState
     /**
      * Add `dependencies` to the list of missing dependencies for this resource.
      * @param dependencies - Dependency or dependencies to add.
@@ -624,16 +634,6 @@ export type ResourceModule = {
     settings: BaseModuleSettings
 }
 /**
- * Resource state depicting the phase of loading and preparing the resource for use.
- * - `added`: Basic resource properties have been added, but loading the resource has not started yet.
- * - `loading`: Resource data is being loaded from the source.
- * - `loaded`: Data has been loaded, but resource is not yet initialized.
- * - `ready`: Resource is initialized and ready for use.
- * - `destroyed`: Resource has been unloaded and is no longer available.
- * - `error`: There was a loading error.
- */
-export type ResourceState = 'added' | 'destroyed' | 'error' | 'loaded' | 'loading' | 'ready'
-/**
  * This is the main application runtime module, which has a unique structure.
  */
 export type RuntimeAppModule = NullProtoObject & {
@@ -743,10 +743,19 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * Add a new `resource` with the given `modality`.
      * @param modality - Modality of the new resource.
      * @param resource - The resource to add.
-     * @param setAsActive - Should the new resource be set as active (default false).
+     * @param options - Additional options.
+     *        - `dataset` - Dataset to add the resource to (default use active dataset or create a new one).
+     *        - `setAsActive` - Should the new resource be set as active (default false).
      * @emits `add-resource` with the new resource as payload.
      */
-    addResource (modality: string, resource: DataResource, setAsActive?: boolean): void
+    addResource (
+        modality: string,
+        resource: DataResource,
+        options?: {
+            dataset?: MediaDataset
+            setAsActive?: boolean
+        }
+    ): void
     /**
      * Set the given `resource` as not active.
      * @param resource - Resource to deactivate.

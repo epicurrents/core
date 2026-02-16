@@ -11,8 +11,15 @@
  * From: https://stackoverflow.com/a/61132308
  */
 export type DeepPartial<T> = T extends object ? {
-    [P in keyof T]?: DeepPartial<T[P]>;
-} : T;
+    [P in keyof T]?: DeepPartial<T[P]>
+} : T
+
+/**
+ * Deep readonly type, making all properties and nested properties readonly.
+ */
+export type DeepReadonly<T> = T extends object ? {
+    readonly [P in keyof T]: DeepReadonly<T[P]>
+} : T
 
 /**
  * Strict key and value types in a Record/Object when retrieving using the `Object.entries()` method.

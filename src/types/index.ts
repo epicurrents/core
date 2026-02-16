@@ -9,6 +9,7 @@ import type {
     AnnotationTemplate,
     ApplicationConfig,
     AssetSerializeOptions,
+    AssetState,
     BaseAsset,
     DataResource,
     EpicurrentsApp,
@@ -19,7 +20,6 @@ import type {
     NullProtoObject,
     PropertyChangeHandler,
     ResourceModule,
-    ResourceState,
     RuntimeAppModule,
     RuntimeResourceModule,
     RuntimeResourceModuleConfig,
@@ -35,6 +35,7 @@ export {
     AnnotationTemplate,
     ApplicationConfig,
     AssetSerializeOptions,
+    AssetState,
     BaseAsset,
     DataResource,
     EpicurrentsApp,
@@ -45,7 +46,6 @@ export {
     NullProtoObject,
     PropertyChangeHandler,
     ResourceModule,
-    ResourceState,
     RuntimeAppModule,
     RuntimeResourceModule,
     RuntimeResourceModuleConfig,
@@ -60,6 +60,7 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    AmplitudeEnvelopeElement,
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
     BiosignalAnnotationEvent,
@@ -76,6 +77,7 @@ import type {
     BiosignalDataReject,
     BiosignalDataResolve,
     BiosignalDataService,
+    BiosignalDownsamplingMethod,
     BiosignalFilters,
     BiosignalFilterType,
     BiosignalHeaderRecord,
@@ -94,7 +96,13 @@ import type {
     BiosignalSetupResolve,
     BiosignalSetupResponse,
     BiosignalStudyProperties,
+    BiosignalTrend,
+    BiosignalTrendDerivation,
+    BiosignalTrendFunction,
+    BiosignalTrendProperties,
+    BiosignalTrendType,
     ChannelPositionProperties,
+    CodedEventProperties,
     DerivedChannelProperties,
     FftAnalysisResult,
     GetSignalsResponse,
@@ -118,6 +126,7 @@ import type {
     WorkerMontage,
 } from './biosignal'
 export {
+    AmplitudeEnvelopeElement,
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
     BiosignalAnnotationEvent,
@@ -134,6 +143,7 @@ export {
     BiosignalDataReject,
     BiosignalDataResolve,
     BiosignalDataService,
+    BiosignalDownsamplingMethod,
     BiosignalFilters,
     BiosignalFilterType,
     BiosignalHeaderRecord,
@@ -152,7 +162,13 @@ export {
     BiosignalSetupResolve,
     BiosignalSetupResponse,
     BiosignalStudyProperties,
+    BiosignalTrend,
+    BiosignalTrendDerivation,
+    BiosignalTrendFunction,
+    BiosignalTrendProperties,
+    BiosignalTrendType,
     ChannelPositionProperties,
+    CodedEventProperties,
     DerivedChannelProperties,
     FftAnalysisResult,
     GetSignalsResponse,
@@ -479,12 +495,16 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    DeepPartial,
+    DeepReadonly,
     Entries,
     Modify,
     TypedNumberArray,
     TypedNumberArrayConstructor,
 } from './util'
 export {
+    DeepPartial,
+    DeepReadonly,
     Entries,
     Modify,
     TypedNumberArray,

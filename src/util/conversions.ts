@@ -5,9 +5,13 @@
  * @license    Apache-2.0
  */
 
-import { type SettingsColor } from '#types/config'
-import { DatabaseQueryOptions, StudyContext } from '../types'
-import { deepClone } from './general'
+import { deepClone, safeObjectFrom } from './general'
+import type {
+    DatabaseQueryOptions,
+    DeepReadonly,
+    SettingsColor,
+    StudyContext,
+} from '#types'
 
 /**
  * Convert a cameCase name into kebab-case.
@@ -164,6 +168,37 @@ export const modifyStudyContext = (items: unknown, options?: DatabaseQueryOption
         return convert(items as StudyContext)
     }
     return items
+}
+
+/**
+ * Convert the given object into a read-only version. This will only apply to existing custom properties; inherited
+ * properties are not affected and new properties can still be added using Object.assign.
+ * @param obj - The object to convert.
+ * @returns Read-only version of the object.
+ * @remarks
+ * - The returned object is also converted into a safe object.
+ * - Use `Object.freeze()` for full immutability.
+ */
+export const objectToReadOnly = <T extends object>(obj: T): DeepReadonly<T> => {
+    /**
+     * Transform the properties of the given object `obj` to read-only.
+     */
+    const propertiesToReadOnly = (subObj: object) => {
+        const readonlyObj = {} as DeepReadonly<T>
+        for (const [key, value] of Object.entries(subObj)) {
+            // Only define own properties as read-only.
+            if (Object.hasOwn(subObj, key)) {
+                Object.defineProperty(readonlyObj, key, {
+                    value: value && typeof value === 'object'
+                           ? propertiesToReadOnly(value)
+                           : value,
+                    writable: false,
+                })
+            }
+        }
+        return readonlyObj
+    }
+    return propertiesToReadOnly(safeObjectFrom(obj))
 }
 
 /**

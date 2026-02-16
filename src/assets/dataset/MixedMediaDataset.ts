@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import type { ResourceState } from '#types/application'
+import type { AssetState } from '#types/application'
 import type { DatasourceConnector } from '#types/connector'
 import type { MediaDataset } from '#types/dataset'
 import type { StudyContext } from '#types/study'
@@ -14,7 +14,7 @@ import GenericDataset from '#assets/dataset/GenericDataset'
 export default class MixedMediaDataset extends GenericDataset implements MediaDataset {
     protected _errorReason = ''
     protected _source: StudyContext | null = null
-    protected _state: ResourceState = 'added'
+    protected _state: AssetState = 'added'
     /**
      * Create a new media dataset with the given properties.
      * @param name - Name of the dataset.

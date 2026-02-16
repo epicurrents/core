@@ -7,11 +7,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import type {
-    AnnotationLabel,
-    DataResource,
-    ResourceState,
-} from '#types/application'
+import type { AnnotationLabel, DataResource } from '#types/application'
 import type { StudyContext } from '#types/study'
 import { Log } from 'scoped-event-log'
 import { ResourceEvents } from '#events'
@@ -39,12 +35,10 @@ export default abstract class GenericResource extends GenericAsset implements Da
     protected _datasetId: string | null = null
     protected _dependenciesMissing: string[] = []
     protected _dependenciesReady: string[] = []
-    protected _errorReason = ''
     protected _labels: AnnotationLabel[] = []
     /** Is this record selected as active in the UI. */
     protected _loaded = false
     protected _source: StudyContext | null = null
-    protected _state: ResourceState = 'added'
 
     constructor (name: string, modality: string, source?: StudyContext) {
         super(name, modality)
@@ -87,12 +81,6 @@ export default abstract class GenericResource extends GenericAsset implements Da
     set dependenciesReady (value: string[]) {
         this._setPropertyValue('dependenciesReady', value)
     }
-    get errorReason () {
-        return this._errorReason
-    }
-    set errorReason (value: string) {
-        this._setPropertyValue('errorReason', value)
-    }
     get isReady () {
         return this._dependenciesMissing.length === 0 && this._state === 'ready'
     }
@@ -113,17 +101,6 @@ export default abstract class GenericResource extends GenericAsset implements Da
     set source (value: StudyContext | null) {
         this._setPropertyValue('source', value)
     }
-    get state () {
-        return this._state
-    }
-    set state (value: ResourceState) {
-        const prevState = this._state
-        this._setPropertyValue('state', value)
-        if (prevState === 'error' && value !== 'error') {
-            // Reset error message if state changes from error into something else.
-            this._errorReason = ''
-        }
-    }
 
     addDependencies (...dependencies: string[]) {
         // This action may change the resource from being ready to not being ready.
@@ -141,7 +118,6 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._loaded = false
         this._source = null
         super.destroy()
-        this.state = 'destroyed'
     }
 
     getMainProperties () {
