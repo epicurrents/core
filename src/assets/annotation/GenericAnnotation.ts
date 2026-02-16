@@ -17,6 +17,11 @@ import { Log } from 'scoped-event-log'
 
 const SCOPE = 'GenericAnnotation'
 
+/** The private property holding the coded events. */
+const _CODED_EVENTS = safeObjectFrom({}) as Record<string,
+    Record<string, CodedEventProperties>
+>
+
 export default abstract class GenericAnnotation extends GenericAsset implements Annotation {
     /**
      * Standardized coded events.
@@ -30,9 +35,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
      * provide class-specific coded events.
      */
     static get CODED_EVENTS () {
-        return safeObjectFrom({}) as Record<string,
-            Record<string, CodedEventProperties>
-        >
+        return _CODED_EVENTS
     }
     /**
      * Add standardized event codes to existing coded events.
