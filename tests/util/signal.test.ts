@@ -1,4 +1,5 @@
 import {
+    calculateAmplitudeEnvelope,
     calculateSignalOffsets,
     combineAllSignalParts,
     combineSignalParts,
@@ -7,8 +8,13 @@ import {
     filterSignal,
     floatsAreEqual,
     generateSineWave,
+    getAmplitudeBoundaries,
     getChannelFilters,
+    getIncludedChannels,
+    getSignalScale,
     interpolateSignalValues,
+    isContinuousSignal,
+    partsNotCached,
     resampleSignal,
     shouldDisplayChannel,
     shouldFilterSignal,
@@ -1081,6 +1087,140 @@ describe('Signal utilities', () => {
             const result = resampleSignal(signal, 8)
             const mean = result.reduce((sum, val) => sum + val) / result.length
             expect(mean).toBeCloseTo(dc, 4)
+        })
+    })
+
+    describe('calculateAmplitudeEnvelope', () => {
+        it('should compute min/max per window', () => {
+            // Use a signal with clear local minima and maxima within each window
+            const signal = new Float32Array([3, -2, 5, -1, 2, -6, 8, -3, 4])
+            const envelope = calculateAmplitudeEnvelope(signal, 5)
+            expect(envelope.length).toBe(2)
+            // First window [3, -2, 5, -1, 2]: local min = -2, local max = 5
+            expect(envelope[0].min.value).toBe(-2)
+            expect(envelope[0].max.value).toBe(5)
+        })
+
+        it('should correct indices relative to entire signal', () => {
+            // A signal with clear peaks and valleys in both windows
+            const signal = new Float32Array([2, 5, 1, 3, 8, 2, 6, 1])
+            const envelope = calculateAmplitudeEnvelope(signal, 4)
+            expect(envelope.length).toBe(2)
+            // Second window starts at index 4, so indices should be offset
+            expect(envelope[1].min.index).toBeGreaterThanOrEqual(4)
+            expect(envelope[1].max.index).toBeGreaterThanOrEqual(4)
+        })
+    })
+
+    describe('getAmplitudeBoundaries', () => {
+        it('should find min and max of a known array', () => {
+            const signal = new Float32Array([3, 1, 4, 1, 5, 9, 2, 6])
+            const result = getAmplitudeBoundaries(signal)
+            expect(result.min.value).toBe(1)
+            expect(result.max.value).toBe(9)
+        })
+
+        it('should return correct indices', () => {
+            const signal = new Float32Array([5, 10, 2, 8])
+            const result = getAmplitudeBoundaries(signal)
+            expect(signal[result.min.index]).toBe(result.min.value)
+            expect(signal[result.max.index]).toBe(result.max.value)
+        })
+    })
+
+    describe('getSignalScale', () => {
+        it('should return correct scale for microvolt units', () => {
+            expect(getSignalScale('uV')).toBe(1e-6)
+            expect(getSignalScale('µV')).toBe(1e-6)
+            expect(getSignalScale('microvolt')).toBe(1e-6)
+            expect(getSignalScale('microvolts')).toBe(1e-6)
+        })
+
+        it('should return correct scale for millivolt units', () => {
+            expect(getSignalScale('mV')).toBe(1e-3)
+            expect(getSignalScale('millivolt')).toBe(1e-3)
+            expect(getSignalScale('millivolts')).toBe(1e-3)
+        })
+
+        it('should return 1 for unknown units', () => {
+            expect(getSignalScale('V')).toBe(1)
+            expect(getSignalScale('unknown')).toBe(1)
+            expect(getSignalScale('')).toBe(1)
+        })
+    })
+
+    describe('getIncludedChannels', () => {
+        it('should return all channels when no config given', () => {
+            const channels = ['a', 'b', 'c']
+            expect(getIncludedChannels(channels)).toEqual(['a', 'b', 'c'])
+        })
+
+        it('should filter by include and exclude lists together', () => {
+            const channels = ['a', 'b', 'c', 'd']
+            // When both include and exclude are given, include takes priority
+            const result = getIncludedChannels(channels, { include: [0, 2], exclude: [1, 3] })
+            expect(result).toEqual(['a', 'c'])
+        })
+
+        it('should filter by exclude list', () => {
+            const channels = ['a', 'b', 'c', 'd']
+            const result = getIncludedChannels(channels, { exclude: [1, 3] })
+            expect(result).toEqual(['a', 'c'])
+        })
+    })
+
+    describe('isContinuousSignal', () => {
+        it('should return true for contiguous parts', () => {
+            const part1 = { start: 0, end: 5, signals: [] }
+            const part2 = { start: 5, end: 10, signals: [] }
+            expect(isContinuousSignal(part1, part2)).toBe(true)
+        })
+
+        it('should return false for non-contiguous parts', () => {
+            const part1 = { start: 0, end: 5, signals: [] }
+            const part2 = { start: 7, end: 10, signals: [] }
+            expect(isContinuousSignal(part1, part2)).toBe(false)
+        })
+
+        it('should return true for single part', () => {
+            const part = { start: 0, end: 5, signals: [] }
+            expect(isContinuousSignal(part)).toBe(true)
+        })
+    })
+
+    describe('partsNotCached', () => {
+        it('should return entire part when nothing is cached', () => {
+            const partToCheck = { start: 0, end: 10, signals: [{ data: new Float32Array(10), samplingRate: 1 }] }
+            const result = partsNotCached(partToCheck)
+            expect(result.length).toBe(1)
+            expect(result[0].start).toBe(0)
+            expect(result[0].end).toBe(10)
+        })
+
+        it('should return empty when entirely cached', () => {
+            const partToCheck = { start: 2, end: 8, signals: [{ data: new Float32Array(6), samplingRate: 1 }] }
+            const cached = { start: 0, end: 10, signals: [] }
+            const result = partsNotCached(partToCheck, cached)
+            expect(result.length).toBe(0)
+        })
+
+        it('should detect gap in middle', () => {
+            const partToCheck = { start: 0, end: 10, signals: [{ data: new Float32Array(10), samplingRate: 1 }] }
+            const cached1 = { start: 0, end: 3, signals: [] }
+            const cached2 = { start: 7, end: 10, signals: [] }
+            const result = partsNotCached(partToCheck, cached1, cached2)
+            expect(result.length).toBe(1)
+            expect(result[0].start).toBe(3)
+            expect(result[0].end).toBe(7)
+        })
+
+        it('should detect uncached end portion', () => {
+            const partToCheck = { start: 0, end: 10, signals: [{ data: new Float32Array(10), samplingRate: 1 }] }
+            const cached = { start: 0, end: 5, signals: [] }
+            const result = partsNotCached(partToCheck, cached)
+            expect(result.length).toBe(1)
+            expect(result[0].start).toBe(5)
+            expect(result[0].end).toBe(10)
         })
     })
 

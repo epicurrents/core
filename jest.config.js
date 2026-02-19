@@ -5,33 +5,6 @@ module.exports = {
     preset: 'ts-jest',
     coverageDirectory: "<rootDir>/tests/coverage/",
     extensionsToTreatAsEsm: ['.ts'],
-    globals: {
-        'babel-jest': {
-            useESM: true,
-        },
-        'ts-jest': {
-            useESM: true,
-            tsconfig: {
-                "target": "esnext",
-                "module": "esnext",
-                "lib": [
-                    "es5", "es6", "esnext",
-                    "dom", "webworker",
-                ],
-                "strict": true,
-                "noImplicitReturns": true,
-                "moduleResolution": "node",
-                "allowSyntheticDefaultImports": true,
-                "esModuleInterop": true,
-                "baseUrl": "./",
-                "paths": {
-                    "#root/*": ["./*"],
-                    "#runtime*": ["src/runtime/index.ts"],
-                    "#*": ["src/*"],
-                }
-            }
-        },
-    },
     moduleFileExtensions: [
         "js",
         "ts",
@@ -54,23 +27,18 @@ module.exports = {
        '<rootDir>/node_modules/'
     ],
     transform: {
-        "^.+\\.ts$": "ts-jest",
+        "^.+\\.ts$": ["ts-jest", {
+            useESM: true,
+            tsconfig: "tsconfig.test.json",
+        }],
     },
     transformIgnorePatterns: [
        '<rootDir>/node_modules/'
     ],
-    haste: {
-        retainAllFiles: true,
-    },
     //testRegex: "(tests/.*|(\\.|/)(test|spec))\\.(tsx?)$",
     testRegex: "test\\.(t|j)s$",
     testEnvironment: "jsdom",
     testEnvironmentOptions: {
-        browsers: [
-            "chrome",
-            "firefox",
-            "safari"
-        ],
         url: "http://localhost/"
     }
 }

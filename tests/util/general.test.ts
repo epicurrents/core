@@ -1,6 +1,7 @@
 import { Log } from 'scoped-event-log'
-import { 
+import {
     deepClone,
+    deepEqual,
     enumerate,
     getOrSetValue,
     isEmptyObject,
@@ -53,6 +54,47 @@ describe('General utilities', () => {
             expect(result).toBeNull()
             expect(Log.error).toHaveBeenCalled()
             jest.resetAllMocks()
+        })
+    })
+
+    describe('deepEqual', () => {
+        it('should return true for equal primitives', () => {
+            expect(deepEqual(42 as any, 42 as any)).toBe(true)
+            expect(deepEqual('test' as any, 'test' as any)).toBe(true)
+        })
+        it('should return true for equal objects', () => {
+            expect(deepEqual({ a: 1, b: 2 }, { a: 1, b: 2 })).toBe(true)
+        })
+        it('should return true for equal arrays', () => {
+            expect(deepEqual([1, 2, 3] as any, [1, 2, 3] as any)).toBe(true)
+        })
+        it('should return true for equal nested objects', () => {
+            expect(deepEqual(
+                { a: { b: { c: 1 } } },
+                { a: { b: { c: 1 } } }
+            )).toBe(true)
+        })
+        it('should return false for different values', () => {
+            expect(deepEqual({ a: 1 }, { a: 2 })).toBe(false)
+        })
+        it('should return false for different types', () => {
+            expect(deepEqual({ a: 1 } as any, [1] as any)).toBe(false)
+            expect(deepEqual(1 as any, '1' as any)).toBe(false)
+        })
+        it('should return false for different keys', () => {
+            expect(deepEqual({ a: 1 }, { b: 1 } as any)).toBe(false)
+        })
+        it('should return false for different key counts', () => {
+            expect(deepEqual({ a: 1, b: 2 }, { a: 1 } as any)).toBe(false)
+        })
+        it('should handle null and undefined', () => {
+            expect(deepEqual(null as any, null as any)).toBe(true)
+            expect(deepEqual(undefined as any, undefined as any)).toBe(true)
+            expect(deepEqual(null as any, undefined as any)).toBe(false)
+        })
+        it('should handle empty objects and arrays', () => {
+            expect(deepEqual({}, {})).toBe(true)
+            expect(deepEqual([] as any, [] as any)).toBe(true)
         })
     })
 

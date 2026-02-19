@@ -2,6 +2,8 @@ import {
     camelCaseToKebabCase,
     hexToSettingsColor,
     lastFractOnlyIfSignificant,
+    modifyStudyContext,
+    objectToReadOnly,
     padTime,
     rgbaToSettingsColor,
     roundTo,
@@ -182,6 +184,44 @@ describe('Unit conversion utilities', () => {
         it('should handle invalid array lengths', () => {
             expect(settingsDashArrayToSvgStrokeDasharray([5])).toBe('')
             expect(settingsDashArrayToSvgStrokeDasharray([5, 2, 1])).toBe('')
+        })
+    })
+
+    describe('objectToReadOnly', () => {
+        it('should return an object with non-writable properties', () => {
+            const obj = { a: 1, b: 'test' }
+            const readOnly = objectToReadOnly(obj)
+            expect(readOnly.a).toBe(1)
+            expect(readOnly.b).toBe('test')
+            expect(() => { (readOnly as any).a = 2 }).toThrow()
+        })
+        it('should make nested objects read-only', () => {
+            const obj = { a: { b: { c: 3 } } }
+            const readOnly = objectToReadOnly(obj)
+            expect(readOnly.a.b.c).toBe(3)
+            expect(() => { (readOnly as any).a.b.c = 4 }).toThrow()
+        })
+        it('should preserve primitive values', () => {
+            const obj = { num: 42, str: 'hello', bool: true }
+            const readOnly = objectToReadOnly(obj)
+            expect(readOnly.num).toBe(42)
+            expect(readOnly.str).toBe('hello')
+            expect(readOnly.bool).toBe(true)
+        })
+    })
+
+    describe('modifyStudyContext', () => {
+        it('should return items unchanged when no options given', () => {
+            const items = { name: 'test' }
+            expect(modifyStudyContext(items)).toBe(items)
+        })
+        it('should return items unchanged when empty options given', () => {
+            const items = { name: 'test' }
+            expect(modifyStudyContext(items, { nameMap: {}, overrideProperties: {} })).toBe(items)
+        })
+        it('should handle null/undefined passthrough', () => {
+            expect(modifyStudyContext(null)).toBeNull()
+            expect(modifyStudyContext(undefined)).toBeUndefined()
         })
     })
 
