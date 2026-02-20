@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { safeObjectFrom } from '#util'
 import type { RuntimeAppModule, SafeObject } from '#types/application'
 import type { DatasourceConnector } from '#types/connector'
 import type {
@@ -15,8 +16,7 @@ import type {
 
 //const SCOPE = 'runtime-app-module'
 
-const APP: SafeObject & RuntimeAppModule = {
-    __proto__: null,
+const APP: SafeObject & RuntimeAppModule = safeObjectFrom({
     activeDataset: null,
     connectors: new Map<string, DatasourceConnector>(),
     datasets: [],
@@ -30,5 +30,5 @@ const APP: SafeObject & RuntimeAppModule = {
     studyExporters: new Map<string, StudyExporterContext>(),
     studyImporters: new Map<string, StudyImporterContext>(),
     studyLoadProtocols: new Map<string, StudyLoaderProtocolContext>(),
-}
+})
 export default APP

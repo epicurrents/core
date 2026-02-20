@@ -151,6 +151,10 @@ export type AnnotationTemplate = {
  */
 export type ApplicationConfig = {
     /**
+     * List of interface modules to load.
+     */
+    activeModules?: string[]
+    /**
      * Allow authenticating connections in an insecure context (over HTTP).
      */
     allowInsecureAuth?: boolean
@@ -559,7 +563,6 @@ export interface InterfaceModuleConstructor {
     new (
         epicApp: EpicurrentsApp,
         runtime?: StateManager,
-        modules?: string[],
         config?: ApplicationConfig,
     ): InterfaceModule
 }
@@ -578,22 +581,18 @@ export type InterfaceResourceModule = RuntimeResourceModule & {
 export type InterfaceResourceModuleContext = {
     /** Properties to override in the main application runtime. */
     runtime: InterfaceResourceModule
-    /**
-     * Actions for an action-mutation state manager.
-     * Note: This is modeled after the VueX library and may need revision later.
-     */
-    actions?: unknown // TODO: Better typing.
-    /**
-     * Mutations for an action-mutation state manager.
-     * Note: This is modeled after the VueX library and may need revision later.
-     */
-    mutations?: unknown // TODO: Better typing.
+    /** Actions for an action-mutation state manager. */
+    actions?: Record<string, unknown>
+    /** Interface-scope module settings. */
+    settings?: SafeObject & Record<string, unknown>
 }
 /**
- * Object with the __proto__ property pointing to null.
+ * Object with the constructor and prototype properties pointing to null.
  */
 export type NullProtoObject = {
-    __proto__: null
+    __proto__?: null
+    constructor?: null
+    prototype?: null
 }
 /**
  * A handler for asset property change events.
@@ -696,7 +695,7 @@ export type RuntimeResourceModuleConfig = {
 /**
  * The main runtime state of the application.
  */
-export type RuntimeState = NullProtoObject & {
+export type RuntimeState = {
     APP: RuntimeAppModule
     INTERFACE: unknown
     MODULES: Map<string, RuntimeResourceModule>

@@ -277,11 +277,9 @@ export class Epicurrents implements EpicurrentsApp {
                 }
             }
         }
-        // Make sure that the container element exists.
-        // Prepend a hyphed to the container id, otherwise just use 'epicv'.
-        // Using the literal 'epicv' in the selector is to avoid invalid selector errors.
-        const modules = Array.from(this.#runtime.MODULES.keys())
-        this.#interface = new this.#interfaceConstructor(this, this.#runtime, modules, config)
+        // Pass the list of active modules to the interface.
+        const activeModules = Array.from(this.#runtime.MODULES.keys())
+        this.#interface = new this.#interfaceConstructor(this, this.#runtime, { activeModules, ...config })
         const interfaceSuccess = await this.#interface.awaitReady()
         if (!interfaceSuccess) {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)

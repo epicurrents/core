@@ -58,7 +58,6 @@ const workers = new Map<string, (() => Worker)|null>()
  * Initial runtime state.
  */
 export const state: RuntimeState = {
-    __proto__: null,
     APP: APP_MODULE,
     INTERFACE: null,
     MODULES: modules,
@@ -100,11 +99,6 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
 
     constructor () {
         super('RuntimeStateManager', 'runtime')
-    }
-
-    // Returning null for __proto__ is required to make this class compatible with the RuntimeState type.
-    get __proto__ () {
-        return null
     }
 
     get APP () {
@@ -397,7 +391,10 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         if (mod) {
             mod.setPropertyValue(property, value, resource, this)
         } else {
-            Log.error(`Could not set property '${property}' value in resource module ${module}; the module is not loaded.`, SCOPE)
+            Log.error(
+                `Could not set property '${property}' value in resource module ${module}; the module is not loaded.`,
+                SCOPE
+            )
         }
     }
 
