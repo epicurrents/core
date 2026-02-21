@@ -587,12 +587,10 @@ export type InterfaceResourceModuleContext = {
     settings?: SafeObject & Record<string, unknown>
 }
 /**
- * Object with the constructor and prototype properties pointing to null.
+ * Object with the prototype property pointing to null (to prevent prototype pollution).
  */
 export type NullProtoObject = {
     __proto__?: null
-    constructor?: null
-    prototype?: null
 }
 /**
  * A handler for asset property change events.
