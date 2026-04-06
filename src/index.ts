@@ -197,6 +197,11 @@ export class Epicurrents implements EpicurrentsApp {
     get eventBus () {
         return this.#eventBus
     }
+
+    get interface () {
+        return this.#interface
+    }
+
     get publicPath () {
         return __webpack_public_path__
     }
@@ -345,10 +350,6 @@ export class Epicurrents implements EpicurrentsApp {
         return null
     }
 
-    openResource (resource: DataResource) {
-        this.#runtime.setActiveResource(resource)
-    }
-
     registerInterface (intf: InterfaceModuleConstructor) {
         this.#interfaceConstructor = intf
     }
@@ -391,20 +392,19 @@ export class Epicurrents implements EpicurrentsApp {
         )
     }
 
-    selectResource (id: string) {
+    selectActiveResource (resource: DataResource | string) {
         if (!this.#runtime.APP.activeDataset) {
             return
         }
-        const setResources = this.#runtime.APP.activeDataset.resources
-        for (const ctx of setResources) {
-            if (ctx.resource.id === id && ctx.resource.isReady) {
-                if (ctx.resource.activeChildResource && ctx.resource.activeChildResource.isReady) {
-                    // If an active resource has an active child resource, select that.
-                    this.#runtime.setActiveResource(ctx.resource.activeChildResource)
-                } else {
-                    this.#runtime.setActiveResource(ctx.resource)
+        const setResources = this.#runtime.APP.activeDataset.resources.map(ctx => ctx.resource)
+        if (typeof resource === 'string') {
+            for (const sr of setResources) {
+                if (sr.id === resource && sr.isReady) {
+                    this.#runtime.setActiveResource(sr, true)
                 }
             }
+        } else if (setResources.includes(resource) && resource.isReady) {
+            this.#runtime.setActiveResource(resource, true)
         }
     }
 

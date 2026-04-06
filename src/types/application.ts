@@ -418,7 +418,11 @@ export interface EpicurrentsApp {
     /**
      * Master event bus to broadcast application events.
      */
-    eventBus: ScopedEventBus
+    readonly eventBus: ScopedEventBus
+    /**
+     * User interface. Will be null until an interface module has been registered and initialized.
+     */
+    readonly interface: InterfaceModule | null
     /**
      * Path where public assets (mostly javascript) are served from.
      */
@@ -426,12 +430,12 @@ export interface EpicurrentsApp {
     /**
      * Runtime state manager used by this application instance.
      */
-    runtime: RuntimeState
+    readonly runtime: RuntimeState
     /**
      * Does the application instance use a memory manager. A memory manager requires
      * SharedArrayBuffer to be available.
      */
-    useMemoryManager: boolean
+    readonly useMemoryManager: boolean
     /**
      * Add a `resource` to the active dataset.
      * @param resource - The resource to add.
@@ -479,11 +483,6 @@ export interface EpicurrentsApp {
         options?: ConfigStudyLoader
     ): Promise<DataResource|null>
     /**
-     * Open the provided resource.
-     * @param resource - The resource to open.
-     */
-    openResource (resource: DataResource): void
-    /**
      * Register an interface module to be used with the application.
      * @param intf - Constructor for the app interface.
      */
@@ -517,10 +516,10 @@ export interface EpicurrentsApp {
      */
     registerStudyImporter (name: string, label: string, mode: ReaderMode, loader: StudyLoader): void
     /**
-     * Select the resource with the given `id` in current dataset as active.
-     * @param id - Unique ID of the resource.
+     * Select the `resource` in current dataset as active. This will deactivate other possibly active resources.
+     * @param resource - The resource to select or its unique ID.
      */
-    selectResource (id: string): void
+    selectActiveResource (resource: DataResource | string): void
     /**
      * Load the given dataset.
      * @param dataset - The dataset to load.
@@ -549,11 +548,39 @@ export interface EpicurrentsApp {
  * A modular interface for the main application.
  */
 export interface InterfaceModule {
+    /**
+     * Is the interface module ready for use.
+     */
     isReady: boolean
+    /**
+     * Get a promise that resolves once the interface is ready for use. The promise will resolve to true if the
+     * interface is ready, false if there was an error during initialization.
+     */
     awaitReady (): Promise<boolean>
+    /**
+     * Display the user interface.
+     */
     displayUI (): void
+    /**
+     * Notify the interface of a change in fullscreen state.
+     */
     fullscreenChange ():  void
+    /**
+     * Open a resource in the interface. This will set the resource as active and display its data if applicable.
+     * @param resource - The resource to open.
+     */
+    openResource (resource: DataResource): void
+    /**
+     * Register a module for the interface.
+     * @param name - Unique name for the module.
+     * @param mod - The module context to register.
+     */
     registerModule (name: string, mod: InterfaceResourceModuleContext): void
+    /**
+     * Register a service for the interface.
+     * @param name - Unique name for the service.
+     * @param service - The service to register.
+     */
     registerService (name: string, service: AssetService): void
 }
 /**
