@@ -398,7 +398,7 @@ export interface BaseAsset {
      * number of images/pages or similar. The properties are meant
      * to be used alongside resource names as key attributes.
      */
-    getMainProperties (): Map<string, { [key: string]: string|number }|null>
+    getMainProperties (): Map<string, string|number|null>
     /**
      * Prepare this resource for use. This includes steps like loading
      * the necessary metadata etc.

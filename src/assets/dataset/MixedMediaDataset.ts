@@ -35,15 +35,11 @@ export default class MixedMediaDataset extends GenericDataset implements MediaDa
         return super.destroy()
     }
 
-    getMainProperties(): Map<string, { [key: string]: string | number } | null> {
-        return new Map<string, { [key: string]: string | number } | null>([
+    getMainProperties(): Map<string, string | number | null> {
+        return new Map<string, string | number | null>([
             [
-                this._resources.length.toString(),
-                {
-                    icon: 'number',
-                    n: this._resources.length,
-                    title: '{n} resources'
-                },
+                'resources',
+                this._resources.length
             ]
         ])
     }
