@@ -139,12 +139,12 @@ export default class GenericStudyLoader implements StudyLoader {
         return false
     }
 
-    async loadFromDirectory (dir: FileSystemItem, options?: ConfigStudyLoader): Promise<StudyContext|null> {
+    async loadFromDirectory (dir: FileSystemItem, options: ConfigStudyLoader = {}): Promise<StudyContext|null> {
         if (!this._studyImporter) {
             Log.error(`Cannot load study from directory, file loader has not been set.`, SCOPE)
             return null
         }
-        if (!this._canLoadResource(options || {})) {
+        if (!this._canLoadResource(options)) {
             return null
         }
         // Pass the directory name as default study name.
@@ -156,7 +156,7 @@ export default class GenericStudyLoader implements StudyLoader {
                 const dirFile = dir.files[i]
                 // Try to load the file, according to extension.
                 const fileConfig = { name: dirFile.name }
-                if (this._studyImporter.matchName(dirFile.name)) {
+                if (options.isValidated || this._studyImporter.matchName(dirFile.name)) {
                     this._studyImporter.registerStudy(study)
                     const readResult = dirFile.file
                                         ? await this._studyImporter.importFile(dirFile.file, fileConfig)
@@ -216,7 +216,7 @@ export default class GenericStudyLoader implements StudyLoader {
         Log.debug(`Started loading a study from file ${file.name} (${options.name}).`, SCOPE)
         // Try to load the file, according to extension.
         const fName = options.name || file.name
-        if (this._studyImporter.matchName(fName)) {
+        if (options.isValidated || this._studyImporter.matchName(fName)) {
             this._studyImporter.registerStudy(study)
             if (!(await this._studyImporter.importFile(file, { name: fName }))) {
                 Log.error(`Failed to load study ${study.name}.`, SCOPE)
@@ -382,7 +382,7 @@ export default class GenericStudyLoader implements StudyLoader {
         const urlEnd = fileUrl.split('/').pop()
         const fName = options.name || urlEnd || ''
         Log.debug(`Started loading a study from URL ${fileUrl} (${fName}).`, SCOPE)
-        if (this._studyImporter.matchName(fName)) {
+        if (options.isValidated || this._studyImporter.matchName(fName)) {
             options.name = fName
             this._studyImporter.registerStudy(study)
             if (!(await this._studyImporter.importUrl(fileUrl, options))) {

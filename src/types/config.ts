@@ -298,6 +298,8 @@ export type ConfigStudyLoader = UrlAccessOptions & {
     collections?: { [key: string]: StudyContextCollection }
     /** Possible dataset to add the resource to. */
     dataset?: MediaDataset
+    /** Has the study loader been validated to be correct for this source. */
+    isValidated?: boolean
     loader?: string
     modality?: string
     name?: string
