@@ -195,18 +195,21 @@ export const calculateAmplitudeEnvelope = (
  */
 export const calculateSignalOffsets = (
     channels: (BiosignalChannelProperties | MontageChannel)[],
-    config?: ConfigChannelLayout
+    config?: ConfigChannelLayout,
+    correctedChannelSuffix = '_orig'
 ) => {
     // Check if this is an 'as recorded' montage.
     if (!config || config?.isRaw) {
-        // Remove channels that are not displayed.
-        channels = channels.filter(chan => shouldDisplayChannel(chan, true))
-        const layoutH = channels.length + 1
+        // Separate original (pre-correction) overlay channels — they share their primary channel's layout slot.
+        const displayed = channels.filter(chan => shouldDisplayChannel(chan, true))
+        const layoutChannels = displayed.filter(chan => !chan.isOriginal)
+        const origChannels = displayed.filter(chan => chan.isOriginal)
+        const layoutH = layoutChannels.length + 1
         // Single channel can take up all the space but multiple channels cannot cannot without overlapping
         // (if they are placed at equidistantly from each other and viewport top/bottom).
-        const chanHeight = 1/(channels.length > 1 ? layoutH : 1)
+        const chanHeight = 1/(layoutChannels.length > 1 ? layoutH : 1)
         let i = 0
-        for (const chan of channels) {
+        for (const chan of layoutChannels) {
             const baseline = 1.0 - ((i + 1)/layoutH)
             chan.offset = {
                 baseline: baseline,
@@ -214,6 +217,16 @@ export const calculateSignalOffsets = (
                 top: baseline + 0.5*chanHeight
             }
             i++
+        }
+        for (const origChan of origChannels) {
+            if (!origChan.label) {
+                continue
+            }
+            const primaryLabel = origChan.label.slice(0, -correctedChannelSuffix.length)
+            const primary = layoutChannels.find(c => c.label === primaryLabel)
+            if (primary?.offset && typeof primary.offset === 'object') {
+                origChan.offset = { ...primary.offset }
+            }
         }
         return
     }
@@ -236,9 +249,9 @@ export const calculateSignalOffsets = (
     const layout = []
     for (const group of configLayout) {
         let nGroup = 0
-        // Remove missing and hidden channels from the layout.
+        // Remove missing, hidden, and _orig overlay channels from the layout count.
         for (let i=nChanTotal; i<nChanTotal+group; i++) {
-            if (shouldDisplayChannel(channels[i], false)) {
+            if (shouldDisplayChannel(channels[i], false) && !channels[i]?.isOriginal) {
                 nGroup++
             }
         }
@@ -289,7 +302,7 @@ export const calculateSignalOffsets = (
                 continue
             }
             chanIdx++
-            if (!shouldDisplayChannel(chan, false)) {
+            if (!shouldDisplayChannel(chan, false) || chan.isOriginal) {
                 continue
             }
             if (!groupSpacing) {
@@ -307,6 +320,21 @@ export const calculateSignalOffsets = (
             if (chan.modality === 'meta') {
                 Log.warn(`Metadata channel ${chan.label} has been included into visbile layout.`, SCOPE)
             }
+        }
+    }
+    // Copy offsets from primary channels to their original-signal overlay counterparts.
+    // Primary label is derived by stripping the corrected-channel suffix from the overlay channel label.
+    for (const chan of channels) {
+        if (!chan.isOriginal) {
+            continue
+        }
+        const primaryLabel = chan.label?.split(correctedChannelSuffix).join('').trim()
+        if (!primaryLabel) {
+            continue
+        }
+        const primary = channels.find(c => !c.isOriginal && c.label === primaryLabel)
+        if (primary?.offset && typeof primary.offset === 'object') {
+            chan.offset = { ...primary.offset }
         }
     }
 }
@@ -1014,6 +1042,7 @@ export const mapMontageChannels = (
     config?: {
         channels: SetupChannel[]
         channelSpacing: number
+        correctedChannelSuffix?: string
         electrodes: string[]
         groupSpacing: number
         isRaw: boolean
@@ -1045,6 +1074,7 @@ export const mapMontageChannels = (
             offset: props?.offset || 0.5,
             visible: visible,
             unit: props?.unit || '?',
+            isOriginal: props?.isOriginal,
         } as BiosignalChannelProperties
         return newChan
     }
@@ -1120,6 +1150,7 @@ export const mapMontageChannels = (
         let actSR = 0
         let actUnit = ''
         let active = null as number | DerivedChannelProperties | null
+        let isOrigChan = false
         for (const actProps of Array.isArray(chan.active) ? chan.active : [chan.active]) {
             const actIdx = Array.isArray(actProps) ? actProps[0] : actProps
             const actChan = channelMap[actIdx]
@@ -1200,6 +1231,9 @@ export const mapMontageChannels = (
                 chan.scale ||= actChan.scale
                 chan.unit ||= actChan.unit
             }
+            if (!isOrigChan && actChan.name?.endsWith(config?.correctedChannelSuffix || '_orig')) {
+                isOrigChan = true
+            }
         }
         const refs = [] as DerivedChannelProperties
         if (chan.reference.length) {
@@ -1236,6 +1270,7 @@ export const mapMontageChannels = (
                     getChannel({
                         label: chan.label,
                         name: chan.name,
+                        isOriginal: isOrigChan || undefined,
                     })
                 )
             } else {
@@ -1254,6 +1289,7 @@ export const mapMontageChannels = (
                         scale: chan.scale,
                         displayPolarity: chan.polarity,
                         unit: chan.unit || actUnit,
+                        isOriginal: isOrigChan || undefined,
                     })
                 )
             }
@@ -1271,10 +1307,66 @@ export const mapMontageChannels = (
                     scale: chan.scale,
                     displayPolarity: chan.polarity,
                     unit: chan.unit || actUnit,
+                    isOriginal: isOrigChan || undefined,
                 })
             )
         }
     }
+    // Auto-generate original-signal overlay channels for any channel whose active electrode has a
+    // corrected-suffix counterpart in the setup. This enables stacked display without requiring the
+    // original channels to be listed explicitly in the montage config.
+    const sfx = config?.correctedChannelSuffix || '_orig'
+    const origChannels = [] as BiosignalChannelProperties[]
+    for (const chan of channels) {
+        if (chan.isOriginal || chan.active === NUMERIC_ERROR_VALUE) {
+            continue
+        }
+        // Resolve the primary active electrode index (first active if derived from multiple).
+        const activeEntry = Array.isArray(chan.active) ? chan.active[0] : chan.active
+        const activeIdx = Array.isArray(activeEntry) ? activeEntry[0] : activeEntry
+        if (typeof activeIdx !== 'number' || activeIdx === NUMERIC_ERROR_VALUE) {
+            continue
+        }
+        const primarySetupChan = setup.channels.find(sc => sc.index === activeIdx)
+        if (!primarySetupChan) {
+            continue
+        }
+        const origSetupChan = setup.channels.find(sc => sc.name === primarySetupChan.name + sfx)
+        if (!origSetupChan) {
+            continue
+        }
+        // Map reference channels — prefer the corrected-suffix version where available, keep primary otherwise.
+        const origRef = [] as DerivedChannelProperties
+        for (const ref of ((chan.reference || []) as DerivedChannelProperties)) {
+            const refIdx = Array.isArray(ref) ? ref[0] : ref
+            const refSetupChan = setup.channels.find(sc => sc.index === refIdx)
+            if (!refSetupChan) {
+                origRef.push(ref)
+                continue
+            }
+            const origRefChan = setup.channels.find(sc => sc.name === refSetupChan.name + sfx)
+            if (origRefChan) {
+                origRef.push(Array.isArray(ref) ? [origRefChan.index, ref[1]] : origRefChan.index)
+            } else {
+                origRef.push(ref)
+            }
+        }
+        origChannels.push(getChannel({
+            label: chan.label,
+            name: (chan.name || '') + sfx,
+            modality: chan.modality,
+            laterality: chan.laterality,
+            active: origSetupChan.index,
+            reference: origRef,
+            averaged: chan.averaged,
+            samplingRate: chan.samplingRate,
+            scale: chan.scale,
+            displayPolarity: chan.displayPolarity,
+            unit: chan.unit,
+            isOriginal: true,
+        }))
+    }
+    channels.push(...origChannels)
     // Calculate signal offsets for the loaded channels.
     calculateSignalOffsets(
         channels,
@@ -1284,7 +1376,8 @@ export const mapMontageChannels = (
             isRaw: false,
             layout: config.layout || [],
             yPadding: config.yPadding || 1,
-        }
+        },
+        sfx
     )
     return convertToMontageChannel(...channels) as MontageChannel[]
 }

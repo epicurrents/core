@@ -12,6 +12,7 @@ import {
     getIncludedChannels,
     shouldDisplayChannel,
 } from '#util/signal'
+import GenericBiosignalChannel from './components/GenericBiosignalChannel'
 import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
 import type {
@@ -149,6 +150,11 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this._filters.highpass = TYPE_SETTINGS?.defaultFilters?.highpass || 0
         this._filters.lowpass = TYPE_SETTINGS?.defaultFilters?.lowpass || 0
         this._filters.notch = TYPE_SETTINGS?.defaultFilters?.notch || 0
+        // Propagate the corrected-channel suffix from module settings so all channel instances
+        // created under this resource use the configured convention automatically.
+        if (TYPE_SETTINGS?.correctedChannelSuffix) {
+            GenericBiosignalChannel.correctedChannelSuffix = TYPE_SETTINGS.correctedChannelSuffix
+        }
     }
 
     get activeMontage () {

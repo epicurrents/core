@@ -211,6 +211,44 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                     })
                 )
             }
+            // Auto-include original (pre-correction) counterparts for any matched channel that has one.
+            // Snapshot to avoid iterating over entries we're about to add.
+            const sfx = config.correctedChannelSuffix || '_orig'
+            const primaryChannels = this._channels.slice()
+            for (const primary of primaryChannels) {
+                if (!primary.name || primary.name.endsWith(sfx)) {
+                    continue
+                }
+                // Use the actual matched source signal name (not the setup config name) to find the
+                // _orig counterpart — they share the same casing as the file (e.g. "Fp1" → "Fp1_orig"),
+                // while the config name may use a different case convention (e.g. "fp1").
+                const sourceName = recordSignals[primary.index]?.name
+                if (!sourceName) {
+                    continue
+                }
+                for (let i=0; i<recordSignals.length; i++) {
+                    if (matchedSigs.includes(i)) {
+                        continue
+                    }
+                    if (recordSignals[i].name.toLowerCase() === (sourceName + sfx).toLowerCase()) {
+                        // Store the channel with the setup's naming convention (primary.name + sfx)
+                        // so that mapMontageChannels can locate it via a predictable name lookup.
+                        this._channels.push(
+                            getChannel(i, {
+                                label: recordSignals[i].label,
+                                laterality: recordSignals[i].laterality,
+                                modality: recordSignals[i].modality,
+                                name: primary.name + sfx,
+                                polarity: recordSignals[i].displayPolarity,
+                                samplingRate: recordSignals[i].samplingRate,
+                                unit: recordSignals[i].unit,
+                            })
+                        )
+                        matchedSigs.push(i)
+                        break
+                    }
+                }
+            }
             // Source channels missing from config.
             for (let i=0; i<recordSignals.length; i++) {
                 if (matchedSigs.includes(i)) {

@@ -204,6 +204,12 @@ export type CommonBiosignalSettings = {
     defaultSetups?: string[]
     /** How many montages to precache. */
     precacheMontages?: number
+    /**
+     * Suffix appended to channel names that carry the original (pre-correction) signal.
+     * Channels whose name ends with this suffix are drawn behind their corrected counterpart
+     * at reduced opacity. Defaults to `'_orig'` when omitted.
+     */
+    correctedChannelSuffix?: string
 }
 export type ConfigBiosignalMontage = {
     /** Descriptive name for this montage (overrides possible default name). */
@@ -217,6 +223,8 @@ export type ConfigBiosignalMontage = {
 export type ConfigBiosignalSetup = {
     /** Channel templates for raw channel properties. */
     channels: BiosignalChannelTemplate[]
+    /** Suffix that identifies original (pre-correction) channels; inherits from CommonBiosignalSettings. */
+    correctedChannelSuffix?: string
     /** Channel derivations that are precalculated and stored as source signals. */
     derivations?: BiosignalChannelDerivationTemplate[]
     /** Descriptive label for this montage. */
@@ -248,6 +256,8 @@ export type ConfigDatasetLoader = {
 }
 export type ConfigMapChannels = {
     channels: SetupChannel[]
+    /** Suffix that identifies original (pre-correction) channels; inherits from CommonBiosignalSettings. */
+    correctedChannelSuffix?: string
     channelSpacing: number
     electrodes: string[]
     groupSpacing: number

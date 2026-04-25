@@ -83,7 +83,14 @@ const CONFIG_SCHEMA = {
 const SCOPE = "GenericBiosignalChannel"
 
 export default abstract class GenericBiosignalChannel extends GenericAsset implements BiosignalChannel {
+    /**
+     * Suffix that identifies original (pre-correction) channels.
+     * Set once at app startup from `CommonBiosignalSettings.correctedChannelSuffix`.
+     */
+    static correctedChannelSuffix = '_orig'
+
     protected _averaged: boolean
+    protected _isOriginal: boolean | undefined
     protected _cursors = {
         horizontal: [] as BiosignalCursor[],
         vertical: [] as BiosignalCursor[],
@@ -127,6 +134,10 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         this._label = label
         this._samplingRate = samplingRate
         this._averaged = averaged
+        this._isOriginal = extraProperties.isOriginal ?? (
+                            name.endsWith(GenericBiosignalChannel.correctedChannelSuffix)
+                            ? true : undefined
+                        )
         this._laterality = extraProperties.laterality || ''
         this._visible = visible
         this._unit = unit
@@ -160,6 +171,13 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     }
     set averaged (value: boolean) {
         this._setPropertyValue('averaged', value)
+    }
+
+    get isOriginal () {
+        return this._isOriginal
+    }
+    set isOriginal (value: boolean | undefined) {
+        this._setPropertyValue('isOriginal', value)
     }
 
     get cursors () {

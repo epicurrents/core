@@ -256,6 +256,8 @@ export interface BiosignalChannel {
     unit: string
     /** Is this channel visible to the user. */
     visible: boolean
+    /** Is this channel an original (pre-correction) signal that should overlay its corrected counterpart. */
+    isOriginal?: boolean
     /**
      * Add the given `markers` to this channel.
      * @param markers - Markers to add to the channel.
@@ -393,6 +395,8 @@ export type BiosignalChannelProperties = {
     unit?: string,
     /** Should this channel be visible to the user. */
     visible?: boolean
+    /** Is this channel an original (pre-correction) signal that should overlay its corrected counterpart. */
+    isOriginal?: boolean
 }
 /**
  * A basic template for biosignal channel configurations.
