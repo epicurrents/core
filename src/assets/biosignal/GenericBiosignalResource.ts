@@ -408,8 +408,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                         && oldEvent.duration === newEvent.duration
                         && oldEvent.type === newEvent.type
                         && oldEvent.label === newEvent.label
-                        && oldEvent.channels.length === newEvent.channels.length
-                        && oldEvent.channels.every(val => newEvent.channels.includes(val))
+                        && (oldEvent.channels?.length ?? 0) === (newEvent.channels?.length ?? 0)
+                        && (oldEvent.channels ?? []).every(val => (newEvent.channels ?? []).includes(val))
                     )
                 ) {
                     continue new_loop

@@ -60,8 +60,6 @@ export type AmplitudeEnvelopeElement = {
  * Object template to use when constructing a biosignal annotation.
  */
 export type AnnotationEventTemplate = AnnotationTemplate & {
-     /** List of channel numbers, empty for a general event. */
-    channels: (number | string)[]
     /**
      * Annotation class. The default general purpose classes are:
      * - `activation` is any activation procedure that may have an effect on the EEG.
@@ -95,6 +93,8 @@ export type AnnotationEventTemplate = AnnotationTemplate & {
      * TODO: Remove and create a separate annotation class for this.
      */
     background?: BiosignalAnnotationEvent['background']
+    /** List of channel numbers, empty for a general event. */
+    channels?: (number | string)[]
     /** Color override for the event type's default color. */
     color?: BiosignalAnnotationEvent['color']
     /** Additional opacity multiplier for the event opacity set in the `color` property. */
@@ -131,13 +131,6 @@ export type AnnotationLabelTemplate = AnnotationTemplate & {
  */
 export interface BiosignalAnnotationEvent extends Annotation {
     /**
-     * Should this event be placed in the background (behind the plot).
-     * TODO: Remove and create a separate montage annotation class for this.
-     */
-    background: boolean
-    /** List of channel indices or `active` channel names, empty for a general type event. */
-    channels: (number | string)[]
-    /**
      * Event class. The default general purpose event classes are:
      * - `activation` is any activation procedure that may have an effect on the EEG.
      * - `comment` is free-from commentary, may be unrelated to the recording itself.
@@ -168,6 +161,13 @@ export interface BiosignalAnnotationEvent extends Annotation {
     /** Is this event visible. */
     visible: boolean
     /**
+     * Should this event be placed in the background (behind the plot).
+     * TODO: Remove and create a separate montage annotation class for this.
+     */
+    background?: boolean
+    /** List of channel indices or `active` channel names, empty for a general type event. */
+    channels?: (number | string)[]
+    /**
      * Color override for the event type's default color.
      * Changing this property triggers an additional event `appearance-changed`.
      */
@@ -178,11 +178,11 @@ export interface BiosignalAnnotationEvent extends Annotation {
      */
     opacity?: number
     serialize (options?: AssetSerializeOptions): ReturnType<Annotation['serialize']> & {
-        background: boolean
-        channels: (number | string)[] | null
-        color: string | null
         duration: number
         start: number
+        background?: boolean
+        channels?: (number | string)[]
+        color?: string
         opacity?: number
     }
 }

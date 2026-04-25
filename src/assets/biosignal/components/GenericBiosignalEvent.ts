@@ -160,10 +160,10 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
             background: this.background,
             channels: this.channels.length > 0
                       ? this.channels
-                      : (options?.nullIfEmpty?.includes('channels') ? null : []),
+                      : (options?.nullIfEmpty?.includes('channels') ? undefined : []),
             color: this.color
                    ? settingsColorToRgba(this.color)
-                   : (options?.nullIfEmpty?.includes('color') ? null : ''),
+                   : (options?.nullIfEmpty?.includes('color') ? undefined : ''),
             duration: this.duration,
             opacity: this.opacity,
             start: this.start,
