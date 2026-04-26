@@ -179,6 +179,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             return false
         }
         this._highlights.set(name, context)
+        this.dispatchPropertyChangeEvent('highlights', this.highlights, null)
         return true
     }
 

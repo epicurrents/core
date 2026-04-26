@@ -697,6 +697,8 @@ export interface BiosignalMontage extends BaseAsset {
     filters: BiosignalFilters
     /** Does this recording use common reference for signals. */
     hasCommonReference: boolean
+    /** Named highlight contexts attached to this montage. */
+    highlights: { [key: string]: unknown }
     /** Descriptive name for this montage. */
     label: string
     /** Unique, identifying name for this montage. */
@@ -710,6 +712,17 @@ export interface BiosignalMontage extends BaseAsset {
     setup: BiosignalSetup
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
+    /**
+     * Attach a named highlight context to this montage.
+     * Dispatches `property-change:highlights` so listeners can re-render.
+     * Returns false (and logs an error) if a context with the same name already exists.
+     */
+    addHighlightContext (name: string, context: unknown): boolean
+    /**
+     * Remove all highlight contexts from this montage.
+     * Dispatches `property-change:highlights`.
+     */
+    removeAllHighlights (): void
     /**
      * Start the process of caching signals from the source.
      * @param ranges - Ranges to cache in seconds `[start, end]` (defaults to whole recording).
