@@ -73,7 +73,7 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
 
     protected _background = false
     protected _channels = [] as (number | string)[]
-    protected _class = 'event' as BiosignalAnnotationEvent['class']
+    protected _class: BiosignalAnnotationEvent['class']
     protected _duration: number
     protected _label: string
     protected _start: number
@@ -94,6 +94,7 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
         // Optional properties.
         this._background = options.background ?? false
         this._channels = options.channels ?? []
+        this._class = options.class ?? 'event'
         this._color = options.color
         this._opacity = options.opacity
     }
