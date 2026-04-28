@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { GenericBiosignalLabel } from '#assets/biosignal/components'
 import { AnnotationLabel, PropertyChangeHandler } from './application'
 import {
     BiosignalAnnotationEvent,
@@ -159,10 +160,6 @@ export type CommonBiosignalSettings = {
         convertPatterns: [string, BiosignalAnnotationEvent][]
         ignorePatterns: string[]
     }
-    labels: {
-        convertPatterns: [string, AnnotationLabel][]
-        ignorePatterns: string[]
-    }
     /** Show channels that tha have been marked hidden on the EEG trace. */
     showHiddenChannels: boolean
     /** Show channels that are missing from the source file on the EEG trace. */
@@ -201,7 +198,43 @@ export type CommonBiosignalSettings = {
     /////////////////////////
     /** Default montages for different setups. */
     defaultMontages?: { [setup: string]: [string, string][] }
+    /** Which setups to load from the available defaults. */
     defaultSetups?: string[]
+    /** Label settings; if not defined, labels are disabled. */
+    labels?: {
+        /** Patterns to convert when reading labels from another source. */
+        convertPatterns: [string, AnnotationLabel][]
+        /** Patterns to ignore when reading labels from another source. */
+        ignorePatterns: string[]
+        /** Are wildcard labels (free key-value pairs) enabled for this biosignal resource. */
+        wildcardEnabled: boolean
+        /** Available label types that can be added to biosignal events. */
+        availableLabels?: {
+            /** Identifier for the label type. */
+            name: string
+            /** Display text for the label type. */
+            text: string
+            /** Type of the label value. */
+            type: 'array' | 'boolean' | 'number' | 'string'
+            /** Optional cast type for the label value. */
+            castType?: SettingsValueConstructor
+            /** Optional codes for the label value. */
+            codes?: GenericBiosignalLabel['codes']
+            /** Default value for the label. */
+            defaultValue?: string | number | boolean | string[]
+            /** Whether multiple array values are allowed. */
+            multiple?: boolean
+            /** Range of valid numeric values. */
+            range?: [number, number]
+            /** Step size for a numeric label value. */
+            step?: number
+            /** Options for an array label value. */
+            options?: {
+                label: string
+                value: string
+            }[]
+        }[]
+    }
     /** How many montages to precache. */
     precacheMontages?: number
     /**
