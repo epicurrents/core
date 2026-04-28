@@ -45,8 +45,18 @@ export default abstract class GenericMontageChannel extends GenericBiosignalChan
         this._montage = montage
         this._reference = reference
         if (extraProperties.contralateralChannel) {
-            // Save the channel name for later matching.
-            this._chanPairName = extraProperties.contralateralChannel
+            if (typeof extraProperties.contralateralChannel === 'string') {
+                // Channel name from JSON — store for lazy lookup in the getter.
+                this._chanPairName = extraProperties.contralateralChannel
+            } else {
+                // convertToMontageChannel already resolved the string name to a plain
+                // channel-properties object before EegMontageChannel instances existed.
+                // Extract the name string so the getter can find the real instance.
+                const resolved = extraProperties.contralateralChannel as unknown as { name?: string }
+                if (resolved.name) {
+                    this._chanPairName = resolved.name
+                }
+            }
         }
     }
 
@@ -74,14 +84,14 @@ export default abstract class GenericMontageChannel extends GenericBiosignalChan
         if (!exactName) {
             // If no contralateral channel name was given, we try to deduce it from the channel name.
             // This works only for standard EEG channel names in a common reference montage.
-            if (!this._montage.hasCommonReference || (this.name.match(/([acfopt]+)(\d+)/ig)?.length || 0) > 1) {
+            if (!this._montage.hasCommonReference || (this.name.match(/([a-z]+)(\d+)/ig)?.length || 0) > 1) {
                 Log.warn(
                     `Cannot deduce contralateral channel name for '${this.name}' without a common reference montage.`,
                     SCOPE
                 )
                 return null
             }
-            const nameProps = this.name.match(/([acfopt]+)(\d+)(.+)?/i)
+            const nameProps = this.name.match(/([a-z]+)(\d+)(.+)?/i)
             if (!nameProps) {
                 Log.warn(
                     `Cannot deduce contralateral channel name for non-standard channel name '${this.name}'.`,

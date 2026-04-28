@@ -144,6 +144,12 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
         }
         // Don't rematch already matched signals.
         const matchedSigs = [] as number[]
+        // Suffix used for pre-correction original channels (e.g. Fp1_orig).
+        // Only defined when the config explicitly provides it — if absent, auto-include
+        // is skipped entirely so no assumptions are made about channel naming.
+        // These channels are reserved for auto-include and must not be claimed by the
+        // main config-loop pattern scan.
+        const origSfx = config.correctedChannelSuffix?.toLowerCase()
         // Try to match config channels to record signals.
         if (config.channels) {
             config_loop:
@@ -154,7 +160,7 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                         if (matchedSigs.includes(i)) {
                             continue
                         }
-                        if (chan.name === recordSignals[i].name) {
+                        if (chan.name.toLowerCase() === recordSignals[i].name.toLowerCase()) {
                             this._channels.push(
                                 getChannel(i, {
                                     averaged: chan.averaged,
@@ -177,6 +183,13 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 if (chan.pattern) {
                     for (let i=0; i<recordSignals.length; i++) {
                         if (matchedSigs.includes(i)) {
+                            continue
+                        }
+                        // Skip _orig channels here — they are reserved for auto-include
+                        // after this loop.  Claiming them now would prevent auto-include
+                        // from pairing them with their primary channel and could steal a
+                        // setup slot meant for a different (non-_orig) channel.
+                        if (origSfx && recordSignals[i].name.toLowerCase().endsWith(origSfx)) {
                             continue
                         }
                         if (recordSignals[i].name.match(new RegExp(chan.pattern, 'i')) !== null) {
@@ -212,11 +225,13 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 )
             }
             // Auto-include original (pre-correction) counterparts for any matched channel that has one.
+            // Only runs when the config explicitly provides a correctedChannelSuffix — if absent,
+            // no auto-include is attempted so no assumptions are made about channel naming.
             // Snapshot to avoid iterating over entries we're about to add.
-            const sfx = config.correctedChannelSuffix || '_orig'
+            const sfx = config.correctedChannelSuffix
             const primaryChannels = this._channels.slice()
             for (const primary of primaryChannels) {
-                if (!primary.name || primary.name.endsWith(sfx)) {
+                if (!sfx || !primary.name || primary.name.endsWith(sfx)) {
                     continue
                 }
                 // Use the actual matched source signal name (not the setup config name) to find the
