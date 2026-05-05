@@ -1018,6 +1018,8 @@ export interface BiosignalResource extends DataResource {
     dataCache: MutexExportProperties | SignalDataCache | null
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
+    /** Are annotations locked against modification (adding, removing, or editing). */
+    annotationsLocked: boolean
     /** List of events. */
     events: BiosignalAnnotationEvent[]
     /**
@@ -1100,6 +1102,12 @@ export interface BiosignalResource extends DataResource {
      * @param templates - Templates to use for the labels.
      */
     addLabelsFromTemplates (...templates: AnnotationLabelTemplate[]): void
+    /**
+     * Lock all annotations on this resource against modification.
+     * Sets `annotationsLocked` to true and marks every existing event and label as `locked`.
+     * This operation is irreversible.
+     */
+    lockAnnotations (): void
     /**
      * Start the process of caching signals from the saved URL.
      * @param ranges - Optional ranges to cache in seconds `[start, end]` (NYI, defaults to the whole recording).

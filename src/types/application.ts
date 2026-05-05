@@ -50,6 +50,8 @@ export interface Annotation extends BaseAsset {
      * If left empty, it will return a string representation of the value (array values joined by commas).
      */
     label: string
+    /** Is this annotation locked against modification. A locked annotation's properties cannot be changed. */
+    locked: boolean
     /**
      * Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero.
      */
@@ -67,6 +69,7 @@ export interface Annotation extends BaseAsset {
         class: Annotation['class'] | null
         codes: Record<string, number | string> | null
         label: string | null
+        locked: boolean
         priority: number
         text: string | null
         type: string | null
@@ -107,6 +110,8 @@ export type AnnotationOptions = {
     codes?: Record<string, number | string>
     /** Text label for the annotation (visible on annotation listings). */
     label?: string
+    /** Is this annotation locked against modification. */
+    locked?: boolean
     /** Priority of this annotation (lower number has lower priority). Priority must be a number greater than zero. */
     priority?: number
     /** Additional commentary regarding the annotation. */

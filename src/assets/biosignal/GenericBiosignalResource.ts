@@ -102,6 +102,7 @@ const SCOPE = 'GenericBiosignalResource'
 export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
     // Protected properties.
     protected _activeMontage: BiosignalMontage | null = null
+    protected _annotationsLocked: boolean = false
     protected _cacheProps: SignalDataCache | null = null
     protected _channels: SourceChannel[] = []
     protected _cursors: BiosignalCursor[] = []
@@ -159,6 +160,16 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     get activeMontage () {
         return this._activeMontage
+    }
+
+    get annotationsLocked () {
+        return this._annotationsLocked
+    }
+    set annotationsLocked (value: boolean) {
+        if (this._annotationsLocked) {
+            return
+        }
+        this._setPropertyValue('annotationsLocked', value)
     }
 
     get channels () {
@@ -395,7 +406,21 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.dispatchPropertyChangeEvent('cursors', this.cursors, prevState)
     }
 
+    lockAnnotations () {
+        for (const event of this._events) {
+            event.locked = true
+        }
+        for (const label of this._labels) {
+            label.locked = true
+        }
+        this.annotationsLocked = true
+    }
+
     addEvents (...events: BiosignalAnnotationEvent[]) {
+        if (this._annotationsLocked) {
+            Log.error(`Cannot add events to a resource with locked annotations.`, SCOPE)
+            return
+        }
         let anyChange = false
         const prevState = [...this.events]
         new_loop:
@@ -428,6 +453,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     addEventsFromTemplates (..._templates: AnnotationEventTemplate[]) {
+        if (this._annotationsLocked) {
+            Log.error(`Cannot add events to a resource with locked annotations.`, SCOPE)
+            return
+        }
         Log.warn(`addEventsFromTemplates was not overridden in child class.`, SCOPE)
     }
 
@@ -450,6 +479,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     addLabels (...labels: AnnotationLabel[]) {
+        if (this._annotationsLocked) {
+            Log.error(`Cannot add labels to a resource with locked annotations.`, SCOPE)
+            return
+        }
         let anyChange = false
         const prevState = [...this.labels]
         new_loop:
@@ -480,6 +513,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     addLabelsFromTemplates (..._templates: AnnotationLabelTemplate[]) {
+        if (this._annotationsLocked) {
+            Log.error(`Cannot add labels to a resource with locked annotations.`, SCOPE)
+            return
+        }
         Log.warn(`addLabelsFromTemplates was not overridden in child class.`, SCOPE)
     }
 
@@ -723,6 +760,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     removeEvents (...events: string[] | number[] | BiosignalAnnotationEvent[]): BiosignalAnnotationEvent[] {
+        if (this._annotationsLocked) {
+            Log.error(`Cannot remove events from a resource with locked annotations.`, SCOPE)
+            return []
+        }
         const prevState = [...this._events]
         const deleted = [] as BiosignalAnnotationEvent[]
         // All arguments must be of the same type, so we can check the first element.
@@ -749,6 +790,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     removeLabels (...labels: string[] | number[] | AnnotationLabel[]): AnnotationLabel[] {
+        if (this._annotationsLocked) {
+            Log.error(`Cannot remove labels from a resource with locked annotations.`, SCOPE)
+            return []
+        }
         const prevState = [...this._labels]
         const deleted = [] as AnnotationLabel[]
         // All arguments must be of the same type, so we can check the first element.

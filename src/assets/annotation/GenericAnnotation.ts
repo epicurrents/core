@@ -151,6 +151,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
     protected _class: Annotation['class']
     protected _codes: Record<string, number | string>
     protected _label: string
+    protected _locked: boolean
     protected _priority: number
     protected _text: string
     protected _type: string
@@ -171,6 +172,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         this._class = options?.class ?? 'event'
         this._codes = options?.codes ?? {} as Record<string, number | string>
         this._label = options?.label ?? ''
+        this._locked = options?.locked ?? false
         this._priority = options?.priority ?? 0
         this._text = options?.text ?? ''
         this._visible = options?.visible ?? true
@@ -204,6 +206,16 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
     }
     set label (value: string) {
         this._setPropertyValue('label', value)
+    }
+
+    get locked () {
+        return this._locked
+    }
+    set locked (value: boolean) {
+        if (this._locked) {
+            return
+        }
+        this._setPropertyValue('locked', value)
     }
 
     get priority () {
@@ -241,6 +253,14 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         this._setPropertyValue('visible', value)
     }
 
+    protected _setPropertyValue (property: keyof this, newValue: unknown, event?: string) {
+        if (this._locked && property !== 'locked') {
+            Log.error(`Attempted to modify locked annotation '${this._label}'.`, SCOPE)
+            return
+        }
+        super._setPropertyValue(property, newValue, event)
+    }
+
     serialize (options: AssetSerializeOptions = {}) {
         let finalValue = this._value as boolean | number | number[] | string | string[] | null
         if ( // Handle values that should be set to null:
@@ -257,6 +277,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
                    ? this.codes
                    : (options.nullIfEmpty?.includes('codes') ? null : {}),
             label: this.label || (options.nullIfEmpty?.includes('label') ? null : ''),
+            locked: this.locked,
             name: this.name || (options.nullIfEmpty?.includes('name') ? null : ''),
             priority: this.priority,
             text: this.text || (options.nullIfEmpty?.includes('text') ? null : ''),
