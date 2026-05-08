@@ -12,6 +12,7 @@ import type {
     AnnotationOptions,
     AssetSerializeOptions,
     CodedEventProperties,
+    PropertyChangeContext,
 } from '#types'
 import { Log } from 'scoped-event-log'
 
@@ -253,12 +254,12 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         this._setPropertyValue('visible', value)
     }
 
-    protected _setPropertyValue (property: keyof this, newValue: unknown, event?: string) {
+    protected _setPropertyValue (property: keyof this, newValue: unknown, context?: PropertyChangeContext) {
         if (this._locked && property !== 'locked') {
             Log.error(`Attempted to modify locked annotation '${this._label}'.`, SCOPE)
             return
         }
-        super._setPropertyValue(property, newValue, event)
+        super._setPropertyValue(property, newValue, context)
     }
 
     serialize (options: AssetSerializeOptions = {}) {

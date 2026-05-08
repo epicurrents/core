@@ -14,6 +14,7 @@ import type {
     AssetState,
     BaseAsset,
     EpicurrentsApp,
+    PropertyChangeContext,
     PropertyChangeHandler,
 } from '#types/application'
 import type { ConfigSchema, ResourceConfig } from '#types/config'
@@ -23,6 +24,23 @@ import type {
     ScopedEventCallback,
     ScopedEventPhase,
 } from 'scoped-event-bus/dist/types'
+
+/**
+ * Walk the prototype chain of `obj` to find a property descriptor for `key`.
+ * Unlike `Object.getOwnPropertyDescriptor`, this correctly locates setters defined
+ * as class-body accessors, which live on the prototype rather than on instances.
+ */
+function getPropertyDescriptor(obj: object, key: string): PropertyDescriptor | undefined {
+    let proto: object | null = Object.getPrototypeOf(obj)
+    while (proto) {
+        const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+        if (descriptor) {
+            return descriptor
+        }
+        proto = Object.getPrototypeOf(proto)
+    }
+    return undefined
+}
 
 /**
  * Configuration schema for generic asset.
@@ -200,7 +218,7 @@ export default abstract class GenericAsset implements BaseAsset {
                 continue
             }
             // The field must have a setter to be configurable.
-            const propertySetter = Object.getOwnPropertyDescriptor(target, field.name)?.set
+            const propertySetter = getPropertyDescriptor(target, field.name)?.set
             if (!propertySetter) {
                 Log.warn(
                     `Config schema error: property '${field.name}' is not configurable on ` +
@@ -219,10 +237,13 @@ export default abstract class GenericAsset implements BaseAsset {
     /**
      * Set a new value for a property in this asset.
      * @param property - Name of the property.
-     * @param newValue - New value for the property.
-     * @param event - Optional event name to override the dispatched default property change event.
+     * @param newValue - New value for the property, or the anticipated value shown
+     *   to `before` listeners when a `context.callback` is provided.
+     * @param context - Optional metadata forwarded into the dispatched event detail.
+     *   When `context.callback` is given it drives the assignment — see
+     *   {@link PropertyChangeContext.callback} for the full contract.
      */
-    protected _setPropertyValue (property: keyof this, newValue: unknown, event?: string) {
+    protected _setPropertyValue (property: keyof this, newValue: unknown, context?: PropertyChangeContext) {
         if (typeof property !== 'string') {
             // Only string type property keys are supported.
             return
@@ -237,22 +258,40 @@ export default abstract class GenericAsset implements BaseAsset {
                 `'${property}' is not a valid property name.`, SCOPE)
             return
         }
-        if (Array.isArray(this[protectedKey]) && Array.isArray(value)) {
-            if (!this.dispatchPropertyChangeEvent(property, value, this[protectedKey], 'before', event)) {
+        if (context?.callback) {
+            // Callback path: the caller supplies the mutation logic.
+            // newValue is used as the anticipated value in the before event so that
+            // listeners can inspect what the caller intends before the mutation runs.
+            const prevValue = this[protectedKey]
+            if (!this.dispatchPropertyChangeEvent(property, value, prevValue, 'before', context)) {
+                Log.debug(`Setting new value for property '${property}' was prevented.`, SCOPE)
+                return
+            }
+            let result: unknown
+            try {
+                result = context.callback(prevValue)
+            } catch (e) {
+                Log.error(`Callback for property '${property}' threw; property left unchanged.`, SCOPE)
+                return
+            }
+            this[protectedKey] = result as this[keyof this]
+            this.dispatchPropertyChangeEvent(property, result, prevValue, 'after', context)
+        } else if (Array.isArray(this[protectedKey]) && Array.isArray(value)) {
+            if (!this.dispatchPropertyChangeEvent(property, value, this[protectedKey], 'before', context)) {
                 Log.debug(`Setting new value for property '${property}' was prevented.`, SCOPE)
                 return
             }
             const prevValue = (this[protectedKey] as unknown[])
                               .splice(0, (this[protectedKey] as unknown[]).length, ...value)
-            this.dispatchPropertyChangeEvent(property, value, prevValue, 'after', event)
+            this.dispatchPropertyChangeEvent(property, value, prevValue, 'after', context)
         } else {
             const prevValue = this[protectedKey]
-            if (!this.dispatchPropertyChangeEvent(property, value, prevValue, 'before', event)) {
+            if (!this.dispatchPropertyChangeEvent(property, value, prevValue, 'before', context)) {
                 Log.debug(`Setting new value for property '${property}' was prevented.`, SCOPE)
                 return
             }
             this[protectedKey] = value
-            this.dispatchPropertyChangeEvent(property, value, prevValue, 'after', event)
+            this.dispatchPropertyChangeEvent(property, value, prevValue, 'after', context)
         }
     }
 
@@ -305,12 +344,12 @@ export default abstract class GenericAsset implements BaseAsset {
                 continue
             }
             // The property must have a setter or it isn't configurable.
-            const propertySetter = Object.getOwnPropertyDescriptor(target, key)?.set
+            const propertySetter = getPropertyDescriptor(target, key)?.set
             if (!propertySetter) {
                 Log.warn(`Property '${key}' is not configurable on '${target.name}'.`, SCOPE)
                 continue
             }
-            propertySetter(value as BaseAsset[keyof BaseAsset])
+            propertySetter.call(target, value as BaseAsset[keyof BaseAsset])
         }
     }
 
@@ -342,14 +381,15 @@ export default abstract class GenericAsset implements BaseAsset {
         newValue?: T,
         oldValue?: T,
         phase: ScopedEventPhase = 'after',
-        event?: string,
+        context?: PropertyChangeContext,
     ) {
         const detail = {
             property: property,
             newValue: newValue !== undefined ? newValue : this[property],
             oldValue: oldValue !== undefined ? oldValue : this[property],
+            source: context?.source,
         } as PropertyChangeEvent<T>['detail']
-        return this.dispatchEvent(event || `property-change:${property.toString()}`, phase, detail)
+        return this.dispatchEvent(context?.event || `property-change:${property.toString()}`, phase, detail)
     }
 
     getEventHooks (event: string, subscriber: string): ReturnType<ScopedEventBus['getEventHooks']> {

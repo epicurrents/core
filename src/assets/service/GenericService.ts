@@ -277,8 +277,10 @@ export default abstract class GenericService extends GenericAsset implements Ass
                     level as keyof typeof Log.LEVELS,
                     event as string,
                     scope as string,
-                    message.data.sensitive as boolean | undefined,
-                    extra
+                    {
+                        extra,
+                        sensitive: message.data.sensitive as boolean | undefined,
+                    }
                 )
             }
             return true

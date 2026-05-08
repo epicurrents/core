@@ -20,7 +20,6 @@ import type {
     ResourceSortingScheme
 } from '#types/dataset'
 import { Log } from 'scoped-event-log'
-import { deepClone } from '#util'
 
 const SCOPE = 'GenericDataset'
 
@@ -325,9 +324,10 @@ export default abstract class GenericDataset extends GenericResource implements 
             Log.warn(`Cannot set a custom resource sorting order if sorting scheme is 'alphabetical'.`, SCOPE)
             return
         }
-        const prevState = deepClone(this.resourceSorting)
-        this._resourceSorting.order = value
-        this.dispatchPropertyChangeEvent('resourceSorting', this.resourceSorting, prevState)
+        const newSorting = { ...this._resourceSorting, order: value }
+        this._setPropertyValue('resourceSorting', newSorting, {
+            callback: () => newSorting,
+        })
     }
 
     setResourceSortingScheme (scheme: ResourceSortingScheme) {
@@ -335,11 +335,10 @@ export default abstract class GenericDataset extends GenericResource implements 
             Log.debug(`Resource sorting scheme is identical to currently asctive scheme.`, SCOPE)
             return
         }
-        const prevState = deepClone(this.resourceSorting)
-        this.dispatchPropertyChangeEvent('resourceSorting', this.resourceSorting, prevState, 'before')
-        this._resourceSorting.scheme = scheme
-        this._resourceSorting.order = []
-        this.dispatchPropertyChangeEvent('resourceSorting', this.resourceSorting, prevState)
+        const newSorting = { ...this._resourceSorting, scheme, order: [] as string[] }
+        this._setPropertyValue('resourceSorting', newSorting, {
+            callback: () => newSorting,
+        })
     }
 
     async unload () {

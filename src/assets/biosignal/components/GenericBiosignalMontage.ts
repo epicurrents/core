@@ -178,8 +178,11 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             Log.error(`Could not add duplicate highlight context ${name}.`, SCOPE)
             return false
         }
-        this._highlights.set(name, context)
-        this.dispatchPropertyChangeEvent('highlights', this.highlights, null)
+        const newHighlights = new Map(this._highlights)
+        newHighlights.set(name, context)
+        this._setPropertyValue('highlights', newHighlights, {
+            callback: () => newHighlights,
+        })
         return true
     }
 
@@ -280,9 +283,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
 
     removeAllHighlights () {
-        const prevState = this.highlights
-        this._highlights.clear()
-        this.dispatchPropertyChangeEvent('highlights', this.highlights, prevState)
+        const emptyHighlights = new Map<string, unknown>()
+        this._setPropertyValue('highlights', emptyHighlights, {
+            callback: () => emptyHighlights,
+        })
     }
 
     removeAllEventListeners (subscriber?: string) {

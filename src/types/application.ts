@@ -272,7 +272,7 @@ export interface BaseAsset {
      * @param newValue - The new value of the property (optional).
      * @param oldValue - The old value of the property (optional).
      * @param phase - Phase of the event (optional, default 'after').
-     * @param event - Custom override for the property change event name (optional).
+     * @param context - Optional metadata forwarded into the event detail (event name override, source).
      * @returns False if the event default was prevented, true otherwise.
      */
     dispatchPropertyChangeEvent<T> (
@@ -280,7 +280,7 @@ export interface BaseAsset {
         newValue?: T,
         oldValue?: T,
         phase?: ScopedEventPhase,
-        event?: string
+        context?: PropertyChangeContext
     ): boolean
     /**
      * Get methods for adding listeners to the `before` and `after` phases of a specific `event`.
@@ -623,6 +623,43 @@ export type InterfaceResourceModuleContext = {
  */
 export type NullProtoObject = {
     __proto__?: null
+}
+/**
+ * Optional metadata passed to `_setPropertyValue` and forwarded into the
+ * dispatched property-change event detail.  Using a context object keeps the
+ * method signature stable — new fields can be added here without changing
+ * call sites that only need a subset of the metadata.
+ */
+export type PropertyChangeContext = {
+    /** Override the dispatched event name. */
+    event?: string
+    /**
+     * Whether the change was caused by user interaction (`'user'`) or by
+     * programmatic / system code (`'system'`).  Listeners that should react
+     * only to user-initiated changes (e.g. auto-save hooks) can filter on
+     * this field and ignore system-originated mutations.
+     * Defaults to `'user'` when omitted.
+     */
+    source?: 'system' | 'user'
+    /**
+     * Optional mutation callback.  When provided, `_setPropertyValue` runs the
+     * following sequence instead of its normal scalar/array assignment:
+     *
+     * 1. Dispatch the `before` event with `newValue` as the anticipated value.
+     *    If a listener cancels the event, the method returns immediately.
+     * 2. Invoke `callback(current)`, where `current` is the backing field's
+     *    value at the moment of the call.
+     * 3. Assign the callback's return value to the backing field.
+     * 4. Dispatch the `after` event with the callback's return value.
+     *
+     * If the callback throws, assignment and the `after` event are both skipped,
+     * leaving the property unchanged.
+     *
+     * **Array note**: callbacks that operate on arrays should return a new array
+     * rather than mutating in-place, so that a throw leaves the original array
+     * intact and `_setPropertyValue` can do a clean reference replacement.
+     */
+    callback?: (current: unknown) => unknown
 }
 /**
  * A handler for asset property change events.

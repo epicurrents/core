@@ -13,6 +13,7 @@ import {
     AssetSerializeOptions,
     BaseAsset,
     DataResource,
+    PropertyChangeContext,
     SafeObject
 } from './application'
 import { BiosignalMutex } from '../assets'
@@ -1079,14 +1080,20 @@ export interface BiosignalResource extends DataResource {
     addCursors (...cursors: BiosignalCursor[]): void
     /**
      * Add a set of new events to this recording.
-     * @param events - New events.
+     *
+     * Two calling conventions are accepted:
+     * - Legacy: `addEvents(event1, event2, …)` — no context, source is unspecified.
+     * - New: `addEvents(context, event1, event2, …)` — pass `{ source: 'user' }` for
+     *   UI-driven calls so that auto-save hooks can distinguish them from system loads.
      */
     addEvents (...items: BiosignalAnnotationEvent[]): void
+    addEvents (context: PropertyChangeContext | null, ...items: BiosignalAnnotationEvent[]): void
     /**
      * Add new events to the recording from the given templates.
+     * @param context - Optional property-change context.
      * @param templates - Templates to use for the events.
      */
-    addEventsFromTemplates (...templates: AnnotationEventTemplate[]): void
+    addEventsFromTemplates (context: PropertyChangeContext | null, ...templates: AnnotationEventTemplate[]): void
     /**
      * Add new interruptions to the recording in the form of a data gap map.
      * @param interruptions - Map of new interruptions to add `<start data time, duration>`.
@@ -1094,14 +1101,17 @@ export interface BiosignalResource extends DataResource {
     addInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Add a set of new labels to this recording.
-     * @param labels - New labels.
+     *
+     * Two calling conventions are accepted (see `addEvents` for details).
      */
     addLabels (...items: AnnotationLabel[]): void
+    addLabels (context: PropertyChangeContext | null, ...items: AnnotationLabel[]): void
     /**
      * Add new labels to the recording from the given templates.
+     * @param context - Optional property-change context.
      * @param templates - Templates to use for the labels.
      */
-    addLabelsFromTemplates (...templates: AnnotationLabelTemplate[]): void
+    addLabelsFromTemplates (context: PropertyChangeContext | null, ...templates: AnnotationLabelTemplate[]): void
     /**
      * Lock all annotations on this resource against modification.
      * Sets `annotationsLocked` to true and marks every existing event and label as `locked`.
@@ -1193,16 +1203,20 @@ export interface BiosignalResource extends DataResource {
     releaseBuffers (): Promise<void>
     /**
      * Remove the given `events` from this recording, returning them as an array.
-     * @param events - Event objects or IDs, or indices within the events array.
+     *
+     * Two calling conventions are accepted (see `addEvents` for details).
      * @returns An array containing the removed events.
      */
     removeEvents (...events: string[] | number[] | BiosignalAnnotationEvent[]): BiosignalAnnotationEvent[]
+    removeEvents (context: PropertyChangeContext | null, ...events: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[]
     /**
      * Remove the given `labels` from this recording, returning them as an array.
-     * @param labels - Label objects or IDs, or indices within the labels array.
+     *
+     * Two calling conventions are accepted (see `addEvents` for details).
      * @returns An array containing the removed labels.
      */
     removeLabels (...labels: string[] | number[] | AnnotationLabel[]): AnnotationLabel[]
+    removeLabels (context: PropertyChangeContext | null, ...labels: (string | number | AnnotationLabel)[]): AnnotationLabel[]
     /**
      * Set the given montage as active.
      * @param montage - Montage index or name.

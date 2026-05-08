@@ -120,7 +120,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
             this._recording.signalCacheStatus = [...range]
             const events = data.events as AnnotationEventTemplate[] | undefined
             if (events?.length) {
-                this._recording.addEventsFromTemplates(...events)
+                this._recording.addEventsFromTemplates({ source: 'system' }, ...events)
             }
             const interruptions = data.interruptions as SignalInterruption[] | undefined
             if (interruptions?.length) {

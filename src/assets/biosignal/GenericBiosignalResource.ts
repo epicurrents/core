@@ -16,7 +16,8 @@ import GenericBiosignalChannel from './components/GenericBiosignalChannel'
 import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
 import type {
-    AnnotationLabel
+    AnnotationLabel,
+    PropertyChangeContext,
 } from '#types/application'
 import type {
     AnnotationLabelTemplate,
@@ -98,6 +99,25 @@ const CONFIG_SCHEMA = {
 } as ConfigSchema
 
 const SCOPE = 'GenericBiosignalResource'
+
+/**
+ * Returns true when `value` is a `PropertyChangeContext` (or `null`) rather
+ * than an annotation item.  Used by the overloaded mutation methods to detect
+ * whether the caller is passing an optional context as the first argument.
+ *
+ * The check relies on the fact that none of the annotation types
+ * (`BiosignalAnnotationEvent`, `AnnotationLabel`, `AnnotationEventTemplate`,
+ * `string`, `number`) carry a `source`, `callback`, or `event` own-property.
+ */
+function _isPropertyChangeContext (value: unknown): value is PropertyChangeContext | null {
+    if (value === null) {
+        return true
+    }
+    if (typeof value !== 'object') {
+        return false
+    }
+    return 'source' in value || 'callback' in value || 'event' in value
+}
 
 export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
     // Protected properties.
@@ -399,11 +419,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     // ///////////////////////////////////////////// //
 
     addCursors (...cursors: BiosignalCursor[]) {
-        const prevState = [...this.cursors]
-        for (const curs of cursors) {
-            this._cursors.push(curs)
-        }
-        this.dispatchPropertyChangeEvent('cursors', this.cursors, prevState)
+        const newCursors = [...this._cursors, ...cursors]
+        this._setPropertyValue('cursors', newCursors, {
+            callback: () => newCursors,
+        })
     }
 
     lockAnnotations () {
@@ -416,13 +435,16 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.annotationsLocked = true
     }
 
-    addEvents (...events: BiosignalAnnotationEvent[]) {
+    addEvents (...items: BiosignalAnnotationEvent[]): void
+    addEvents (context: PropertyChangeContext | null, ...items: BiosignalAnnotationEvent[]): void
+    addEvents (contextOrFirst: PropertyChangeContext | BiosignalAnnotationEvent | null, ...rest: BiosignalAnnotationEvent[]): void {
         if (this._annotationsLocked) {
             Log.error(`Cannot add events to a resource with locked annotations.`, SCOPE)
             return
         }
-        let anyChange = false
-        const prevState = [...this.events]
+        const context = _isPropertyChangeContext(contextOrFirst) ? contextOrFirst : null
+        const events = _isPropertyChangeContext(contextOrFirst) ? rest : [contextOrFirst as BiosignalAnnotationEvent, ...rest]
+        const toAdd = [] as BiosignalAnnotationEvent[]
         new_loop:
         for (const newEvent of events) {
             for (const oldEvent of this._events) {
@@ -443,16 +465,19 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             if (!newEvent.id) {
                 newEvent.id = GenericBiosignalResource.CreateUniqueId()
             }
-            this._events.push(newEvent)
-            anyChange = true
+            toAdd.push(newEvent)
         }
-        if (anyChange) {
-            this._events.sort((a, b) => a.start - b.start)
-            this.dispatchPropertyChangeEvent('events', this.events, prevState)
+        if (!toAdd.length) {
+            return
         }
+        const newEvents = [...this._events, ...toAdd].sort((a, b) => a.start - b.start)
+        this._setPropertyValue('events', newEvents, {
+            source: context?.source,
+            callback: () => newEvents,
+        })
     }
 
-    addEventsFromTemplates (..._templates: AnnotationEventTemplate[]) {
+    addEventsFromTemplates (_context: PropertyChangeContext | null, ..._templates: AnnotationEventTemplate[]) {
         if (this._annotationsLocked) {
             Log.error(`Cannot add events to a resource with locked annotations.`, SCOPE)
             return
@@ -478,13 +503,16 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
-    addLabels (...labels: AnnotationLabel[]) {
+    addLabels (...items: AnnotationLabel[]): void
+    addLabels (context: PropertyChangeContext | null, ...items: AnnotationLabel[]): void
+    addLabels (contextOrFirst: PropertyChangeContext | AnnotationLabel | null, ...rest: AnnotationLabel[]): void {
         if (this._annotationsLocked) {
             Log.error(`Cannot add labels to a resource with locked annotations.`, SCOPE)
             return
         }
-        let anyChange = false
-        const prevState = [...this.labels]
+        const context = _isPropertyChangeContext(contextOrFirst) ? contextOrFirst : null
+        const labels = _isPropertyChangeContext(contextOrFirst) ? rest : [contextOrFirst as AnnotationLabel, ...rest]
+        const toAdd = [] as AnnotationLabel[]
         new_loop:
         for (const newLabel of labels) {
             for (const oldLabel of this._labels) {
@@ -504,15 +532,19 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             if (!newLabel.id) {
                 newLabel.id = GenericBiosignalResource.CreateUniqueId()
             }
-            this._labels.push(newLabel)
-            anyChange = true
+            toAdd.push(newLabel)
         }
-        if (anyChange) {
-            this.dispatchPropertyChangeEvent('labels', this.labels, prevState)
+        if (!toAdd.length) {
+            return
         }
+        const newLabels = [...this._labels, ...toAdd]
+        this._setPropertyValue('labels', newLabels, {
+            source: context?.source,
+            callback: () => newLabels,
+        })
     }
 
-    addLabelsFromTemplates (..._templates: AnnotationLabelTemplate[]) {
+    addLabelsFromTemplates (_context: PropertyChangeContext | null, ..._templates: AnnotationLabelTemplate[]) {
         if (this._annotationsLocked) {
             Log.error(`Cannot add labels to a resource with locked annotations.`, SCOPE)
             return
@@ -759,63 +791,77 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this.signalCacheStatus = [0, 0]
     }
 
-    removeEvents (...events: string[] | number[] | BiosignalAnnotationEvent[]): BiosignalAnnotationEvent[] {
+    removeEvents (...events: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[]
+    removeEvents (context: PropertyChangeContext | null, ...events: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[]
+    removeEvents (contextOrFirst: PropertyChangeContext | string | number | BiosignalAnnotationEvent | null, ...rest: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[] {
         if (this._annotationsLocked) {
             Log.error(`Cannot remove events from a resource with locked annotations.`, SCOPE)
             return []
         }
-        const prevState = [...this._events]
+        const context = _isPropertyChangeContext(contextOrFirst) ? contextOrFirst : null
+        const events = (_isPropertyChangeContext(contextOrFirst) ? rest : [contextOrFirst, ...rest]) as string[] | number[] | BiosignalAnnotationEvent[]
         const deleted = [] as BiosignalAnnotationEvent[]
+        const newEvents = [...this._events]
         // All arguments must be of the same type, so we can check the first element.
         if (typeof events[0] === 'number') {
             // Remaining IDs must be offset when events are removed from the preceding array.
             // We must go through the IDs in ascending order for this to work.
             const eventIdxs = (events as number[]).sort((a, b) => a - b).map((v, i) => v - i)
             for (const idx of eventIdxs) {
-                deleted.push(...this._events.splice(idx, 1))
+                deleted.push(...newEvents.splice(idx, 1))
             }
         } else {
             for (const event of events as string[] | BiosignalAnnotationEvent[]) {
                 const eventId = typeof event === 'string' ? event : event.id
-                for (let i=0; i<this._events.length; i++) {
-                    if (this._events[i].id === eventId) {
-                        deleted.push(...this._events.splice(i, 1))
+                for (let i=0; i<newEvents.length; i++) {
+                    if (newEvents[i].id === eventId) {
+                        deleted.push(...newEvents.splice(i, 1))
                         break
                     }
                 }
             }
         }
-        this.dispatchPropertyChangeEvent('events', this.events, prevState)
+        this._setPropertyValue('events', newEvents, {
+            source: context?.source,
+            callback: () => newEvents,
+        })
         return deleted
     }
 
-    removeLabels (...labels: string[] | number[] | AnnotationLabel[]): AnnotationLabel[] {
+    removeLabels (...labels: (string | number | AnnotationLabel)[]): AnnotationLabel[]
+    removeLabels (context: PropertyChangeContext | null, ...labels: (string | number | AnnotationLabel)[]): AnnotationLabel[]
+    removeLabels (contextOrFirst: PropertyChangeContext | string | number | AnnotationLabel | null, ...rest: (string | number | AnnotationLabel)[]): AnnotationLabel[] {
         if (this._annotationsLocked) {
             Log.error(`Cannot remove labels from a resource with locked annotations.`, SCOPE)
             return []
         }
-        const prevState = [...this._labels]
+        const context = _isPropertyChangeContext(contextOrFirst) ? contextOrFirst : null
+        const labels = (_isPropertyChangeContext(contextOrFirst) ? rest : [contextOrFirst, ...rest]) as string[] | number[] | AnnotationLabel[]
         const deleted = [] as AnnotationLabel[]
+        const newLabels = [...this._labels]
         // All arguments must be of the same type, so we can check the first element.
         if (typeof labels[0] === 'number') {
             // Remaining IDs must be offset when labels are removed from the preceding array.
             // We must go through the IDs in ascending order for this to work.
             const labelIdxs = (labels as number[]).sort((a, b) => a - b).map((v, i) => v - i)
             for (const idx of labelIdxs) {
-                deleted.push(...this._labels.splice(idx, 1))
+                deleted.push(...newLabels.splice(idx, 1))
             }
         } else {
             for (const label of labels as string[] | AnnotationLabel[]) {
                 const labelId = typeof label === 'string' ? label : label.id
-                for (let i=0; i<this._labels.length; i++) {
-                    if (this._labels[i].id === labelId) {
-                        deleted.push(...this._labels.splice(i, 1))
+                for (let i=0; i<newLabels.length; i++) {
+                    if (newLabels[i].id === labelId) {
+                        deleted.push(...newLabels.splice(i, 1))
                         break
                     }
                 }
             }
         }
-        this.dispatchPropertyChangeEvent('labels', this.labels, prevState)
+        this._setPropertyValue('labels', newLabels, {
+            source: context?.source,
+            callback: () => newLabels,
+        })
         return deleted
     }
 

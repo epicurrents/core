@@ -18,5 +18,7 @@ export type PropertyChangeEvent<T> = ScopedEvent & {
         property: string
         newValue: T
         oldValue: T
+        /** Whether the change was triggered by user interaction or system code. Absent means 'user'. */
+        source?: 'system' | 'user'
     }
 }
