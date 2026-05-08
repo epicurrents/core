@@ -808,6 +808,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             // We must go through the IDs in ascending order for this to work.
             const eventIdxs = (events as number[]).sort((a, b) => a - b).map((v, i) => v - i)
             for (const idx of eventIdxs) {
+                if (newEvents[idx]?.locked) {
+                    Log.error(`Cannot remove locked event at index ${idx}.`, SCOPE)
+                    continue
+                }
                 deleted.push(...newEvents.splice(idx, 1))
             }
         } else {
@@ -815,6 +819,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 const eventId = typeof event === 'string' ? event : event.id
                 for (let i=0; i<newEvents.length; i++) {
                     if (newEvents[i].id === eventId) {
+                        if (newEvents[i].locked) {
+                            Log.error(`Cannot remove locked event '${newEvents[i].label}'.`, SCOPE)
+                            break
+                        }
                         deleted.push(...newEvents.splice(i, 1))
                         break
                     }
@@ -845,6 +853,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             // We must go through the IDs in ascending order for this to work.
             const labelIdxs = (labels as number[]).sort((a, b) => a - b).map((v, i) => v - i)
             for (const idx of labelIdxs) {
+                if (newLabels[idx]?.locked) {
+                    Log.error(`Cannot remove locked label at index ${idx}.`, SCOPE)
+                    continue
+                }
                 deleted.push(...newLabels.splice(idx, 1))
             }
         } else {
@@ -852,6 +864,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                 const labelId = typeof label === 'string' ? label : label.id
                 for (let i=0; i<newLabels.length; i++) {
                     if (newLabels[i].id === labelId) {
+                        if (newLabels[i].locked) {
+                            Log.error(`Cannot remove locked label '${newLabels[i].label}'.`, SCOPE)
+                            break
+                        }
                         deleted.push(...newLabels.splice(i, 1))
                         break
                     }
