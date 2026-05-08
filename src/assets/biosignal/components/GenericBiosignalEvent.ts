@@ -71,6 +71,13 @@ const CONFIG_SCHEMA = {
 
 export default abstract class GenericBiosignalEvent extends GenericAnnotation implements BiosignalAnnotationEvent {
 
+    static PRIORITY = {
+        TECHNICAL:  100,
+        COMMENT:    200,
+        ACTIVATION: 300,
+        EVENT:      400,
+    }
+
     protected _background = false
     protected _channels = [] as (number | string)[]
     protected _class: BiosignalAnnotationEvent['class']
@@ -161,10 +168,10 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
             background: this.background,
             channels: this.channels.length > 0
                       ? this.channels
-                      : (options?.nullIfEmpty?.includes('channels') ? undefined : []),
+                      : (options?.nullIfEmpty?.includes('channels') ? null : []),
             color: this.color
                    ? settingsColorToRgba(this.color)
-                   : (options?.nullIfEmpty?.includes('color') ? undefined : ''),
+                   : (options?.nullIfEmpty?.includes('color') ? null : ''),
             duration: this.duration,
             opacity: this.opacity,
             start: this.start,
