@@ -11,18 +11,18 @@ import GenericDataset from '../../src/assets/dataset/GenericDataset'
 import GenericAsset from '../../src/assets/GenericAsset'
 
 // Mock dependencies
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
     }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try {
             return JSON.parse(JSON.stringify(obj))
@@ -30,7 +30,7 @@ jest.mock('../../src/util', () => ({
             return null
         }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -63,22 +63,22 @@ describe('GenericDataset', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        if (Log.debug) (Log.debug as jest.Mock).mockClear()
-        if (Log.error) (Log.error as jest.Mock).mockClear()
-        if (Log.warn) (Log.warn as jest.Mock).mockClear()
+        if (Log.debug) (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.error) (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.warn) (Log.warn as ReturnType<typeof vi.fn>).mockClear()
 
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockApp = {}
@@ -95,12 +95,12 @@ describe('GenericDataset', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
         global.window = originalWindow
-        jest.useRealTimers()
+        vi.useRealTimers()
     })
 
     describe('constructor', () => {
@@ -119,7 +119,7 @@ describe('GenericDataset', () => {
             const inputConnector = {
                 type: 'filesystem',
                 mode: 'r',
-                listContents: jest.fn().mockResolvedValue({ files: [] }),
+                listContents: vi.fn().mockResolvedValue({ files: [] }),
             }
             const dataset = new TestDataset('Test', { input: inputConnector as any })
             expect(dataset.hasInputSource).toBe(true)
@@ -180,8 +180,8 @@ describe('GenericDataset', () => {
                 name: 'Resource 1',
                 modality: 'test',
                 isActive: false,
-                onPropertyChange: jest.fn(),
-                removeAllEventListeners: jest.fn(),
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
             }
             const context = { resource: mockResource } as any
             dataset.addResource(context)
@@ -194,8 +194,8 @@ describe('GenericDataset', () => {
             const mockResource = {
                 id: 'res-1',
                 name: 'Resource 1',
-                onPropertyChange: jest.fn(),
-                removeAllEventListeners: jest.fn(),
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
             }
             const context = { resource: mockResource } as any
             dataset.addResource(context)
@@ -208,8 +208,8 @@ describe('GenericDataset', () => {
             const mockResource = {
                 id: 'res-1',
                 name: 'Resource 1',
-                onPropertyChange: jest.fn(),
-                removeAllEventListeners: jest.fn(),
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
             }
             dataset.addResource({ resource: mockResource } as any)
             expect(dataset.resourceSorting.order).toContain('res-1')
@@ -224,9 +224,9 @@ describe('GenericDataset', () => {
             const mockResource = {
                 id: 'res-1',
                 name: 'Resource 1',
-                onPropertyChange: jest.fn(),
-                removeAllEventListeners: jest.fn(),
-                unload: jest.fn(),
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
+                unload: vi.fn(),
             }
             dataset.addResource({ resource: mockResource } as any)
             const removed = dataset.removeResource(0)
@@ -241,9 +241,9 @@ describe('GenericDataset', () => {
             const mockResource = {
                 id: 'res-1',
                 name: 'Resource 1',
-                onPropertyChange: jest.fn(),
-                removeAllEventListeners: jest.fn(),
-                unload: jest.fn(),
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
+                unload: vi.fn(),
             }
             dataset.addResource({ resource: mockResource } as any)
             const removed = dataset.removeResource(mockResource as any)
@@ -263,11 +263,11 @@ describe('GenericDataset', () => {
             const dataset = new TestDataset('Test')
             const res1 = {
                 id: 'res-1', name: 'R1', modality: 'eeg',
-                onPropertyChange: jest.fn(), removeAllEventListeners: jest.fn(),
+                onPropertyChange: vi.fn(), removeAllEventListeners: vi.fn(),
             }
             const res2 = {
                 id: 'res-2', name: 'R2', modality: 'ecg',
-                onPropertyChange: jest.fn(), removeAllEventListeners: jest.fn(),
+                onPropertyChange: vi.fn(), removeAllEventListeners: vi.fn(),
             }
             dataset.addResource({ resource: res1 } as any)
             dataset.addResource({ resource: res2 } as any)
@@ -332,11 +332,11 @@ describe('GenericDataset', () => {
             const dataset = new TestDataset('Test')
             const res1 = {
                 id: 'res-1', name: 'B Resource', modality: 'test',
-                onPropertyChange: jest.fn(), removeAllEventListeners: jest.fn(),
+                onPropertyChange: vi.fn(), removeAllEventListeners: vi.fn(),
             }
             const res2 = {
                 id: 'res-2', name: 'A Resource', modality: 'test',
-                onPropertyChange: jest.fn(), removeAllEventListeners: jest.fn(),
+                onPropertyChange: vi.fn(), removeAllEventListeners: vi.fn(),
             }
             dataset.addResource({ resource: res1 } as any)
             dataset.addResource({ resource: res2 } as any)
@@ -353,10 +353,10 @@ describe('GenericDataset', () => {
             const mockResource = {
                 id: 'res-1',
                 name: 'Resource 1',
-                onPropertyChange: jest.fn(),
-                removeAllEventListeners: jest.fn(),
-                unload: jest.fn(),
-                destroy: jest.fn().mockResolvedValue(undefined),
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
+                unload: vi.fn(),
+                destroy: vi.fn().mockResolvedValue(undefined),
             }
             dataset.addResource({ resource: mockResource } as any)
             await dataset.unload()
@@ -380,7 +380,7 @@ describe('GenericDataset', () => {
         })
 
         it('should write string data to filesystem connector', async () => {
-            const mockWriteFile = jest.fn().mockResolvedValue({ success: true })
+            const mockWriteFile = vi.fn().mockResolvedValue({ success: true })
             const connector = {
                 type: 'filesystem',
                 mode: 'rw',

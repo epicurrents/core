@@ -8,20 +8,20 @@
 import { Log } from 'scoped-event-log'
 import MixedFileSystemItem from '../../src/assets/reader/filesystem/MixedFileSystemItem'
 
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
     }
 }))
 
-global.URL.createObjectURL = jest.fn().mockReturnValue('blob:mock-url')
+global.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
 
 describe('MixedFileSystemItem', () => {
     beforeEach(() => {
-        (Log.error as jest.Mock).mockClear()
-        ;(global.URL.createObjectURL as jest.Mock).mockClear()
+        (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        ;(global.URL.createObjectURL as ReturnType<typeof vi.fn>).mockClear()
     })
 
     describe('constructor', () => {

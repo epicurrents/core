@@ -8,16 +8,16 @@
 import { Log } from 'scoped-event-log'
 import MontageProcessor from '../../src/assets/biosignal/service/MontageProcessor'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try { return JSON.parse(JSON.stringify(obj)) } catch { return null }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -26,54 +26,54 @@ jest.mock('../../src/util', () => ({
     INDEX_NOT_ASSIGNED: -1,
     NUMERIC_ERROR_VALUE: -1,
     MB_BYTES: 1048576,
-    combineSignalParts: jest.fn().mockReturnValue(true),
-    partsNotCached: jest.fn().mockReturnValue([]),
-    sleep: jest.fn().mockResolvedValue(undefined),
+    combineSignalParts: vi.fn().mockReturnValue(true),
+    partsNotCached: vi.fn().mockReturnValue([]),
+    sleep: vi.fn().mockResolvedValue(undefined),
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     INDEX_NOT_ASSIGNED: -1,
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('../../src/util/signal', () => ({
-    calculateSignalOffsets: jest.fn(),
-    combineAllSignalParts: jest.fn(),
-    combineSignalParts: jest.fn().mockReturnValue(false),
-    concatTypedNumberArrays: jest.fn(),
-    floatsAreEqual: jest.fn().mockReturnValue(true),
-    isContinuousSignal: jest.fn().mockReturnValue(false),
-    mapMontageChannels: jest.fn().mockReturnValue([]),
-    mapSignalsToSamplingRates: jest.fn().mockReturnValue([]),
-    shouldDisplayChannel: jest.fn().mockReturnValue(true),
+vi.mock('../../src/util/signal', () => ({
+    calculateSignalOffsets: vi.fn(),
+    combineAllSignalParts: vi.fn(),
+    combineSignalParts: vi.fn().mockReturnValue(false),
+    concatTypedNumberArrays: vi.fn(),
+    floatsAreEqual: vi.fn().mockReturnValue(true),
+    isContinuousSignal: vi.fn().mockReturnValue(false),
+    mapMontageChannels: vi.fn().mockReturnValue([]),
+    mapSignalsToSamplingRates: vi.fn().mockReturnValue([]),
+    shouldDisplayChannel: vi.fn().mockReturnValue(true),
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('@stdlib/constants-float32', () => ({
+vi.mock('@stdlib/constants-float32', () => ({
     EPS: 1.1920928955078125e-07,
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     __esModule: true,
     default: { EMPTY_FIELD: -1 },
-    IOMutex: jest.fn(),
+    IOMutex: vi.fn(),
     MutexExportProperties: {},
 }))
 
-jest.mock('../../src/assets/biosignal/service/BiosignalCache')
-jest.mock('../../src/assets/biosignal/service/BiosignalMutex')
-jest.mock('../../src/assets/biosignal/service/MontageService', () => jest.fn())
-jest.mock('../../src/assets/biosignal/service/SharedWorkerCache')
+vi.mock('../../src/assets/biosignal/service/BiosignalCache')
+vi.mock('../../src/assets/biosignal/service/BiosignalMutex')
+vi.mock('../../src/assets/biosignal/service/MontageService', () => ({ default: vi.fn() }))
+vi.mock('../../src/assets/biosignal/service/SharedWorkerCache')
 
-jest.mock('../../src/util/general', () => ({
-    getOrSetValue: jest.fn((map, key, defaultValue) => {
+vi.mock('../../src/util/general', () => ({
+    getOrSetValue: vi.fn((map, key, defaultValue) => {
         if (map.has(key)) return map.get(key)
         map.set(key, defaultValue)
         return defaultValue
     }),
     nullPromise: Promise.resolve(null),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -81,7 +81,7 @@ jest.mock('../../src/util/general', () => ({
     }),
 }))
 
-jest.mock('../../src/config/Settings', () => ({
+vi.mock('../../src/config/Settings', () => ({
     __esModule: true,
     default: {
         app: { dataChunkSize: 1048576, maxLoadCacheSize: 104857600 },
@@ -94,7 +94,7 @@ const mockSettings = {
 
 describe('MontageProcessor', () => {
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
     })
 
     describe('constructor', () => {

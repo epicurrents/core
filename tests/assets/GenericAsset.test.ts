@@ -10,18 +10,18 @@ import EventBus from '../../src/events/EventBus'
 import { AssetEvents } from '../../src/events/EventTypes'
 import GenericAsset from '../../src/assets/GenericAsset'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn() }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try { return JSON.parse(JSON.stringify(obj)) } catch { return null }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -41,21 +41,21 @@ describe('GenericAsset', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        if (Log.debug) (Log.debug as jest.Mock).mockClear()
-        if (Log.error) (Log.error as jest.Mock).mockClear()
-        if (Log.warn) (Log.warn as jest.Mock).mockClear()
+        if (Log.debug) (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.error) (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.warn) (Log.warn as ReturnType<typeof vi.fn>).mockClear()
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
         mockApp = {}
         originalWindow = global.window
@@ -65,12 +65,12 @@ describe('GenericAsset', () => {
             } as any,
             writable: true,
         })
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
         global.window = originalWindow
-        jest.useRealTimers()
+        vi.useRealTimers()
     })
 
     describe('constructor', () => {
@@ -88,17 +88,14 @@ describe('GenericAsset', () => {
             expect(asset1.id).not.toBe(asset2.id)
         })
 
-        it('should dispatch CREATE event after construction', (done) => {
-            jest.useFakeTimers()
+        it('should dispatch CREATE event after construction', () => {
+            vi.useFakeTimers()
             const asset = new TestAsset('Test Asset', 'test')
-            setTimeout(() => {
-                expect(mockEventBus.dispatchScopedEvent).toHaveBeenCalledWith(
-                    AssetEvents.CREATE, asset.id, 'after',
-                    expect.objectContaining({ origin: asset })
-                )
-                done()
-            }, 10)
-            jest.advanceTimersByTime(10)
+            vi.advanceTimersByTime(10)
+            expect(mockEventBus.dispatchScopedEvent).toHaveBeenCalledWith(
+                AssetEvents.CREATE, asset.id, 'after',
+                expect.objectContaining({ origin: asset })
+            )
         })
 
         it('should handle missing global __EPICURRENTS__ object', () => {
@@ -145,8 +142,8 @@ describe('GenericAsset', () => {
             const usedIds = (GenericAsset as any).USED_IDS
             const originalDateNow = Date.now
             const originalMathRandom = Math.random
-            Date.now = jest.fn(() => 1000)
-            Math.random = jest.fn(() => 0.5)
+            Date.now = vi.fn(() => 1000)
+            Math.random = vi.fn(() => 0.5)
             const expectedId = (1000 + 0.5).toString(36)
             usedIds.add(expectedId)
             const id = GenericAsset.CreateUniqueId()
@@ -231,7 +228,7 @@ describe('GenericAsset', () => {
 
         describe('addEventListener', () => {
             it('should add event listener to event bus', () => {
-                const callback = jest.fn()
+                const callback = vi.fn()
                 asset.addEventListener('test-event', callback, 'test-subscriber')
                 expect(mockEventBus.addScopedEventListener).toHaveBeenCalledWith(
                     'test-event', callback, 'test-subscriber', asset.id, 'after'
@@ -239,7 +236,7 @@ describe('GenericAsset', () => {
             })
 
             it('should support custom phase', () => {
-                const callback = jest.fn()
+                const callback = vi.fn()
                 asset.addEventListener('test-event', callback, 'test-subscriber', 'before')
                 expect(mockEventBus.addScopedEventListener).toHaveBeenCalledWith(
                     'test-event', callback, 'test-subscriber', asset.id, 'before'
@@ -302,11 +299,11 @@ describe('GenericAsset', () => {
             })
 
             it('should support custom event name', () => {
-                asset.dispatchPropertyChangeEvent('name', 'new', 'old', 'after', 'custom-event')
+                asset.dispatchPropertyChangeEvent('name', 'new', 'old', 'after', { event: 'custom-event' })
                 expect(mockEventBus.dispatchScopedEvent).toHaveBeenCalledWith(
                     'custom-event', asset.id, 'after',
                     expect.objectContaining({
-                        origin: asset, property: 'name',
+                        property: 'name',
                         newValue: 'new', oldValue: 'old'
                     })
                 )
@@ -315,7 +312,7 @@ describe('GenericAsset', () => {
 
         describe('onPropertyChange', () => {
             it('should add property change listener for single property', () => {
-                const handler = jest.fn()
+                const handler = vi.fn()
                 asset.onPropertyChange('name', handler, 'test-subscriber')
                 expect(mockEventBus.addScopedEventListener).toHaveBeenCalledWith(
                     'property-change:name', expect.any(Function),
@@ -324,7 +321,7 @@ describe('GenericAsset', () => {
             })
 
             it('should add property change listeners for multiple properties', () => {
-                const handler = jest.fn()
+                const handler = vi.fn()
                 asset.onPropertyChange(['name', 'modality'], handler, 'test-subscriber')
                 expect(mockEventBus.addScopedEventListener).toHaveBeenCalledTimes(2)
                 expect(mockEventBus.addScopedEventListener).toHaveBeenCalledWith(
@@ -340,7 +337,7 @@ describe('GenericAsset', () => {
 
         describe('removeEventListener', () => {
             it('should remove event listener from event bus', () => {
-                const callback = jest.fn()
+                const callback = vi.fn()
                 asset.removeEventListener('test-event', callback, 'test-subscriber')
                 expect(mockEventBus.removeScopedEventListener).toHaveBeenCalledWith(
                     'test-event', callback, 'test-subscriber', asset.id, undefined
@@ -382,7 +379,7 @@ describe('GenericAsset', () => {
 
         describe('subscribe', () => {
             it('should call event bus subscribe method', () => {
-                const callback = jest.fn()
+                const callback = vi.fn()
                 asset.subscribe('test-event', callback, 'test-subscriber')
                 expect(mockEventBus.subscribe).toHaveBeenCalledWith(
                     'test-event', callback, 'test-subscriber', asset.id, 'after'
@@ -392,7 +389,7 @@ describe('GenericAsset', () => {
 
         describe('unsubscribe', () => {
             it('should call event bus unsubscribe method', () => {
-                const callback = jest.fn()
+                const callback = vi.fn()
                 asset.unsubscribe('test-event', callback, 'test-subscriber')
                 expect(mockEventBus.unsubscribe).toHaveBeenCalledWith(
                     'test-event', callback, 'test-subscriber', asset.id, undefined

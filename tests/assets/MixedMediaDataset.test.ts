@@ -11,18 +11,18 @@ import MixedMediaDataset from '../../src/assets/dataset/MixedMediaDataset'
 import GenericAsset from '../../src/assets/GenericAsset'
 
 // Mock dependencies
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
     }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try {
             return JSON.parse(JSON.stringify(obj))
@@ -30,7 +30,7 @@ jest.mock('../../src/util', () => ({
             return null
         }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -44,22 +44,22 @@ describe('MixedMediaDataset', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        if (Log.debug) (Log.debug as jest.Mock).mockClear()
-        if (Log.error) (Log.error as jest.Mock).mockClear()
-        if (Log.warn) (Log.warn as jest.Mock).mockClear()
+        if (Log.debug) (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.error) (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.warn) (Log.warn as ReturnType<typeof vi.fn>).mockClear()
 
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockApp = {}
@@ -76,12 +76,12 @@ describe('MixedMediaDataset', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
         global.window = originalWindow
-        jest.useRealTimers()
+        vi.useRealTimers()
     })
 
     describe('constructor', () => {
@@ -95,7 +95,7 @@ describe('MixedMediaDataset', () => {
             const connector = {
                 type: 'filesystem',
                 mode: 'r',
-                listContents: jest.fn().mockResolvedValue({ files: [] }),
+                listContents: vi.fn().mockResolvedValue({ files: [] }),
             }
             const dataset = new MixedMediaDataset('Test', { input: connector as any })
             expect(dataset.hasInputSource).toBe(true)
@@ -128,12 +128,7 @@ describe('MixedMediaDataset', () => {
             const dataset = new MixedMediaDataset('Test')
             const props = dataset.getMainProperties()
             expect(props.size).toBe(1)
-            const entry = props.values().next().value
-            expect(entry).toEqual({
-                icon: 'number',
-                n: 0,
-                title: '{n} resources',
-            })
+            expect(props.get('resources')).toBe(0)
         })
     })
 

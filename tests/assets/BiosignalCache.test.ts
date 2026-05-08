@@ -10,14 +10,14 @@ import EventBus from '../../src/events/EventBus'
 import BiosignalCache from '../../src/assets/biosignal/service/BiosignalCache'
 import GenericAsset from '../../src/assets/GenericAsset'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    combineSignalParts: jest.fn((target, source) => {
+vi.mock('../../src/util', () => ({
+    combineSignalParts: vi.fn((target, source) => {
         if (target.end === source.start) {
             target.end = source.end
             for (let i = 0; i < source.signals.length; i++) {
@@ -30,11 +30,11 @@ jest.mock('../../src/util', () => ({
         }
         return false
     }),
-    deepClone: jest.fn((obj) => {
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try { return JSON.parse(JSON.stringify(obj)) } catch { return null }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -47,19 +47,19 @@ describe('BiosignalCache', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         originalWindow = global.window
@@ -70,7 +70,7 @@ describe('BiosignalCache', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
@@ -88,7 +88,7 @@ describe('BiosignalCache', () => {
             const inputCache = {
                 outputRangeStart: 0,
                 outputRangeEnd: 50,
-                asCachePart: jest.fn().mockReturnValue({ signals: [] }),
+                asCachePart: vi.fn().mockReturnValue({ signals: [] }),
             } as any
             const cache = new BiosignalCache(100, inputCache)
             expect(cache.outputRangeEnd).toBe(100)
@@ -106,7 +106,7 @@ describe('BiosignalCache', () => {
             const inputCache = {
                 outputRangeStart: 10,
                 outputRangeEnd: 50,
-                asCachePart: jest.fn().mockReturnValue({ signals: [] }),
+                asCachePart: vi.fn().mockReturnValue({ signals: [] }),
             } as any
             const cache = new BiosignalCache(100, inputCache)
             expect(await cache.inputRangeStart).toBe(10)

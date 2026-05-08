@@ -10,26 +10,26 @@ import EventBus from '../../src/events/EventBus'
 import GenericBiosignalService from '../../src/assets/biosignal/service/GenericBiosignalService'
 import GenericAsset from '../../src/assets/GenericAsset'
 
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        add: jest.fn(),
-        debug: jest.fn(),
-        error: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        registerWorker: jest.fn(),
+        add: vi.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        registerWorker: vi.fn(),
         LEVELS: {},
     }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try { return JSON.parse(JSON.stringify(obj)) } catch { return null }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -37,19 +37,19 @@ jest.mock('../../src/util', () => ({
     }),
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     INDEX_NOT_ASSIGNED: -1,
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('../../src/util/general', () => ({
-    getOrSetValue: jest.fn((map, key, defaultValue) => {
+vi.mock('../../src/util/general', () => ({
+    getOrSetValue: vi.fn((map, key, defaultValue) => {
         if (map.has(key)) return map.get(key)
         map.set(key, defaultValue)
         return defaultValue
     }),
     nullPromise: Promise.resolve(null),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -57,7 +57,7 @@ jest.mock('../../src/util/general', () => ({
     }),
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     MutexExportProperties: {},
 }))
 
@@ -73,25 +73,25 @@ describe('GenericBiosignalService', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockRecording = {
             signalCacheStatus: [0, 0],
-            addEventsFromTemplates: jest.fn(),
-            setInterruptions: jest.fn(),
+            addEventsFromTemplates: vi.fn(),
+            setInterruptions: vi.fn(),
         }
 
         originalWindow = global.window
@@ -102,9 +102,9 @@ describe('GenericBiosignalService', () => {
                     EVENT_BUS: mockEventBus,
                     RUNTIME: {
                         SETTINGS: {
-                            addPropertyUpdateHandler: jest.fn(),
-                            removeAllPropertyUpdateHandlersFor: jest.fn(),
-                            getFieldValue: jest.fn(),
+                            addPropertyUpdateHandler: vi.fn(),
+                            removeAllPropertyUpdateHandlersFor: vi.fn(),
+                            getFieldValue: vi.fn(),
                         },
                     },
                 },
@@ -112,7 +112,7 @@ describe('GenericBiosignalService', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
@@ -127,7 +127,7 @@ describe('GenericBiosignalService', () => {
         })
 
         it('should accept a worker', () => {
-            const mockWorker = { postMessage: jest.fn(), terminate: jest.fn(), onerror: null } as any
+            const mockWorker = { postMessage: vi.fn(), terminate: vi.fn(), onerror: null } as any
             const service = new TestBiosignalService(mockRecording, mockWorker)
             expect(service.worker).toBe(mockWorker)
         })
@@ -169,7 +169,7 @@ describe('GenericBiosignalService', () => {
             await service.handleMessage({
                 data: { action: 'cache-signals', range: [0, 50], events },
             } as any)
-            expect(mockRecording.addEventsFromTemplates).toHaveBeenCalledWith(...events)
+            expect(mockRecording.addEventsFromTemplates).toHaveBeenCalledWith({ source: 'system' }, ...events)
         })
 
         it('should handle cache-signals with interruptions', async () => {
@@ -185,14 +185,14 @@ describe('GenericBiosignalService', () => {
     describe('addActionWatcher', () => {
         it('should add an action watcher', () => {
             const service = new TestBiosignalService(mockRecording)
-            const handler = jest.fn()
+            const handler = vi.fn()
             service.addActionWatcher('test-action', handler)
             // Should not throw
         })
 
         it('should add action to existing watcher handler', () => {
             const service = new TestBiosignalService(mockRecording)
-            const handler = jest.fn()
+            const handler = vi.fn()
             service.addActionWatcher('action1', handler)
             service.addActionWatcher('action2', handler)
             // Same handler should have both actions
@@ -202,7 +202,7 @@ describe('GenericBiosignalService', () => {
     describe('removeActionWatcher', () => {
         it('should remove an action watcher', () => {
             const service = new TestBiosignalService(mockRecording)
-            const handler = jest.fn()
+            const handler = vi.fn()
             service.addActionWatcher('test', handler)
             service.removeActionWatcher(handler)
         })
@@ -211,8 +211,8 @@ describe('GenericBiosignalService', () => {
     describe('removeAllActionWatchers', () => {
         it('should remove all action watchers', () => {
             const service = new TestBiosignalService(mockRecording)
-            service.addActionWatcher('a', jest.fn())
-            service.addActionWatcher('b', jest.fn())
+            service.addActionWatcher('a', vi.fn())
+            service.addActionWatcher('b', vi.fn())
             service.removeAllActionWatchers()
         })
     })
@@ -220,8 +220,8 @@ describe('GenericBiosignalService', () => {
     describe('removeAllActionWatchersFor', () => {
         it('should remove watchers for specific caller', () => {
             const service = new TestBiosignalService(mockRecording)
-            service.addActionWatcher('a', jest.fn(), 'caller1')
-            service.addActionWatcher('b', jest.fn(), 'caller2')
+            service.addActionWatcher('a', vi.fn(), 'caller1')
+            service.addActionWatcher('b', vi.fn(), 'caller2')
             service.removeAllActionWatchersFor('caller1')
         })
     })

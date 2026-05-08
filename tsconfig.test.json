@@ -8,7 +8,7 @@
       "./node_modules/@types",
       "../../node_modules/@types"
     ],
-    "types": ["jest", "node"],
+    "types": ["vitest/globals", "node"],
     "paths": {
       "#root/*": ["./*"],
       "#runtime*": ["src/runtime/index.ts"],

@@ -27,7 +27,8 @@ import type {
 import { Log } from 'scoped-event-log'
 import GenericSignalProcessor from './GenericSignalProcessor'
 import SETTINGS from '#config/Settings'
-import { BiosignalCache, BiosignalMutex } from '#assets/biosignal'
+import BiosignalCache from '#assets/biosignal/service/BiosignalCache'
+import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
 import { type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericSignalFileReader'

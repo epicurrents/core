@@ -8,25 +8,25 @@
 import { Log } from 'scoped-event-log'
 import BiosignalStudyLoader from '../../src/assets/biosignal/loaders/BiosignalStudyLoader'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/assets/service/ServiceMemoryManager')
+vi.mock('../../src/assets/service/ServiceMemoryManager')
 
 describe('BiosignalStudyLoader', () => {
     let mockImporter: any
 
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
         mockImporter = {
             studyLoader: null,
-            registerMemoryManager: jest.fn(),
-            isSupportedModality: jest.fn().mockReturnValue(true),
-            matchName: jest.fn().mockReturnValue(true),
-            registerStudy: jest.fn(),
-            importFile: jest.fn().mockResolvedValue({}),
-            importUrl: jest.fn().mockResolvedValue({}),
+            registerMemoryManager: vi.fn(),
+            isSupportedModality: vi.fn().mockReturnValue(true),
+            matchName: vi.fn().mockReturnValue(true),
+            registerStudy: vi.fn(),
+            importFile: vi.fn().mockResolvedValue({}),
+            importUrl: vi.fn().mockResolvedValue({}),
         }
     })
 

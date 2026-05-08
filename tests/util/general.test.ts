@@ -11,9 +11,9 @@ import {
 } from '../../src/util/general'
 
 // Mock the Log.error function
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        error: jest.fn()
+        error: vi.fn()
     }
 }))
 
@@ -53,7 +53,7 @@ describe('General utilities', () => {
             const result = deepClone(circular)
             expect(result).toBeNull()
             expect(Log.error).toHaveBeenCalled()
-            jest.resetAllMocks()
+            vi.resetAllMocks()
         })
     })
 
@@ -174,21 +174,21 @@ describe('General utilities', () => {
 
     describe('sleep', () => {
         beforeEach(() => {
-            jest.useFakeTimers()
+            vi.useFakeTimers()
         })
         afterEach(() => {
-            jest.useRealTimers()
+            vi.useRealTimers()
         })
         // Expected functionality (happy paths).
         it('should resolve after specified duration', async () => {
             const promise = sleep(1000)
-            jest.advanceTimersByTime(1000)
+            vi.advanceTimersByTime(1000)
             await promise
             // Test passes if promise resolves.
         })
         it('should not resolve before duration', async () => {
             const promise = sleep(1000)
-            jest.advanceTimersByTime(999)
+            vi.advanceTimersByTime(999)
             const immediateResult = await Promise.race([
                 promise,
                 Promise.resolve('not done')

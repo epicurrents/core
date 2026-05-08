@@ -10,21 +10,21 @@
 
 import { Log } from 'scoped-event-log'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/util/signal', () => ({
-    concatTypedNumberArrays: jest.fn(),
-    floatsAreEqual: jest.fn().mockReturnValue(true),
+vi.mock('../../src/util/signal', () => ({
+    concatTypedNumberArrays: vi.fn(),
+    floatsAreEqual: vi.fn().mockReturnValue(true),
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
 // Need to mock IOMutex properly since BiosignalMutex extends it
-jest.mock('asymmetric-io-mutex', () => {
+vi.mock('asymmetric-io-mutex', () => {
     class MockIOMutex {
         static EMPTY_FIELD = -1
         static UNASSIGNED_VALUE = -2

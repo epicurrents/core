@@ -11,19 +11,19 @@ import GenericService from '../../src/assets/service/GenericService'
 import GenericAsset from '../../src/assets/GenericAsset'
 
 // Mock dependencies
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
-        registerWorker: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
+        registerWorker: vi.fn(),
     }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try {
             return JSON.parse(JSON.stringify(obj))
@@ -31,7 +31,7 @@ jest.mock('../../src/util', () => ({
             return null
         }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -39,14 +39,14 @@ jest.mock('../../src/util', () => ({
     }),
 }))
 
-jest.mock('../../src/util/general', () => ({
-    getOrSetValue: jest.fn((map, key, defaultValue) => {
+vi.mock('../../src/util/general', () => ({
+    getOrSetValue: vi.fn((map, key, defaultValue) => {
         if (map.has(key)) return map.get(key)
         map.set(key, defaultValue)
         return defaultValue
     }),
     nullPromise: Promise.resolve(null),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -54,11 +54,11 @@ jest.mock('../../src/util/general', () => ({
     }),
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     MutexExportProperties: {},
 }))
 
@@ -93,22 +93,22 @@ describe('GenericService', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        if (Log.debug) (Log.debug as jest.Mock).mockClear()
-        if (Log.error) (Log.error as jest.Mock).mockClear()
-        if (Log.warn) (Log.warn as jest.Mock).mockClear()
+        if (Log.debug) (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.error) (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.warn) (Log.warn as ReturnType<typeof vi.fn>).mockClear()
 
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockApp = {}
@@ -125,12 +125,12 @@ describe('GenericService', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
         global.window = originalWindow
-        jest.useRealTimers()
+        vi.useRealTimers()
     })
 
     describe('constructor', () => {
@@ -142,8 +142,8 @@ describe('GenericService', () => {
 
         it('should accept a dedicated worker', () => {
             const mockWorker = {
-                postMessage: jest.fn(),
-                terminate: jest.fn(),
+                postMessage: vi.fn(),
+                terminate: vi.fn(),
                 onmessage: null,
                 onerror: null,
             }
@@ -152,7 +152,7 @@ describe('GenericService', () => {
         })
 
         it('should accept a shared worker port', () => {
-            const mockPort = { postMessage: jest.fn(), onmessage: null }
+            const mockPort = { postMessage: vi.fn(), onmessage: null }
             const service = new TestService('Test', mockPort as any, true)
             expect(service.port).toBe(mockPort)
         })
@@ -178,7 +178,7 @@ describe('GenericService', () => {
         })
 
         it('should be false when manager exists but no memory range', () => {
-            const service = new TestService('Test', undefined, undefined, { allocate: jest.fn() })
+            const service = new TestService('Test', undefined, undefined, { allocate: vi.fn() })
             ;(service as any)._isWorkerSetup = true
             ;(service as any)._isCacheSetup = true
             expect(service.isReady).toBe(false)
@@ -229,7 +229,7 @@ describe('GenericService', () => {
     describe('addActionWatcher', () => {
         it('should add an action watcher', () => {
             const service = new TestService('Test')
-            const handler = jest.fn()
+            const handler = vi.fn()
             service.addActionWatcher('test-action', handler, 'caller')
             expect((service as any)._actionWatchers).toHaveLength(1)
             expect((service as any)._actionWatchers[0].actions).toContain('test-action')
@@ -237,7 +237,7 @@ describe('GenericService', () => {
 
         it('should add action to existing watcher with same handler', () => {
             const service = new TestService('Test')
-            const handler = jest.fn()
+            const handler = vi.fn()
             service.addActionWatcher('action1', handler)
             service.addActionWatcher('action2', handler)
             expect((service as any)._actionWatchers).toHaveLength(1)
@@ -246,7 +246,7 @@ describe('GenericService', () => {
 
         it('should not duplicate action for same handler', () => {
             const service = new TestService('Test')
-            const handler = jest.fn()
+            const handler = vi.fn()
             service.addActionWatcher('action1', handler)
             service.addActionWatcher('action1', handler)
             expect((service as any)._actionWatchers[0].actions).toEqual(['action1'])
@@ -256,7 +256,7 @@ describe('GenericService', () => {
     describe('removeActionWatcher', () => {
         it('should remove an action watcher by handler', () => {
             const service = new TestService('Test')
-            const handler = jest.fn()
+            const handler = vi.fn()
             service.addActionWatcher('action', handler)
             service.removeActionWatcher(handler)
             expect((service as any)._actionWatchers).toHaveLength(0)
@@ -266,8 +266,8 @@ describe('GenericService', () => {
     describe('removeAllActionWatchersFor', () => {
         it('should remove all watchers for a caller', () => {
             const service = new TestService('Test')
-            service.addActionWatcher('action1', jest.fn(), 'caller-a')
-            service.addActionWatcher('action2', jest.fn(), 'caller-b')
+            service.addActionWatcher('action1', vi.fn(), 'caller-a')
+            service.addActionWatcher('action2', vi.fn(), 'caller-b')
             service.removeAllActionWatchersFor('caller-a')
             expect((service as any)._actionWatchers).toHaveLength(1)
             expect((service as any)._actionWatchers[0].caller).toBe('caller-b')
@@ -277,8 +277,8 @@ describe('GenericService', () => {
     describe('removeAllActionWatchers', () => {
         it('should remove all action watchers', () => {
             const service = new TestService('Test')
-            service.addActionWatcher('action1', jest.fn())
-            service.addActionWatcher('action2', jest.fn())
+            service.addActionWatcher('action1', vi.fn())
+            service.addActionWatcher('action2', vi.fn())
             service.removeAllActionWatchers()
             expect((service as any)._actionWatchers).toHaveLength(0)
         })
@@ -300,7 +300,7 @@ describe('GenericService', () => {
         })
 
         it('should return false when manager has no free memory', async () => {
-            const manager = { freeMemory: 0, allocate: jest.fn() }
+            const manager = { freeMemory: 0, allocate: vi.fn() }
             const service = new TestService('Test', undefined, undefined, manager)
             const result = await service.requestMemory(100)
             expect(result).toBe(false)
@@ -309,7 +309,7 @@ describe('GenericService', () => {
         it('should allocate memory from manager', async () => {
             const manager = {
                 freeMemory: 1000,
-                allocate: jest.fn().mockResolvedValue({ start: 0, end: 100 }),
+                allocate: vi.fn().mockResolvedValue({ start: 0, end: 100 }),
             }
             const service = new TestService('Test', undefined, undefined, manager)
             const result = await service.requestMemory(100)
@@ -321,13 +321,13 @@ describe('GenericService', () => {
     describe('destroy', () => {
         it('should clear commissions, waiters, and watchers', async () => {
             const service = new TestService('Test')
-            service.addActionWatcher('action', jest.fn())
+            service.addActionWatcher('action', vi.fn())
             ;(service as any)._commissions.set('test', new Map())
             ;(service as any)._waiters.set('test', [])
             // shutdown will fail without __EPICURRENTS__.RUNTIME
             ;(global.window as any).__EPICURRENTS__.RUNTIME = {
                 SETTINGS: {
-                    removeAllPropertyUpdateHandlersFor: jest.fn(),
+                    removeAllPropertyUpdateHandlersFor: vi.fn(),
                 },
             }
             // Mock _commissionWorker for shutdown

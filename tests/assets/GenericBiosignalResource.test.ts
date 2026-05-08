@@ -12,16 +12,16 @@ import GenericAsset from '../../src/assets/GenericAsset'
 // Mock dependencies - default and named Log must be the same object
 // since GenericBiosignalResource uses `import Log from 'scoped-event-log'`
 const _mockLog = {
-    debug: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
 }
-jest.mock('scoped-event-log', () => {
+vi.mock('scoped-event-log', () => {
     // Use a shared reference so both default and named import point to same mock
     const log = {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
     }
     return {
         __esModule: true,
@@ -33,16 +33,16 @@ jest.mock('scoped-event-log', () => {
 // Get the actual mock reference after jest.mock hoisting
 import Log from 'scoped-event-log'
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/events', () => ({
+vi.mock('../../src/events', () => ({
     ResourceEvents: {
         UNLOAD: 'resource-unload',
     },
 }))
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try {
             return JSON.parse(JSON.stringify(obj))
@@ -50,7 +50,7 @@ jest.mock('../../src/util', () => ({
             return null
         }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -58,17 +58,17 @@ jest.mock('../../src/util', () => ({
     }),
 }))
 
-jest.mock('../../src/util/signal', () => ({
-    combineSignalParts: jest.fn(),
-    getIncludedChannels: jest.fn((channels) => channels),
-    shouldDisplayChannel: jest.fn(() => true),
+vi.mock('../../src/util/signal', () => ({
+    combineSignalParts: vi.fn(),
+    getIncludedChannels: vi.fn((channels) => channels),
+    shouldDisplayChannel: vi.fn(() => true),
 }))
 
-jest.mock('../../src/util/general', () => ({
+vi.mock('../../src/util/general', () => ({
     nullPromise: Promise.resolve(null),
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     MutexExportProperties: {},
 }))
 
@@ -92,22 +92,22 @@ describe('GenericBiosignalResource', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        ;(Log.debug as jest.Mock).mockClear()
-        ;(Log.error as jest.Mock).mockClear()
-        ;(Log.warn as jest.Mock).mockClear()
+        ;(Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        ;(Log.error as ReturnType<typeof vi.fn>).mockClear()
+        ;(Log.warn as ReturnType<typeof vi.fn>).mockClear()
 
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockApp = {}
@@ -128,12 +128,12 @@ describe('GenericBiosignalResource', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
         global.window = originalWindow
-        jest.useRealTimers()
+        vi.useRealTimers()
     })
 
     describe('constructor', () => {
@@ -484,7 +484,7 @@ describe('GenericBiosignalResource', () => {
     describe('setMemoryManager', () => {
         it('should set the memory manager', () => {
             const resource = new TestBiosignalResource('Test', 'eeg')
-            const manager = { allocate: jest.fn() } as any
+            const manager = { allocate: vi.fn() } as any
             resource.setMemoryManager(manager)
             expect((resource as any)._memoryManager).toBe(manager)
         })

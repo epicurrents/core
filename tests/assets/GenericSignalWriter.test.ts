@@ -8,35 +8,35 @@
 import { Log } from 'scoped-event-log'
 import GenericSignalWriter from '../../src/assets/reader/GenericSignalWriter'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/util', () => ({
+vi.mock('../../src/util', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('@stdlib/constants-float32', () => ({
+vi.mock('@stdlib/constants-float32', () => ({
     EPS: 1.1920928955078125e-07,
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     __esModule: true,
     default: { EMPTY_FIELD: -1 },
     MutexExportProperties: {},
 }))
 
-jest.mock('../../src/assets/biosignal', () => ({
-    GenericBiosignalHeader: jest.fn(),
+vi.mock('../../src/assets/biosignal', () => ({
+    GenericBiosignalHeader: vi.fn(),
 }))
 
 const mockEncoder = {
     dataEncoding: Float32Array,
-    encodeData: jest.fn(),
+    encodeData: vi.fn(),
 }
 
 class TestSignalWriter extends GenericSignalWriter {
@@ -47,7 +47,7 @@ class TestSignalWriter extends GenericSignalWriter {
 
 describe('GenericSignalWriter', () => {
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
     })
 
     describe('constructor', () => {
@@ -60,7 +60,7 @@ describe('GenericSignalWriter', () => {
     describe('encoder getter/setter', () => {
         it('should get and set encoder', () => {
             const writer = new TestSignalWriter()
-            const newEncoder = { dataEncoding: Int16Array, encodeData: jest.fn() } as any
+            const newEncoder = { dataEncoding: Int16Array, encodeData: vi.fn() } as any
             writer.encoder = newEncoder
             expect(writer.encoder).toBe(newEncoder)
         })

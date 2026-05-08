@@ -182,8 +182,8 @@ export interface BiosignalAnnotationEvent extends Annotation {
         duration: number
         start: number
         background?: boolean
-        channels?: (number | string)[]
-        color?: string
+        channels?: (number | string)[] | null
+        color?: string | null
         opacity?: number
     }
 }

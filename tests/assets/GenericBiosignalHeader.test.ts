@@ -8,8 +8,8 @@
 import { Log } from 'scoped-event-log'
 import GenericBiosignalHeader from '../../src/assets/biosignal/components/GenericBiosignalHeader'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn() }
 }))
 
 const makeSignal = (label: string, sampleCount: number, physicalUnit = 'µV') => ({
@@ -21,7 +21,7 @@ const makeSignal = (label: string, sampleCount: number, physicalUnit = 'µV') =>
 
 describe('GenericBiosignalHeader', () => {
     beforeEach(() => {
-        (Log.warn as jest.Mock).mockClear()
+        (Log.warn as ReturnType<typeof vi.fn>).mockClear()
     })
 
     describe('constructor', () => {

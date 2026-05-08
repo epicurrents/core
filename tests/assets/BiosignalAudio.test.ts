@@ -10,18 +10,18 @@ import EventBus from '../../src/events/EventBus'
 import BiosignalAudio from '../../src/assets/media/BiosignalAudio'
 import GenericAsset from '../../src/assets/GenericAsset'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn() }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try { return JSON.parse(JSON.stringify(obj)) } catch { return null }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -34,20 +34,20 @@ describe('BiosignalAudio', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        (Log.debug as jest.Mock).mockClear()
-        ;(Log.warn as jest.Mock).mockClear()
+        (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        ;(Log.warn as ReturnType<typeof vi.fn>).mockClear()
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         originalWindow = global.window
@@ -58,7 +58,7 @@ describe('BiosignalAudio', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
@@ -133,7 +133,7 @@ describe('BiosignalAudio', () => {
     describe('callbacks', () => {
         it('should add and remove play ended callback', () => {
             const audio = new BiosignalAudio('Test')
-            const cb = jest.fn()
+            const cb = vi.fn()
             audio.addPlayEndedCallback(cb)
             // Adding duplicate should not add again
             audio.addPlayEndedCallback(cb)
@@ -142,7 +142,7 @@ describe('BiosignalAudio', () => {
 
         it('should add and remove play started callback', () => {
             const audio = new BiosignalAudio('Test')
-            const cb = jest.fn()
+            const cb = vi.fn()
             audio.addPlayStartedCallback(cb)
             audio.addPlayStartedCallback(cb)
             audio.removePlayStartedCallback(cb)
@@ -150,7 +150,7 @@ describe('BiosignalAudio', () => {
 
         it('should handle removing non-existent callback', () => {
             const audio = new BiosignalAudio('Test')
-            const cb = jest.fn()
+            const cb = vi.fn()
             // Should not throw
             audio.removePlayEndedCallback(cb)
             audio.removePlayStartedCallback(cb)
@@ -182,7 +182,7 @@ describe('BiosignalAudio', () => {
         it('should warn when stop called without start', () => {
             const audio = new BiosignalAudio('Test')
             // Set _source but not _hasStarted
-            ;(audio as any)._source = { stop: jest.fn() }
+            ;(audio as any)._source = { stop: vi.fn() }
             audio.stop()
             expect(Log.warn).toHaveBeenCalled()
         })

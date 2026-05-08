@@ -8,55 +8,56 @@
 import { Log } from 'scoped-event-log'
 import GenericSignalReader from '../../src/assets/reader/GenericSignalReader'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/util', () => ({
-    combineSignalParts: jest.fn().mockReturnValue(true),
+vi.mock('../../src/util', () => ({
+    combineSignalParts: vi.fn().mockReturnValue(true),
     MB_BYTES: 1048576,
     NUMERIC_ERROR_VALUE: -1,
-    partsNotCached: jest.fn().mockReturnValue([]),
-    sleep: jest.fn().mockResolvedValue(undefined),
+    partsNotCached: vi.fn().mockReturnValue([]),
+    sleep: vi.fn().mockResolvedValue(undefined),
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('@stdlib/constants-float32', () => ({
+vi.mock('@stdlib/constants-float32', () => ({
     EPS: 1.1920928955078125e-07,
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     __esModule: true,
     default: { EMPTY_FIELD: -1 },
+    IOMutex: vi.fn(),
     MutexExportProperties: {},
 }))
 
-jest.mock('../../src/assets/biosignal', () => ({
-    BiosignalCache: jest.fn().mockImplementation(() => ({
+vi.mock('../../src/assets/biosignal', () => ({
+    BiosignalCache: vi.fn().mockImplementation(() => ({
         outputRangeStart: Promise.resolve(0),
         outputRangeEnd: Promise.resolve(100),
         outputSignalUpdatedRanges: [],
         outputSignalSamplingRates: [],
-        insertSignals: jest.fn().mockResolvedValue(undefined),
-        asCachePart: jest.fn().mockResolvedValue({ start: 0, end: 100, signals: [] }),
-        releaseBuffers: jest.fn(),
+        insertSignals: vi.fn().mockResolvedValue(undefined),
+        asCachePart: vi.fn().mockResolvedValue({ start: 0, end: 100, signals: [] }),
+        releaseBuffers: vi.fn(),
     })),
-    BiosignalMutex: jest.fn().mockImplementation(() => ({
+    BiosignalMutex: vi.fn().mockImplementation(() => ({
         propertiesForCoupling: {},
-        initSignalBuffers: jest.fn(),
+        initSignalBuffers: vi.fn(),
         outputRangeStart: Promise.resolve(0),
         outputRangeEnd: Promise.resolve(100),
         outputSignalUpdatedRanges: [],
         outputSignalSamplingRates: [],
-        releaseBuffers: jest.fn(),
+        releaseBuffers: vi.fn(),
     })),
-    GenericBiosignalHeader: jest.fn(),
+    GenericBiosignalHeader: vi.fn(),
 }))
 
-jest.mock('../../src/config/Settings', () => ({
+vi.mock('../../src/config/Settings', () => ({
     __esModule: true,
     default: {
         app: {
@@ -91,7 +92,7 @@ class TestSignalReader extends GenericSignalReader {
 
 describe('GenericSignalReader', () => {
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
     })
 
     describe('static properties', () => {
@@ -132,7 +133,7 @@ describe('GenericSignalReader', () => {
     describe('setUpdateCallback', () => {
         it('should set callback', () => {
             const reader = new TestSignalReader()
-            const cb = jest.fn()
+            const cb = vi.fn()
             reader.setUpdateCallback(cb)
             // No public getter, should not throw
         })

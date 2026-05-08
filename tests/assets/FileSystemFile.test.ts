@@ -8,7 +8,7 @@
 import FileSystemFile from '../../src/assets/reader/filesystem/FileSystemFile'
 
 // Mock URL.createObjectURL
-const mockCreateObjectURL = jest.fn().mockReturnValue('blob:mock-url')
+const mockCreateObjectURL = vi.fn().mockReturnValue('blob:mock-url')
 global.URL.createObjectURL = mockCreateObjectURL
 
 describe('FileSystemFile', () => {

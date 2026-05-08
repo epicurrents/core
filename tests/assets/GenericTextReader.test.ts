@@ -11,15 +11,15 @@ import GenericTextReader from '../../src/assets/reader/GenericTextReader'
 import { TextDecoder } from 'util'
 ;(global as any).TextDecoder = TextDecoder
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/util', () => ({
+vi.mock('../../src/util', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     __esModule: true,
     default: { EMPTY_FIELD: -1 },
     MutexExportProperties: {},
@@ -36,7 +36,7 @@ class TestTextReader extends GenericTextReader {
 
 describe('GenericTextReader', () => {
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
     })
 
     describe('constructor', () => {
@@ -94,8 +94,8 @@ describe('GenericTextReader', () => {
         it('should warn and round down for non-aligned dataLength', async () => {
             const reader = new TestTextReader(Uint16Array)
             // Mock file with arrayBuffer on slice
-            const mockSlice = { arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(4)) }
-            const mockFile = { slice: jest.fn().mockReturnValue(mockSlice) } as any
+            const mockSlice = { arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(4)) }
+            const mockFile = { slice: vi.fn().mockReturnValue(mockSlice) } as any
             reader.file = mockFile
             await reader.readPartFromFile(0, 5)
             expect(Log.warn).toHaveBeenCalled()
@@ -105,8 +105,8 @@ describe('GenericTextReader', () => {
             const reader = new TestTextReader()
             const encoder = new (require('util').TextEncoder)()
             const encoded = encoder.encode('hello')
-            const mockSlice = { arrayBuffer: jest.fn().mockResolvedValue(encoded.buffer) }
-            const mockFile = { slice: jest.fn().mockReturnValue(mockSlice) } as any
+            const mockSlice = { arrayBuffer: vi.fn().mockResolvedValue(encoded.buffer) }
+            const mockFile = { slice: vi.fn().mockReturnValue(mockSlice) } as any
             reader.file = mockFile
             const result = await reader.readPartFromFile(0, 5)
             expect(result).toBe('hello')

@@ -8,30 +8,30 @@
 import { Log } from 'scoped-event-log'
 import GenericSignalProcessor from '../../src/assets/reader/GenericSignalProcessor'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn(), info: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 }))
 
-jest.mock('../../src/util', () => ({
+vi.mock('../../src/util', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('@stdlib/constants-float32', () => ({
+vi.mock('@stdlib/constants-float32', () => ({
     EPS: 1.1920928955078125e-07,
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     __esModule: true,
     default: { EMPTY_FIELD: -1 },
     MutexExportProperties: {},
 }))
 
-jest.mock('../../src/assets/biosignal', () => ({
-    GenericBiosignalHeader: jest.fn(),
+vi.mock('../../src/assets/biosignal', () => ({
+    GenericBiosignalHeader: vi.fn(),
 }))
 
 class TestSignalProcessor extends GenericSignalProcessor {
@@ -53,7 +53,7 @@ class TestSignalProcessor extends GenericSignalProcessor {
 
 describe('GenericSignalProcessor', () => {
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
     })
 
     describe('constructor and properties', () => {

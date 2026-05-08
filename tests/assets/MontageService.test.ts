@@ -8,25 +8,27 @@
  * @license    Apache-2.0
  */
 
-jest.mock('../../src/assets/biosignal/service/MontageService', () => {
-    return jest.fn().mockImplementation((montage: any) => ({
-        id: 'mock-service-id',
-        name: montage?.name || 'MockMontage',
-        mutex: null,
-        getSignals: jest.fn().mockResolvedValue(null),
-        setFilters: jest.fn().mockResolvedValue({ success: true }),
-        setInterruptions: jest.fn(),
-        setupWorker: jest.fn(),
-        setupMontageWithCache: jest.fn().mockResolvedValue(true),
-        setupMontageWithInputMutex: jest.fn().mockResolvedValue(true),
-        setupMontageWithSharedWorker: jest.fn().mockResolvedValue(true),
-        unload: jest.fn().mockResolvedValue(undefined),
-        destroy: jest.fn().mockResolvedValue(undefined),
-        handleMessage: jest.fn().mockResolvedValue(true),
-        mapChannels: jest.fn().mockResolvedValue(undefined),
-        cacheMontageSignals: jest.fn(),
-    }))
-})
+vi.mock('../../src/assets/biosignal/service/MontageService', () => ({
+    default: vi.fn().mockImplementation(function(montage: any) {
+        return {
+            id: 'mock-service-id',
+            name: montage?.name || 'MockMontage',
+            mutex: null,
+            getSignals: vi.fn().mockResolvedValue(null),
+            setFilters: vi.fn().mockResolvedValue({ success: true }),
+            setInterruptions: vi.fn(),
+            setupWorker: vi.fn(),
+            setupMontageWithCache: vi.fn().mockResolvedValue(true),
+            setupMontageWithInputMutex: vi.fn().mockResolvedValue(true),
+            setupMontageWithSharedWorker: vi.fn().mockResolvedValue(true),
+            unload: vi.fn().mockResolvedValue(undefined),
+            destroy: vi.fn().mockResolvedValue(undefined),
+            handleMessage: vi.fn().mockResolvedValue(true),
+            mapChannels: vi.fn().mockResolvedValue(undefined),
+            cacheMontageSignals: vi.fn(),
+        }
+    }),
+}))
 
 import MontageService from '../../src/assets/biosignal/service/MontageService'
 

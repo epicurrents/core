@@ -8,11 +8,11 @@
 import { Log } from 'scoped-event-log'
 
 // Mock dependencies
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
     }
 }))
 
@@ -21,9 +21,9 @@ import SETTINGS from '../../src/config/Settings'
 
 describe('Settings', () => {
     beforeEach(() => {
-        if (Log.debug) (Log.debug as jest.Mock).mockClear()
-        if (Log.error) (Log.error as jest.Mock).mockClear()
-        if (Log.warn) (Log.warn as jest.Mock).mockClear()
+        if (Log.debug) (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.error) (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.warn) (Log.warn as ReturnType<typeof vi.fn>).mockClear()
         // Unregister any test modules
         SETTINGS.unregisterModule('test-module')
         // Remove all property update handlers
@@ -93,7 +93,7 @@ describe('Settings', () => {
 
     describe('addPropertyUpdateHandler', () => {
         it('should register a handler', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
             expect(Log.debug).toHaveBeenCalledWith(
                 expect.stringContaining('app.dataChunkSize'),
@@ -102,7 +102,7 @@ describe('Settings', () => {
         })
 
         it('should reject invalid field', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('', handler)
             expect(Log.error).toHaveBeenCalledWith(
                 expect.stringContaining('Invalid field'),
@@ -111,9 +111,9 @@ describe('Settings', () => {
         })
 
         it('should deduplicate same handler for same field', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
-            ;(Log.debug as jest.Mock).mockClear()
+            ;(Log.debug as ReturnType<typeof vi.fn>).mockClear()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
             expect(Log.debug).toHaveBeenCalledWith(
                 expect.stringContaining('already existed'),
@@ -122,9 +122,9 @@ describe('Settings', () => {
         })
 
         it('should detect parent field handler', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app', handler, 'test')
-            ;(Log.debug as jest.Mock).mockClear()
+            ;(Log.debug as ReturnType<typeof vi.fn>).mockClear()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
             expect(Log.debug).toHaveBeenCalledWith(
                 expect.stringContaining('parent'),
@@ -133,9 +133,9 @@ describe('Settings', () => {
         })
 
         it('should replace child field handler with parent', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
-            ;(Log.debug as jest.Mock).mockClear()
+            ;(Log.debug as ReturnType<typeof vi.fn>).mockClear()
             SETTINGS.addPropertyUpdateHandler('app', handler, 'test')
             expect(Log.debug).toHaveBeenCalledWith(
                 expect.stringContaining('child'),
@@ -146,9 +146,9 @@ describe('Settings', () => {
 
     describe('removePropertyUpdateHandler', () => {
         it('should remove a registered handler', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
-            ;(Log.debug as jest.Mock).mockClear()
+            ;(Log.debug as ReturnType<typeof vi.fn>).mockClear()
             SETTINGS.removePropertyUpdateHandler('app.dataChunkSize', handler)
             expect(Log.debug).toHaveBeenCalledWith(
                 expect.stringContaining('Removed'),
@@ -157,7 +157,7 @@ describe('Settings', () => {
         })
 
         it('should handle removing non-existent handler', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.removePropertyUpdateHandler('app.dataChunkSize', handler)
             expect(Log.debug).toHaveBeenCalledWith(
                 expect.stringContaining('Could not locate'),
@@ -168,21 +168,21 @@ describe('Settings', () => {
 
     describe('onPropertyUpdate', () => {
         it('should trigger matching handlers', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
             SETTINGS.onPropertyUpdate('app.dataChunkSize', 100, 200)
             expect(handler).toHaveBeenCalledWith(100, 200)
         })
 
         it('should trigger parent handlers for child field updates', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app', handler, 'test')
             SETTINGS.onPropertyUpdate('app.dataChunkSize', 100, 200)
             expect(handler).toHaveBeenCalledWith(100, 200)
         })
 
         it('should not trigger unrelated handlers', () => {
-            const handler = jest.fn()
+            const handler = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
             SETTINGS.onPropertyUpdate('app.useMemoryManager', true, false)
             expect(handler).not.toHaveBeenCalled()
@@ -206,8 +206,8 @@ describe('Settings', () => {
 
     describe('removeAllPropertyUpdateHandlers', () => {
         it('should remove all handlers', () => {
-            const handler1 = jest.fn()
-            const handler2 = jest.fn()
+            const handler1 = vi.fn()
+            const handler2 = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler1, 'test1')
             SETTINGS.addPropertyUpdateHandler('app.useMemoryManager', handler2, 'test2')
             SETTINGS.removeAllPropertyUpdateHandlers()
@@ -221,8 +221,8 @@ describe('Settings', () => {
 
     describe('removeAllPropertyUpdateHandlersFor', () => {
         it('should remove handlers for a specific caller', () => {
-            const handler1 = jest.fn()
-            const handler2 = jest.fn()
+            const handler1 = vi.fn()
+            const handler2 = vi.fn()
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler1, 'caller-a')
             SETTINGS.addPropertyUpdateHandler('app.useMemoryManager', handler2, 'caller-b')
             SETTINGS.removeAllPropertyUpdateHandlersFor('caller-a')

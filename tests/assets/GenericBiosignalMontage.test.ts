@@ -10,18 +10,18 @@ import EventBus from '../../src/events/EventBus'
 import GenericBiosignalMontage from '../../src/assets/biosignal/components/GenericBiosignalMontage'
 import GenericAsset from '../../src/assets/GenericAsset'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn() }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try { return JSON.parse(JSON.stringify(obj)) } catch { return null }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -29,36 +29,38 @@ jest.mock('../../src/util', () => ({
     }),
 }))
 
-jest.mock('../../src/util/signal', () => ({
-    calculateSignalOffsets: jest.fn(),
-    combineAllSignalParts: jest.fn((...parts: any[]) => parts),
-    combineSignalParts: jest.fn().mockReturnValue(false),
-    isContinuousSignal: jest.fn().mockReturnValue(false),
-    mapMontageChannels: jest.fn().mockReturnValue([]),
-    shouldDisplayChannel: jest.fn().mockReturnValue(true),
+vi.mock('../../src/util/signal', () => ({
+    calculateSignalOffsets: vi.fn(),
+    combineAllSignalParts: vi.fn((...parts: any[]) => parts),
+    combineSignalParts: vi.fn().mockReturnValue(false),
+    isContinuousSignal: vi.fn().mockReturnValue(false),
+    mapMontageChannels: vi.fn().mockReturnValue([]),
+    shouldDisplayChannel: vi.fn().mockReturnValue(true),
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     MutexExportProperties: {},
 }))
 
-jest.mock('../../src/assets/biosignal/service/MontageService', () => {
-    return jest.fn().mockImplementation(() => ({
-        id: 'mock-service-id',
-        getSignals: jest.fn().mockResolvedValue(null),
-        setFilters: jest.fn().mockResolvedValue({ success: true }),
-        setInterruptions: jest.fn(),
-        setupWorker: jest.fn(),
-        setupMontageWithCache: jest.fn().mockResolvedValue(true),
-        setupMontageWithInputMutex: jest.fn().mockResolvedValue(true),
-        setupMontageWithSharedWorker: jest.fn().mockResolvedValue(true),
-        unload: jest.fn().mockResolvedValue(undefined),
-    }))
-})
+vi.mock('../../src/assets/biosignal/service/MontageService', () => ({
+    default: vi.fn().mockImplementation(function() {
+        return {
+            id: 'mock-service-id',
+            getSignals: vi.fn().mockResolvedValue(null),
+            setFilters: vi.fn().mockResolvedValue({ success: true }),
+            setInterruptions: vi.fn(),
+            setupWorker: vi.fn(),
+            setupMontageWithCache: vi.fn().mockResolvedValue(true),
+            setupMontageWithInputMutex: vi.fn().mockResolvedValue(true),
+            setupMontageWithSharedWorker: vi.fn().mockResolvedValue(true),
+            unload: vi.fn().mockResolvedValue(undefined),
+        }
+    }),
+}))
 
 class TestBiosignalMontage extends GenericBiosignalMontage {
     constructor(
@@ -76,26 +78,26 @@ describe('GenericBiosignalMontage', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        (Log.error as jest.Mock).mockClear()
+        (Log.error as ReturnType<typeof vi.fn>).mockClear()
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockRecording = {
             modality: 'eeg',
             totalDuration: 100,
             filters: { bandreject: [], highpass: 0, lowpass: 0, notch: 0 },
-            getInterruptions: jest.fn().mockReturnValue([]),
+            getInterruptions: vi.fn().mockReturnValue([]),
         }
 
         mockSetup = {
@@ -111,7 +113,7 @@ describe('GenericBiosignalMontage', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {

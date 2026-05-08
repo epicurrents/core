@@ -10,33 +10,33 @@ import EventBus from '../../src/events/EventBus'
 import SharedWorkerCache from '../../src/assets/biosignal/service/SharedWorkerCache'
 import GenericAsset from '../../src/assets/GenericAsset'
 
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        add: jest.fn(),
-        debug: jest.fn(),
-        error: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        registerWorker: jest.fn(),
+        add: vi.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        registerWorker: vi.fn(),
         LEVELS: {},
     }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    combineSignalParts: jest.fn((target, source) => {
+vi.mock('../../src/util', () => ({
+    combineSignalParts: vi.fn((target, source) => {
         if (target.end === source.start) {
             target.end = source.end
             return true
         }
         return false
     }),
-    deepClone: jest.fn((obj) => {
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try { return JSON.parse(JSON.stringify(obj)) } catch { return null }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -44,19 +44,19 @@ jest.mock('../../src/util', () => ({
     }),
 }))
 
-jest.mock('../../src/util/constants', () => ({
+vi.mock('../../src/util/constants', () => ({
     INDEX_NOT_ASSIGNED: -1,
     NUMERIC_ERROR_VALUE: -1,
 }))
 
-jest.mock('../../src/util/general', () => ({
-    getOrSetValue: jest.fn((map, key, defaultValue) => {
+vi.mock('../../src/util/general', () => ({
+    getOrSetValue: vi.fn((map, key, defaultValue) => {
         if (map.has(key)) return map.get(key)
         map.set(key, defaultValue)
         return defaultValue
     }),
     nullPromise: Promise.resolve(null),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -64,7 +64,7 @@ jest.mock('../../src/util/general', () => ({
     }),
 }))
 
-jest.mock('asymmetric-io-mutex', () => ({
+vi.mock('asymmetric-io-mutex', () => ({
     MutexExportProperties: {},
 }))
 
@@ -75,29 +75,29 @@ describe('SharedWorkerCache', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        jest.clearAllMocks()
+        vi.clearAllMocks()
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockPort = {
-            addEventListener: jest.fn(),
-            postMessage: jest.fn(),
-            removeEventListener: jest.fn(),
-            start: jest.fn(),
+            addEventListener: vi.fn(),
+            postMessage: vi.fn(),
+            removeEventListener: vi.fn(),
+            start: vi.fn(),
         }
 
-        mockPost = jest.fn()
+        mockPost = vi.fn()
 
         originalWindow = global.window
         Object.defineProperty(global, 'window', {
@@ -107,9 +107,9 @@ describe('SharedWorkerCache', () => {
                     EVENT_BUS: mockEventBus,
                     RUNTIME: {
                         SETTINGS: {
-                            addPropertyUpdateHandler: jest.fn(),
-                            removeAllPropertyUpdateHandlersFor: jest.fn(),
-                            getFieldValue: jest.fn(),
+                            addPropertyUpdateHandler: vi.fn(),
+                            removeAllPropertyUpdateHandlersFor: vi.fn(),
+                            getFieldValue: vi.fn(),
                         },
                     },
                 },
@@ -117,7 +117,7 @@ describe('SharedWorkerCache', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {

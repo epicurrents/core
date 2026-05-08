@@ -7,7 +7,7 @@
 
 import GenericBiosignalSetup from '../../src/assets/biosignal/components/GenericBiosignalSetup'
 
-jest.mock('../../src/util', () => ({
+vi.mock('../../src/util', () => ({
     INDEX_NOT_ASSIGNED: -1,
 }))
 

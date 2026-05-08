@@ -8,11 +8,11 @@
 import { Log } from 'scoped-event-log'
 import GenericStudyLoader, { studyContextTemplate } from '../../src/assets/study/GenericStudyLoader'
 
-jest.mock('scoped-event-log', () => ({
-    Log: { debug: jest.fn(), error: jest.fn(), warn: jest.fn() }
+vi.mock('scoped-event-log', () => ({
+    Log: { debug: vi.fn(), error: vi.fn(), warn: vi.fn() }
 }))
 
-jest.mock('../../src/assets/service/ServiceMemoryManager')
+vi.mock('../../src/assets/service/ServiceMemoryManager')
 
 describe('studyContextTemplate', () => {
     it('should create a default study context', () => {
@@ -35,8 +35,8 @@ describe('studyContextTemplate', () => {
 
 describe('GenericStudyLoader', () => {
     beforeEach(() => {
-        (Log.debug as jest.Mock).mockClear()
-        ;(Log.error as jest.Mock).mockClear()
+        (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        ;(Log.error as ReturnType<typeof vi.fn>).mockClear()
     })
 
     describe('constructor', () => {
@@ -47,7 +47,7 @@ describe('GenericStudyLoader', () => {
         })
 
         it('should register importer if provided', () => {
-            const importer = { studyLoader: null, registerMemoryManager: jest.fn() } as any
+            const importer = { studyLoader: null, registerMemoryManager: vi.fn() } as any
             const loader = new GenericStudyLoader('Test', ['eeg'], importer)
             expect(loader.studyImporter).toBe(importer)
             expect(importer.studyLoader).toBe(loader)
@@ -97,11 +97,11 @@ describe('GenericStudyLoader', () => {
         it('should fail for unsupported loader name', async () => {
             const importer = {
                 studyLoader: null,
-                registerMemoryManager: jest.fn(),
-                isSupportedModality: jest.fn().mockReturnValue(true),
-                matchName: jest.fn().mockReturnValue(true),
-                registerStudy: jest.fn(),
-                importFile: jest.fn().mockResolvedValue({}),
+                registerMemoryManager: vi.fn(),
+                isSupportedModality: vi.fn().mockReturnValue(true),
+                matchName: vi.fn().mockReturnValue(true),
+                registerStudy: vi.fn(),
+                importFile: vi.fn().mockResolvedValue({}),
             } as any
             const loader = new GenericStudyLoader('Test', ['eeg'], importer)
             const file = new File(['data'], 'test.edf')
@@ -130,7 +130,7 @@ describe('GenericStudyLoader', () => {
     describe('registerStudyImporter', () => {
         it('should set importer and link loader', () => {
             const loader = new GenericStudyLoader('Test', ['eeg'])
-            const importer = { studyLoader: null, registerMemoryManager: jest.fn() } as any
+            const importer = { studyLoader: null, registerMemoryManager: vi.fn() } as any
             loader.registerStudyImporter(importer)
             expect(loader.studyImporter).toBe(importer)
             expect(importer.studyLoader).toBe(loader)
@@ -140,7 +140,7 @@ describe('GenericStudyLoader', () => {
             const manager = {} as any
             const loader = new GenericStudyLoader('Test', ['eeg'])
             loader.registerMemoryManager(manager)
-            const importer = { studyLoader: null, registerMemoryManager: jest.fn() } as any
+            const importer = { studyLoader: null, registerMemoryManager: vi.fn() } as any
             loader.registerStudyImporter(importer)
             expect(importer.registerMemoryManager).toHaveBeenCalledWith(manager)
         })

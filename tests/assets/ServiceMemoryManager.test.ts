@@ -7,24 +7,26 @@
  * @license    Apache-2.0
  */
 
-jest.mock('../../src/assets/service/ServiceMemoryManager', () => {
-    return jest.fn().mockImplementation((_bufferSize: number) => ({
-        buffer: new SharedArrayBuffer(8),
-        bufferSize: 2,
-        freeMemory: 1,
-        isAvailable: true,
-        services: [],
-        memoryUsed: 1,
-        allocate: jest.fn().mockResolvedValue({ start: 1, end: 101 }),
-        freeBy: jest.fn().mockResolvedValue(true),
-        getService: jest.fn().mockReturnValue(null),
-        release: jest.fn().mockResolvedValue(true),
-        removeFromBuffer: jest.fn().mockResolvedValue(undefined),
-        updateLastUsed: jest.fn(),
-        handleMessage: jest.fn().mockResolvedValue(true),
-        destroy: jest.fn().mockResolvedValue(undefined),
-    }))
-})
+vi.mock('../../src/assets/service/ServiceMemoryManager', () => ({
+    default: vi.fn().mockImplementation(function(_bufferSize: number) {
+        return {
+            buffer: new SharedArrayBuffer(8),
+            bufferSize: 2,
+            freeMemory: 1,
+            isAvailable: true,
+            services: [],
+            memoryUsed: 1,
+            allocate: vi.fn().mockResolvedValue({ start: 1, end: 101 }),
+            freeBy: vi.fn().mockResolvedValue(true),
+            getService: vi.fn().mockReturnValue(null),
+            release: vi.fn().mockResolvedValue(true),
+            removeFromBuffer: vi.fn().mockResolvedValue(undefined),
+            updateLastUsed: vi.fn(),
+            handleMessage: vi.fn().mockResolvedValue(true),
+            destroy: vi.fn().mockResolvedValue(undefined),
+        }
+    }),
+}))
 
 import ServiceMemoryManager from '../../src/assets/service/ServiceMemoryManager'
 

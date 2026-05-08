@@ -12,38 +12,38 @@ import GenericAsset from '../../src/assets/GenericAsset'
 
 // Mock webdav
 const mockClient = {
-    exists: jest.fn(),
-    stat: jest.fn(),
-    getFileContents: jest.fn(),
-    getDirectoryContents: jest.fn(),
-    putFileContents: jest.fn(),
-    createDirectory: jest.fn(),
-    moveFile: jest.fn(),
+    exists: vi.fn(),
+    stat: vi.fn(),
+    getFileContents: vi.fn(),
+    getDirectoryContents: vi.fn(),
+    putFileContents: vi.fn(),
+    createDirectory: vi.fn(),
+    moveFile: vi.fn(),
 }
 
-jest.mock('webdav', () => ({
+vi.mock('webdav', () => ({
     AuthType: {
         Auto: 'auto',
         Digest: 'digest',
         Password: 'password',
         Token: 'token',
     },
-    createClient: jest.fn(() => mockClient),
+    createClient: vi.fn(() => mockClient),
 }))
 
 // Mock dependencies
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
     }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try {
             return JSON.parse(JSON.stringify(obj))
@@ -51,7 +51,7 @@ jest.mock('../../src/util', () => ({
             return null
         }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -65,9 +65,9 @@ describe('WebDAVConnector', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        if (Log.debug) (Log.debug as jest.Mock).mockClear()
-        if (Log.error) (Log.error as jest.Mock).mockClear()
-        if (Log.warn) (Log.warn as jest.Mock).mockClear()
+        if (Log.debug) (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.error) (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.warn) (Log.warn as ReturnType<typeof vi.fn>).mockClear()
 
         ;(GenericAsset as any).USED_IDS.clear()
 
@@ -80,15 +80,15 @@ describe('WebDAVConnector', () => {
         mockClient.moveFile.mockReset()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockApp = {}
@@ -105,12 +105,12 @@ describe('WebDAVConnector', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
         global.window = originalWindow
-        jest.useRealTimers()
+        vi.useRealTimers()
     })
 
     describe('constructor', () => {

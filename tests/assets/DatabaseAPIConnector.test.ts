@@ -11,18 +11,18 @@ import DatabaseAPIConnector from '../../src/assets/connector/DatabaseAPIConnecto
 import GenericAsset from '../../src/assets/GenericAsset'
 
 // Mock dependencies
-jest.mock('scoped-event-log', () => ({
+vi.mock('scoped-event-log', () => ({
     Log: {
-        debug: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
     }
 }))
 
-jest.mock('../../src/events/EventBus')
+vi.mock('../../src/events/EventBus')
 
-jest.mock('../../src/util', () => ({
-    deepClone: jest.fn((obj) => {
+vi.mock('../../src/util', () => ({
+    deepClone: vi.fn((obj) => {
         if (obj === null || obj === undefined) return obj
         try {
             return JSON.parse(JSON.stringify(obj))
@@ -30,7 +30,7 @@ jest.mock('../../src/util', () => ({
             return null
         }
     }),
-    safeObjectFrom: jest.fn((obj) => {
+    safeObjectFrom: vi.fn((obj) => {
         if (!obj) return obj
         const result = Object.assign({}, obj)
         Object.setPrototypeOf(result, null)
@@ -38,8 +38,8 @@ jest.mock('../../src/util', () => ({
     }),
 }))
 
-jest.mock('../../src/util/conversions', () => ({
-    modifyStudyContext: jest.fn((data) => data),
+vi.mock('../../src/util/conversions', () => ({
+    modifyStudyContext: vi.fn((data) => data),
 }))
 
 describe('DatabaseAPIConnector', () => {
@@ -48,22 +48,22 @@ describe('DatabaseAPIConnector', () => {
     let originalWindow: any
 
     beforeEach(() => {
-        if (Log.debug) (Log.debug as jest.Mock).mockClear()
-        if (Log.error) (Log.error as jest.Mock).mockClear()
-        if (Log.warn) (Log.warn as jest.Mock).mockClear()
+        if (Log.debug) (Log.debug as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.error) (Log.error as ReturnType<typeof vi.fn>).mockClear()
+        if (Log.warn) (Log.warn as ReturnType<typeof vi.fn>).mockClear()
 
         ;(GenericAsset as any).USED_IDS.clear()
 
         mockEventBus = {
-            addScopedEventListener: jest.fn(),
-            dispatchScopedEvent: jest.fn().mockReturnValue(true),
-            getEventHooks: jest.fn(),
-            removeAllScopedEventListeners: jest.fn(),
-            removeScopedEventListener: jest.fn(),
-            removeScope: jest.fn(),
-            subscribe: jest.fn(),
-            unsubscribe: jest.fn(),
-            unsubscribeAll: jest.fn(),
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
         }
 
         mockApp = {}
@@ -80,13 +80,13 @@ describe('DatabaseAPIConnector', () => {
             writable: true,
         })
 
-        ;(EventBus as jest.MockedClass<typeof EventBus>).mockImplementation(() => mockEventBus as any)
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function() { return mockEventBus as any })
     })
 
     afterEach(() => {
         global.window = originalWindow
-        jest.useRealTimers()
-        jest.restoreAllMocks()
+        vi.useRealTimers()
+        vi.restoreAllMocks()
     })
 
     describe('constructor', () => {
@@ -145,7 +145,7 @@ describe('DatabaseAPIConnector', () => {
 
     describe('authenticate', () => {
         it('should authenticate successfully', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 headers: { get: () => null },
             }) as any
@@ -155,7 +155,7 @@ describe('DatabaseAPIConnector', () => {
         })
 
         it('should return failure on bad response', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: false,
                 status: 401,
                 statusText: 'Unauthorized',
@@ -168,14 +168,14 @@ describe('DatabaseAPIConnector', () => {
         })
 
         it('should handle network errors', async () => {
-            global.fetch = jest.fn().mockRejectedValue(new Error('Network error')) as any
+            global.fetch = vi.fn().mockRejectedValue(new Error('Network error')) as any
             const connector = new DatabaseAPIConnector('Test', 'https://api.example.com')
             const result = await connector.authenticate()
             expect(result.success).toBe(false)
         })
 
         it('should use custom auth path', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 headers: { get: () => null },
             }) as any
@@ -191,7 +191,7 @@ describe('DatabaseAPIConnector', () => {
     describe('listContents', () => {
         it('should list contents from API', async () => {
             const mockData = [{ name: 'study1' }, { name: 'study2' }]
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 headers: { get: () => 'application/json' },
                 json: () => Promise.resolve(mockData),
@@ -202,7 +202,7 @@ describe('DatabaseAPIConnector', () => {
         })
 
         it('should return null on error', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: false,
                 status: 500,
                 statusText: 'Server Error',
@@ -213,7 +213,7 @@ describe('DatabaseAPIConnector', () => {
         })
 
         it('should handle network errors', async () => {
-            global.fetch = jest.fn().mockRejectedValue(new Error('Network')) as any
+            global.fetch = vi.fn().mockRejectedValue(new Error('Network')) as any
             const connector = new DatabaseAPIConnector('Test', 'https://api.example.com')
             const result = await connector.listContents()
             expect(result).toBeNull()
@@ -223,7 +223,7 @@ describe('DatabaseAPIConnector', () => {
     describe('query', () => {
         it('should execute GET query by default', async () => {
             const mockData = [{ id: 1 }]
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: () => Promise.resolve(mockData),
             }) as any
@@ -234,42 +234,42 @@ describe('DatabaseAPIConnector', () => {
         })
 
         it('should include params as query parameters by default', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: () => Promise.resolve([]),
             }) as any
             const connector = new DatabaseAPIConnector('Test', 'https://api.example.com')
             await connector.query('/items', { page: 1, limit: 10 })
-            const calledUrl = (global.fetch as jest.Mock).mock.calls[0][0]
+            const calledUrl = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]
             expect(calledUrl).toContain('page=1')
             expect(calledUrl).toContain('limit=10')
         })
 
         it('should use POST method when paramMethod is post', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: () => Promise.resolve([]),
             }) as any
             const connector = new DatabaseAPIConnector('Test', 'https://api.example.com')
             await connector.query('/items', { key: 'val' }, { paramMethod: 'post' })
-            const fetchOptions = (global.fetch as jest.Mock).mock.calls[0][1]
+            const fetchOptions = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1]
             expect(fetchOptions.method).toBe('POST')
             expect(fetchOptions.body).toBe(JSON.stringify({ key: 'val' }))
         })
 
         it('should inject params into URL when paramMethod is inject', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: () => Promise.resolve([]),
             }) as any
             const connector = new DatabaseAPIConnector('Test', 'https://api.example.com')
             await connector.query('/items/{id}', { id: 42 }, { paramMethod: 'inject' })
-            const calledUrl = (global.fetch as jest.Mock).mock.calls[0][0]
+            const calledUrl = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]
             expect(calledUrl).toContain('/items/42')
         })
 
         it('should handle query failure', async () => {
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: false,
                 status: 404,
                 statusText: 'Not Found',
@@ -280,7 +280,7 @@ describe('DatabaseAPIConnector', () => {
         })
 
         it('should handle network errors in query', async () => {
-            global.fetch = jest.fn().mockRejectedValue(new Error('Network')) as any
+            global.fetch = vi.fn().mockRejectedValue(new Error('Network')) as any
             const connector = new DatabaseAPIConnector('Test', 'https://api.example.com')
             const result = await connector.query('/items')
             expect(result.success).toBe(false)
@@ -288,7 +288,7 @@ describe('DatabaseAPIConnector', () => {
 
         it('should support CSV format', async () => {
             const mockData = [{ name: 'item1', value: 10 }, { name: 'item2', value: 20 }]
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: () => Promise.resolve(mockData),
             }) as any
@@ -301,7 +301,7 @@ describe('DatabaseAPIConnector', () => {
 
         it('should support XML format', async () => {
             const mockData = [{ name: 'item1' }]
-            global.fetch = jest.fn().mockResolvedValue({
+            global.fetch = vi.fn().mockResolvedValue({
                 ok: true,
                 json: () => Promise.resolve(mockData),
             }) as any

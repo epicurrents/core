@@ -8,7 +8,7 @@
 import LocalFileReader from '../../src/assets/reader/LocalFileReader'
 
 // Mock URL.createObjectURL
-global.URL.createObjectURL = jest.fn().mockReturnValue('blob:mock-url')
+global.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
 
 describe('LocalFileReader', () => {
     let reader: LocalFileReader
@@ -20,8 +20,8 @@ describe('LocalFileReader', () => {
     describe('readFilesFromSource', () => {
         it('should return undefined when dataTransfer has no items', async () => {
             const event = {
-                stopPropagation: jest.fn(),
-                preventDefault: jest.fn(),
+                stopPropagation: vi.fn(),
+                preventDefault: vi.fn(),
                 dataTransfer: null,
             } as unknown as DragEvent
 
@@ -43,8 +43,8 @@ describe('LocalFileReader', () => {
                 webkitGetAsEntry: () => mockEntry,
             }
             const event = {
-                stopPropagation: jest.fn(),
-                preventDefault: jest.fn(),
+                stopPropagation: vi.fn(),
+                preventDefault: vi.fn(),
                 dataTransfer: {
                     items: {
                         length: 1,
@@ -88,8 +88,8 @@ describe('LocalFileReader', () => {
                 },
             }
             const event = {
-                stopPropagation: jest.fn(),
-                preventDefault: jest.fn(),
+                stopPropagation: vi.fn(),
+                preventDefault: vi.fn(),
                 dataTransfer: {
                     items: {
                         length: 1,
@@ -118,8 +118,8 @@ describe('LocalFileReader', () => {
                 file: (resolve: (file: File) => void) => resolve(file2),
             }
             const event = {
-                stopPropagation: jest.fn(),
-                preventDefault: jest.fn(),
+                stopPropagation: vi.fn(),
+                preventDefault: vi.fn(),
                 dataTransfer: {
                     items: {
                         length: 2,
