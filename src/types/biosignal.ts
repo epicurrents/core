@@ -720,6 +720,12 @@ export interface BiosignalMontage extends BaseAsset {
      */
     addHighlightContext (name: string, context: unknown): boolean
     /**
+     * Remove a named highlight context from this montage.
+     * Dispatches `property-change:highlights`.
+     * Returns false (and logs an error) if the context does not exist.
+     */
+    removeHighlightContext (name: string): boolean
+    /**
      * Remove all highlight contexts from this montage.
      * Dispatches `property-change:highlights`.
      */

@@ -174,15 +174,18 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     ///////////////////////////////////////////////////
 
     addHighlightContext (name: string, context: unknown) {
-        if (this._highlights.get(name)) {
+        if (this._highlights.has(name)) {
             Log.error(`Could not add duplicate highlight context ${name}.`, SCOPE)
             return false
         }
-        const newHighlights = new Map(this._highlights)
-        newHighlights.set(name, context)
-        this._setPropertyValue('highlights', newHighlights, {
-            callback: () => newHighlights,
-        })
+        const oldHighlights = this.highlights
+        this._highlights.set(name, context)
+        const newHighlights = this.highlights
+        if (!this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'before')) {
+            this._highlights.delete(name)
+            return false
+        }
+        this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'after')
         return true
     }
 
@@ -282,11 +285,35 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         await this._service?.unload(config?.removeFromManager)
     }
 
+    removeHighlightContext (name: string) {
+        if (!this._highlights.has(name)) {
+            Log.error(`Could not find highlight context ${name}.`, SCOPE)
+            return false
+        }
+        const oldHighlights = this.highlights
+        const saved = this._highlights.get(name)
+        this._highlights.delete(name)
+        const newHighlights = this.highlights
+        if (!this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'before')) {
+            this._highlights.set(name, saved)
+            return false
+        }
+        this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'after')
+        return true
+    }
+
     removeAllHighlights () {
-        const emptyHighlights = new Map<string, unknown>()
-        this._setPropertyValue('highlights', emptyHighlights, {
-            callback: () => emptyHighlights,
-        })
+        const oldHighlights = this.highlights
+        const saved = new Map(this._highlights)
+        this._highlights.clear()
+        const newHighlights = this.highlights
+        if (!this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'before')) {
+            for (const [k, v] of saved) {
+                this._highlights.set(k, v)
+            }
+            return
+        }
+        this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'after')
     }
 
     removeAllEventListeners (subscriber?: string) {

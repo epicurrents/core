@@ -255,7 +255,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
     }
 
     protected _setPropertyValue (property: keyof this, newValue: unknown, context?: PropertyChangeContext) {
-        if (this._locked && property !== 'locked') {
+        if (this._locked && property !== 'locked' && property !== 'isActive') {
             Log.error(`Attempted to modify locked annotation '${this._label}'.`, SCOPE)
             return
         }
