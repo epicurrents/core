@@ -45,6 +45,16 @@ export default abstract class GenericService extends GenericAsset implements Ass
     protected _manager: MemoryManager | null
     protected _memoryRange: { start: number, end: number } | null = null
     /**
+     * In-flight `unload()` promise. Concurrent callers share this same promise instead of each
+     * commissioning their own `release-cache` and `manager.release()` — without this guard, a
+     * resource being unloaded by both its own `releaseBuffers` chain AND the manager's
+     * `freeBy()` (when a sibling allocation triggers LRU eviction) ended up corrupting the
+     * SAB layout, surfacing as `RangeError: Invalid typed array length` and master-buffer
+     * lock timeouts. The `releaseFromManager` argument of the FIRST caller wins for the
+     * duration of the in-flight unload.
+     */
+    protected _unloadingPromise: Promise<void> | null = null
+    /**
      * A map with actions as keys and an array of callbacks to call when that action completes.
      * Some generic actions are used to check if the service is ready:
      * - `setup-worker` - General worker setup.
@@ -429,6 +439,15 @@ export default abstract class GenericService extends GenericAsset implements Ass
         const prevState = this.memoryConsumption
         this._memoryRange = await this._manager.allocate(amount, this)
         this.dispatchPropertyChangeEvent('memoryConsumption', this.memoryConsumption, prevState)
+        // Report success only if the manager actually handed back a buffer range. The previous
+        // unconditional `return true` reported success even when `allocate()` returned null
+        // (e.g. when `freeBy` couldn't reclaim enough memory from stale services), so the
+        // caller proceeded to `setupMutex` and hit "loader doesn't have any allocated memory"
+        // instead of failing fast at the allocation step.
+        if (!this._memoryRange) {
+            Log.error(`Memory manager could not allocate the requested ${amount*4} bytes.`, SCOPE)
+            return false
+        }
         return true
     }
 
@@ -521,13 +540,38 @@ export default abstract class GenericService extends GenericAsset implements Ass
     }
 
     async unload (releaseFromManager = true) {
-        const prevState = this.isReady
-        const commission = this._commissionWorker('release-cache')
-        await commission.promise
-        if (this._manager && releaseFromManager) {
-            this._manager.release(this)
+        // Re-entrancy guard: if an unload is already in flight, await the existing promise.
+        // The first caller's `releaseFromManager` flag wins — typically the resource's own
+        // `releaseBuffers` calls `unload(false)` and then `manager.release(...)` separately,
+        // so concurrent calls from elsewhere (e.g. `freeBy`'s `unload(true)`) should not
+        // commission a duplicate `release-cache` or trigger a second `manager.release`.
+        if (this._unloadingPromise) {
+            return this._unloadingPromise
         }
-        this._isCacheSetup = false
-        this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+        const work = (async () => {
+            const prevState = this.isReady
+            const commission = this._commissionWorker('release-cache')
+            await commission.promise
+            if (this._manager && releaseFromManager) {
+                // Await so callers that need the full tear-down to settle (e.g. `freeBy`
+                // before `allocate` reads back the surviving services' `bufferRange[1]`)
+                // actually see the SAB rearranged before they proceed. Without this await,
+                // `allocate` computes `endIndex` from stale ranges and the new allocation
+                // overruns the buffer. The release rejection (if any) is logged but not
+                // re-thrown — callers shouldn't fail just because cleanup of a previous
+                // resource hit a snag.
+                try {
+                    await this._manager.release(this)
+                } catch (e) {
+                    Log.warn(`Manager release after unload threw: ${(e as Error)?.message}`, SCOPE)
+                }
+            }
+            this._isCacheSetup = false
+            this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
+        })()
+        this._unloadingPromise = work.finally(() => {
+            this._unloadingPromise = null
+        })
+        return this._unloadingPromise
     }
 }

@@ -105,11 +105,18 @@ export default class ServiceMemoryManager extends GenericService implements Memo
     }
 
     get memoryUsed () {
-        let totalUsed = 4 // For the lock buffer.
+        // All quantities here are in 32-bit float units (one slot = 4 bytes), matching
+        // `bufferSize` and `service.memoryConsumption`. The previous implementation started
+        // `totalUsed = 4` (the master lock occupies one Int32 = one float, not 4 floats) and
+        // then divided the total by 4 at the end, which under-reported memory usage by ~4×
+        // and caused `freeBy` to be skipped in `allocate()` even when the buffer was full.
+        // The visible symptom: opening a third recording silently appends past the end of the
+        // SAB and `setDataArrays` fails with "remaining buffer cannot accommodate the data".
+        let totalUsed = 1 // For the lock buffer (one Int32 slot at SAB position 0).
         for (const managed of this._managed.values()) {
             totalUsed += managed.service.memoryConsumption
         }
-        return totalUsed/4
+        return totalUsed
     }
 
     async handleMessage (message: WorkerResponse) {
@@ -195,30 +202,36 @@ export default class ServiceMemoryManager extends GenericService implements Memo
     }
 
     async freeBy (amount: number, ignore: string[] = []): Promise<FreeMemoryResponse> {
-        if (this._managed.size < 2) {
+        if (!this._managed.size) {
             return false
         }
-        // Sort the services from most to least recently used.
+        // Sort the services oldest-first so the least recently used service is dropped first
+        // (`a.lastUsed - b.lastUsed` is ascending — index 0 is the oldest). Iterate front-to-back
+        // and drop until we've freed enough or run out of eligible services.
         const sorted = [...this._managed.values()]
         sorted.sort((a, b) => a.lastUsed - b.lastUsed)
         let totalFreed = 0
-        const rangesFreed = [] as number[][]
-        while (sorted.length > 1) {
-            const nextToDrop = sorted.pop() as ManagedService
-            if (!ignore.length || ignore.indexOf(nextToDrop.service.id)) {
-                await nextToDrop.service.unload()
-                rangesFreed.push(nextToDrop.bufferRange)
-                this._managed.delete(nextToDrop.service.id)
-                totalFreed += nextToDrop.bufferRange[1] - nextToDrop.bufferRange[0]
-                if (totalFreed >= amount) {
-                    // Rearrange buffer and report success.
-                    this.removeFromBuffer(true, ...rangesFreed)
-                    return true
-                }
+        for (const nextToDrop of sorted) {
+            // `ignore` is a list of service ids that must NOT be evicted (typically a service
+            // that is currently in use). Use `includes` for a clean boolean check — the
+            // previous `ignore.indexOf(id)` accidentally treated index 0 (`0`, falsy) as
+            // "not in list".
+            if (ignore.includes(nextToDrop.service.id)) {
+                continue
+            }
+            // `service.unload()` with its default `releaseFromManager = true` already calls
+            // `manager.release(this)` which removes the service from `_managed` and commissions
+            // the rearrange. Concurrent `release()` calls are serialised via `_pendingRelease`
+            // (see {@link release}), so we can safely await this without worrying about
+            // racing with the resource's own `releaseBuffers` chain.
+            const rangeSize = nextToDrop.bufferRange[1] - nextToDrop.bufferRange[0]
+            await nextToDrop.service.unload()
+            totalFreed += rangeSize
+            if (totalFreed >= amount) {
+                break
             }
         }
-        // Report failure to free the requested space.
-        return false
+        return totalFreed >= amount
     }
 
     getService (id: string) {
@@ -232,7 +245,7 @@ export default class ServiceMemoryManager extends GenericService implements Memo
             const id = typeof service === 'string' ? service : service.id
             const managed = this._managed.get(id)
             if (!managed) {
-                Log.error(`Could not release asset; no service with given id was found.`, SCOPE)
+                // Already released by a previous concurrent call — no-op, no error.
                 continue
             }
             serviceIds.push(id)
@@ -241,7 +254,9 @@ export default class ServiceMemoryManager extends GenericService implements Memo
         for (const id of serviceIds) {
             this._managed.delete(id)
         }
-        await this.removeFromBuffer(false, ...bufferRanges)
+        if (bufferRanges.length) {
+            await this.removeFromBuffer(false, ...bufferRanges)
+        }
         return true
     }
 
@@ -308,7 +323,22 @@ export default class ServiceMemoryManager extends GenericService implements Memo
                 continue
             }
             managed.bufferRange = rearranged.range
-            await managed.service.setBufferRange(rearranged.range)
+            // Catch per-service `setBufferRange` failures so a single service whose worker
+            // doesn't implement the `set-buffer-range` action (e.g. the montage worker, which
+            // only carries tiny meta-only allocations and doesn't need to reposition signal
+            // views) can't abort the rest of the rearrange. Previously, the first montage in
+            // the result list threw at this line and left every subsequent managed entry's
+            // `bufferRange` un-updated, so the next `allocate` computed `endIndex` from stale
+            // high positions and overflowed the buffer.
+            try {
+                await managed.service.setBufferRange(rearranged.range)
+            } catch (e) {
+                Log.warn(
+                    `setBufferRange failed for service ${rearranged.id.slice(0, 8)}: ` +
+                    `${(e as Error)?.message ?? e}. Continuing with manager-side range update only.`,
+                    SCOPE
+                )
+            }
         }
         // TODO: Unlock buffers in each service.
         await Promise.all(this._managed.values().map(async managed => {

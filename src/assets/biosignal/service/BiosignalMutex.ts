@@ -367,6 +367,28 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         return rates
     }
 
+    /**
+     * Per-channel `{ start, end }` sample positions of the contiguous loaded subrange inside the
+     * input cache's current `[inputRangeStart, inputRangeEnd]` window. Mirrors
+     * {@link outputSignalUpdatedRanges} but reads from the INPUT scope, which on a montage-side
+     * mutex is the EDF worker's SAB writes. Used by `MontageProcessor` to detect cache misses
+     * non-invasively — a single read per `getSignals` request, not a polling loop.
+     */
+    get inputSignalUpdatedRanges (): Promise<{ start: number, end: number }>[] {
+        const ranges = [] as Promise<{ start: number, end: number }>[]
+        for (let i=0; i<this._inputDataViews.length; i++) {
+            ranges.push(
+                this._signalUpdatedRange(i, IOMutex.MUTEX_SCOPE.INPUT).then(async (range) => {
+                    return {
+                        start: range[0][0],
+                        end: range[1][0],
+                    }
+                })
+            )
+        }
+        return ranges
+    }
+
     get inputSignalViews (): Promise<Float32Array[]| null> {
         return this._getSingalViews(IOMutex.MUTEX_SCOPE.INPUT)
     }

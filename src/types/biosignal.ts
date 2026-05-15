@@ -1652,6 +1652,12 @@ export interface SignalDataCache {
     inputRangeEnd: Promise<number>
     inputRangeStart: Promise<number>
     inputSignals: Promise<Float32Array[]>
+    /**
+     * Per-channel `{ start, end }` sample positions of the contiguous loaded subrange inside the
+     * input cache's current window. Optional because the JS-heap fallback cache does not track
+     * input-side updates per channel.
+     */
+    inputSignalUpdatedRanges?: Promise<{ start: number, end: number }>[]
     outputRangeEnd: number
     outputRangeStart: number
     outputSignalSamplingRates: number[]

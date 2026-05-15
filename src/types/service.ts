@@ -302,6 +302,12 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      */
     readonly inputSignals: Promise<Float32Array[]>
     /**
+     * Per-channel `{ start, end }` sample positions of the contiguous loaded subrange inside the
+     * input cache's current window. Optional because not every cache backend supports per-channel
+     * updated-range tracking (e.g. the JS-heap `BiosignalCache` fallback).
+     */
+    readonly inputSignalUpdatedRanges?: Promise<{ start: number, end: number }>[]
+    /**
      * Get the entire data arrays holding input signal properties and data.
      */
     readonly inputSignalViews: Promise<Float32Array[]| null>
