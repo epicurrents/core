@@ -116,6 +116,7 @@ const _settings = {
     app: {
         _userDefinable: {
         },
+        dataBlockDuration: 3600,
         dataChunkSize: 5*MB_BYTES,
         get isSabUsed () {
             return this.useMemoryManager && typeof SharedArrayBuffer !== 'undefined'

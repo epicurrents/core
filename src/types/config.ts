@@ -24,6 +24,18 @@ export interface AppSettings {
     _CLONABLE: ClonableAppSettings
     app: BaseModuleSettings & {
         /**
+         * Upper bound on the recording-time duration of a single block in the rolling-window cache, in seconds.
+         *
+         * The actual block duration is computed per recording from the available cache budget and the recording's
+         * total channel sample rate: three blocks must fit inside `maxLoadCacheSize`. The computed value is then
+         * clamped to `[60 s, dataBlockDuration]` so very high-bandwidth recordings still get usable blocks while
+         * typical PSG-class recordings get blocks in the 10–60 min range that matches typical viewer page lengths.
+         *
+         * Used only when the full recording does not fit inside `maxLoadCacheSize`; small recordings load fully and
+         * ignore this value. Default 3600 s (60 min).
+         */
+        dataBlockDuration: number
+        /**
          * Maximum number of bytes to load in one chunk. This will be rounded down to the nearest whole data record
          * size - 1 (because one data record may be added for signal interpolation).
          * If the size of a single data record is larger than dataChunkSize, the value will be rounded up to match one

@@ -480,8 +480,11 @@ export interface BiosignalDataService extends AssetService {
     signalBufferStart: number
     /**
      * Start the process of caching raw signals from the preset File or URL.
+     * @param startFrom - Optional data-time offset (seconds) at which to centre the cache when the
+     *                    rolling-window strategy is in use. Ignored for recordings that fit fully
+     *                    in memory.
      */
-    cacheSignals (): Promise<CacheSignalsResponse>
+    cacheSignals (startFrom?: number): Promise<CacheSignalsResponse>
     /**
      * Destroy the service and release all resources.
      * @remarks

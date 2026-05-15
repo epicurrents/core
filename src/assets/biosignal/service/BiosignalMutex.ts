@@ -871,10 +871,12 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     const updatedEnd = dataView[BiosignalMutex.SIGNAL_UPDATED_END_POS]
                     const samplingRate = dataView[BiosignalMutex.SIGNAL_SAMPLING_RATE_POS]
                     // Retrieve a reference to signal data so we can adjust the buffered data to the new range.
-                    const signalData = dataView.subarray(
-                        this._outputDataFieldsLen,
-                        this._outputDataFieldsLen + Math.round(await this._outputSignalRangeAllocated || 0 )
-                    )
+                    // `signalData` must span the channel's actual sample buffer (size
+                    // `samplingRate * RANGE_ALLOCATED`), not just `RANGE_ALLOCATED` (which is in
+                    // seconds). Using `dataView.subarray(headerLen)` gives the data portion of
+                    // the array regardless of unit confusion — everything after the per-channel
+                    // header is data.
+                    const signalData = dataView.subarray(this._outputDataFieldsLen)
                     // Check if we can discard all old signals.
                     if (oldStart > rangeEnd || oldEnd < rangeStart) {
                         this._setOutputDataFieldValue(
@@ -885,31 +887,48 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                         )
                         signalData.fill(0)
                     } else if (rangeStart > oldStart) {
-                        // Shift signals down.
+                        // Forward slide: range moves later, samples shift down (towards index 0).
+                        // Old `updatedEnd` is the END POSITION of valid data in the old layout.
+                        // After shifting down by `shiftBy`, samples at old `[shiftBy, updatedEnd]`
+                        // become new `[0, updatedEnd - shiftBy]` — i.e. the preserved length is
+                        // `max(updatedEnd - shiftBy, 0)`. The vacated tail at the end is zeroed
+                        // and `updated_end` is set to where the preserved data ends.
                         const shiftBy = Math.round((rangeStart - oldStart)*samplingRate)
-                        const validData = Math.max(
-                            updatedEnd - shiftBy,
-                            0 // Can't have a negative array index.
-                        )
-                        signalData.set(signalData.subarray(shiftBy, validData), 0)
-                        // Fill the rest with zeroes.
-                        signalData.set((new Float32Array(shiftBy)).fill(0), validData)
-                        // Set the up-to-date signal range.
+                        const preservedLen = Math.max(updatedEnd - shiftBy, 0)
+                        if (preservedLen > 0) {
+                            // Read source samples from [shiftBy, shiftBy + preservedLen] in the old
+                            // layout and write them to [0, preservedLen] in the new one. The source
+                            // end is `shiftBy + preservedLen`, which equals the old `updatedEnd`
+                            // when no truncation is needed.
+                            signalData.set(signalData.subarray(shiftBy, shiftBy + preservedLen), 0)
+                        }
+                        // Zero out the trailing region where new data will eventually be loaded.
+                        const trailingZeros = signalData.length - preservedLen
+                        if (trailingZeros > 0) {
+                            signalData.set(new Float32Array(trailingZeros).fill(0), preservedLen)
+                        }
                         this._setOutputDataFieldValue(i, BiosignalMutex.SIGNAL_UPDATED_START_NAME, 0)
-                        this._setOutputDataFieldValue(i, BiosignalMutex.SIGNAL_UPDATED_END_NAME, validData)
+                        this._setOutputDataFieldValue(i, BiosignalMutex.SIGNAL_UPDATED_END_NAME, preservedLen)
                     } else if (rangeEnd < oldEnd) {
-                        // Shift signals up.
+                        // Backward slide: range moves earlier, samples shift up (towards higher
+                        // indices). Old `updatedEnd` is the END POSITION of valid data in the old
+                        // layout. After shifting up by `shiftBy`, samples at old `[0, updatedEnd]`
+                        // become new `[shiftBy, shiftBy + updatedEnd]` — but the array can hold at
+                        // most `signalData.length` samples, so `preservedLen = min(updatedEnd,
+                        // signalData.length - shiftBy)` and the new end position is
+                        // `shiftBy + preservedLen`. Vacated leading region is zeroed.
                         const shiftBy = Math.round((oldEnd - rangeEnd)*samplingRate)
-                        const validData = Math.min(
-                            updatedEnd + shiftBy,
-                            signalData.length - shiftBy // Truncate overflowing data.
-                        )
-                        signalData.set(signalData.subarray(0, validData), shiftBy)
-                        // Fill the start with zeroes.
-                        signalData.set((new Float32Array(shiftBy)).fill(0), 0)
-                        // Set the up-to-date signal range.
+                        const preservedLen = Math.max(0, Math.min(updatedEnd, signalData.length - shiftBy))
+                        if (preservedLen > 0) {
+                            signalData.set(signalData.subarray(0, preservedLen), shiftBy)
+                        }
+                        if (shiftBy > 0) {
+                            signalData.set(new Float32Array(shiftBy).fill(0), 0)
+                        }
                         this._setOutputDataFieldValue(i, BiosignalMutex.SIGNAL_UPDATED_START_NAME, shiftBy)
-                        this._setOutputDataFieldValue(i, BiosignalMutex.SIGNAL_UPDATED_END_NAME, validData)
+                        this._setOutputDataFieldValue(
+                            i, BiosignalMutex.SIGNAL_UPDATED_END_NAME, shiftBy + preservedLen
+                        )
                     } else {
                         // Signals have not been set up yet
                         this._setOutputDataFieldValue(

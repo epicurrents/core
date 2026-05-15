@@ -71,8 +71,10 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         startBytePos: number
         /** File byte position this block ends at. */
         endBytePos: number
-        /** Data contained in this block if loaded, null if not. */
+        /** Data contained in this block if loaded, null if not (informational only). */
         data: SignalFilePart | null
+        /** Whether this block's samples are currently present in the rolling cache window. */
+        loaded: boolean
     }[]
     /** Byte position of the first data unit (= header size in bytes). */
     protected _dataOffset = 0
@@ -84,9 +86,35 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
     protected _filePos = 0
     /** Is the mutex fully setup and ready. */
     protected _isMutexReady = false
+    /**
+     * Maximum number of contiguous data blocks that the signal cache can hold at once.
+     *
+     * Set during {@link _buildDataBlocks} based on the per-channel sample rate, the configured
+     * {@link AppSettings.app.dataBlockDuration}, and the available memory budget. When this is
+     * greater than or equal to {@link _dataBlocks}`.length` the entire recording fits in the
+     * cache and the rolling-window path is bypassed (see {@link _useRolling}).
+     *
+     * The rolling cache needs to hold at minimum three blocks (one for the current view plus one
+     * on each side); deployments where the memory budget cannot accommodate three full blocks
+     * for the recording's channels must fall back to either a smaller block duration or refuse
+     * to open the recording.
+     */
     protected _maxDataBlocks = 0
     /** Loading process start time (for debugging). */
     protected _startTime = 0
+    /**
+     * True when the recording is large enough that the rolling-window cache must be used (i.e.
+     * the full recording cannot fit in memory at the configured cache size). Set by
+     * {@link _buildDataBlocks}. The full-cache path is used when this is false.
+     */
+    protected _useRolling = false
+    /**
+     * The actual block duration in seconds chosen for the rolling cache, computed adaptively
+     * from the channel sample rates and `maxLoadCacheSize` budget. Used by {@link setupMutex}
+     * to size the mutex's signal buffers at `samplingRate × 3 × _blockDuration` per channel.
+     * Set by {@link _buildDataBlocks}; 0 before that runs.
+     */
+    protected _blockDuration = 0
     /** A method to pass update messages to the main thread. */
     protected _updateCallback = null as ((update: { [prop: string]: unknown }) => void) | null
     /** File data url. */
@@ -580,77 +608,34 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 }
             }
         } else {
-            // Cannot load entire file.
-            // The idea is to consider the cached signal data in three parts.
-            // - Middle part is where the active view is (or should be).
-            // - In addition, one third of cached data precedes it and one third follows it.
-            // Whenever the active view enters the preceding or following third, a new "third" is loaded to that end
-            // and the third at the far end is scrapped.
-            // Get current signal cache range
-            const range = await this._getSignalCacheRange()
-            if (range.start === NUMERIC_ERROR_VALUE) {
-                Log.error(`The signal cache mutex did not return a valid signal range.`, SCOPE)
+            // Rolling cache: the recording does not fit in memory, hold three blocks at a time
+            // and slide the window as the view crosses block boundaries. `_slideToBlock` does the
+            // heavy lifting (mutex range update + per-block load/evict) and is idempotent — calling
+            // it when the cache is already correctly positioned is a no-op via `setSignalRange`'s
+            // own short-circuit on identical bounds. So we always defer to it rather than trying
+            // to second-guess the cache state here.
+            if (!this._dataBlocks.length) {
+                Log.error(`Rolling cache requested but no data blocks have been built.`, SCOPE)
                 return false
             }
-            // First, check if current cache already has this part as one of the "thirds".
-            const cacheThird = this._maxDataBlocks/3
-            const firstThird = range.start + Math.round(cacheThird)
-            const secondThird = range.start + Math.round(cacheThird*2)
-            const lastThird = range.start + this._maxDataBlocks
-            // Seek the data block the starting point is in.
-            let nowInPart = 0
-            if (startFrom) {
-                for (let i=0; i<this._dataBlocks.length; i++) {
-                    if (this._dataBlocks[i].startTime <= startFrom && this._dataBlocks[i].endTime > startFrom) {
-                        nowInPart = i
-                    }
-                }
-            }
-            if (
-                // Case when the cache does not start from the beginning of the recording, but view is in the middle third.
-                startFrom >= firstThird && startFrom < secondThird ||
-                // Case when it does (and view is in the first or middle third, this check must be in the first clause!).
-                range.start === 0 && startFrom < secondThird
-            ) {
-                // We don't have to do any changes.
-                return true
-            } else if (startFrom < firstThird) {
-                // Cache does not start from the beginning and the view is in the first third
-                // -> ditch last block and load a preceding one.
-                null
-            } else if (
-                startFrom >= secondThird && startFrom < lastThird ||
-                range.start === 0 && startFrom < lastThird
-            ) {
-                // View in the last third -> ditch first block and load following data.
-
+            // Find the block that contains the requested view position. The view is in data-time
+            // (gap-exclusive) just like the block boundaries, so a simple linear scan suffices.
+            // For positions at or past the last block's `endTime` (e.g. user navigates to the very
+            // end of the recording where viewStart can equal totalDataLength), default to the last
+            // block instead of falling through to 0 — sliding back to block 0 would be the opposite
+            // of what the user requested.
+            let viewBlock = this._dataBlocks.length - 1
+            if (startFrom < this._dataBlocks[0].startTime) {
+                viewBlock = 0
             } else {
-                // Check if we are already in the process of loading this part.
-                for (const proc of this._cacheProcesses) {
-                    // Same checks basically.
-                    const procFirstThird = proc.target.start + Math.round(cacheThird)
-                    const procSecondThird = proc.target.start + Math.round(cacheThird*2)
-                    const procLastThird = proc.target.start + this._maxDataBlocks
-                    if (
-                        startFrom >= procFirstThird && startFrom < procSecondThird ||
-                        proc.target.start === 0 && startFrom < procSecondThird
-                    ) {
-                        return true
-                    } else if (startFrom < procFirstThird) {
-                        null
-                    } else if (
-                        startFrom >= procSecondThird && startFrom < procLastThird ||
-                        proc.target.start === 0 && startFrom < procLastThird
-                    ) {
-                        null
+                for (let i = 0; i < this._dataBlocks.length; i++) {
+                    if (this._dataBlocks[i].startTime <= startFrom && this._dataBlocks[i].endTime > startFrom) {
+                        viewBlock = i
+                        break
                     }
                 }
             }
-            // First, load the next part (where the user will most likely browse).
-            // TODO: Finish this method.
-            nowInPart // Used here to determine the next part, suppress linting error.
-            Log.error(`Caching only partial files is not supported yet.`, SCOPE)
-            return false
+            return await this._slideToBlock(viewBlock)
         }
         return true
     }
@@ -835,11 +820,274 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             })
     }
 
+    /**
+     * Partition the recording into fixed-duration data blocks and decide whether the rolling-window
+     * cache strategy applies. Idempotent: re-running with the same recording dimensions produces the
+     * same table.
+     *
+     * After this method runs:
+     * - {@link _dataBlocks} contains one entry per block of `dataBlockDuration` seconds, in data-time
+     *   (gap-exclusive). The final block may be shorter if the recording length is not a multiple of
+     *   the block duration. Each entry has `data = null` initially.
+     * - {@link _maxDataBlocks} is the maximum number of blocks that can be held in memory at once,
+     *   given the configured `maxLoadCacheSize` and the per-second byte rate of the recording.
+     * - {@link _useRolling} is `true` only when the full recording cannot fit in the cache. When
+     *   `false` the existing full-load path is used and the block table is informational only.
+     *
+     * Block sizing is in data-time, not wall-clock time, so EDF+D interruptions do not shrink or
+     * stretch blocks. The four-case dispatch in `cacheSignals` uses these block bounds to decide
+     * which block(s) to load or evict as the active view crosses boundaries.
+     */
+    protected _buildDataBlocks () {
+        this._dataBlocks.length = 0
+        if (!this._header || !this._dataUnitDuration || !this._dataUnitCount || !this._dataUnitSize) {
+            // Recording dimensions not yet known; nothing to partition.
+            this._maxDataBlocks = 0
+            this._useRolling = false
+            return
+        }
+        const blockDurationCap = this.SETTINGS.app.dataBlockDuration || 3600
+        const maxCacheBytes = this.SETTINGS.app.maxLoadCacheSize || 0
+        const conversionFactor = 4 / this._dataEncoding.BYTES_PER_ELEMENT
+        const totalSignalDataSize = this._dataUnitSize * this._dataUnitCount * conversionFactor
+        // Compute the adaptive block duration. Goal: 3 blocks of `blockDuration` seconds must fit in
+        // ~95 % of `maxLoadCacheSize` worth of channel sample bytes, then clamp to a usable range.
+        // The 5 % margin covers the per-channel and per-mutex metadata overhead so the SAB never
+        // exactly fills, which can fail `setDataArrays` on integer rounding.
+        const bytesPerSecond = this._header.signals.reduce(
+            (total, sig) => total + (sig.modality === 'annotation' ? 0 : sig.samplingRate * 4),
+            0
+        )
+        const idealBlockDuration = bytesPerSecond > 0
+            ? Math.floor(maxCacheBytes * 0.95 / (3 * bytesPerSecond))
+            : blockDurationCap
+        // Hard floor of 60 s — going lower makes block transitions fire too frequently to be useful.
+        // Soft ceiling at `dataBlockDuration` setting (default 60 min) — blocks much larger than the
+        // user's view page don't help and just delay individual block loads.
+        const ROLLING_BLOCK_FLOOR = 60
+        const blockDuration = Math.max(ROLLING_BLOCK_FLOOR, Math.min(blockDurationCap, idealBlockDuration))
+        // Round block size up to the next whole number of data records so block boundaries align
+        // with record boundaries — that's what `Range:` requests can address atomically.
+        const recordsPerBlock = Math.max(1, Math.ceil(blockDuration / this._dataUnitDuration))
+        const blockSeconds = recordsPerBlock * this._dataUnitDuration
+        const blockBytes = recordsPerBlock * this._dataUnitSize
+        this._blockDuration = blockSeconds
+        const totalBlocks = Math.ceil(this._dataUnitCount / recordsPerBlock)
+        for (let i = 0; i < totalBlocks; i++) {
+            const startRecord = i * recordsPerBlock
+            const endRecord = Math.min(startRecord + recordsPerBlock, this._dataUnitCount)
+            this._dataBlocks.push({
+                startRecord,
+                endRecord,
+                startTime: startRecord * this._dataUnitDuration,
+                endTime: endRecord * this._dataUnitDuration,
+                startBytePos: this._dataOffset + startRecord * this._dataUnitSize,
+                endBytePos: this._dataOffset + endRecord * this._dataUnitSize,
+                data: null,
+                loaded: false,
+            })
+        }
+        const blockSignalDataSize = blockBytes * conversionFactor
+        if (maxCacheBytes >= totalSignalDataSize) {
+            // Full-load path: pretend the cache can hold every block.
+            this._maxDataBlocks = totalBlocks
+            this._useRolling = false
+        } else {
+            // Rolling path: how many whole blocks fit?
+            this._maxDataBlocks = Math.max(0, Math.floor(maxCacheBytes / blockSignalDataSize))
+            this._useRolling = true
+            if (this._maxDataBlocks < 3) {
+                Log.warn(
+                    `Cache size ${maxCacheBytes} bytes can only hold ${this._maxDataBlocks} block(s) of ` +
+                    `${blockSeconds.toFixed(1)} s each for this recording; rolling cache requires at least 3.`,
+                    SCOPE
+                )
+            }
+        }
+        Log.info(
+            `Partitioned recording into ${totalBlocks} block(s) of ${recordsPerBlock} record(s) ` +
+            `(${blockSeconds.toFixed(1)} s each, ideal=${idealBlockDuration}s cap=${blockDurationCap}s); ` +
+            `max ${this._maxDataBlocks} concurrent in cache, rolling=${this._useRolling}.`,
+            SCOPE
+        )
+    }
+
+    /**
+     * Load one data block's worth of raw signal into the cache. The block's data range is converted
+     * to data-time seconds and fetched via the existing {@link _readSignalPart} path (HTTP `Range:`
+     * or `File.slice()` plus decoder + interruption handling), then inserted into the cache via
+     * {@link insertSignals}. The mutex side handles cache-relative addressing — the insert is
+     * keyed by the block's absolute data-time start, and the mutex writes to the correct offset
+     * inside its current `RANGE_START`/`RANGE_END` window.
+     *
+     * Sets `_dataBlocks[idx].data` to a sentinel non-null value on success so callers can tell
+     * "this block has been loaded since the last slide" from `data === null`. The actual sample
+     * bytes live in the SAB-backed mutex, not in this field — keeping a parallel copy would
+     * defeat the rolling cache's memory savings.
+     */
+    protected async _loadBlock (idx: number): Promise<boolean> {
+        if (idx < 0 || idx >= this._dataBlocks.length) {
+            Log.warn(`Block index ${idx} is out of range [0, ${this._dataBlocks.length}).`, SCOPE)
+            return false
+        }
+        const block = this._dataBlocks[idx]
+        if (block.loaded) {
+            // Already loaded for the current window.
+            return true
+        }
+        if (!this._cache) {
+            Log.error(`Cannot load block ${idx}, cache has not been initialized.`, SCOPE)
+            return false
+        }
+        try {
+            const newSignals = await this._readSignalPart(block.startTime, block.endTime)
+            if (!newSignals || !newSignals.signals.length) {
+                Log.warn(`Block ${idx} read returned no signals.`, SCOPE)
+                return false
+            }
+            if (this.discontinuous) {
+                newSignals.start = this._recordingTimeToCacheTime(newSignals.start)
+                newSignals.end = this._recordingTimeToCacheTime(newSignals.end)
+            }
+            await this._cache.insertSignals(newSignals)
+            // Notify the main thread that new data has been loaded. The viewer watches
+            // `signalCacheStatus` property changes that are driven by these `cache-signals`
+            // updates to decide when to render; without this dispatch the renderer would never
+            // know the rolling cache has fresh samples and would show blank channels even though
+            // the SAB-backed mutex holds the data.
+            //
+            // `getSignalUpdatedRange()` returns positions *within the cache buffer* (in seconds);
+            // when the rolling cache has slid past time 0, the absolute recording-time range is
+            // offset by `cacheRange.start`. For the full-cache path `cacheRange.start === 0` so
+            // adding it is harmless.
+            const updated = await this.getSignalUpdatedRange()
+            const cacheRange = await this._getSignalCacheRange()
+            const absStart = cacheRange.start + updated.start
+            const absEnd = cacheRange.start + updated.end
+            if (this._updateCallback) {
+                this._updateCallback({
+                    action: 'cache-signals',
+                    events: this.getEvents([block.startTime, block.endTime]),
+                    interruptions: this.getInterruptions(undefined, true),
+                    range: [absStart, absEnd],
+                    success: true,
+                })
+            }
+            if (this._awaitData) {
+                if (this._awaitData.range[0] >= absStart && this._awaitData.range[1] <= absEnd) {
+                    this._awaitData.resolve()
+                }
+            }
+            // Mark as loaded. The actual samples live in the SAB-backed mutex; the `loaded`
+            // flag just tracks "this block has data in the current window" to avoid redundant
+            // re-loads on subsequent `_slideToBlock` calls that don't change the window.
+            block.loaded = true
+            return true
+        } catch (e: unknown) {
+            Log.error(`Failed to load block ${idx}: ${(e as Error).message}.`, SCOPE, e as Error)
+            return false
+        }
+    }
+
+    /**
+     * Mark a block as no longer present in the cache window. The SAB-side eviction is performed
+     * by {@link BiosignalMutex.setSignalRange} inside {@link _slideToBlock}; this method just
+     * clears the block-table entry so `_loadBlock` knows the data needs to be fetched again
+     * if the window slides back over it.
+     */
+    protected _evictBlock (idx: number): void {
+        if (idx >= 0 && idx < this._dataBlocks.length) {
+            this._dataBlocks[idx].loaded = false
+        }
+    }
+
+    /**
+     * Slide the rolling-window cache so that the three blocks `[centerIdx - 1, centerIdx, centerIdx + 1]`
+     * (clamped to valid indices) are the ones held in the mutex. Existing in-window data is preserved
+     * via {@link BiosignalMutex.setSignalRange} (which shifts samples within the SAB and resets
+     * per-channel `updated_start`/`updated_end` for evicted regions); blocks outside the new window
+     * are marked evicted via {@link _evictBlock}; blocks inside the new window that are not yet
+     * present are loaded via {@link _loadBlock} (in parallel).
+     *
+     * No-op if the recording is not in rolling mode, or if the requested window already matches the
+     * current one.
+     */
+    protected async _slideToBlock (centerIdx: number): Promise<boolean> {
+        if (!this._useRolling || !this._mutex || !this._dataBlocks.length) {
+            return false
+        }
+        const lastIdx = this._dataBlocks.length - 1
+        const targetCount = Math.min(3, this._maxDataBlocks, lastIdx + 1)
+        // Target a window of exactly `targetCount` blocks, centred on `centerIdx` when possible.
+        // At the leading/trailing edge of the recording, "centre" doesn't have a block to its
+        // left/right — extend the other direction so the window stays the same width. This keeps
+        // the mutex's RANGE_START / RANGE_END at the values picked at setupMutex for the initial
+        // call (viewBlock=0), avoiding the costly and currently-buggy case 4 / case 3 paths in
+        // `BiosignalMutex.setSignalRange` when the window contains or contracts from the existing
+        // one.
+        let firstIdx = Math.max(0, centerIdx - 1)
+        let secondIdx = Math.min(lastIdx, centerIdx + 1)
+        while (secondIdx - firstIdx + 1 < targetCount) {
+            if (firstIdx > 0) {
+                firstIdx -= 1
+            } else if (secondIdx < lastIdx) {
+                secondIdx += 1
+            } else {
+                // Recording is shorter than the target count of blocks; use what we have.
+                break
+            }
+        }
+        // Shrink (shouldn't happen with the expansion logic above, but stay defensive).
+        if (secondIdx - firstIdx + 1 > targetCount) {
+            if (centerIdx - firstIdx >= secondIdx - centerIdx) {
+                firstIdx = secondIdx - targetCount + 1
+            } else {
+                secondIdx = firstIdx + targetCount - 1
+            }
+        }
+        const rangeStart = this._dataBlocks[firstIdx].startTime
+        // Clamp the end at the recording duration — the last block may be shorter than a full
+        // `dataBlockDuration` and the mutex's allocated range starts at `cacheProps.start = 0`.
+        const rangeEnd = Math.min(this._dataBlocks[secondIdx].endTime, this._totalDataLength)
+        const blocksToLoadCount = this._dataBlocks
+            .slice(firstIdx, secondIdx + 1)
+            .filter(b => !b.loaded).length
+        Log.info(
+            `_slideToBlock(center=${centerIdx}): window=[${firstIdx},${secondIdx}] ` +
+            `range=[${rangeStart},${rangeEnd}]s blocksToLoad=${blocksToLoadCount}`,
+            SCOPE
+        )
+        // Update the mutex range. For a forward slide (rangeStart > oldStart) the mutex shifts
+        // in-window data down to position 0; for a backward slide (rangeEnd < oldEnd) it shifts
+        // data up. For "same range" (e.g. the initial call when the target already matches the
+        // window picked by setupMutex), `setSignalRange` short-circuits without touching anything.
+        await this._mutex.setSignalRange(rangeStart, rangeEnd)
+        // Block-table bookkeeping: blocks outside the new window are evicted, blocks now in range
+        // but not yet present are loaded.
+        for (let i = 0; i < this._dataBlocks.length; i++) {
+            if (i < firstIdx || i > secondIdx) {
+                this._evictBlock(i)
+            }
+        }
+        const loadTasks: Promise<boolean>[] = []
+        for (let i = firstIdx; i <= secondIdx; i++) {
+            if (!this._dataBlocks[i].loaded) {
+                loadTasks.push(this._loadBlock(i))
+            }
+        }
+        if (loadTasks.length) {
+            const results = await Promise.all(loadTasks)
+            return results.every(Boolean)
+        }
+        return true
+    }
+
     setupCache (dataDuration = 0) {
         if (this._fallbackCache) {
             Log.warn(`Tried to re-initialize already initialized signal data cache.`, SCOPE)
         } else {
             this._fallbackCache = new BiosignalCache(dataDuration)
+            this._buildDataBlocks()
         }
         return this._fallbackCache
     }
@@ -866,9 +1114,31 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                               : sig.samplingRate
             })
         }
+        this._buildDataBlocks()
         this._mutex = new BiosignalMutex()
-        Log.debug(`Initiating mutex cache in the worker.`, SCOPE)
-        this._mutex.initSignalBuffers(cacheProps, this._totalDataLength, buffer, bufferStart)
+        // For rolling caches, the mutex buffer holds only the active 3-block window in data-time
+        // (gap-exclusive). Initial `RANGE_START`/`RANGE_END` cover `[0, dataLength)` — the first
+        // three blocks — and `setSignalRange` slides this window as the view crosses boundaries.
+        // `_blockDuration` was computed adaptively in `_buildDataBlocks` from the cache budget
+        // and channel sample rates. For non-rolling caches `dataLength` is the full data-time
+        // length of the recording.
+        const dataLength = this._useRolling
+            ? Math.min(this._totalDataLength, this._blockDuration * 3)
+            : this._totalDataLength
+        // Diagnostics for the rolling-cache rollout — log key decision inputs so a mismatch between
+        // EegRecording's main-thread allocation and the worker's mutex layout is visible in the
+        // console. TODO: remove once Phase B is stable.
+        const sigSamples = cacheProps.signals.map(s => Math.floor(s.samplingRate * dataLength))
+        const sigTotalSamples = sigSamples.reduce((a, b) => a + b, 0)
+        Log.info(
+            `setupMutex: useRolling=${this._useRolling} maxCache=${this.SETTINGS.app.maxLoadCacheSize}B ` +
+            `blockDur=${this.SETTINGS.app.dataBlockDuration ?? 'undef'}s totalDataLen=${this._totalDataLength}s ` +
+            `dataLength=${dataLength}s sigCount=${cacheProps.signals.length} ` +
+            `totalSamplesAcrossChannels=${sigTotalSamples} bufferByteLength=${buffer.byteLength} ` +
+            `bufferStart=${bufferStart}`,
+            SCOPE
+        )
+        this._mutex.initSignalBuffers(cacheProps, dataLength, buffer, bufferStart)
         Log.debug(`Signal data cache initiation complete.`, SCOPE)
         // Mutex is fully set up.
         this._isMutexReady = true

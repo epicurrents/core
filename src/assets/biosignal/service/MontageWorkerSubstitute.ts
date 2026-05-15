@@ -102,16 +102,19 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 }
                 const newFilters = JSON.parse(data.filters as string) as BiosignalFilters
                 let someUpdated = false
+                // Batch all filter writes with `skipInvalidate=true` and call `invalidateOutputCache`
+                // exactly once at the end. See the worker `setFilters` handler for the lock-
+                // contention rationale.
                 if (newFilters.highpass !== this._montage?.filters.highpass) {
-                    this._montage?.setHighpassFilter(newFilters.highpass)
+                    this._montage?.setHighpassFilter(newFilters.highpass, undefined, true)
                     someUpdated = true
                 }
                 if (newFilters.lowpass !== this._montage?.filters.lowpass) {
-                    this._montage?.setLowpassFilter(newFilters.lowpass)
+                    this._montage?.setLowpassFilter(newFilters.lowpass, undefined, true)
                     someUpdated = true
                 }
                 if (newFilters.notch !== this._montage?.filters.notch) {
-                    this._montage?.setNotchFilter(newFilters.notch)
+                    this._montage?.setNotchFilter(newFilters.notch, undefined, true)
                     someUpdated = true
                 }
                 if (message.channels) {
@@ -119,18 +122,21 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                     for (let i=0; i<channels.length; i++) {
                         const chan = channels[i]
                         if (chan.highpass !== this._montage?.channels[i].highpassFilter) {
-                            this._montage?.setHighpassFilter(chan.highpass, i)
+                            this._montage?.setHighpassFilter(chan.highpass, i, true)
                             someUpdated = true
                         }
                         if (chan.lowpass !== this._montage?.channels[i].lowpassFilter) {
-                            this._montage?.setLowpassFilter(chan.lowpass, i)
+                            this._montage?.setLowpassFilter(chan.lowpass, i, true)
                             someUpdated = true
                         }
                         if (chan.notch !== this._montage?.channels[i].notchFilter) {
-                            this._montage?.setNotchFilter(chan.notch, i)
+                            this._montage?.setNotchFilter(chan.notch, i, true)
                             someUpdated = true
                         }
                     }
+                }
+                if (someUpdated) {
+                    await this._montage?.invalidateOutputCache()
                 }
                 Log.debug(`Filters updated.`, SCOPE)
                 return this.returnSuccess({

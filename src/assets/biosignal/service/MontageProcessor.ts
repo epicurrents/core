@@ -734,16 +734,32 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
     }
     */
     /**
+     * Invalidate the cached output signals for all channels. Public entry point for batch-update
+     * paths (e.g. the worker `set-filters` handler) that want to flip the cache to "stale" once
+     * after a sequence of filter writes rather than per filter write.
+     */
+    async invalidateOutputCache (): Promise<void> {
+        await this._cache?.invalidateOutputSignals()
+    }
+
+    /**
      * Set high-pass filter value for given channel. Pass undefined to unset individual filter value.
      * @param target - Channel index or type (applies too all channels of the given type).
      * @param value - Frequency value or undefined.
+     * @param skipInvalidate - Skip the per-call output-cache invalidation. Used by the bulk
+     *                        `set-filters` handler to batch one invalidation at the end instead
+     *                        of firing one per filter type × channel, which would dispatch up to
+     *                        `(channels + 1) * 3` concurrent `invalidateOutputSignals` calls all
+     *                        contending for the OUTPUT write lock — manifesting as `Maximum
+     *                        retries of locking operation reached` errors.
      */
-    setHighpassFilter (value: number, target?: string | number) {
+    setHighpassFilter (value: number, target?: string | number, skipInvalidate = false) {
         if (typeof target === 'number') {
             this._channels[target].highpassFilter = value
-            this._cache?.invalidateOutputSignals([value])
         } else {
             this._filters.highpass = value
+        }
+        if (!skipInvalidate) {
             this._cache?.invalidateOutputSignals()
         }
     }
@@ -752,13 +768,15 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
      * Set low-pass filter value for given channel. Pass undefined to unset individual filter value.
      * @param target - Channel index or type (applies too all channels of the given type).
      * @param value - Frequency value or undefined.
+     * @param skipInvalidate - See {@link setHighpassFilter}.
      */
-    setLowpassFilter (value: number, target?: string | number) {
+    setLowpassFilter (value: number, target?: string | number, skipInvalidate = false) {
         if (typeof target === 'number') {
             this._channels[target].lowpassFilter = value
-            this._cache?.invalidateOutputSignals([value])
         } else {
             this._filters.lowpass = value
+        }
+        if (!skipInvalidate) {
             this._cache?.invalidateOutputSignals()
         }
     }
@@ -767,13 +785,15 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
      * Set notch filter value for given channel. Pass undefined to unset individual filter value.
      * @param target - Channel index or type (applies too all channels of the given type).
      * @param value - Frequency value or undefined.
+     * @param skipInvalidate - See {@link setHighpassFilter}.
      */
-    setNotchFilter (value: number, target?: string | number) {
+    setNotchFilter (value: number, target?: string | number, skipInvalidate = false) {
         if (typeof target === 'number') {
             this._channels[target].notchFilter = value
-            this._cache?.invalidateOutputSignals([value])
         } else {
             this._filters.notch = value
+        }
+        if (!skipInvalidate) {
             this._cache?.invalidateOutputSignals()
         }
     }

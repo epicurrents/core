@@ -69,11 +69,14 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return true
     }
 
-    async cacheSignals (): Promise<CacheSignalsResponse> {
+    async cacheSignals (startFrom?: number): Promise<CacheSignalsResponse> {
         if (!(await this._isStudyReady())) {
             return false
         }
-        const commission = this._commissionWorker('cache-signals')
+        const props = typeof startFrom === 'number'
+            ? new Map<string, unknown>([['startFrom', startFrom]])
+            : undefined
+        const commission = this._commissionWorker('cache-signals', props)
         return commission.promise as Promise<CacheSignalsResponse>
     }
 
