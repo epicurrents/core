@@ -14,6 +14,8 @@ import MontageProcessor from './MontageProcessor'
 import type {
     AppSettings,
     BiosignalFilters,
+    BiosignalTrendDerivation,
+    BiosignalDownsamplingMethod,
     CommonBiosignalSettings,
     ConfigChannelFilter,
     ConfigMapChannels,
@@ -217,7 +219,9 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 const MOD_SETTINGS = window
                                      .__EPICURRENTS__.RUNTIME?.SETTINGS
                                      .modules[data.namespace] as unknown as CommonBiosignalSettings
-                this._montage = new MontageProcessor(MOD_SETTINGS)
+                // Inject our `returnMessage` as the processor's outbound channel — in substitute
+                // mode there is no `postMessage` global that routes to the service.
+                this._montage = new MontageProcessor(MOD_SETTINGS, (msg) => this.returnMessage(msg))
                 this._montage.setupChannels(data.montage, data.config, data.setupChannels)
                 Log.debug(`Worker setup complete.`, SCOPE)
                 return this.returnSuccess(message)
@@ -228,6 +232,76 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 this._montage = null
                 super.shutdown()
                 Log.debug(`Worker decommissioned.`, SCOPE)
+                return this.returnSuccess(message)
+            }
+            case 'setup-trend': {
+                const data = validateCommissionProps(
+                    message as WorkerMessage['data'] & {
+                        derivation: BiosignalTrendDerivation
+                        downsamplingMethod: BiosignalDownsamplingMethod
+                        epochLength: number
+                        name: string
+                        samplingRate: number
+                    },
+                    {
+                        derivation: 'Object',
+                        downsamplingMethod: 'String',
+                        epochLength: 'Number',
+                        name: 'String',
+                        samplingRate: 'Number',
+                    },
+                    this._montage !== null,
+                    this.returnMessage.bind(this)
+                )
+                if (!data) {
+                    return
+                }
+                this._montage?.setupTrend(
+                    data.name as string,
+                    data.derivation,
+                    data.samplingRate as number,
+                    data.epochLength as number,
+                    data.downsamplingMethod,
+                )
+                Log.debug(`Trend '${data.name}' setup complete.`, SCOPE)
+                return this.returnSuccess(message)
+            }
+            case 'compute-trend': {
+                const data = validateCommissionProps(
+                    message as WorkerMessage['data'] & {
+                        name: string
+                        range?: number[]
+                    },
+                    {
+                        name: 'String',
+                        range: 'Array?',
+                    },
+                    this._montage !== null,
+                    this.returnMessage.bind(this)
+                )
+                if (!data) {
+                    return
+                }
+                try {
+                    await this._montage?.computeTrend(data.name as string, data.range as number[] | undefined)
+                    Log.debug(`Trend '${data.name}' computation complete.`, SCOPE)
+                    return this.returnSuccess(message)
+                } catch (e) {
+                    return this.returnFailure(message, (e as Error).message)
+                }
+            }
+            case 'cancel-trend-computation': {
+                const data = validateCommissionProps(
+                    message as WorkerMessage['data'] & { name: string },
+                    { name: 'String' },
+                    this._montage !== null,
+                    this.returnMessage.bind(this)
+                )
+                if (!data) {
+                    return
+                }
+                this._montage?.cancelTrendComputation(data.name as string)
+                Log.debug(`Trend '${data.name}' computation cancellation requested.`, SCOPE)
                 return this.returnSuccess(message)
             }
             case 'update-settings': {

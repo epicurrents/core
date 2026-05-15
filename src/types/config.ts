@@ -41,6 +41,18 @@ export interface AppSettings {
          * float array, only half this amount of EDF signal data can be loaded.
          */
         maxLoadCacheSize: number
+        /**
+         * Milliseconds to pause between consecutive chunk reads in `cacheSignals` so the consumer
+         * thread (typically the main UI thread) has time to react to each chunk's `'cache-signals'`
+         * message before the next chunk arrives. Without this delay the consumer's reactivity
+         * cascade (Vue re-renders, Web Component lifecycle, WebGL trace updates) queues up faster
+         * than it can run, freezing the UI even though the work is technically off-thread.
+         *
+         * Trade-off: total file-load time grows by N × this value (N = chunk count). Defaults to
+         * 50 ms which keeps the UI responsive without noticeably slowing background caching.
+         * Set to 0 to disable the yield (the previous parallel-overlap behaviour).
+         */
+        signalLoadingYieldMs: number
     }
     interface: unknown
     /**
@@ -243,6 +255,28 @@ export type CommonBiosignalSettings = {
      * at reduced opacity. Defaults to `'_orig'` when omitted.
      */
     correctedChannelSuffix?: string
+    /////////////////////
+    // Trend settings  //
+    /////////////////////
+    /** Settings for the supported trend types. */
+    trends?: {
+        /**
+         * Amplitude trend (e.g. aEEG). The math is generic; the EEG module configures NICU-standard
+         * defaults (2 Hz highpass, 15 Hz lowpass, 15 s epochs).
+         */
+        amplitude?: {
+            /** High-pass filter cutoff in Hz applied to the derived signal before rectification. */
+            bandHighpass: number
+            /** Low-pass filter cutoff in Hz applied to the derived signal before rectification. */
+            bandLowpass: number
+            /** Epoch length in seconds. Each epoch yields a single (min, max) amplitude pair. */
+            epochLength: number
+            /** Method used to extract the per-epoch amplitude envelope. */
+            envelopeMethod: 'minmax' | 'percentile5_95'
+            /** Amplitude scale compression applied to the envelope before plotting. */
+            scaleCompression: 'semilog' | 'linear'
+        }
+    }
 }
 export type ConfigBiosignalMontage = {
     /** Descriptive name for this montage (overrides possible default name). */
@@ -268,6 +302,12 @@ export type ConfigBiosignalSetup = {
 export type ConfigChannelFilter  = {
     exclude?: number[]
     include?: number[]
+    /**
+     * Skip per-channel filter application during signal extraction. Used by trend computation,
+     * which needs the raw derived (active − reference) signal to apply its own band-pass — the
+     * montage's display filters would just be repeated work.
+     */
+    skipFilters?: boolean
 }
 /**
  * Properties to define a biosignal recording's channel layout.

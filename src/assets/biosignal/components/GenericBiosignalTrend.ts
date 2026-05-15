@@ -16,7 +16,7 @@ import GenericAsset from '#assets/GenericAsset'
 
 const SCOPE = 'GenericBiosignalTrend'
 
-export default abstract class GenericBiosignalTrend extends GenericAsset implements BiosignalTrend {
+export default class GenericBiosignalTrend extends GenericAsset implements BiosignalTrend {
 
     protected _cancelTrend: (() => void) | null = null
     protected _derivation: BiosignalTrendDerivation
@@ -87,12 +87,25 @@ export default abstract class GenericBiosignalTrend extends GenericAsset impleme
         }
     }
 
-    async computeTrend () {
-        const compute = this._service.computeTrend()
+    /**
+     * Run the trend computation through the service. Each epoch's result is appended to
+     * {@link signal} and emitted as a `'trend-epoch'` event. When all epochs are done, a
+     * `'trend-complete'` event is emitted. Cancellation or any other failure emits `'trend-error'`.
+     * @param range - Optional `[start, end]` range in seconds; defaults to the entire recording.
+     */
+    async computeTrend (range?: number[]) {
+        // eslint-disable-next-line no-console
+        console.log(`[trend-debug] GenericBiosignalTrend.computeTrend '${this._name}' range=${JSON.stringify(range)}`)
+        const compute = this._service.computeTrend(this._name, range)
         this._cancelTrend = compute.cancel
+        // Reset the buffer so retrying does not leave stale interleaved data.
+        this._signal.length = 0
         compute.onEpochReady((signal: number[], epochIndex: number, totalEpochs: number) => {
+            // Each epoch contributes `signal.length` samples. Place the values in absolute
+            // (epoch-index-based) slots so progressive draws stay aligned even if the loop
+            // is restarted mid-flight.
             this._signal.splice(
-                epochIndex*this._epochLength,
+                epochIndex*signal.length,
                 signal.length,
                 ...signal
             )
@@ -104,9 +117,13 @@ export default abstract class GenericBiosignalTrend extends GenericAsset impleme
         })
         try {
             await compute.result
+            // eslint-disable-next-line no-console
+            console.log(`[trend-debug] GenericBiosignalTrend.computeTrend COMPLETE '${this._name}' signalLen=${this._signal.length}`)
             Log.debug(`Trend '${this._name}' computation complete.`, SCOPE)
             this.dispatchEvent('trend-complete')
         } catch (error: unknown) {
+            // eslint-disable-next-line no-console
+            console.log(`[trend-debug] GenericBiosignalTrend.computeTrend ERROR '${this._name}' ${error}`)
             Log.error(`Trend '${this._name}' computation interrupted: ${error}`, SCOPE)
             this.dispatchEvent('trend-error')
         } finally {

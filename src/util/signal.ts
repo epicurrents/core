@@ -138,6 +138,113 @@ const calculateReferencedSignals = async (
 */
 
 /**
+ * Compute one amplitude-integrated trend epoch from a derived bipolar signal.
+ *
+ * The aEEG algorithm tracks the **amplitude envelope** of the band-passed signal — i.e. how
+ * peak-to-peak amplitude varies over time within the epoch — and reports its minimum and
+ * maximum envelope value over the epoch. Those two numbers become the bottom and top of the
+ * per-epoch vertical line in the aEEG strip.
+ *
+ * Pipeline:
+ *  1. Band-pass filter (sequential highpass + lowpass via {@link filterSignal}).
+ *  2. Split the filtered signal into ~500 ms windows (one cycle of the slowest band-pass
+ *     component at 2 Hz) and call {@link calculateAmplitudeEnvelope}. For each window it
+ *     returns the lowest local minimum and highest local maximum — points on the lower and
+ *     upper envelopes respectively. The window's peak-to-peak amplitude is `max − min`.
+ *     We use the **raw** band-passed signal (not its absolute value): the upper and lower
+ *     envelopes of an oscillating signal are already captured by tracking sign-preserved
+ *     local extrema, so rectifying would just throw away information.
+ *  3. Reduce the per-window peak-to-peak samples to a single `[min, max]` pair using the
+ *     configured method (`'minmax'`: literal extremes — the conventional Hellström-Westas
+ *     reading; `'percentile5_95'`: percentile-based, suppresses transient artefacts).
+ *  4. Optionally apply semi-logarithmic compression (linear 0-10 µV, log 10+ µV) so very low
+ *     and very high amplitudes are both readable on the same axis.
+ *
+ * @param signal - Derived bipolar signal (raw amplitude in physical units, typically µV).
+ * @param samplingRate - Sampling rate of `signal` in Hz.
+ * @param options - Filter / envelope / compression options.
+ * @returns A two-element array `[min, max]` of envelope amplitudes in the same unit as `signal`
+ *          (or compressed units when `scaleCompression === 'semilog'`).
+ */
+export const computeAmplitudeIntegratedEpoch = (
+    signal: Float32Array,
+    samplingRate: number,
+    options: {
+        bandHighpass: number
+        bandLowpass: number
+        envelopeMethod: 'minmax' | 'percentile5_95'
+        scaleCompression: 'semilog' | 'linear'
+    }
+): [number, number] => {
+    if (!signal.length || !samplingRate) {
+        return [0, 0]
+    }
+    const filtered = filterSignal(signal, samplingRate, options.bandHighpass, options.bandLowpass, 0)
+    // Per-window envelope detection. ~500 ms windows guarantee that even the slowest band-pass
+    // component (2 Hz → 500 ms period) contributes a full peak + trough to each window's local
+    // extrema, so `max − min` is a reliable peak-to-peak measurement for that window. For a
+    // 15-s epoch at 250 Hz we get ~30 envelope samples, which is enough resolution to read
+    // amplitude transitions inside the epoch without dragging the per-epoch cost up.
+    const windowSamples = Math.max(2, Math.round(samplingRate*0.5))
+    const envelope = calculateAmplitudeEnvelope(filtered, windowSamples)
+    if (!envelope.length) {
+        return [0, 0]
+    }
+    const peakToPeak = envelope.map(e => e.max.value - e.min.value)
+    // Reduce the envelope to a single [min, max] pair for this epoch.
+    let min = 0
+    let max = 0
+    if (options.envelopeMethod === 'percentile5_95') {
+        const sorted = peakToPeak.slice().sort((a, b) => a - b)
+        min = sorted[Math.floor(0.05*(sorted.length - 1))]
+        max = sorted[Math.floor(0.95*(sorted.length - 1))]
+    } else {
+        min = Infinity
+        max = -Infinity
+        for (let i = 0; i < peakToPeak.length; i++) {
+            const v = peakToPeak[i]
+            if (v < min) {
+                min = v
+            }
+            if (v > max) {
+                max = v
+            }
+        }
+        if (!isFinite(min)) {
+            min = 0
+        }
+        if (!isFinite(max)) {
+            max = 0
+        }
+    }
+    if (options.scaleCompression === 'semilog') {
+        min = compressAmplitudeValue(min)
+        max = compressAmplitudeValue(max)
+    }
+    return [min, max]
+}
+
+/**
+ * Apply the Hellström-Westas semi-logarithmic amplitude compression used in conventional aEEG
+ * displays: linear 0-10 µV, log 10+ µV. Negative inputs are clamped to 0.
+ *
+ *     value  ≤ 10  → value
+ *     value  > 10  → 10 * (1 + log10(value / 10))
+ *
+ * @param value - Amplitude in µV.
+ * @returns The compressed amplitude (same unit, but on the semi-log scale).
+ */
+export const compressAmplitudeValue = (value: number): number => {
+    if (value <= 0) {
+        return 0
+    }
+    if (value <= 10) {
+        return value
+    }
+    return 10*(1 + Math.log10(value/10))
+}
+
+/**
  * Get amplitude envelope for the give `signal`, divided in windows of given size.
  * @param signal - Signal data as number array or Float32Array.
  * @param windowSize - Size of the sliding window. A single min/max pair will be extracted for each window.
@@ -732,67 +839,76 @@ export const generateSineWave = (samplingRate: number, duration: number, ...comp
 }
 
 /**
- * Get the global minimum and maximum amplitude values and their indices from the given signal.
+ * Find the lowest local minimum and highest local maximum of the given signal, with their
+ * sample-index positions. "Local" extrema are interior turning points — samples whose neighbours
+ * curve away on both sides. Used to track the amplitude envelope of an oscillating signal: each
+ * local max/min sits on one of the two envelopes, so `max.value − min.value` is the local peak-
+ * to-peak amplitude.
+ *
+ * If the signal has no internal turning points (monotonic, perfectly flat, or only two samples),
+ * the function falls back to the global min/max of the window — callers still get a usable pair
+ * rather than `Infinity` / `−Infinity`.
+ *
+ * Empty input returns a `{ min: 0, max: 0 }` pair at index 0.
+ *
  * @param signal - Signal data as number array or Float32Array.
- * @returns An object containing the min and max values and their indices.
+ * @returns The extremes as `{ min: { value, index }, max: { value, index } }`.
  */
 export const getAmplitudeBoundaries = (signal: number[] | Float32Array): AmplitudeEnvelopeElement => {
-    const difference = (v: number[]): number[] => {
-        const diff: number[] = []
-        for (let i = 1; i < v.length; i++) {
-            diff.push(v[i] - v[i - 1])
+    const len = signal.length
+    if (len === 0) {
+        return {
+            min: { value: 0, index: 0 },
+            max: { value: 0, index: 0 },
         }
-        return diff
     }
-    const sign = (v: number[]): number[] => {
-        return v.map((value) => (value === 0 ? 0 : value >= 0 ? 1 : -1))
+    // Single-pass scan. The inner loop tracks the lowest local minimum and highest local
+    // maximum; the outer comparison tracks the global extremes as a fallback for windows that
+    // happen to have no internal turning points (monotonic / very short / perfectly flat).
+    // Plateaus count as one extremum at the rising edge: a sample qualifies as a local max if
+    // it is strictly greater than the previous sample and greater than OR equal to the next
+    // (and symmetrically for min).
+    let localMinVal = Infinity
+    let localMinIdx = 0
+    let localMaxVal = -Infinity
+    let localMaxIdx = 0
+    let globalMinVal = signal[0]
+    let globalMinIdx = 0
+    let globalMaxVal = signal[0]
+    let globalMaxIdx = 0
+    for (let i = 0; i < len; i++) {
+        const v = signal[i]
+        if (v < globalMinVal) {
+            globalMinVal = v
+            globalMinIdx = i
+        }
+        if (v > globalMaxVal) {
+            globalMaxVal = v
+            globalMaxIdx = i
+        }
+        if (i > 0 && i < len - 1) {
+            const prev = signal[i - 1]
+            const next = signal[i + 1]
+            if (v > prev && v >= next) {
+                if (v > localMaxVal) {
+                    localMaxVal = v
+                    localMaxIdx = i
+                }
+            } else if (v < prev && v <= next) {
+                if (v < localMinVal) {
+                    localMinVal = v
+                    localMinIdx = i
+                }
+            }
+        }
     }
-    // Find local minima.
-    // A local minimum is indicated by a change from negative to positive in the difference signal.
-    const localMinima = difference(
-        // Simplify the difference signal to only its sign changes.
-        sign(
-            // Take the difference between adjacent samples to find out if the signal is increasing or decreasing.
-            difference(Array.from(signal))
-        )
-    // Keep only the positive changes, which indicate local minima. We could use > 1 here to only detect changes from
-    // -1 to 1 (strict minima), but using > 0 also captures changes from 0 to 1 (flat minima).
-    ).map(v => (v > 0 ? v : 0))
-    // Map local minima to their signal indices.
-    const lminIndices: number[] = []
-    localMinima.forEach((v, i) => {
-        if (v > 0) {
-            lminIndices.push(i + 1) // +1 because difference reduces length by 1
-        }
-    })
-    // Choose the lowest local minimum as the global minimum.
-    const globalMin = Math.min(...lminIndices.map(i => signal[i]))
-    // Select the first occurrence of the global minimum as the index.
-    const globalMinIdx = lminIndices.find(i => signal[i] === globalMin) || 0
-    // Find local maxima.
-    const localMaxima = difference(
-        sign(
-            difference(Array.from(signal))
-        )
-    // Here we instead take only the negative changes, which indicate local maxima.
-    ).map(v => (v < 0 ? -v : 0))
-    const lmaxIndices: number[] = []
-    localMaxima.forEach((v, i) => {
-        if (v > 0) {
-            lmaxIndices.push(i + 1)
-        }
-    })
-    const globalMax = Math.max(...lmaxIndices.map(i => signal[i]))
-    const globalMaxIdx = lmaxIndices.find(i => signal[i] === globalMax) || 0
     return {
-        min: {
-            value: globalMin,
-            index: globalMinIdx,
-        },
-        max: {
-            value: globalMax,
-            index: globalMaxIdx,
-        }
+        min: isFinite(localMinVal)
+            ? { value: localMinVal, index: localMinIdx }
+            : { value: globalMinVal, index: globalMinIdx },
+        max: isFinite(localMaxVal)
+            ? { value: localMaxVal, index: localMaxIdx }
+            : { value: globalMaxVal, index: globalMaxIdx },
     }
 }
 

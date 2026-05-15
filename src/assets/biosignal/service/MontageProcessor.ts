@@ -9,6 +9,7 @@ import BiosignalCache from './BiosignalCache'
 import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
 import GenericBiosignalSetup from '#assets/biosignal/components/GenericBiosignalSetup'
 import {
+    computeAmplitudeIntegratedEpoch,
     concatTypedNumberArrays,
     filterSignal,
     getFilterPadding,
@@ -24,6 +25,7 @@ import type {
     BiosignalFilters,
     BiosignalSetup,
     BiosignalTrendDerivation,
+    BiosignalTrendFunction,
     BiosignalTrendProperties,
     DerivedChannelProperties,
     MontageChannel,
@@ -55,12 +57,32 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
     protected _settings: CommonBiosignalSettings
     protected _setup = null as BiosignalSetup | null
     protected _trends = new Map<string, BiosignalTrendProperties>()
+    /** Names of trends whose computation has been requested to cancel. Checked between epochs. */
+    protected _cancelledTrends = new Set<string>()
+    /**
+     * Outbound message sender. In a real worker this is the global `postMessage`, which routes
+     * straight to the parent thread. When the processor is constructed inside a worker substitute
+     * (main thread), the substitute injects its own `returnMessage` callback so per-epoch updates
+     * and cache-status messages reach the service the same way as commission replies.
+     */
+    protected _postMessage: (message: any) => void
 
-    constructor (settings: CommonBiosignalSettings) {
+    constructor (
+        settings: CommonBiosignalSettings,
+        postMessageFn?: (message: any) => void
+    ) {
         super(Float32Array)
         this._settings = settings
         // Set some parent class properties to avoid errors.
         this._dataUnitDuration = 1
+        // Default: forward to the worker's global `postMessage` (the worker scope provides one).
+        // In a main-thread substitute the global is `window.postMessage`, which has a different
+        // signature, so callers MUST inject a callback in that case.
+        this._postMessage = postMessageFn ?? ((msg) => {
+            if (typeof postMessage === 'function') {
+                ;(postMessage as (m: any) => void)(msg)
+            }
+        })
     }
 
     get channels () {
@@ -149,6 +171,22 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         }
         // Get the input signals
         const SIGNALS = await this._cache.inputSignals
+        // Trend debug: log the SIGNALS topology when called with skipFilters (i.e. by the trend
+        // compute path). Helps diagnose why derived = 0 — typically because the channel index
+        // we picked doesn't point to a populated Float32Array in this cache.
+        if (config?.skipFilters && start <= 1) {
+            const includeIdx = config.include?.[0]
+            const chan = includeIdx !== undefined ? this._channels[includeIdx] : undefined
+            // eslint-disable-next-line no-console
+            console.log(
+                `[trend-debug] calculateSignalsForPart skipFilters=true include=${JSON.stringify(config.include)}`,
+                `chan.name=${chan?.name} chan.active=${JSON.stringify(chan?.active)} chan.samplingRate=${chan?.samplingRate}`,
+                `chan.unit=${chan?.unit} chan.scale=${chan?.scale}`,
+                `SIGNALS.length=${SIGNALS.length}`,
+                `SIGNALS[chan.active].length=${typeof chan?.active === 'number' ? SIGNALS[chan.active]?.length : 'N/A (active is array)'}`,
+                `first5=${typeof chan?.active === 'number' && SIGNALS[chan.active] ? Array.from(SIGNALS[chan.active].slice(0, 5)) : 'N/A'}`,
+            )
+        }
         const padding = this._settings.filterPaddingSeconds || 0
         // Check for possible interruptions in this range.
         const filterRangeStart = Math.max(cacheStart - padding, 0)
@@ -296,7 +334,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 data.set([(actAvg - refAvg)], j)
                 j++
             }
-            if (shouldFilterSignal(chan, this._filters, this._settings)) {
+            if (!config?.skipFilters && shouldFilterSignal(chan, this._filters, this._settings)) {
                 // Add possible interruptions.
                 // @ts-ignore Prepare for TypeScript 5.7+.
                 let interrupted = data as Float32Array<ArrayBufferLike>
@@ -332,7 +370,13 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 const trimEnd = rangeEnd - rangeStart + trimStart
                 sigProps.data = sigProps.data.slice(trimStart, trimEnd)
             } else {
-                sigProps.data = data
+                // No filtering: still trim off the filter-padding samples so the caller gets
+                // only the requested range. `data` was sized for the padded extent.
+                const trimStart = rangeStart - dataStart
+                const trimEnd = rangeEnd - rangeStart + trimStart
+                sigProps.data = (trimStart > 0 || trimEnd < data.length)
+                    ? data.slice(trimStart, trimEnd)
+                    : data
             }
             derived.signals.push(sigProps)
         }
@@ -340,7 +384,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             // Finally, assign the signals to out montage mutex.
             await this._cache.insertSignals(derived)
             const updated = await this.getSignalUpdatedRange()
-            postMessage({
+            this._postMessage({
                 action: 'cache-signals',
                 range: [updated.start, updated.end]
             })
@@ -350,68 +394,215 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         }
     }
 
-    async computeTrendEpoch (name: string, epochIndex: number) {
+    /**
+     * Combine a set of channel signals into a single per-sample signal using the given function.
+     * @param parts - Channel signals for the same range (all the same length).
+     * @param fn - Combination function (`'average'` default, `'sum'`, or `'difference'`).
+     * @returns The combined signal, or null if `parts` is empty.
+     */
+    protected _combineSignalParts (
+        parts: SignalPart[],
+        fn: BiosignalTrendFunction = 'average'
+    ): Float32Array | null {
+        if (!parts.length) {
+            return null
+        }
+        const length = parts[0].data.length
+        if (parts.length === 1) {
+            return new Float32Array(parts[0].data)
+        }
+        const result = new Float32Array(length)
+        for (let i = 0; i < length; i++) {
+            let value = parts[0].data[i] || 0
+            for (let j = 1; j < parts.length; j++) {
+                const sample = parts[j].data[i] || 0
+                if (fn === 'difference') {
+                    value -= sample
+                } else {
+                    value += sample
+                }
+            }
+            if (fn === 'average') {
+                value /= parts.length
+            }
+            result[i] = value
+        }
+        return result
+    }
+
+    /**
+     * Compute the trend over the requested range (or the entire recording when `range` is omitted),
+     * posting one `'trend-epoch'` message per completed epoch and one final `'trend-complete'` message.
+     *
+     * Cancellation is cooperative: {@link cancelTrendComputation} sets a flag that is checked between
+     * epochs, so an in-flight epoch always runs to completion before the loop exits.
+     *
+     * @param name - Name of the trend (must have been registered with {@link setupTrend}).
+     * @param range - Optional `[start, end]` range in seconds; defaults to the entire recording.
+     * @returns True if computation completed, false if no such trend exists.
+     */
+    async computeTrend (name: string, range?: number[]) {
+        const trendProps = this._trends.get(name)
+        if (!trendProps) {
+            Log.error(`Cannot compute trend '${name}': trend has not been set up.`, SCOPE)
+            this._postMessage({ action: 'trend-error', name, error: 'Trend has not been set up.' })
+            return false
+        }
+        this._cancelledTrends.delete(name)
+        const epochLength = trendProps.epochLength
+        const rangeStart = Math.max(0, range?.[0] ?? 0)
+        const rangeEnd = Math.min(range?.[1] ?? this._totalRecordingLength, this._totalRecordingLength)
+        const totalEpochs = Math.ceil((rangeEnd - rangeStart)/epochLength)
+        const firstEpoch = Math.floor(rangeStart/epochLength)
+        // eslint-disable-next-line no-console
+        console.log(
+            `[trend-debug] MontageProcessor.computeTrend name=${name} range=${rangeStart}..${rangeEnd}`,
+            `epochLength=${epochLength} totalEpochs=${totalEpochs} totalRecordingLength=${this._totalRecordingLength}`
+        )
+        // Yield to the event loop every this many epochs. Each epoch costs a single band-pass
+        // filtfilt over a 15-second window now that the display filters are skipped (via
+        // `skipFilters: true` on the trend's `getSignals` calls). The yield via `setTimeout(0)`
+        // is a macrotask, so the browser is free to render between yields — microtask `await`
+        // alone is not enough. Yielding every 5 epochs keeps the cycle short (~10 ms work +
+        // ~4 ms yield) so the UI stays responsive even on the main-thread substitute path.
+        const YIELD_EVERY = 5
+        const yieldToEventLoop = () => new Promise<void>((resolve) => {
+            setTimeout(resolve, 0)
+        })
+        for (let i = 0; i < totalEpochs; i++) {
+            if (this._cancelledTrends.has(name)) {
+                Log.debug(`Trend '${name}' computation cancelled at epoch ${i}/${totalEpochs}.`, SCOPE)
+                this._cancelledTrends.delete(name)
+                this._postMessage({ action: 'trend-cancelled', name })
+                return false
+            }
+            const epochIndex = firstEpoch + i
+            const signal = await this.computeTrendEpoch(name, epochIndex)
+            if (signal) {
+                this._postMessage({
+                    action: 'trend-epoch',
+                    name: name,
+                    epochIndex: epochIndex,
+                    signal: signal,
+                    totalEpochs: totalEpochs,
+                })
+            }
+            if (i > 0 && i % YIELD_EVERY === 0) {
+                await yieldToEventLoop()
+            }
+        }
+        this._postMessage({ action: 'trend-complete', name, totalEpochs })
+        return true
+    }
+
+    /**
+     * Cancel an ongoing {@link computeTrend} loop for the given `name`. The current in-flight epoch
+     * (if any) finishes; the loop exits before the next epoch starts.
+     */
+    cancelTrendComputation (name: string) {
+        if (this._trends.has(name)) {
+            this._cancelledTrends.add(name)
+        }
+    }
+
+    /**
+     * Compute a single trend epoch and return its result. The shape of the returned array depends on
+     * the trend type:
+     *  - `'amplitude'`: `[min, max]` envelope pair (semi-log-compressed by default).
+     *
+     * @param name - Name of the trend.
+     * @param epochIndex - Index of the epoch within the recording (0-based, absolute).
+     * @returns The trend output for the epoch, or null if the epoch could not be computed.
+     */
+    async computeTrendEpoch (name: string, epochIndex: number): Promise<number[] | null> {
         const trendProps = this._trends.get(name)
         if (!trendProps) {
             Log.error(`Cannot compute trend '${name}': missing trend properties.`, SCOPE)
-            return false
+            return null
         }
-        if (epochIndex < 0 || epochIndex*Math.max(trendProps.epochLength, 1) >= this._totalRecordingLength) {
+        const epochLength = trendProps.epochLength
+        if (epochIndex < 0 || epochIndex*Math.max(epochLength, 1) >= this._totalRecordingLength) {
             Log.error(`Cannot compute trend '${name}': invalid epoch index ${epochIndex}.`, SCOPE)
-            return false
+            return null
         }
-        // Compute signals for each individual channel.
-        const sourceSignals = [] as number[][]
-        const referenceSignals = [] as number[][]
-        const startTime = Math.max(0, epochIndex*trendProps.epochLength)
-        const endTime = Math.min(startTime + trendProps.epochLength, this._totalRecordingLength)
-        const nSamples = Math.round((endTime - startTime)*trendProps.samplingRate)
-        if (!nSamples) {
-            Log.error(`Cannot compute trend '${name}': invalid epoch time range ${startTime} - ${endTime}.`, SCOPE)
-            return false
+        const startTime = Math.max(0, epochIndex*epochLength)
+        const endTime = Math.min(startTime + epochLength, this._totalRecordingLength)
+        if (endTime - startTime <= 0) {
+            return null
         }
-        const sourceSigParts = await this.getSignals(
+        // Trend math applies its own band-pass; ask `getSignals` to skip the per-channel display
+        // filters so we don't pay for 3 unused filtfilt passes per channel per epoch.
+        const sourceParts = await this.getSignals(
             [startTime, endTime],
-            { include: trendProps.derivation.sourceChannels }
+            { include: trendProps.derivation.sourceChannels, skipFilters: true }
         )
-        if (sourceSigParts?.signals.length) {
-            if (sourceSigParts.signals.length > 1) {
-                const sourceSignals = [] as number[]
-                for (let i=0; i<nSamples; i++) {
-                    const sampleValues = [] as number[]
-                    for (const sig of sourceSigParts.signals) {
-                        sampleValues.push(sig.data[i])
-                    }
-                    sourceSignals.push(
-                        sampleValues.reduce((sum, a) => sum + a, 0)/sampleValues.length
-                    )
-                }
-            } else {
-                sourceSignals.push(Array.from(sourceSigParts.signals[0].data))
+        if (!sourceParts?.signals.length) {
+            Log.warn(`Cannot compute trend '${name}' epoch ${epochIndex}: no source signals available.`, SCOPE)
+            return null
+        }
+        const sourceSignal = this._combineSignalParts(
+            sourceParts.signals,
+            trendProps.derivation.sourceFunction
+        )
+        if (!sourceSignal) {
+            return null
+        }
+        let referenceSignal: Float32Array | null = null
+        if (trendProps.derivation.referenceChannels.length) {
+            const refParts = await this.getSignals(
+                [startTime, endTime],
+                { include: trendProps.derivation.referenceChannels, skipFilters: true }
+            )
+            if (refParts?.signals.length) {
+                referenceSignal = this._combineSignalParts(
+                    refParts.signals,
+                    trendProps.derivation.referenceFunction
+                )
             }
         }
-        const refSigParts = await this.getSignals(
-            [startTime, endTime],
-            { include: trendProps.derivation.referenceChannels }
-        )
-        if (refSigParts?.signals.length) {
-            if (refSigParts.signals.length > 1) {
-                const referenceSignals = [] as number[]
-                for (let i=0; i<nSamples; i++) {
-                    const sampleValues = [] as number[]
-                    for (const sig of refSigParts.signals) {
-                        sampleValues.push(sig.data[i])
-                    }
-                    referenceSignals.push(
-                        sampleValues.reduce((sum, a) => sum + a, 0)/sampleValues.length
-                    )
-                }
-            } else {
-                referenceSignals.push(Array.from(refSigParts.signals[0].data))
-            }
+        const samplingRate = sourceParts.signals[0].samplingRate
+        // Cache signals are normalised to volts at decode time (EdfDecoder applies
+        // `getSignalScale(physicalUnit)` so µV-, mV- and V-stored EDFs all end up in V — the
+        // sensitivity setting then converts the display-unit cm/cm value back to V/cm). The
+        // aEEG math, on the other hand, is defined in µV: band-pass thresholds 2/15 Hz are
+        // standard EEG units, and the Hellström-Westas semi-log scale is anchored at 10 µV.
+        // So convert V → µV here.
+        const V_TO_UV = 1e6
+        // Final derived signal: source - reference (zero-reference when none provided), in µV.
+        const derived = new Float32Array(sourceSignal.length)
+        for (let i = 0; i < derived.length; i++) {
+            derived[i] = (sourceSignal[i] - (referenceSignal ? referenceSignal[i] || 0 : 0))*V_TO_UV
         }
-        // TODO: Compute the trend using sourceSignals and referenceSignals.
-        return true
+        if (trendProps.derivation.type === 'amplitude') {
+            const aeegOpts = this._settings.trends?.amplitude
+            const [min, max] = computeAmplitudeIntegratedEpoch(derived, samplingRate, {
+                bandHighpass: aeegOpts?.bandHighpass ?? 2,
+                bandLowpass: aeegOpts?.bandLowpass ?? 15,
+                envelopeMethod: aeegOpts?.envelopeMethod ?? 'minmax',
+                scaleCompression: aeegOpts?.scaleCompression ?? 'semilog',
+            })
+            if (epochIndex < 3 || epochIndex % 50 === 0) {
+                let derivedMin = Infinity
+                let derivedMax = -Infinity
+                for (let i = 0; i < derived.length; i++) {
+                    if (derived[i] < derivedMin) {
+                        derivedMin = derived[i]
+                    }
+                    if (derived[i] > derivedMax) {
+                        derivedMax = derived[i]
+                    }
+                }
+                // eslint-disable-next-line no-console
+                console.log(
+                    `[trend-debug] epoch=${epochIndex} samplingRate=${samplingRate}`,
+                    `derivedLen=${derived.length} derivedRange=[${derivedMin.toFixed(2)}, ${derivedMax.toFixed(2)}]`,
+                    `trendOutput=[${min.toFixed(2)}, ${max.toFixed(2)}]`
+                )
+            }
+            return [min, max]
+        }
+        Log.error(`Cannot compute trend '${name}': unsupported trend type '${trendProps.derivation.type}'.`, SCOPE)
+        return null
     }
 
     async destroy () {
@@ -736,23 +927,18 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         epochLength: number,
         downsamplingMethod: BiosignalDownsamplingMethod
     ) {
-
-        // Compute epoch length from derivation epoch length and sampling rate.
+        // The only invariant we can verify here is that every channel involved in the derivation
+        // shares the same sampling rate — the per-channel `sampleCount` field isn't reliably set
+        // on derived montage channels (it's computed lazily from the source signals at fetch time),
+        // so it can't be used as a validation key.
         let sourceHz = this._channels[derivation.sourceChannels[0]]?.samplingRate || 0
-        let sigLen = this._channels[derivation.sourceChannels[0]]?.sampleCount || 0
         if (!sourceHz) {
             Log.error(`Cannot determine source channel sampling rate for trend '${name}'.`, SCOPE)
-        } else if (!sigLen) {
-            Log.error(`Cannot determine source channel signal length for trend '${name}'.`, SCOPE)
         } else {
             for (let i=1; i<derivation.sourceChannels.length; i++) {
                 if ((this._channels[derivation.sourceChannels[i]]?.samplingRate || 0) !== sourceHz) {
                     Log.error(`Source channels have differing sampling rates for trend '${name}'.`, SCOPE)
                     sourceHz = 0
-                    break
-                } else if ((this._channels[derivation.sourceChannels[i]]?.sampleCount || 0) !== sigLen) {
-                    Log.error(`Source channels have differing signal lengths for trend '${name}'.`, SCOPE)
-                    sigLen = 0
                     break
                 }
             }
@@ -761,18 +947,11 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                     Log.error(`Reference channels have differing sampling rates for trend '${name}'.`, SCOPE)
                     sourceHz = 0
                     break
-                } else if ((this._channels[ref]?.sampleCount || 0) !== sigLen) {
-                    Log.error(`Reference channels have differing signal lengths for trend '${name}'.`, SCOPE)
-                    sigLen = 0
-                    break
                 }
             }
         }
         if (!sourceHz) {
             Log.error(`Cannot set up trend '${name}': invalid channel sampling rate.`, SCOPE)
-            return false
-        } else if (!sigLen) {
-            Log.error(`Cannot set up trend '${name}': invalid channel signal length.`, SCOPE)
             return false
         }
         this._trends.set(name, {

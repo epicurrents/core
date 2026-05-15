@@ -254,4 +254,73 @@ describe('GenericBiosignalMontage', () => {
             expect(montage.reference).toBeNull()
         })
     })
+
+    describe('trend registry', () => {
+        /** Build a stub trend that just records cancellation calls. */
+        const makeTrend = (name: string) => ({
+            name,
+            label: name,
+            cancelTrendComputation: vi.fn(),
+        }) as any
+
+        it('addTrend should register a trend and expose it via getTrend / trends', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            const trend = makeTrend('aeeg-default')
+            const ok = montage.addTrend(trend)
+            expect(ok).toBe(true)
+            expect(montage.getTrend('aeeg-default')).toBe(trend)
+            expect(Object.keys(montage.trends)).toEqual(['aeeg-default'])
+        })
+
+        it('addTrend should reject duplicates with the same name', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            montage.addTrend(makeTrend('aeeg-default'))
+            const dup = montage.addTrend(makeTrend('aeeg-default'))
+            expect(dup).toBe(false)
+            expect(Log.error).toHaveBeenCalled()
+        })
+
+        it('getTrend should return null for missing names', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            expect(montage.getTrend('does-not-exist')).toBeNull()
+        })
+
+        it('removeTrend should cancel computation, drop the trend, and return true', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            const trend = makeTrend('aeeg-default')
+            montage.addTrend(trend)
+            const ok = montage.removeTrend('aeeg-default')
+            expect(ok).toBe(true)
+            expect(trend.cancelTrendComputation).toHaveBeenCalled()
+            expect(montage.getTrend('aeeg-default')).toBeNull()
+        })
+
+        it('removeTrend should return false for an unknown name', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            expect(montage.removeTrend('nope')).toBe(false)
+            expect(Log.error).toHaveBeenCalled()
+        })
+
+        it('removeAllTrends should cancel every trend and clear the registry', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            const a = makeTrend('a')
+            const b = makeTrend('b')
+            montage.addTrend(a)
+            montage.addTrend(b)
+            montage.removeAllTrends()
+            expect(a.cancelTrendComputation).toHaveBeenCalled()
+            expect(b.cancelTrendComputation).toHaveBeenCalled()
+            expect(Object.keys(montage.trends)).toHaveLength(0)
+        })
+
+        it('removeAllTrends should be a no-op when no trends are registered', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            expect(() => montage.removeAllTrends()).not.toThrow()
+        })
+
+        it('service getter should return the (mocked) montage service', () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            expect(montage.service.id).toBe('mock-service-id')
+        })
+    })
 })

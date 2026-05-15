@@ -7,7 +7,6 @@
 
 import type {
     BiosignalFilters,
-    //BiosignalTrendDerivation,
     MontageWorkerCommission,
     MontageWorkerCommissionAction,
     SetFiltersResponse,
@@ -50,37 +49,39 @@ export class MontageWorker extends BaseWorker {
     }
 
     /**
-     * Cancel an ongoing trend computation.
-     * @param msgData - Data from the worker message.
-     * @returns
+     * Cancel an ongoing trend computation by name. The current in-flight epoch finishes before
+     * the loop exits — a `'trend-cancelled'` update is posted from the processor.
      */
     async cancelTrendComputation (msgData: WorkerMessage['data']) {
-        if (this._montage) {
-            //this._montage.cancelTrendComputation()
-            Log.debug(`Trend computation cancelled.`, SCOPE)
-            return this._success(msgData)
-        } else {
-            return this._failure(msgData, 'Montage is not initialized.')
+        const data = validateCommissionProps(
+            msgData as MontageWorkerCommission['cancel-trend-computation'],
+            { name: 'String' },
+            this._montage !== null
+        )
+        if (!data) {
+            return this._failure(msgData)
         }
+        this._montage?.cancelTrendComputation(data.name as string)
+        Log.debug(`Trend '${data.name}' computation cancellation requested.`, SCOPE)
+        return this._success(msgData)
     }
     /**
-     * Computee trend signal for the given range.
-     * @param msgData - Data from the worker message.
-     * @returns
+     * Run a full trend computation loop for the named trend. Per-epoch updates are posted from
+     * inside the processor (`'trend-epoch'`); the commission resolves when the loop completes.
      */
     async computeTrend (msgData: WorkerMessage['data']) {
         const data = validateCommissionProps(
             msgData as MontageWorkerCommission['compute-trend'],
-            { range: 'Array?' },
+            { name: 'String', range: 'Array?' },
             this._montage !== null
         )
         if (!data) {
             return this._failure(msgData)
         }
         try {
-            //const range = data.range as number[] | undefined
-            //await this._montage?.computeTrend(range)
-            Log.debug(`Trend computation complete.`, SCOPE)
+            const range = data.range as number[] | undefined
+            await this._montage?.computeTrend(data.name as string, range)
+            Log.debug(`Trend '${data.name}' computation complete.`, SCOPE)
             return this._success(msgData)
         } catch (e) {
             return this._failure(msgData, e as string)
@@ -338,7 +339,11 @@ export class MontageWorker extends BaseWorker {
         }
         this._namespace = data.namespace as string
         const settings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
-        this._montage = new MontageProcessor(settings)
+        // Explicit postMessage routing: in a real worker the global `postMessage` already routes
+        // to the parent thread, but binding it here makes the wiring symmetric with the substitute
+        // (which has to inject `returnMessage`) and avoids any future surprises if the processor
+        // is constructed in an unusual context.
+        this._montage = new MontageProcessor(settings, (msg) => postMessage(msg))
         this._montage.setupChannels(data.montage, data.config, data.setupChannels)
         this._name = data.montage
         Log.debug(`Worker setup complete.`, SCOPE)

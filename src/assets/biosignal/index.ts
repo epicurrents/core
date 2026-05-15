@@ -6,6 +6,7 @@ import {
     GenericBiosignalHeader,
     GenericBiosignalMontage,
     GenericBiosignalSetup,
+    GenericBiosignalTrend,
     GenericMontageChannel,
     GenericSourceChannel,
 } from './components'
@@ -34,6 +35,7 @@ export {
     GenericBiosignalResource,
     GenericBiosignalService,
     GenericBiosignalSetup,
+    GenericBiosignalTrend,
     GenericMontageChannel,
     GenericSourceChannel,
     MontageProcessor,

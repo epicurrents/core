@@ -6,11 +6,11 @@
  */
 
 import {
+    awaitThenSleep,
     combineSignalParts,
     MB_BYTES,
     NUMERIC_ERROR_VALUE,
     partsNotCached,
-    sleep,
 } from '#util'
 import type {
     AppSettings,
@@ -556,19 +556,26 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 } as SignalCacheProcess
             })
             this._cacheProcesses.push(...newCacheProcs)
-            // Start loading missing parts consecutively.
+            // Start loading missing parts consecutively. Yield to the consumer thread for
+            // `signalLoadingYieldMs` after every chunk read so listeners of the
+            // `'cache-signals'` dispatch fired inside `_readAndCachePart` have a guaranteed
+            // gap to process it before the next chunk arrives. Running the read and the
+            // throttle in parallel (the previous pattern) doesn't give the consumer real
+            // breathing room when the read is faster than the throttle.
+            const yieldMs = this.SETTINGS.app.signalLoadingYieldMs ?? 50
             for (const proc of newCacheProcs) {
                 let nextPart = Math.floor(proc.start/this._dataUnitDuration)
-                // Check that the cache has not been released in the middle of loading data and that we're not at the
-                // end of the recording.
+                // Check that the cache has not been released in the middle of loading data
+                // and that we're not at the end of the recording.
                 while (this._cache && nextPart >= 0 && nextPart*this._dataUnitDuration < proc.target.end) {
-                    // Continue loading records, but don't hog the entire thread.
-                    if (proc.continue) {
-                        [nextPart] = await Promise.all([
-                            this._readAndCachePart(nextPart, proc),
-                            sleep(10)
-                        ])
+                    if (!proc.continue) {
+                        proc.end = nextPart*this._dataUnitDuration
+                        break
                     }
+                    nextPart = await awaitThenSleep(
+                        this._readAndCachePart(nextPart, proc),
+                        yieldMs,
+                    )
                     proc.end = nextPart*this._dataUnitDuration
                 }
             }

@@ -708,9 +708,13 @@ export interface BiosignalMontage extends BaseAsset {
     recording: BiosignalResource
     /** Label of the (possible) common reference electrode/signal. */
     referenceLabel: string
+    /** Service handle for this montage (used for trend computation and other off-thread work). */
+    service: BiosignalMontageService
     /** ID of the service of this montage. */
     serviceId: string
     setup: BiosignalSetup
+    /** Trends registered on this montage, keyed by trend name. */
+    trends: { [name: string]: BiosignalTrend }
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
     /**
@@ -719,6 +723,32 @@ export interface BiosignalMontage extends BaseAsset {
      * Returns false (and logs an error) if a context with the same name already exists.
      */
     addHighlightContext (name: string, context: unknown): boolean
+    /**
+     * Register a {@link BiosignalTrend} on this montage. The montage takes ownership of the trend's
+     * lifecycle (the trend's service is the montage's service).
+     * Dispatches `property-change:trends`.
+     * @param trend - The trend to register.
+     * @returns False (and logs an error) if a trend with the same name already exists.
+     */
+    addTrend (trend: BiosignalTrend): boolean
+    /**
+     * Look up a registered trend by name.
+     * @param name - Trend name.
+     * @returns The trend or null if no such trend is registered.
+     */
+    getTrend (name: string): BiosignalTrend | null
+    /**
+     * Remove a registered trend by name. The trend's ongoing computation (if any) is cancelled.
+     * Dispatches `property-change:trends`.
+     * @param name - Trend name.
+     * @returns False (and logs an error) if the trend does not exist.
+     */
+    removeTrend (name: string): boolean
+    /**
+     * Remove all registered trends, cancelling any ongoing computations.
+     * Dispatches `property-change:trends`.
+     */
+    removeAllTrends (): void
     /**
      * Remove a named highlight context from this montage.
      * Dispatches `property-change:highlights`.
@@ -885,10 +915,12 @@ export interface BiosignalMontageService extends AssetService {
     cacheMontageSignals (): void
     /**
      * Compute the trend signal according to the derivation properties.
+     * @param name - Name of the trend (must match a name registered with {@link setupTrend}).
+     * @param range - Optional range in seconds `[start, end]` (defaults to the entire recording).
      * @emits trend-complete - Emitted from the class when trend computation is complete.
      * @emits trend-epoch - Emitted from the class after each trend epoch is computed.
      */
-    computeTrend (): {
+    computeTrend (name: string, range?: number[]): {
         /** Cancel the current trend computation. */
         cancel: () => void
         /** Register a callback to be executed when an epoch is ready. */
@@ -1323,6 +1355,8 @@ export interface BiosignalTrend extends BaseAsset {
     derivation: BiosignalTrendDerivation
     /** Downsampling method applied to the derived signal. */
     downsamplingMethod: BiosignalDownsamplingMethod
+    /** Length of each computed epoch in seconds. */
+    epochLength: number
     /** Descriptive label for this trend. */
     label: string
     /** Sampling rate of this trend in Hz. */
@@ -1459,9 +1493,14 @@ export interface MontageChannel extends BiosignalChannel, BaseAsset {
  */
 export type MontageWorkerCommission = {
     /** Cancel an ongoing trend computation. */
-    'cancel-trend-computation': WorkerMessage['data']
+    'cancel-trend-computation': WorkerMessage['data'] & {
+        /** Name of the trend to cancel. */
+        name: string
+    }
     /** Compute the trend signal for the given range. */
     'compute-trend': WorkerMessage['data'] & {
+        /** Name of the trend to compute. */
+        name: string
         /** Range of the signal in seconds (defaults to whole signal). */
         range?: number[]
     }

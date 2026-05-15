@@ -3,6 +3,8 @@ import {
     calculateSignalOffsets,
     combineAllSignalParts,
     combineSignalParts,
+    compressAmplitudeValue,
+    computeAmplitudeIntegratedEpoch,
     concatTypedNumberArrays,
     fftAnalysis,
     filterSignal,
@@ -1262,6 +1264,156 @@ describe('Signal utilities', () => {
                 lowpass: 0,
                 notch: 0
             }, settings)).toBe(false)
+        })
+    })
+
+    describe('compressAmplitudeValue', () => {
+        it('should clamp negative input to zero', () => {
+            expect(compressAmplitudeValue(-1)).toBe(0)
+            expect(compressAmplitudeValue(-1000)).toBe(0)
+        })
+
+        it('should return value unchanged in the linear region (0–10 µV)', () => {
+            expect(compressAmplitudeValue(0)).toBe(0)
+            expect(compressAmplitudeValue(5)).toBe(5)
+            expect(compressAmplitudeValue(10)).toBe(10)
+        })
+
+        it('should apply log compression above 10 µV', () => {
+            // 100 µV → 10 * (1 + log10(10)) = 20
+            expect(compressAmplitudeValue(100)).toBeCloseTo(20, 5)
+            // 1000 µV → 10 * (1 + log10(100)) = 30
+            expect(compressAmplitudeValue(1000)).toBeCloseTo(30, 5)
+            // 50 µV → 10 * (1 + log10(5)) ≈ 16.99
+            expect(compressAmplitudeValue(50)).toBeCloseTo(10*(1 + Math.log10(5)), 5)
+        })
+
+        it('should be monotonic and continuous across the break point', () => {
+            // Just below 10 and just above 10 should produce values that are extremely close.
+            const below = compressAmplitudeValue(9.999)
+            const above = compressAmplitudeValue(10.001)
+            expect(Math.abs(above - below)).toBeLessThan(0.01)
+        })
+    })
+
+    describe('computeAmplitudeIntegratedEpoch', () => {
+        const fs = 256
+
+        it('should return [0, 0] for an empty signal', () => {
+            const result = computeAmplitudeIntegratedEpoch(new Float32Array(0), fs, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'minmax',
+                scaleCompression: 'linear',
+            })
+            expect(result).toEqual([0, 0])
+        })
+
+        it('should return [0, 0] when sampling rate is zero', () => {
+            const sig = new Float32Array(generateSineWave(fs, 1, [10, 1]))
+            const result = computeAmplitudeIntegratedEpoch(sig, 0, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'minmax',
+                scaleCompression: 'linear',
+            })
+            expect(result).toEqual([0, 0])
+        })
+
+        it('should recover the peak amplitude of an in-band sine wave (linear, minmax)', () => {
+            // 10 Hz sine inside the 2–15 Hz band, 20 µV peak. After rectification the maximum is
+            // close to the peak amplitude (~20 µV) and the minimum is close to zero.
+            const amplitude = 20
+            const sig = new Float32Array(generateSineWave(fs, 15, [10, amplitude]))
+            const [min, max] = computeAmplitudeIntegratedEpoch(sig, fs, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'minmax',
+                scaleCompression: 'linear',
+            })
+            // Allow some slack for filter ringing / quantisation.
+            expect(max).toBeGreaterThan(amplitude*0.85)
+            expect(max).toBeLessThan(amplitude*1.05)
+            expect(min).toBeGreaterThanOrEqual(0)
+            expect(min).toBeLessThan(1)
+        })
+
+        it('should attenuate an out-of-band sine wave', () => {
+            // 60 Hz sine well outside the 2–15 Hz band. Should be attenuated below the in-band peak.
+            const sig = new Float32Array(generateSineWave(fs, 15, [60, 20]))
+            const [min, max] = computeAmplitudeIntegratedEpoch(sig, fs, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'minmax',
+                scaleCompression: 'linear',
+            })
+            // Butterworth roll-off isn't infinite but the response at 4× the cutoff is small.
+            expect(max).toBeLessThan(5)
+            expect(min).toBeGreaterThanOrEqual(0)
+        })
+
+        it('should apply semi-log compression above 10 µV', () => {
+            // 10 Hz sine, 100 µV peak. Linear output gives max ≈ 100; compressed should be ≈ 20.
+            const sig = new Float32Array(generateSineWave(fs, 15, [10, 100]))
+            const linear = computeAmplitudeIntegratedEpoch(sig, fs, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'minmax',
+                scaleCompression: 'linear',
+            })
+            const semilog = computeAmplitudeIntegratedEpoch(sig, fs, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'minmax',
+                scaleCompression: 'semilog',
+            })
+            // Linear: max ≈ 100; semi-log: max ≈ 20.
+            expect(linear[1]).toBeGreaterThan(80)
+            expect(semilog[1]).toBeGreaterThan(15)
+            expect(semilog[1]).toBeLessThan(25)
+            // Compression must produce a smaller value for in-log-region inputs.
+            expect(semilog[1]).toBeLessThan(linear[1])
+        })
+
+        it('should suppress transient spikes with percentile5_95', () => {
+            // 10 Hz sine, 10 µV. Inject 5 huge spikes (200 µV) at random positions.
+            const cleanSig = generateSineWave(fs, 15, [10, 10])
+            const dirtySig = [...cleanSig]
+            const indices = [200, 600, 1100, 1700, 2400]
+            for (const i of indices) {
+                dirtySig[i] = 200
+            }
+            const dirty = new Float32Array(dirtySig)
+            const minmax = computeAmplitudeIntegratedEpoch(dirty, fs, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'minmax',
+                scaleCompression: 'linear',
+            })
+            const pct = computeAmplitudeIntegratedEpoch(dirty, fs, {
+                bandHighpass: 2,
+                bandLowpass: 15,
+                envelopeMethod: 'percentile5_95',
+                scaleCompression: 'linear',
+            })
+            // Spikes inflate the global max; the 95th-percentile envelope ignores them.
+            expect(minmax[1]).toBeGreaterThan(pct[1])
+        })
+
+        it('should always return min ≤ max', () => {
+            const sig = new Float32Array(generateSineWave(fs, 15, [10, 50]))
+            for (const method of ['minmax', 'percentile5_95'] as const) {
+                for (const compress of ['linear', 'semilog'] as const) {
+                    const [min, max] = computeAmplitudeIntegratedEpoch(sig, fs, {
+                        bandHighpass: 2,
+                        bandLowpass: 15,
+                        envelopeMethod: method,
+                        scaleCompression: compress,
+                    })
+                    expect(min).toBeLessThanOrEqual(max)
+                    expect(min).toBeGreaterThanOrEqual(0)
+                }
+            }
         })
     })
 })

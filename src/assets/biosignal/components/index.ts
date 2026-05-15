@@ -6,6 +6,7 @@ import GenericBiosignalHeader from './GenericBiosignalHeader'
 import GenericBiosignalLabel from '#assets/annotation/ResourceLabel'
 import GenericBiosignalMontage from './GenericBiosignalMontage'
 import GenericBiosignalSetup from './GenericBiosignalSetup'
+import GenericBiosignalTrend from './GenericBiosignalTrend'
 import GenericMontageChannel from './GenericMontageChannel'
 import GenericSourceChannel from './GenericSourceChannel'
 
@@ -18,6 +19,7 @@ export {
     GenericBiosignalLabel,
     GenericBiosignalMontage,
     GenericBiosignalSetup,
+    GenericBiosignalTrend,
     GenericMontageChannel,
     GenericSourceChannel,
 }

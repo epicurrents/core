@@ -13,6 +13,7 @@ import type {
     BiosignalMontageTemplate,
     BiosignalResource,
     BiosignalSetup,
+    BiosignalTrend,
     MontageChannel,
     SetFiltersResponse,
     SignalDataCache,
@@ -85,6 +86,7 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     protected _recording: BiosignalResource
     protected _service: MontageService
     protected _setup: BiosignalSetup
+    protected _trends = new Map<string, BiosignalTrend>()
 
     constructor (
         name: string,
@@ -162,8 +164,18 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     get setup () {
         return this._setup
     }
+    get service () {
+        return this._service
+    }
     get serviceId () {
         return this._service.id
+    }
+    get trends () {
+        const trendsObj = new Object(null) as { [key: string]: BiosignalTrend }
+        for (const [name, trend] of this._trends) {
+            trendsObj[name] = trend
+        }
+        return trendsObj
     }
     get visibleChannels () {
         return this._channels.filter(c => shouldDisplayChannel(c, false))
@@ -186,6 +198,22 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             return false
         }
         this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'after')
+        return true
+    }
+
+    addTrend (trend: BiosignalTrend) {
+        if (this._trends.has(trend.name)) {
+            Log.error(`Could not add duplicate trend '${trend.name}'.`, SCOPE)
+            return false
+        }
+        const oldTrends = this.trends
+        this._trends.set(trend.name, trend)
+        const newTrends = this.trends
+        if (!this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'before')) {
+            this._trends.delete(trend.name)
+            return false
+        }
+        this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'after')
         return true
     }
 
@@ -277,6 +305,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._recording.getInterruptions(useCacheTime)
     }
 
+    getTrend (name: string) {
+        return this._trends.get(name) || null
+    }
+
     mapChannels (config?: ConfigMapChannels) {
         return mapMontageChannels(this._setup, config)
     }
@@ -314,6 +346,44 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
             return
         }
         this.dispatchPropertyChangeEvent('highlights', newHighlights, oldHighlights, 'after')
+    }
+
+    removeAllTrends () {
+        if (!this._trends.size) {
+            return
+        }
+        const oldTrends = this.trends
+        const saved = new Map(this._trends)
+        for (const trend of saved.values()) {
+            trend.cancelTrendComputation()
+        }
+        this._trends.clear()
+        const newTrends = this.trends
+        if (!this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'before')) {
+            for (const [k, v] of saved) {
+                this._trends.set(k, v)
+            }
+            return
+        }
+        this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'after')
+    }
+
+    removeTrend (name: string) {
+        const trend = this._trends.get(name)
+        if (!trend) {
+            Log.error(`Could not find trend '${name}'.`, SCOPE)
+            return false
+        }
+        const oldTrends = this.trends
+        trend.cancelTrendComputation()
+        this._trends.delete(name)
+        const newTrends = this.trends
+        if (!this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'before')) {
+            this._trends.set(name, trend)
+            return false
+        }
+        this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'after')
+        return true
     }
 
     removeAllEventListeners (subscriber?: string) {

@@ -31,11 +31,12 @@ import {
     timePartsToShortString,
 } from './conversions'
 import {
+    awaitThenSleep,
     deepClone,
     deepEqual,
     enumerate,
-    isEmptyObject,
     getOrSetValue,
+    isEmptyObject,
     nullPromise,
     safeObjectFrom,
     sleep
@@ -84,6 +85,7 @@ export {
     NUMERIC_ERROR_VALUE,
 }
 export {
+    awaitThenSleep,
     calculateSignalOffsets,
     combineAllSignalParts,
     combineSignalParts,

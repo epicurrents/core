@@ -145,3 +145,37 @@ export const safeObjectFrom = (template: object) => {
 export const sleep = async (duration: number): Promise<void> => {
     return new Promise<void>(resolve => setTimeout(resolve, duration))
 }
+
+/**
+ * Await a promise, then sleep for `ms` milliseconds before resolving. Preserves the awaited
+ * promise's resolved value so it can be used as a drop-in replacement for `await promise`
+ * inside a loop that wants a guaranteed yield between iterations.
+ *
+ * Use this when the awaited work emits side effects (e.g. dispatches events) that downstream
+ * consumers need time to react to before the next iteration starts. `Promise.all([promise,
+ * sleep(ms)])` is NOT equivalent — it runs the throttle in parallel with the work, so when
+ * the work is slower than `ms`, the throttle finishes long before and provides zero gap
+ * between event emission and the next iteration.
+ *
+ * @param promise - The async work to perform this cycle.
+ * @param ms - Milliseconds to sleep after `promise` resolves. Skipped (no `setTimeout` is
+ *   scheduled) when this is 0 or negative, so callers can pass 0 on the final iteration to
+ *   avoid adding pointless latency at the end of a loop.
+ * @returns The resolved value of `promise`.
+ * @example
+ * for (let i = 0; i < parts.length; i++) {
+ *     const isLast = i === parts.length - 1
+ *     const next = await awaitThenSleep(
+ *         readAndCachePart(parts[i]),
+ *         isLast ? 0 : yieldMs,
+ *     )
+ *     ...
+ * }
+ */
+export const awaitThenSleep = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
+    const value = await promise
+    if (ms > 0) {
+        await sleep(ms)
+    }
+    return value
+}

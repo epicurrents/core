@@ -36,13 +36,17 @@ import { mapSignalsToSamplingRates } from '#util/signal'
 
 const SCOPE = "MontageService"
 
+type TrendComputationProps = {
+    cancel: () => void
+    name: string
+    onEpochReady: (signal: number[], epochIndex: number, totalEpochs: number) => void
+    reject: (reason: string) => void
+    resolve: (value: unknown) => void
+}
+
 export default class MontageService extends GenericService implements BiosignalMontageService {
-    protected _computeTrendProps: {
-        cancel: () => void
-        onEpochReady: (signal: number[], epochIndex: number, totalEpochs: number) => void
-        reject: (reason: string) => void
-        resolve: (value: unknown) => void
-    } | null = null
+    /** Active trend computations keyed by trend name. */
+    protected _trendComputations = new Map<string, TrendComputationProps>()
     private _mutex = null as null | BiosignalMutex
     private _montage: BiosignalMontage
 
@@ -104,27 +108,40 @@ export default class MontageService extends GenericService implements BiosignalM
         })
     }
 
-    computeTrend () {
-        if (this._computeTrendProps) {
-            // There is already a trend compuation under progress, we have to cancel that.
-            this._computeTrendProps.cancel()
-            this._computeTrendProps.reject('Trend computation cancelled in favor of a new computation.')
-        } else {
-            this._computeTrendProps = {
-                cancel: () => { this._commissionWorker('cancel-trend-calculation') },
-                onEpochReady: (_signal: number[], _epochIndex: number, _totalEpochs: number) => {},
-                reject: (_reason: string) => {},
-                resolve: (_value: unknown) => {},
-            }
+    computeTrend (name: string, range?: number[]) {
+        // Cancel any prior computation for the same trend before starting a new one.
+        const prior = this._trendComputations.get(name)
+        if (prior) {
+            prior.cancel()
+            prior.reject('Trend computation cancelled in favor of a new computation.')
+            this._trendComputations.delete(name)
+        }
+        const props: TrendComputationProps = {
+            cancel: () => {
+                this._commissionWorker(
+                    'cancel-trend-computation',
+                    new Map<string, unknown>([['name', name]])
+                )
+            },
+            name: name,
+            onEpochReady: (_signal: number[], _epochIndex: number, _totalEpochs: number) => {},
+            reject: (_reason: string) => {},
+            resolve: (_value: unknown) => {},
         }
         const result = new Promise((resolve, reject) => {
-            this._computeTrendProps!.resolve = resolve
-            this._computeTrendProps!.reject = reject
+            props.resolve = resolve
+            props.reject = reject
         })
+        this._trendComputations.set(name, props)
+        const commissionArgs = new Map<string, unknown>([['name', name]])
+        if (range) {
+            commissionArgs.set('range', range)
+        }
+        this._commissionWorker('compute-trend', commissionArgs)
         return {
-            cancel: this._computeTrendProps!.cancel,
+            cancel: props.cancel,
             onEpochReady: (callback: (signal: number[], epochIndex: number, totalEpochs: number) => void) => {
-                this._computeTrendProps!.onEpochReady = callback
+                props.onEpochReady = callback
             },
             result,
         }
@@ -156,6 +173,42 @@ export default class MontageService extends GenericService implements BiosignalM
             return false
         }
         if (super._handleWorkerUpdate(message)) {
+            return true
+        }
+        // Trend-related messages are side-channel pushes from the processor — they have no
+        // commission `rn` to match. Handle them before the commission lookup so they aren't
+        // dropped along with other unrecognised broadcasts.
+        if (data.action === 'trend-epoch') {
+            const trendName = data.name as string
+            this._trendComputations.get(trendName)?.onEpochReady(
+                data.signal as number[],
+                data.epochIndex as number,
+                data.totalEpochs as number
+            )
+            return true
+        } else if (data.action === 'trend-complete') {
+            const trendName = data.name as string
+            const props = this._trendComputations.get(trendName)
+            props?.resolve(data.result)
+            if (props) {
+                this._trendComputations.delete(trendName)
+            }
+            return true
+        } else if (data.action === 'trend-cancelled') {
+            const trendName = data.name as string
+            const props = this._trendComputations.get(trendName)
+            props?.reject('Trend computation cancelled.')
+            if (props) {
+                this._trendComputations.delete(trendName)
+            }
+            return true
+        } else if (data.action === 'trend-error') {
+            const trendName = data.name as string
+            const props = this._trendComputations.get(trendName)
+            props?.reject((data.error as string) || 'Trend computation failed.')
+            if (props) {
+                this._trendComputations.delete(trendName)
+            }
             return true
         }
         const commission = this._getCommissionForMessage(message)
@@ -225,18 +278,6 @@ export default class MontageService extends GenericService implements BiosignalM
             this._isWorkerSetup = data.success
             commission.resolve(data.success)
             this._notifyWaiters('setup-worker', data.success)
-            return true
-        } else if (data.action === 'trend-complete') {
-            // Handle possible promise.
-            this._computeTrendProps?.resolve(data.result)
-            this._computeTrendProps = null
-            return true
-        } else if (data.action === 'trend-epoch') {
-            this._computeTrendProps?.onEpochReady(
-                data.signal as number[],
-                data.epochIndex as number,
-                data.totalEpochs as number
-            )
             return true
         }
         if (await super._handleWorkerCommission(message)) {
