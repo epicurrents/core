@@ -1167,19 +1167,6 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         const dataLength = this._useRolling
             ? Math.min(this._totalDataLength, this._blockDuration * 3)
             : this._totalDataLength
-        // Diagnostics for the rolling-cache rollout — log key decision inputs so a mismatch between
-        // EegRecording's main-thread allocation and the worker's mutex layout is visible in the
-        // console. TODO: remove once Phase B is stable.
-        const sigSamples = cacheProps.signals.map(s => Math.floor(s.samplingRate * dataLength))
-        const sigTotalSamples = sigSamples.reduce((a, b) => a + b, 0)
-        Log.info(
-            `setupMutex: useRolling=${this._useRolling} maxCache=${this.SETTINGS.app.maxLoadCacheSize}B ` +
-            `blockDur=${this.SETTINGS.app.dataBlockDuration ?? 'undef'}s totalDataLen=${this._totalDataLength}s ` +
-            `dataLength=${dataLength}s sigCount=${cacheProps.signals.length} ` +
-            `totalSamplesAcrossChannels=${sigTotalSamples} bufferByteLength=${buffer.byteLength} ` +
-            `bufferStart=${bufferStart}`,
-            SCOPE
-        )
         this._mutex.initSignalBuffers(cacheProps, dataLength, buffer, bufferStart)
         Log.debug(`Signal data cache initiation complete.`, SCOPE)
         // Mutex is fully set up.

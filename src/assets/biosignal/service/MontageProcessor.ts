@@ -228,22 +228,6 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         }
         // Get the input signals
         const SIGNALS = await this._cache.inputSignals
-        // Trend debug: log the SIGNALS topology when called with skipFilters (i.e. by the trend
-        // compute path). Helps diagnose why derived = 0 — typically because the channel index
-        // we picked doesn't point to a populated Float32Array in this cache.
-        if (config?.skipFilters && start <= 1) {
-            const includeIdx = config.include?.[0]
-            const chan = includeIdx !== undefined ? this._channels[includeIdx] : undefined
-            // eslint-disable-next-line no-console
-            console.log(
-                `[trend-debug] calculateSignalsForPart skipFilters=true include=${JSON.stringify(config.include)}`,
-                `chan.name=${chan?.name} chan.active=${JSON.stringify(chan?.active)} chan.samplingRate=${chan?.samplingRate}`,
-                `chan.unit=${chan?.unit} chan.scale=${chan?.scale}`,
-                `SIGNALS.length=${SIGNALS.length}`,
-                `SIGNALS[chan.active].length=${typeof chan?.active === 'number' ? SIGNALS[chan.active]?.length : 'N/A (active is array)'}`,
-                `first5=${typeof chan?.active === 'number' && SIGNALS[chan.active] ? Array.from(SIGNALS[chan.active].slice(0, 5)) : 'N/A'}`,
-            )
-        }
         const padding = this._settings.filterPaddingSeconds || 0
         // Check for possible interruptions in this range.
         const filterRangeStart = Math.max(cacheStart - padding, 0)
@@ -511,11 +495,6 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         const rangeEnd = Math.min(range?.[1] ?? this._totalRecordingLength, this._totalRecordingLength)
         const totalEpochs = Math.ceil((rangeEnd - rangeStart)/epochLength)
         const firstEpoch = Math.floor(rangeStart/epochLength)
-        // eslint-disable-next-line no-console
-        console.log(
-            `[trend-debug] MontageProcessor.computeTrend name=${name} range=${rangeStart}..${rangeEnd}`,
-            `epochLength=${epochLength} totalEpochs=${totalEpochs} totalRecordingLength=${this._totalRecordingLength}`
-        )
         // Yield to the event loop every this many epochs. Each epoch costs a single band-pass
         // filtfilt over a 15-second window now that the display filters are skipped (via
         // `skipFilters: true` on the trend's `getSignals` calls). The yield via `setTimeout(0)`
@@ -638,24 +617,6 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 envelopeMethod: aeegOpts?.envelopeMethod ?? 'minmax',
                 scaleCompression: aeegOpts?.scaleCompression ?? 'semilog',
             })
-            if (epochIndex < 3 || epochIndex % 50 === 0) {
-                let derivedMin = Infinity
-                let derivedMax = -Infinity
-                for (let i = 0; i < derived.length; i++) {
-                    if (derived[i] < derivedMin) {
-                        derivedMin = derived[i]
-                    }
-                    if (derived[i] > derivedMax) {
-                        derivedMax = derived[i]
-                    }
-                }
-                // eslint-disable-next-line no-console
-                console.log(
-                    `[trend-debug] epoch=${epochIndex} samplingRate=${samplingRate}`,
-                    `derivedLen=${derived.length} derivedRange=[${derivedMin.toFixed(2)}, ${derivedMax.toFixed(2)}]`,
-                    `trendOutput=[${min.toFixed(2)}, ${max.toFixed(2)}]`
-                )
-            }
             return [min, max]
         }
         Log.error(`Cannot compute trend '${name}': unsupported trend type '${trendProps.derivation.type}'.`, SCOPE)

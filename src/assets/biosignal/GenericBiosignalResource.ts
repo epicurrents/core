@@ -838,8 +838,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     removeAllTrends (): void {
-        const names = [...this._trends.keys()]
-        Log.debug(`[trend] removeAllTrends: cancelling [${names.join(', ')}]`, 'GenericBiosignalResource')
         for (const trend of this._trends.values()) {
             trend.cancelTrendComputation()
         }

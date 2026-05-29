@@ -160,7 +160,6 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
         this._computing = true
         const version = ++this._computeVersion
         const isExtension = !!(range && range[0] > 0)
-        Log.debug(`Trend '${this._name}' computeTrend v${version} range=[${range}] isExtension=${isExtension} signalLen=${this._signal.length}`, SCOPE)
         if (!isExtension) {
             // Full recompute: clear any stale data from a previous run.
             this._signal.length = 0
