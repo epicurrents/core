@@ -359,33 +359,36 @@ export default class MontageService extends GenericService implements BiosignalM
         }
         // We will use the generic setup-cache action to wait for this setup to complete.
         this._initWaiters('setup-cache')
-        // Calculate needed mermory to load the entire recording.
-        let totalMem = 4 // From lock and meta fields.
-        const dataFieldsLen = BiosignalMutex.SIGNAL_DATA_POS
-        for (const chan of this._montage.channels) {
-            if (chan) {
-                // TODO: allocate memory for channel signals as well.
-            }
-            totalMem += dataFieldsLen
-        }
-        const bufferPart =  await this.requestMemory(totalMem)
-        if (!bufferPart || !this._memoryRange) {
-            Log.error(`Allocating memory for montage failed.`, SCOPE)
-            return { success: false }
-        }
-        // Save the buffers in local scope and send them to worker.
-        this._mutex = new BiosignalMutex(
-            undefined,
-            inputProps
+        // Only reserve SAB space when output-side caching is actually enabled.
+        // When precacheMontages is falsy every getSignals call recomputes from the input mutex on
+        // the fly, so an output buffer would be permanently empty allocation.
+        const modules = window.__EPICURRENTS__?.RUNTIME?.SETTINGS?.modules
+        const precacheMontages = modules && Object.values(modules).some(
+            (m) => (m as unknown as { precacheMontages?: number }).precacheMontages
         )
+        if (precacheMontages) {
+            let totalMem = 4 // From lock and meta fields.
+            const dataFieldsLen = BiosignalMutex.SIGNAL_DATA_POS
+            for (const chan of this._montage.channels) {
+                if (chan) {
+                    // TODO: allocate memory for channel signals as well.
+                }
+                totalMem += dataFieldsLen
+            }
+            const bufferPart = await this.requestMemory(totalMem)
+            if (!bufferPart || !this._memoryRange) {
+                Log.error(`Allocating memory for montage failed.`, SCOPE)
+                return { success: false }
+            }
+        }
+        this._mutex = new BiosignalMutex({ coupledProps: inputProps })
         const montage = this._commissionWorker(
             'setup-input-mutex',
             new Map<string, unknown>([
                 ['montage', this._montage.name],
                 ['config', this._montage.config],
                 ['input', BiosignalMutex.convertPropertiesForCoupling(inputProps)],
-                //['buffer', this._manager.buffer],
-                ['bufferStart', this._memoryRange.start],
+                ['bufferStart', this._memoryRange?.start ?? 0],
                 ['dataDuration', this._montage.recording.dataDuration],
                 ['recordingDuration', this._montage.recording.totalDuration],
                 ['setupChannels', this._montage.setup.channels],

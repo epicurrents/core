@@ -74,6 +74,12 @@ describe('BiosignalMutex', () => {
             expect(BiosignalMutex.RANGE_START_NAME).toBe('start')
         })
 
+        it('should have data_unit_duration meta field constants at position 3', () => {
+            expect(BiosignalMutex.DATA_UNIT_DURATION_NAME).toBe('data_unit_duration')
+            expect(BiosignalMutex.DATA_UNIT_DURATION_POS).toBe(3)
+            expect(BiosignalMutex.DATA_UNIT_DURATION_LENGTH).toBe(1)
+        })
+
         it('should have signal data field constants', () => {
             expect(BiosignalMutex.SIGNAL_DATA_NAME).toBe('data')
             expect(BiosignalMutex.SIGNAL_SAMPLING_RATE_NAME).toBe('sampling_rate')
@@ -123,6 +129,44 @@ describe('BiosignalMutex', () => {
         it('should create a mutex without parameters', () => {
             const mutex = new BiosignalMutex()
             expect(mutex).toBeDefined()
+        })
+    })
+
+    describe('input-only mode (precacheMontages = false)', () => {
+        it('hasOutputBuffer should be false when _outputData is null', () => {
+            const mutex = new BiosignalMutex()
+            expect(mutex.hasOutputBuffer).toBe(false)
+        })
+
+        it('outputRangeStart should resolve to null when no output buffer', async () => {
+            const mutex = new BiosignalMutex()
+            await expect(mutex.outputRangeStart).resolves.toBeNull()
+        })
+
+        it('outputRangeEnd should resolve to null when no output buffer', async () => {
+            const mutex = new BiosignalMutex()
+            await expect(mutex.outputRangeEnd).resolves.toBeNull()
+        })
+
+        it('outputRangeAllocated should resolve to null when no output buffer', async () => {
+            const mutex = new BiosignalMutex()
+            await expect(mutex.outputRangeAllocated).resolves.toBeNull()
+        })
+
+        it('dataUnitDurationMs should resolve to null when no output buffer', async () => {
+            const mutex = new BiosignalMutex()
+            await expect(mutex.dataUnitDurationMs).resolves.toBeNull()
+        })
+
+        it('insertSignals should be a no-op when no output buffer', async () => {
+            const mutex = new BiosignalMutex()
+            const part = { start: 0, end: 1, signals: [{ data: new Float32Array(256), samplingRate: 256 }] }
+            await expect(mutex.insertSignals(part)).resolves.toBeUndefined()
+        })
+
+        it('invalidateOutputSignals should be a no-op when no output buffer', async () => {
+            const mutex = new BiosignalMutex()
+            await expect(mutex.invalidateOutputSignals()).resolves.toBeUndefined()
         })
     })
 

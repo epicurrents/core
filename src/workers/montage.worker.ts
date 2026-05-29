@@ -27,16 +27,14 @@ export class MontageWorker extends BaseWorker {
         MontageWorkerCommissionAction,
         (message: WorkerMessage['data']) => Promise<boolean>
     >([
-        ['cancel-trend-computation', this.cancelTrendComputation],
-        ['compute-trend', this.computeTrend],
         ['get-signals', this.getSignals],
         ['map-channels', this.mapChannels],
         ['release-cache', this.releaseCache],
+        ['release-signal-arrays', this.releaseSignalArrays],
         ['set-interruptions', this.setInterruptions],
         ['set-filters', this.setFilters],
         ['setup-input-cache', this.setInputCache],
         ['setup-input-mutex', this.setupInputMutex],
-        ['setup-trend', this.setupTrend],
         ['setup-worker', this.setupWorker],
         ['update-settings', this.updateSettings],
     ])
@@ -65,45 +63,6 @@ export class MontageWorker extends BaseWorker {
         super()
     }
 
-    /**
-     * Cancel an ongoing trend computation by name. The current in-flight epoch finishes before
-     * the loop exits — a `'trend-cancelled'` update is posted from the processor.
-     */
-    async cancelTrendComputation (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
-            msgData as MontageWorkerCommission['cancel-trend-computation'],
-            { name: 'String' },
-            this._montage !== null
-        )
-        if (!data) {
-            return this._failure(msgData)
-        }
-        this._montage?.cancelTrendComputation(data.name as string)
-        Log.debug(`Trend '${data.name}' computation cancellation requested.`, SCOPE)
-        return this._success(msgData)
-    }
-    /**
-     * Run a full trend computation loop for the named trend. Per-epoch updates are posted from
-     * inside the processor (`'trend-epoch'`); the commission resolves when the loop completes.
-     */
-    async computeTrend (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
-            msgData as MontageWorkerCommission['compute-trend'],
-            { name: 'String', range: 'Array?' },
-            this._montage !== null
-        )
-        if (!data) {
-            return this._failure(msgData)
-        }
-        try {
-            const range = data.range as number[] | undefined
-            await this._montage?.computeTrend(data.name as string, range)
-            Log.debug(`Trend '${data.name}' computation complete.`, SCOPE)
-            return this._success(msgData)
-        } catch (e) {
-            return this._failure(msgData, e as string)
-        }
-    }
     /**
      *
      * @param msgData - Data property from the message to the worker.
@@ -180,6 +139,17 @@ export class MontageWorker extends BaseWorker {
     async releaseCache (msgData: WorkerMessage['data']) {
         await this._montage?.releaseCache()
         Log.debug(`Cache released.`, SCOPE)
+        return this._success(msgData)
+    }
+    /**
+     * Level 1 of the three-level cache lifecycle: drop signal array views and
+     * cancel in-flight caching, but preserve the mutex layout. Pairs with the
+     * worker-side `BiosignalMutex.initSignalBuffers(..., overwrite=true)`
+     * rebind path on re-activation.
+     */
+    async releaseSignalArrays (msgData: WorkerMessage['data']) {
+        await this._montage?.releaseSignalArrays()
+        Log.debug(`Signal arrays released.`, SCOPE)
         return this._success(msgData)
     }
     /**
@@ -335,30 +305,6 @@ export class MontageWorker extends BaseWorker {
         }
         this._montage?.setInterruptions(newInterruptions)
         Log.debug(`New data interruptions set.`, SCOPE)
-        return this._success(msgData)
-    }
-    async setupTrend (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
-            msgData as MontageWorkerCommission['setup-trend'],
-            {
-                derivation: 'Object',
-                downsamplingMethod: 'String',
-                epochLength: 'Number',
-                name: 'String',
-                samplingRate: 'Number',
-            }
-        )
-        if (!data) {
-            return this._failure(msgData)
-        }
-        this._montage?.setupTrend(
-            data.name,
-            data.derivation,
-            data.samplingRate,
-            data.epochLength,
-            data.downsamplingMethod,
-        )
-        Log.debug(`Trend '${data.name}' setup complete.`, SCOPE)
         return this._success(msgData)
     }
     /**

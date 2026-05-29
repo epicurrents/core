@@ -85,11 +85,17 @@ export const returnFailure = (
     })
 }
 /**
- * Synchronize the given settings with main application. The message parameter should be:
- * - The `postMessage` method when setting up sync with main application.
- * - The `message` object when checking a message from the main application for an update in settings.
+ * Synchronize the given settings with main application.
+ *
+ * @deprecated This function is not used by any worker and has never been wired into the settings
+ * update pathway. Workers receive settings via the `update-settings` commission action — the main
+ * thread sends a full `AppSettings._CLONABLE` snapshot and the worker reads
+ * `data.settings.modules[namespace]`. Do **not** call this function; use `_CLONABLE` transfer
+ * instead. See `TrendService.setupWorker` and `MontageService.setupWorker` for the canonical
+ * pattern.
+ *
  * @param settings - Map of settings to keep in sync.
- * @param message - The message from loader to chech for updated settings or the worker's postMessage method (when setting up).
+ * @param message - The message from loader to check for updated settings or the worker's postMessage method (when setting up).
  * @returns True if a setting was updated or setup was successful, false otherwise.
  */
 export const syncSettings = (

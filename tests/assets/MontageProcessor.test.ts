@@ -166,6 +166,37 @@ describe('MontageProcessor', () => {
             expect(result).toBeNull()
             expect(Log.error).toHaveBeenCalled()
         })
+
+        it('should call calculateSignalsForPart and NOT check outputRange when precacheMontages = 0', async () => {
+            const settings = { ...mockSettings, precacheMontages: 0 } as any
+            const proc = new MontageProcessor(settings)
+            proc.channels = [{ name: 'Ch1', samplingRate: 256, sampleCount: 2560, modality: 'eeg' }] as any
+            // Mock a cache whose outputRangeStart/End return null (input-only mutex mode).
+            const mockCache = {
+                outputRangeStart: Promise.resolve(null),
+                outputRangeEnd: Promise.resolve(null),
+                outputSignalUpdatedRanges: [],
+                inputRangeStart: Promise.resolve(0),
+                inputRangeEnd: Promise.resolve(10),
+                inputSignals: Promise.resolve([new Float32Array(2560).fill(0)]),
+                inputSignalUpdatedRanges: [],
+                insertSignals: vi.fn().mockResolvedValue(undefined),
+                invalidateOutputSignals: vi.fn().mockResolvedValue(undefined),
+                asCachePart: vi.fn(),
+            }
+            ;(proc as any)._fallbackCache = mockCache
+            // Stub calculateSignalsForPart so we don't need real signal data.
+            const dummyPart = {
+                start: 0, end: 10,
+                signals: [{ data: new Float32Array(2560), samplingRate: 256 }],
+            }
+            ;(proc as any).calculateSignalsForPart = vi.fn().mockResolvedValue(dummyPart)
+            const result = await proc.getSignals([0, 10])
+            expect(result).not.toBeNull()
+            expect((proc as any).calculateSignalsForPart).toHaveBeenCalled()
+            // outputRange should never have been read (mockCache.asCachePart never called).
+            expect(mockCache.asCachePart).not.toHaveBeenCalled()
+        })
     })
 
     describe('destroy', () => {

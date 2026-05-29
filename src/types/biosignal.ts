@@ -19,6 +19,7 @@ import {
 import { BiosignalMutex } from '../assets'
 import {
     AppSettings,
+    CommonBiosignalSettings,
     ConfigBiosignalSetup,
     ConfigChannelFilter,
     ConfigChannelLayout,
@@ -711,13 +712,11 @@ export interface BiosignalMontage extends BaseAsset {
     recording: BiosignalResource
     /** Label of the (possible) common reference electrode/signal. */
     referenceLabel: string
-    /** Service handle for this montage (used for trend computation and other off-thread work). */
+    /** Service handle for this montage (used for signal derivation and filter work). */
     service: BiosignalMontageService
     /** ID of the service of this montage. */
     serviceId: string
     setup: BiosignalSetup
-    /** Trends registered on this montage, keyed by trend name. */
-    trends: { [name: string]: BiosignalTrend }
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
     /**
@@ -726,32 +725,6 @@ export interface BiosignalMontage extends BaseAsset {
      * Returns false (and logs an error) if a context with the same name already exists.
      */
     addHighlightContext (name: string, context: unknown): boolean
-    /**
-     * Register a {@link BiosignalTrend} on this montage. The montage takes ownership of the trend's
-     * lifecycle (the trend's service is the montage's service).
-     * Dispatches `property-change:trends`.
-     * @param trend - The trend to register.
-     * @returns False (and logs an error) if a trend with the same name already exists.
-     */
-    addTrend (trend: BiosignalTrend): boolean
-    /**
-     * Look up a registered trend by name.
-     * @param name - Trend name.
-     * @returns The trend or null if no such trend is registered.
-     */
-    getTrend (name: string): BiosignalTrend | null
-    /**
-     * Remove a registered trend by name. The trend's ongoing computation (if any) is cancelled.
-     * Dispatches `property-change:trends`.
-     * @param name - Trend name.
-     * @returns False (and logs an error) if the trend does not exist.
-     */
-    removeTrend (name: string): boolean
-    /**
-     * Remove all registered trends, cancelling any ongoing computations.
-     * Dispatches `property-change:trends`.
-     */
-    removeAllTrends (): void
     /**
      * Remove a named highlight context from this montage.
      * Dispatches `property-change:highlights`.
@@ -802,6 +775,13 @@ export interface BiosignalMontage extends BaseAsset {
      * @returns Mapped channels as an array.
      */
     mapChannels (config?: unknown): MontageChannel[]
+    /**
+     * Level 1 of the three-level cache lifecycle: ask the service to drop the
+     * worker-side signal-array views and cancel in-flight caching, keeping
+     * the mutex layout (and the underlying SAB allocation) intact for a
+     * cheap rebind on reactivation.
+     */
+    releaseSignalArrays (): Promise<void>
     /**
      * Release the buffers reserved for this montage's signal data.
      * @param config - Optional configuration (TODO: config definitions).
@@ -917,21 +897,6 @@ export interface BiosignalMontageService extends AssetService {
      */
     cacheMontageSignals (): void
     /**
-     * Compute the trend signal according to the derivation properties.
-     * @param name - Name of the trend (must match a name registered with {@link setupTrend}).
-     * @param range - Optional range in seconds `[start, end]` (defaults to the entire recording).
-     * @emits trend-complete - Emitted from the class when trend computation is complete.
-     * @emits trend-epoch - Emitted from the class after each trend epoch is computed.
-     */
-    computeTrend (name: string, range?: number[]): {
-        /** Cancel the current trend computation. */
-        cancel: () => void
-        /** Register a callback to be executed when an epoch is ready. */
-        onEpochReady: (callback: (signal: number[], epochIndex: number, totalEpochs: number) => void) => void
-        /** Resolves when computation is complete or rejects if it is interrupted. */
-        result: Promise<unknown>
-    }
-    /**
      * Load montage signals within the given range.
      * @param range - Range in seconds [start (included), end (excluded)].
      * @param config - Optional configuration (TODO: Config definitions).
@@ -976,21 +941,76 @@ export interface BiosignalMontageService extends AssetService {
      * @returns Promise that resolves as true if montage setup in the worker succeeds, false if a prerequisite is not met, and rejects if an error occurs (in the worker).
      */
     setupMontageWithSharedWorker (inputPort: MessagePort): Promise<SetupSharedWorkerResponse>
+}
+
+/**
+ * Service interface for the dedicated trend worker. Owns a worker that couples to the EDF
+ * reader's output SAB as input-only and writes computed epoch results to its own output SAB.
+ * Separate from {@link BiosignalMontageService} so trend computation is independent of which
+ * display montage is active.
+ */
+export interface BiosignalTrendService {
     /**
-     * Set up a trend signal in the worker.
-     * @param name - Identifying name for the trend.
-     * @param derivation - Signal derivation properties for the trend.
-     * @param samplingRate - Sampling rate of the trend signal.
-     * @param epochLength - Length of the epoch for the trend calculation.
-     * @param downsamplingMethod - Method used for downsampling the trend signal.
+     * Connect the service to the EDF reader's output SAB (SAB path).
+     * Must be called once before any setupTrend / computeTrend commissions.
+     * @param inputProps - Export properties from the EDF reader's output mutex.
+     * @param dataDuration - Duration of actual signal data in seconds (no gaps).
+     * @param recordingDuration - Total recording duration including gaps.
+     * @param settings - Common biosignal settings forwarded to the worker.
+     */
+    setupWorker (
+        inputProps: MutexExportProperties,
+        dataDuration: number,
+        recordingDuration: number,
+        namespace: string,
+        settings: AppSettings,
+        signalModalities?: string[],
+    ): Promise<SetupWorkerResponse>
+    /**
+     * Connect the service to a plain signal cache (no-SAB / TrendWorkerSubstitute path).
+     * Used when SharedArrayBuffer is unavailable; the substitute runs TrendProcessor
+     * in-process reading from the cache directly.
+     */
+    setupWithCache (
+        cache: SignalDataCache,
+        dataDuration: number,
+        recordingDuration: number,
+        settings: CommonBiosignalSettings
+    ): Promise<SetupCacheResponse>
+    /**
+     * Register a named trend in the worker. Must be called before computeTrend.
      */
     setupTrend (
         name: string,
         derivation: BiosignalTrendDerivation,
         samplingRate: number,
         epochLength: number,
-        downsamplingMethod?: BiosignalDownsamplingMethod
+        options?: {
+            downsamplingMethod?: BiosignalDownsamplingMethod
+            maxFreqHz?: number
+            numeratorBand?: [number, number]
+            denominatorBand?: [number, number]
+            band?: [number, number]
+        }
     ): Promise<SetupWorkerResponse>
+    /**
+     * Forward recording interruptions to the processor so gap epochs can be identified
+     * and rendered as gray areas. Call after signal caching completes (interruptions are
+     * populated by the EDF reader during `cacheSignals`). A no-op when there are none.
+     */
+    setInterruptions (interruptions: SignalInterruptionMap): void
+    /**
+     * Start computing the trend signal.
+     * @param name - Name of the trend registered with {@link setupTrend}.
+     * @param range - Optional data-unit range `[start, end]` (defaults to the entire recording).
+     */
+    computeTrend (name: string, range?: number[]): {
+        cancel: () => void
+        onEpochReady: (
+            callback: (signal: number[], epochIndex: number, totalEpochs: number) => void
+        ) => void
+        result: Promise<unknown>
+    }
 }
 /**
  * Template for constructing a biosignal montage.
@@ -1089,6 +1109,8 @@ export interface BiosignalResource extends DataResource {
     setup: BiosignalSetup | null
     /** Range of cached signals as [start (inclusive), end (exclusive)]. */
     signalCacheStatus: number[]
+    /** Trends registered on this recording, keyed by trend name. */
+    trends: { [name: string]: BiosignalTrend }
     /** Recording start time. */
     startTime: Date | null
     /** Subject properties for reference value calculation. */
@@ -1140,6 +1162,28 @@ export interface BiosignalResource extends DataResource {
      * @param interruptions - Map of new interruptions to add `<start data time, duration>`.
      */
     addInterruptions (interruptions: SignalInterruptionMap): void
+    /**
+     * Register a {@link BiosignalTrend} on this recording.
+     * Dispatches `property-change:trends`.
+     * @returns False if a trend with the same name already exists.
+     */
+    addTrend (trend: BiosignalTrend): boolean
+    /**
+     * Look up a registered trend by name.
+     * @returns The trend, or null if none is registered under that name.
+     */
+    getTrend (name: string): BiosignalTrend | null
+    /**
+     * Remove a registered trend, cancelling any ongoing computation.
+     * Dispatches `property-change:trends`.
+     * @returns False if no trend with that name exists.
+     */
+    removeTrend (name: string): boolean
+    /**
+     * Remove and cancel all registered trends.
+     * Dispatches `property-change:trends`.
+     */
+    removeAllTrends (): void
     /**
      * Add a set of new labels to this recording.
      *
@@ -1239,7 +1283,16 @@ export interface BiosignalResource extends DataResource {
      */
     hasVideoAt (time: number | [number, number]): boolean
     /**
-     * Release all buffers referenced by this resource.
+     * Level 1 of the three-level cache lifecycle: release the worker-side
+     * signal-array views and cancel in-flight caching, but keep the mutex
+     * layout (and the SAB allocation) intact so a subsequent reactivation can
+     * rebind cheaply via `BiosignalMutex.initSignalBuffers(..., overwrite=true)`.
+     */
+    releaseSignalArrays (): Promise<void>
+    /**
+     * Level 2 of the three-level cache lifecycle: drop the worker-side mutex
+     * entirely and free the SAB allocation from the memory manager. After this
+     * a fresh `setupMutex` round-trip is required to use the cache again.
      */
     releaseBuffers (): Promise<void>
     /**
@@ -1364,6 +1417,14 @@ export interface BiosignalTrend extends BaseAsset {
     label: string
     /** Sampling rate of this trend in Hz. */
     samplingRate: number
+    /** How far into the recording (in seconds) has been computed so far. */
+    computedUpToSec: number
+    /**
+     * For spectrogram trends: number of frequency bins per epoch.
+     * `signal[i * frequencyBins .. (i+1) * frequencyBins - 1]` is the power
+     * spectrum for epoch i. Undefined for other trend types.
+     */
+    frequencyBins?: number
     /** Computed trend signal. */
     signal: number[]
     /**
@@ -1372,20 +1433,42 @@ export interface BiosignalTrend extends BaseAsset {
     cancelTrendComputation: () => void
     /**
      * Compute the trend signal according to the derivation properties. Resolves when computation is complete.
+     * Only applicable to service-backed trends; a no-op for externally-loaded trends.
      * @emits trend-complete - Emitted from the class when trend computation is complete.
      * @emits trend-epoch - Emitted from the class after each trend epoch is computed.
      * @emits trend-error - Emitted from the class if an error or interruption occurs during trend computation.
      */
-    computeTrend (): Promise<unknown>
+    computeTrend (range?: number[]): Promise<unknown>
+    /**
+     * Load pre-computed signal data into this trend, bypassing the computation service.
+     * Replaces any existing signal data and emits `trend-complete`.
+     * Use this for trends whose values are computed externally (e.g. on the backend).
+     * @param signal      - Flat signal array in the layout expected by the trend's renderer.
+     * @param epochLength - Duration of each epoch in seconds.
+     */
+    loadSignal (signal: number[], epochLength: number): void
 }
 /** Definition of a biosignal trend derivation. */
 export type BiosignalTrendDerivation = {
-    /** Montage channel indices used as reference for this trend. */
+    /** Source channel indices in the recording's raw signal data (not montage channels). */
     referenceChannels: number[]
-    /** Montage channel indices used as source for this trend. */
+    /** Source channel indices in the recording's raw signal data (not montage channels). */
     sourceChannels: number[]
     /** Trend type. */
     type: BiosignalTrendType
+    /**
+     * When true the reference signal is replaced by the mean of ALL available input
+     * channels (Common Average Reference). `referenceChannels` is ignored.
+     * Useful for spectrograms where a single noisy reference electrode would
+     * otherwise contaminate all derivations referenced to it.
+     */
+    averageReference?: boolean
+    /**
+     * Homologous left/right channel pairs for trends that operate over a set of pairs
+     * (currently `'pdbsi'`). Each entry is `[leftIndex, rightIndex]` into the raw input
+     * signal arrays. Ignored by trend types that use `sourceChannels`/`referenceChannels`.
+     */
+    pairs?: [number, number][]
     /** Function applied to reference channels (e.g., averaging). */
     referenceFunction?: BiosignalTrendFunction
     /** Function applied to source channels (e.g., averaging). */
@@ -1401,11 +1484,19 @@ export type BiosignalTrendProperties = {
     downsamplingMethod: BiosignalDownsamplingMethod
     /** Length of each epoch in seconds. */
     epochLength: number
-    /** Sampling rate of the trend in Hz. */
+    /** Samples per data unit (equals Hz when the data unit is 1 second). */
     samplingRate: number
+    /** For spectrogram trends: upper frequency limit in Hz. */
+    maxFreqHz?: number
+    /** For `'ratio'` trends: numerator band `[hp, lp]` in Hz. */
+    numeratorBand?: [number, number]
+    /** For `'ratio'` trends: denominator band `[hp, lp]` in Hz. */
+    denominatorBand?: [number, number]
+    /** For `'pdbsi'` trends: single frequency band `[hp, lp]` in Hz used to integrate band power per electrode. */
+    band?: [number, number]
 }
 /** Type of biosignal trend derivation. */
-export type BiosignalTrendType = 'amplitude'
+export type BiosignalTrendType = 'amplitude' | 'pdbsi' | 'ratio' | 'spectrogram'
 /** Properties defining the position of a channel in the viewport. */
 export type ChannelPositionProperties = {
     /** Bottom edge position as a fraction of the viewport height. */
@@ -1495,18 +1586,6 @@ export interface MontageChannel extends BiosignalChannel, BaseAsset {
  * Commission types for a montage worker with the action name as key and property types as value.
  */
 export type MontageWorkerCommission = {
-    /** Cancel an ongoing trend computation. */
-    'cancel-trend-computation': WorkerMessage['data'] & {
-        /** Name of the trend to cancel. */
-        name: string
-    }
-    /** Compute the trend signal for the given range. */
-    'compute-trend': WorkerMessage['data'] & {
-        /** Name of the trend to compute. */
-        name: string
-        /** Range of the signal in seconds (defaults to whole signal). */
-        range?: number[]
-    }
     /** Get montage signals for the given range */
     'get-signals': WorkerMessage['data'] & {
         /** Signals range in seconds as [start (included), end (excluded)]. */
@@ -1522,6 +1601,11 @@ export type MontageWorkerCommission = {
     }
     /** Release the momery used by the cache in this montage. */
     'release-cache': WorkerMessage['data']
+    /** Level 1 of the three-level cache lifecycle: drop signal-array views and
+     *  cancel in-flight caching, but preserve the mutex layout (and the SAB
+     *  allocation, when one is in use). The worker stays ready to be cheaply
+     *  re-bound to a fresh buffer. */
+    'release-signal-arrays': WorkerMessage['data']
     /** Set interruptions in signal data. */
     'set-interruptions': WorkerMessage['data'] & {
         /** Array of data interruptions. */
@@ -1556,11 +1640,6 @@ export type MontageWorkerCommission = {
         /** Total recording duration in seconds. */
         recordingDuration: number
     }
-    /** Set up a trend calculation in the worker. */
-    'setup-trend': WorkerMessage['data'] & BiosignalTrendProperties & {
-        /** Name of the trend. */
-        name: string
-    }
     /** Set up the necessary properties; the worker should be ready to receive commissions after this. */
     'setup-worker': WorkerMessage['data'] & {
         /** Channel mapping configuration. */
@@ -1581,6 +1660,73 @@ export type MontageWorkerCommission = {
 }
 /** A valid commission action for a montage worker. */
 export type MontageWorkerCommissionAction = keyof MontageWorkerCommission
+
+/**
+ * Actions understood by the dedicated trend worker. The worker couples to the EDF reader's
+ * output SAB as an input-only reader and writes computed epoch data to its own output SAB.
+ */
+export type TrendWorkerCommission = {
+    /** Cancel an ongoing trend computation between epochs. */
+    'cancel-trend-computation': WorkerMessage['data'] & {
+        name: string
+    }
+    /** Compute the trend signal for the given data-unit range. */
+    'compute-trend': WorkerMessage['data'] & {
+        name: string
+        /** Optional `[start, end]` in data units (defaults to the entire recording). */
+        range?: number[]
+    }
+    /** Register a trend for computation in the worker. */
+    'setup-trend': WorkerMessage['data'] & BiosignalTrendProperties & {
+        name: string
+    }
+    /**
+     * Connect the worker to the EDF reader's output SAB and provide recording parameters.
+     * Must be the first commission sent after worker creation.
+     */
+    'setup-worker': WorkerMessage['data'] & {
+        /** Duration of actual signal data in seconds (no gaps). */
+        dataDuration: number
+        /** Interruptions in the recording as `{ start, duration }` in seconds. */
+        interruptions: { start: number, duration: number }[]
+        /** Export properties from the EDF reader's output mutex. */
+        input: MutexExportProperties
+        /** Total recording duration including gaps. */
+        recordingDuration: number
+        /**
+         * Clonable settings snapshot (`AppSettings._CLONABLE`) — same mechanism as the
+         * montage worker. The reactive proxy on the main thread cannot be transferred via
+         * postMessage; `_CLONABLE` is a plain object that structured-clone handles correctly.
+         * The `update-settings` action keeps this in sync when settings change at runtime.
+         */
+        settings: AppSettings
+        /**
+         * Per-channel modality strings (e.g. `'eeg'`, `'ekg'`, `'eog'`, `'annotation'`),
+         * indexed identically to the SAB input signal array. Optional for backward
+         * compatibility — when absent, Common Average Reference computation falls back
+         * to averaging every channel (the previous behaviour, which can be polluted by
+         * a single high-amplitude non-EEG channel).
+         */
+        signalModalities?: string[]
+    }
+    /**
+     * Forward interruptions to the processor. Send after signal caching completes so the
+     * processor can skip gap epochs and map recording time → data time correctly.
+     * The map is serialized as `[dataTimeStart, duration][]` for postMessage compatibility.
+     */
+    'set-interruptions': WorkerMessage['data'] & {
+        interruptions: [number, number][]
+    }
+    /** Shut the worker down cleanly. */
+    'shutdown': WorkerMessage['data']
+    /** Relay updated global settings to the processor (same mechanism as the montage worker). */
+    'update-settings': WorkerMessage['data'] & {
+        settings: AppSettings
+    }
+}
+/** A valid commission action for the trend worker. */
+export type TrendWorkerCommissionAction = keyof TrendWorkerCommission
+
 /**
  * Response sent after a request to release cache buffers.
  */

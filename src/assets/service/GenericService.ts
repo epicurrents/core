@@ -539,6 +539,16 @@ export default abstract class GenericService extends GenericAsset implements Ass
         }
     }
 
+    async releaseSignalArrays () {
+        // Level 1 of the three-level cache lifecycle. Drops worker-side signal
+        // array views and cancels in-flight caching processes but preserves the
+        // mutex layout AND the SAB allocation, so a subsequent reactivation
+        // can rebind the same buffer cheaply. Independent of {@link unload}
+        // (Level 2), which additionally frees from the memory manager.
+        const commission = this._commissionWorker('release-signal-arrays')
+        await commission.promise
+    }
+
     async unload (releaseFromManager = true) {
         // Re-entrancy guard: if an unload is already in flight, await the existing promise.
         // The first caller's `releaseFromManager` flag wins — typically the resource's own

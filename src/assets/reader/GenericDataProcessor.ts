@@ -103,7 +103,13 @@ export default abstract class GenericDataProcessor implements DataProcessorCache
         Log.debug(`Data processor destroyed.`, SCOPE)
     }
 
+    /**
+     * Level 2: full cache teardown — performs Level 1 first, then drops the
+     * mutex reference entirely. After this, `setupCache` must be re-run before
+     * the cache can be used again.
+     */
     async releaseCache () {
+        await this.releaseSignalArrays()
         this._cache?.releaseBuffers()
         if (this._mutex) {
             this._mutex = null
@@ -111,6 +117,22 @@ export default abstract class GenericDataProcessor implements DataProcessorCache
             this._fallbackCache = null
         }
         Log.debug(`Data cache released.`, SCOPE)
+    }
+
+    /**
+     * Level 1 of the three-level cache lifecycle: release the mutex's
+     * signal-array views while preserving its layout (so the same mutex shell
+     * can be cheaply rebound to a fresh buffer). Subclasses with in-flight
+     * caching processes should override this to cancel them first; the base
+     * implementation just delegates to the mutex.
+     */
+    async releaseSignalArrays () {
+        // Only meaningful on the SAB path — a fallback cache is a plain JS
+        // object with no buffer-views distinction between Level 1 and Level 2.
+        if (this._mutex && typeof (this._mutex as { releaseSignalArrays?: () => void }).releaseSignalArrays === 'function') {
+            (this._mutex as unknown as { releaseSignalArrays: () => void }).releaseSignalArrays()
+        }
+        Log.debug(`Signal arrays released.`, SCOPE)
     }
 
     setupCache (_bufferSize?: number): SignalDataCache | null {

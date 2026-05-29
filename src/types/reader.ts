@@ -125,7 +125,20 @@ export interface DataProcessorCache {
      */
     destroy (): void | Promise<void>
     /**
-     * Release allocated buffers and return to initial state.
+     * Level 1 of the three-level cache lifecycle: stop in-flight caching
+     * processes, reset cache status, and release the mutex's signal-array
+     * views — but preserve the mutex's layout (field definitions, data array
+     * positions) so it can be cheaply rebound to a fresh buffer via
+     * `initSignalBuffers(..., overwrite=true)`. Use when the caller intends
+     * to re-allocate the SAB and re-activate the resource.
+     * @returns Promise that resolves when signal arrays are released.
+     */
+    releaseSignalArrays (): Promise<void>
+    /**
+     * Level 2 of the three-level cache lifecycle: full mutex teardown plus
+     * the actions of {@link releaseSignalArrays}. After this, the mutex
+     * reference is dropped and a fresh `setupCache` is required to use the
+     * cache again. Use when the cache backend or channel layout changes.
      * @returns Promise that resolves when the cache has been released.
      */
     releaseCache (): Promise<void>

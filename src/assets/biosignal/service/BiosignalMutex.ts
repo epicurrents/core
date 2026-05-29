@@ -20,8 +20,28 @@ import { Log } from 'scoped-event-log'
 const SCOPE = 'BiosignalMutex'
 
 /**
- * TODO: This class is missing type definitions!
+ * Options for constructing a BiosignalMutex. Exactly one input-source variant must be used;
+ * the three source keys are mutually exclusive (enforced via the discriminated union).
+ *
+ * - No source keys → standalone output mutex (the EDF reader uses this).
+ * - `coupledMutex`  → couple to an existing IOMutex on the same thread.
+ * - `coupledProps`  → couple to a mutex via its exported properties (cross-worker).
+ * - `inputBuffer`   → low-level: raw SAB + optional start offset.
+ *
+ * `inputOnly` suppresses output data-field registration so `_outputData` stays null.
+ * Use this for read-only consumers (e.g. the montage worker) that derive signals from
+ * the input buffer and post results back to the main thread without caching to the SAB.
  */
+export type BiosignalMutexOptions =
+    (
+        | { coupledMutex: IOMutex;               coupledProps?: never; inputBuffer?: never; inputStart?: never }
+        | { coupledProps: MutexExportProperties;  coupledMutex?: never; inputBuffer?: never; inputStart?: never }
+        | { inputBuffer: SharedArrayBuffer; inputStart?: number; coupledMutex?: never; coupledProps?: never }
+        | { coupledMutex?: never; coupledProps?: never; inputBuffer?: never; inputStart?: never }
+    ) & {
+        /** Skip output data fields — makes this a read-only consumer with _outputData = null. */
+        inputOnly?: boolean
+    }
 
 export default class BiosignalMutex extends IOMutex implements SignalCacheMutex {
 
@@ -51,6 +71,15 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     static readonly RANGE_START_NAME = 'start'
     /** Array index of the signal range start value. */
     static readonly RANGE_START_POS = 1
+    /**
+     * Duration of one data unit in milliseconds (Int32, always a whole number).
+     * All range values (RANGE_ALLOCATED, RANGE_START, RANGE_END) are stored as data-unit counts;
+     * multiply by this value ÷ 1000 to obtain seconds.
+     * Default 1000 ms = 1 second preserves backward compatibility with existing biosignal data.
+     */
+    static readonly DATA_UNIT_DURATION_LENGTH = 1
+    static readonly DATA_UNIT_DURATION_NAME = 'data_unit_duration'
+    static readonly DATA_UNIT_DURATION_POS = 3
 
     // Signal meta fields
     /** Name of the signal data field. */
@@ -59,7 +88,10 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     static readonly SIGNAL_DATA_POS = 3
     /** Length of the signal sampling rate value. */
     static readonly SIGNAL_SAMPLING_RATE_LENGTH = 1
-    /** Name of the signal sampling rate field. */
+    /**
+     * Samples per data unit. When the data unit is 1 second (the default) this equals Hz;
+     * for other data units (e.g. epochs) it equals samples per epoch.
+     */
     static readonly SIGNAL_SAMPLING_RATE_NAME = 'sampling_rate'
     /** Array index of the signal sampling rate value. */
     static readonly SIGNAL_SAMPLING_RATE_POS = 0
@@ -114,13 +146,18 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
      * @param inputBuffer - SharedArrayBuffer to use as input buffer (optional, ignored if coupledMutex or coupledProps are provided).
      * @param inputStart - Starting index (32-bit) of the input mutex data within its buffer (optional, default 0).
      */
-    constructor (
-        coupledMutex?: IOMutex,
-        coupledProps?: MutexExportProperties,
-        inputBuffer?: SharedArrayBuffer,
-        inputStart?: number
-    ) {
-        // Data fields to accompany each data array.
+    constructor ({
+        coupledMutex,
+        coupledProps,
+        inputBuffer,
+        inputStart,
+        inputOnly = false,
+    }: BiosignalMutexOptions = {}) {
+        // Per-signal data fields. Always passed to super() so IOMutex calls setDataFields and
+        // sets _outputDataFieldsLen = 3 — required for _getSignals(INPUT) to correctly skip the
+        // 3-element field header (sampling_rate, updated_start, updated_end) at the start of each
+        // input data view. For inputOnly mutexes _outputData is then nulled out after super() so
+        // that all output-side guards (!this._outputData) fire correctly.
         const dataFields = [{
             constructor: Float32Array,
             name: BiosignalMutex.SIGNAL_SAMPLING_RATE_NAME,
@@ -137,24 +174,26 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             length: BiosignalMutex.SIGNAL_UPDATED_END_LENGTH,
             position: BiosignalMutex.SIGNAL_UPDATED_END_POS,
         }]
-        // Common meta fields for the recording.
         const metaFields = [{
             constructor: Int32Array,
             name: BiosignalMutex.RANGE_ALLOCATED_NAME,
             length: BiosignalMutex.RANGE_ALLOCATED_LENGTH,
             position: BiosignalMutex.RANGE_ALLOCATED_POS,
-        },
-        {
+        },{
             constructor: Int32Array,
             name: BiosignalMutex.RANGE_END_NAME,
             length: BiosignalMutex.RANGE_END_LENGTH,
             position: BiosignalMutex.RANGE_END_POS,
-        },
-        {
+        },{
             constructor: Int32Array,
             name: BiosignalMutex.RANGE_START_NAME,
             length: BiosignalMutex.RANGE_START_LENGTH,
             position: BiosignalMutex.RANGE_START_POS,
+        },{
+            constructor: Int32Array,
+            name: BiosignalMutex.DATA_UNIT_DURATION_NAME,
+            length: BiosignalMutex.DATA_UNIT_DURATION_LENGTH,
+            position: BiosignalMutex.DATA_UNIT_DURATION_POS,
         }]
         if (coupledProps) {
             const nameToConstr = (name: string) => {
@@ -162,15 +201,11 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     return name
                 }
                 switch (name) {
-                    case 'Float32Array': {
-                        return Float32Array
-                    }
-                    default: {
-                        return Int32Array
-                    }
+                    case 'Float32Array': return Float32Array
+                    default:            return Int32Array
                 }
             }
-            // Reverse the constructor to string conversion in propertiesForCoupling.
+            // Reverse the constructor→string conversion applied by convertPropertiesForCoupling.
             if (coupledProps.data) {
                 for (const array of coupledProps.data.arrays) {
                     // @_ts-expect-error: Transfer property between threads.
@@ -187,15 +222,13 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             }
         }
         super(
-            // Store allocated signal length and buffered signal start and end.
             metaFields,
             dataFields,
             coupledMutex ? coupledMutex.propertiesForCoupling
             : coupledProps ? coupledProps
             : inputBuffer ? {
                 buffer: inputBuffer,
-                bufferStart: inputStart || 0,
-                // Default signal mutex metadata fields.
+                bufferStart: inputStart ?? 0,
                 data: {
                     arrays: [],
                     buffer: null,
@@ -206,16 +239,17 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 meta: {
                     buffer: null,
                     fields: metaFields,
-                    length: 3,
+                    length: 4,
                     position: IOMutex.UNASSIGNED_VALUE,
                     view: null,
-                }
+                },
             } : undefined
         )
-        // We can have either a reference Mutex or individual buffers; reference Mutex take precedence.
-        if (coupledMutex && inputBuffer) {
-            Log.warn(`Received both a reference mutex and separate buffers in constructor; ` +
-                     `separate buffers will be ignored.`, SCOPE)
+        if (inputOnly) {
+            // _outputDataFieldsLen was set to 3 by setDataFields above (needed so _getSignals
+            // correctly skips the 3-element field header in input data views). Null _outputData
+            // now to activate all output-side guards — this mutex never writes to the SAB.
+            this._outputData = null
         }
     }
 
@@ -319,22 +353,49 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         })
     }
 
+    /** True when this mutex has an output buffer (i.e. was not constructed with `inputOnly`). */
+    get hasOutputBuffer (): boolean {
+        return this._outputData != null
+    }
+
     get outputRangeAllocated (): Promise<number | null> {
+        if (!this._outputData) {
+            return Promise.resolve(null)
+        }
         return this._getRangeAllocated(IOMutex.MUTEX_SCOPE.OUTPUT).then((result) => {
             return result ? (result.data as Float32Array)[0] : result
         })
     }
 
     get outputRangeEnd (): Promise<number | null> {
+        if (!this._outputData) {
+            return Promise.resolve(null)
+        }
         return this._getRangeEnd(IOMutex.MUTEX_SCOPE.OUTPUT).then((result) => {
             return result ? (result.data as Float32Array)[0] : result
         })
     }
 
     get outputRangeStart (): Promise<number | null> {
+        if (!this._outputData) {
+            return Promise.resolve(null)
+        }
         return this._getRangeStart(IOMutex.MUTEX_SCOPE.OUTPUT).then((result) => {
             return result ? (result.data as Float32Array)[0] : result
         })
+    }
+
+    /**
+     * Duration of one data unit in milliseconds, as stored in the SAB.
+     * Returns null when no output buffer has been initialised.
+     * Divide by 1000 to obtain seconds. Default 1000 means one data unit = one second.
+     */
+    get dataUnitDurationMs (): Promise<number | null> {
+        if (!this._outputData) {
+            return Promise.resolve(null)
+        }
+        return this._getMetaFieldValue(IOMutex.MUTEX_SCOPE.OUTPUT, BiosignalMutex.DATA_UNIT_DURATION_NAME)
+            .then((result) => result ? (result as Int32Array)[0] : null)
     }
 
     get inputSignalProperties (): Promise<{ [field: string]: number }[] | null> {
@@ -693,10 +754,14 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         cacheProps: SignalCachePart,
         dataLength: number,
         buffer: SharedArrayBuffer,
-        bufferStart = 0
+        bufferStart = 0,
+        dataUnitDurationMs = 1000,
+        overwrite = false,
     ) {
-        // Check that signals haven't already been initialized.
-        if (this._outputData?.buffer) {
+        // Check that signals haven't already been initialized — unless the caller
+        // explicitly asked to overwrite, in which case the existing data array
+        // layout is preserved and only the buffer-backed views are rebuilt.
+        if (this._outputData?.buffer && !overwrite) {
             Log.error(`Attempted to initialize signal buffers that had already been initialized!`, SCOPE)
             return
         }
@@ -707,20 +772,30 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             Log.error(`Cannot initialize mutex buffers, master buffer did not become available.`, SCOPE)
             return
         }
-        // Initialize the buffer.
-        this.initialize(buffer, bufferStart)
-        Log.debug(`Initializing signal buffers for ${cacheProps.signals.length} signals.`, SCOPE)
-        this.setDataArrays(
-            cacheProps.signals.map(s => {
-                return { constructor: Float32Array, length: Math.floor(s.samplingRate*dataLength) }
-            })
-        )
+        // Initialize the buffer. On the overwrite path the IOMutex re-binds its
+        // lock + meta views to the new buffer; data array views need a separate
+        // pass via `rebuildDataArrayViews` because they sit outside the meta region.
+        this.initialize(buffer, bufferStart, overwrite)
+        if (overwrite) {
+            Log.debug(`Rebinding ${this._outputData?.arrays.length ?? 0} signal buffer views over a new buffer.`, SCOPE)
+            this.rebuildDataArrayViews()
+        } else {
+            Log.debug(`Initializing signal buffers for ${cacheProps.signals.length} signals.`, SCOPE)
+            this.setDataArrays(
+                cacheProps.signals.map(s => {
+                    return { constructor: Float32Array, length: Math.floor(s.samplingRate*dataLength) }
+                })
+            )
+        }
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, () => {
             // Set meta values (we can use the same write lock to reduce operations).
             this._setOutputMetaFieldValue(BiosignalMutex.RANGE_ALLOCATED_NAME, dataLength)
             // Set initial range start and end according to given parameters.
             this._setOutputMetaFieldValue(BiosignalMutex.RANGE_START_NAME, cacheProps.start)
             this._setOutputMetaFieldValue(BiosignalMutex.RANGE_END_NAME, cacheProps.start + dataLength)
+            // Data-unit duration in milliseconds — allows range values to be interpreted correctly
+            // without external context. Default 1000 ms = 1 second preserves existing behaviour.
+            this._setOutputMetaFieldValue(BiosignalMutex.DATA_UNIT_DURATION_NAME, dataUnitDurationMs)
             /*
             // Determine the amount of memory available for cached signals
             let totalBytesForSecond = 0
@@ -754,6 +829,9 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     async insertSignals (signalPart: SignalCachePart) {
+        if (!this._outputData) {
+            return
+        }
         if (signalPart.signals.length !== this._outputData?.arrays.length) {
             // Number of signals don't match.
             Log.error(`Number of inserted signals doesn't match number of buffered signals ` +
@@ -839,6 +917,9 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     async invalidateOutputSignals (channels?: number[]) {
+        if (!this._outputData) {
+            return
+        }
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, BiosignalMutex.OPERATION_MODE.WRITE, () => {
             for (let i=0; i<(this._outputData?.fields || []).length; i++) {
                 if (channels && channels.indexOf(i) === -1) {
@@ -862,6 +943,26 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             }
         })
         return sigs
+    }
+
+    /**
+     * Release the signal arrays' backing views and unbind the buffer, while
+     * preserving the output data array layout and meta field definitions so the
+     * mutex can be cheaply rebound to a fresh buffer via
+     * `initSignalBuffers(..., overwrite=true)`. Level 1 of the three-level cache
+     * lifecycle.
+     *
+     * Does not touch input-side state — the caller is responsible for
+     * re-coupling input-side mutexes (in other workers) when this mutex's
+     * buffer is replaced. Use {@link releaseBuffers} (Level 2) when the mutex
+     * should be torn down completely.
+     */
+    releaseSignalArrays () {
+        this.releaseOutputBufferViews()
+        // _bufferLock is a private view into the master lock region of the old
+        // buffer; null it so the next `initSignalBuffers` re-derives it from the
+        // newly bound buffer.
+        this._bufferLock = null as unknown as Int32Array
     }
 
     async setSignalRange (rangeStart: number, rangeEnd: number) {

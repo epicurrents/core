@@ -97,6 +97,16 @@ export interface AssetService extends BaseAsset {
      */
     shutdown (): Promise<void>
     /**
+     * Level 1 of the three-level cache lifecycle: tell the worker to cancel
+     * in-flight caching processes and release the mutex's signal-array views,
+     * while preserving the mutex layout. The SAB allocation is NOT freed
+     * (that's Level 2's `unload`), so a subsequent reactivation can rebind
+     * the existing mutex shell cheaply via `initSignalBuffers(...,
+     * overwrite=true)` over a fresh buffer.
+     * @return Promise that fulfills once the worker acknowledges the release.
+     */
+    releaseSignalArrays (): Promise<void>
+    /**
      * Unload the asset, releasing any allocated memory.
      * @param releaseFromManager - Should the asset be removed from the memory manager as well (default true).
      * @return Promise that fulfills when unloading is complete.
@@ -431,6 +441,14 @@ export type SignalCacheProcess = {
     start: number
     /** End time of LOADED data in recording. */
     end: number
+    /** The currently in-flight `_readAndCachePart`-plus-yield promise, or `null`
+     *  when the loop is idle (between chunks or finished).  Tracked so that
+     *  `releaseSignalArrays()` can `await` the in-flight chunk before clearing
+     *  the process list — that drain is what guarantees no `cache-signals`
+     *  progress message is posted *after* the release ack reaches the main
+     *  thread, which is what lets the resource skip the defensive
+     *  `signalCacheStatus = [0, 0]` reset on reactivation. */
+    inFlightRead: Promise<number> | null
     /** Just for compatibility with SignalCachePart type, not supposed to contain anything. */
     signals: never[],
     /** Target start and end times of the loading process. */

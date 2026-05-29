@@ -223,4 +223,79 @@ describe('GenericSignalReader', () => {
             expect(Log.error).toHaveBeenCalled()
         })
     })
+
+    // Cross-activation race regression tests. The drain in `releaseSignalArrays`
+    // and the cascade from `releaseCache` are documented in CLAUDE.md under
+    // "Three-level cache lifecycle" — removing or reordering them reintroduces
+    // the "stale cache-signals progress message after release ack" race that
+    // broke reactivation. These tests pin the observable invariants so a future
+    // refactor can't silently undo the fix.
+    describe('releaseSignalArrays (Level 1)', () => {
+        // Helper: a TestSignalReader with `_cacheProcesses` directly accessible
+        // so we can stage in-flight reads without the full cacheSignals harness.
+        class CacheTestReader extends TestSignalReader {
+            get testCacheProcesses () { return (this as any)._cacheProcesses as any[] }
+            pushProc (proc: any) { (this as any)._cacheProcesses.push(proc) }
+        }
+
+        it('cancels all in-progress caching loops (sets proc.continue=false)', async () => {
+            const reader = new CacheTestReader()
+            const procs = [
+                { continue: true, inFlightRead: null },
+                { continue: true, inFlightRead: null },
+                { continue: true, inFlightRead: null },
+            ]
+            procs.forEach(p => reader.pushProc(p))
+            await reader.releaseSignalArrays()
+            for (const p of procs) {
+                expect(p.continue).toBe(false)
+            }
+        })
+
+        it('clears _cacheProcesses after release', async () => {
+            const reader = new CacheTestReader()
+            reader.pushProc({ continue: true, inFlightRead: null })
+            reader.pushProc({ continue: true, inFlightRead: null })
+            expect(reader.testCacheProcesses.length).toBe(2)
+            await reader.releaseSignalArrays()
+            expect(reader.testCacheProcesses.length).toBe(0)
+        })
+
+        it('awaits any in-flight chunk read before resolving (drain invariant)', async () => {
+            const reader = new CacheTestReader()
+            // Construct a deferred to act as the currently-running _readAndCachePart chunk.
+            let resolveChunk!: (v: number) => void
+            const inFlightRead = new Promise<number>(resolve => { resolveChunk = resolve })
+            reader.pushProc({ continue: true, inFlightRead })
+
+            // Start the release — should NOT resolve until the in-flight chunk resolves.
+            let released = false
+            const releasePromise = reader.releaseSignalArrays().then(() => { released = true })
+
+            // Yield enough microtasks that any synchronous resolution would have flipped `released`.
+            await Promise.resolve()
+            await Promise.resolve()
+            expect(released).toBe(false)
+
+            // Resolve the in-flight chunk — release should now complete.
+            resolveChunk(42)
+            await releasePromise
+            expect(released).toBe(true)
+            // And the process list should be cleared.
+            expect(reader.testCacheProcesses.length).toBe(0)
+        })
+    })
+
+    describe('releaseCache (Level 2) cascades to Level 1', () => {
+        it('calls releaseSignalArrays before tearing down the cache', async () => {
+            const reader = new TestSignalReader()
+            reader.setupCache(100)
+            // Spy on the Level 1 method; releaseCache must invoke it.
+            const level1Spy = vi.spyOn(reader, 'releaseSignalArrays')
+            await reader.releaseCache()
+            expect(level1Spy).toHaveBeenCalled()
+            // And the cache is gone afterwards (full Level 2 teardown).
+            expect(reader.cacheReady).toBe(false)
+        })
+    })
 })

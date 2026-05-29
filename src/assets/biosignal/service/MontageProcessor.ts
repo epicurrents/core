@@ -40,7 +40,7 @@ import type {
     ConfigMapChannels,
 } from '#types/config'
 import type { SignalDataReader } from '#types/reader'
-import type { SignalCachePart } from '#types/service'
+import type { SignalCacheMutex, SignalCachePart } from '#types/service'
 
 import { Log } from 'scoped-event-log'
 import type { MutexExportProperties } from 'asymmetric-io-mutex'
@@ -167,6 +167,63 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 if (config.exclude.indexOf(i) === -1) {
                     channels.push(this._channels[i])
                 }
+            }
+        }
+        // Phase C v3 diagnostic probe (non-invasive): read `inputSignalUpdatedRanges` exactly once
+        // per request, log when the requested range exceeds the per-channel loaded subrange. Does
+        // NOT change behaviour — still falls through to the normal read path so whatever was in the
+        // SAB (including zeros for not-yet-loaded blocks) ends up in the result. The point is to
+        // measure how often this happens with the current prefetch + slide-serialisation setup, so
+        // we can decide whether the "skip render on miss" fix is needed at all. Remove or gate
+        // behind a debug flag once we have the diagnostic data.
+        const inputUpdatedRangesGetter = this._cache.inputSignalUpdatedRanges
+        if (inputUpdatedRangesGetter) {
+            const samplingRatesAsync = (this._cache as SignalCacheMutex).inputSignalSamplingRates
+            const [updated, samplingRates] = await Promise.all([
+                Promise.all(inputUpdatedRangesGetter),
+                Promise.all(samplingRatesAsync),
+            ])
+            const requiredInputChannels = new Set<number>()
+            for (const chan of channels) {
+                if (Array.isArray(chan.active)) {
+                    for (const a of chan.active) {
+                        requiredInputChannels.add(Array.isArray(a) ? a[0] : a)
+                    }
+                } else if (typeof chan.active === 'number' && chan.active >= 0) {
+                    requiredInputChannels.add(chan.active)
+                }
+                for (const r of chan.reference) {
+                    requiredInputChannels.add(Array.isArray(r) ? r[0] : r)
+                }
+            }
+            let firstMiss: { idx: number, reqStart: number, reqEnd: number, updStart: number, updEnd: number } | null = null
+            for (const idx of requiredInputChannels) {
+                const sr = samplingRates[idx]
+                if (!sr || sr <= 0) {
+                    continue
+                }
+                const reqStart = Math.floor(relStart*sr)
+                const reqEnd = Math.ceil(relEnd*sr)
+                const upd = updated[idx]
+                if (!upd || upd.start > reqStart || upd.end < reqEnd) {
+                    firstMiss = {
+                        idx,
+                        reqStart,
+                        reqEnd,
+                        updStart: upd?.start ?? NaN,
+                        updEnd: upd?.end ?? NaN,
+                    }
+                    break
+                }
+            }
+            if (firstMiss) {
+                Log.info(
+                    `[cache-miss-probe] relStart=${relStart.toFixed(2)}s relEnd=${relEnd.toFixed(2)}s ` +
+                    `firstMiss=ch${firstMiss.idx} reqRange=[${firstMiss.reqStart},${firstMiss.reqEnd}] ` +
+                    `loadedRange=[${firstMiss.updStart},${firstMiss.updEnd}] ` +
+                    `skipFilters=${config?.skipFilters ?? false}`,
+                    SCOPE
+                )
             }
         }
         // Get the input signals
@@ -629,13 +686,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             return null
         }
         let requestedSigs: SignalCachePart | null = null
-        const cacheStart = await this._cache.outputRangeStart
-        const cacheEnd = await this._cache.outputRangeEnd
-        if (cacheStart === null || cacheEnd === null) {
-            Log.error(`Loading signals for range [${range[0]}, ${range[1]}] failed.`, SCOPE)
-            return null
-        }
-        // If pre-caching is enabled, check the cache for existing signals for this range.
+        // If pre-caching is enabled, check whether the requested range is already in the cache.
         const updated = this._settings.precacheMontages && await this.getSignalUpdatedRange()
         if (!updated || updated.start === NUMERIC_ERROR_VALUE ||  updated.start > range[0] || updated.end < range[1]) {
             // Retrieve missing signals (result channels will be filtered according to include/exclude).
@@ -645,7 +696,13 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 return null
             }
         } else {
-            // Use cached signals.
+            // Use cached signals — only reached when precacheMontages is enabled.
+            const cacheStart = await this._cache.outputRangeStart
+            const cacheEnd = await this._cache.outputRangeEnd
+            if (cacheStart === null || cacheEnd === null) {
+                Log.error(`Loading signals for range [${range[0]}, ${range[1]}] failed.`, SCOPE)
+                return null
+            }
             requestedSigs = (await this._cache.asCachePart()) as SignalCachePart
             // Filter channels, if needed.
             if (config?.include?.length || config?.exclude?.length) {
@@ -889,16 +946,19 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             this._interruptions.set(intr.start, intr.duration)
         }
         // Use input mutex properties as read buffers.
-        this._mutex = new BiosignalMutex(
-                undefined,
-                input
+        // When precacheMontages is disabled the mutex runs in input-only mode: no output data
+        // fields are registered (inputOnly=true keeps _outputData null) so all output-side
+        // operations short-circuit at the !_outputData guard without touching the SAB.
+        const inputOnly = !this._settings.precacheMontages
+        this._mutex = new BiosignalMutex({ coupledProps: input, inputOnly })
+        if (!inputOnly) {
+            await this._mutex.initSignalBuffers(
+                cacheProps,
+                dataDuration,
+                input.buffer,
+                bufferStart
             )
-        await this._mutex.initSignalBuffers(
-            cacheProps,
-            this._settings.precacheMontages ? dataDuration : 0, // Montage pre-caching is not implemented yet.
-            input.buffer,
-            bufferStart
-        )
+        }
         this._isMutexReady = true
         Log.debug(`Mutex cache setup complete.`, SCOPE)
         return this._mutex.propertiesForCoupling

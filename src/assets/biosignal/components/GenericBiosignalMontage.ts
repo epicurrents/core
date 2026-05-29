@@ -317,6 +317,15 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         await this._service?.unload(config?.removeFromManager)
     }
 
+    /**
+     * Level 1 of the three-level cache lifecycle. Delegates to the service's
+     * own Level 1 path, which keeps the montage worker's mutex coupling intact
+     * but drops in-flight caching state and the signal-array views.
+     */
+    async releaseSignalArrays () {
+        await this._service?.releaseSignalArrays()
+    }
+
     removeHighlightContext (name: string) {
         if (!this._highlights.has(name)) {
             Log.error(`Could not find highlight context ${name}.`, SCOPE)

@@ -579,6 +579,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     direction: GenericSignalReader.READ_DIRECTION_FORWARD,
                     start: part.start,
                     end: part.start,
+                    inFlightRead: null,
                     signals: [],
                     target: part
                 } as SignalCacheProcess
@@ -600,10 +601,15 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                         proc.end = nextPart*this._dataUnitDuration
                         break
                     }
-                    nextPart = await awaitThenSleep(
+                    // Expose the in-flight chunk on the process so `releaseSignalArrays`
+                    // can await it before clearing the process list — that drain is what
+                    // makes the release "no stale message can land after the ack" race-free.
+                    proc.inFlightRead = awaitThenSleep(
                         this._readAndCachePart(nextPart, proc),
                         yieldMs,
                     )
+                    nextPart = await proc.inFlightRead
+                    proc.inFlightRead = null
                     proc.end = nextPart*this._dataUnitDuration
                 }
             }
@@ -638,6 +644,40 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             return await this._slideToBlock(viewBlock)
         }
         return true
+    }
+
+    /**
+     * Level 1 of the three-level cache lifecycle, signal-reader flavour.
+     * Cancels in-flight caching processes (so async `_readAndCachePart` calls
+     * that are awaiting between yields don't resume and write into the
+     * about-to-be-rebound mutex), clears the process list, and hands off to
+     * the mutex to release its array views while preserving layout.
+     *
+     * The previous behaviour folded this work into `releaseCache` (Level 2)
+     * as a band-aid against the race; promoting it to its own Level keeps the
+     * cleanup synchronous and pre-release, and lets callers that intend to
+     * reuse the mutex shell (re-activation path) avoid the full Level 2
+     * teardown.
+     */
+    async releaseSignalArrays () {
+        // Signal every running loop to exit at its next iteration.
+        for (const proc of this._cacheProcesses) {
+            proc.continue = false
+        }
+        // CRITICAL: drain any in-flight `_readAndCachePart` chunks before
+        // proceeding. `proc.continue = false` only stops the loop at its NEXT
+        // iteration check — the currently-running chunk will still complete and
+        // post its `cache-signals` progress message. If we cleared the process
+        // list and let the release ack reach the main thread before that final
+        // message did, the receiver-side `signalCacheStatus = [0, 0]` reset on
+        // reactivation would have to defend against a stale message arriving
+        // late (the Session 2026-05-18 band-aid). Awaiting the in-flight read
+        // here guarantees postMessage ordering: every progress message lands on
+        // the main thread *before* the release ack, so no defensive reset is
+        // needed downstream.
+        await Promise.all(this._cacheProcesses.map(p => p.inFlightRead ?? Promise.resolve()))
+        this._cacheProcesses.length = 0
+        await super.releaseSignalArrays()
     }
 
     async destroy () {
@@ -904,6 +944,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 )
             }
         }
+        // TODO: Remove once rolling window cache is implemented.
         Log.info(
             `Partitioned recording into ${totalBlocks} block(s) of ${recordsPerBlock} record(s) ` +
             `(${blockSeconds.toFixed(1)} s each, ideal=${idealBlockDuration}s cap=${blockDurationCap}s); ` +
@@ -1052,6 +1093,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         const blocksToLoadCount = this._dataBlocks
             .slice(firstIdx, secondIdx + 1)
             .filter(b => !b.loaded).length
+        // TODO: Remove once rolling window cache is implemented.
         Log.info(
             `_slideToBlock(center=${centerIdx}): window=[${firstIdx},${secondIdx}] ` +
             `range=[${rangeStart},${rangeEnd}]s blocksToLoad=${blocksToLoadCount}`,

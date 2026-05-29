@@ -88,6 +88,11 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 Log.debug(`Cache released.`, SCOPE)
                 return this.returnSuccess(message)
             }
+            case 'release-signal-arrays': {
+                await this._montage?.releaseSignalArrays()
+                Log.debug(`Signal arrays released.`, SCOPE)
+                return this.returnSuccess(message)
+            }
             case 'set-filters': {
                 const data = validateCommissionProps(
                     message,

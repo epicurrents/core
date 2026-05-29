@@ -146,5 +146,42 @@ describe('MontageWorkerSubstitute', () => {
             await substitute.postMessage({ action: 'get-signals', rn: 1, range: [0, 10] } as any)
             // validateCommissionProps returns null when montage not ready
         })
+
+        // The 'release-signal-arrays' commission (Level 1 of the cache lifecycle —
+        // see CLAUDE.md "Worker commission design — three places to keep in sync")
+        // was added in 2026-05 alongside the real montage worker. The substitute
+        // dispatch is hand-maintained separately from the real worker's action
+        // map, so this regression pins the contract: when the substitute receives
+        // the action, it forwards to the processor and returns success. Forgetting
+        // to mirror new actions across the worker/substitute split is the
+        // documented hazard that bit the initial aEEG landing.
+        it('should handle release-signal-arrays action', async () => {
+            const release = vi.fn().mockResolvedValue(undefined)
+            ;(substitute as any)._montage = { releaseSignalArrays: release }
+            const listener = vi.fn()
+            substitute.addEventListener('message', listener)
+            await substitute.postMessage({ action: 'release-signal-arrays', rn: 7 } as any)
+            expect(release).toHaveBeenCalledTimes(1)
+            // The success reply carries the original rn so the caller can correlate.
+            const reply = listener.mock.calls.find(
+                ([ev]) => (ev as MessageEvent).data?.rn === 7
+            )?.[0] as MessageEvent | undefined
+            expect(reply).toBeDefined()
+            expect(reply!.data.success).toBe(true)
+        })
+
+        it('release-signal-arrays still returns success when no montage exists', async () => {
+            // Pre-setup posting must not throw — the substitute uses `?.` and
+            // returns success regardless. Without this, an early or stray
+            // release-signal-arrays during setup would crash the harness.
+            const listener = vi.fn()
+            substitute.addEventListener('message', listener)
+            await substitute.postMessage({ action: 'release-signal-arrays', rn: 8 } as any)
+            const reply = listener.mock.calls.find(
+                ([ev]) => (ev as MessageEvent).data?.rn === 8
+            )?.[0] as MessageEvent | undefined
+            expect(reply).toBeDefined()
+            expect(reply!.data.success).toBe(true)
+        })
     })
 })
