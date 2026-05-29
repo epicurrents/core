@@ -6,14 +6,24 @@ const ASSET_PATH = process.env.ASSET_PATH || '/epicurrents/'
 module.exports = {
     mode: 'production',
     entry: {
-        'epicurrents': { import: path.join(__dirname, 'src', 'index.ts') },
+        'epicurrents':       { import: path.join(__dirname, 'src', 'index.ts') },
+        'montage.worker':    { import: path.join(__dirname, 'src', 'workers', 'montage.worker.ts') },
+        'memory-manager.worker': { import: path.join(__dirname, 'src', 'workers', 'memory-manager.worker.ts') },
+        'trend.worker':      { import: path.join(__dirname, 'src', 'workers', 'trend.worker.ts') },
     },
     module: {
         rules: [
             {
                 test: /\.tsx?$/,
                 exclude: '/node_modules/',
-                use: 'ts-loader',
+                use: {
+                    loader: 'ts-loader',
+                    options: {
+                        // Suppress declaration-file emit during the webpack pass.
+                        // Full type-checking and .d.ts generation are handled by build:tsc.
+                        transpileOnly: true,
+                    },
+                },
             },
         ],
     },
