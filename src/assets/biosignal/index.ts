@@ -21,6 +21,9 @@ import {
     MontageService,
     MontageWorkerSubstitute,
     SharedWorkerCache,
+    TrendProcessor,
+    TrendService,
+    TrendWorkerSubstitute,
 } from './service'
 
 export {
@@ -42,4 +45,7 @@ export {
     MontageService,
     MontageWorkerSubstitute,
     SharedWorkerCache,
+    TrendProcessor,
+    TrendService,
+    TrendWorkerSubstitute,
 }

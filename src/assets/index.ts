@@ -26,6 +26,9 @@ import {
     MontageService,
     MontageWorkerSubstitute,
     SharedWorkerCache,
+    TrendProcessor,
+    TrendService,
+    TrendWorkerSubstitute,
 } from './biosignal'
 import {
     WebDAVConnector,
@@ -104,6 +107,9 @@ export {
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
+    TrendProcessor,
+    TrendService,
+    TrendWorkerSubstitute,
     StudyCollection,
     studyContextTemplate,
     WebDAVConnector,

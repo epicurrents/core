@@ -30,6 +30,7 @@ import type {
     BiosignalMontage,
     BiosignalResource,
     BiosignalSetup,
+    BiosignalTrend,
     SignalDataCache,
     SignalInterruption,
     SignalInterruptionMap,
@@ -140,6 +141,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
+    protected _trends: Map<string, BiosignalTrend> = new Map()
     protected _mutexProps: MutexExportProperties | null = null
     protected _recordMontage: BiosignalMontage | null = null
     protected _sampleCount: number | null = null
@@ -552,6 +554,22 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         Log.warn(`addLabelsFromTemplates was not overridden in child class.`, SCOPE)
     }
 
+    get trends (): { [name: string]: BiosignalTrend } {
+        return Object.fromEntries(this._trends)
+    }
+
+    addTrend (trend: BiosignalTrend): boolean {
+        if (this._trends.has(trend.name)) {
+            Log.error(`A trend named '${trend.name}' is already registered on this recording.`, SCOPE)
+            return false
+        }
+        this._trends.set(trend.name, trend)
+        // Dispatch directly — _setPropertyValue computes protectedKey='_trends' and would
+        // overwrite the Map with the plain-object snapshot returned by the getter.
+        this.dispatchPropertyChangeEvent('trends', this.trends, undefined)
+        return true
+    }
+
     async cacheSignals (..._ranges: [number, number][]) {
         // Start caching file data if recording was activated.
         if (this.isActive && !this._signalCacheStatus[1]) {
@@ -736,6 +754,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
     }
 
+    getTrend (name: string): BiosignalTrend | null {
+        return this._trends.get(name) ?? null
+    }
+
     hasVideoAt (time: number | [number, number]) {
         if (!this._videos.length) {
             return false
@@ -777,6 +799,30 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return false
     }
 
+    /**
+     * Level 1 of the three-level cache lifecycle. Tells the service-side worker
+     * to drop signal-array views and cancel in-flight caching, but preserves
+     * the mutex layout and the SAB allocation, so a subsequent reactivation
+     * can rebind the existing mutex shell cheaply via
+     * `BiosignalMutex.initSignalBuffers(..., overwrite=true)`.
+     *
+     * Use {@link releaseBuffers} (Level 2) when the SAB must also be released
+     * from the memory manager — for example on `unloadOnClose=true` with no
+     * intent to reactivate.
+     */
+    async releaseSignalArrays () {
+        Log.debug(`Releasing signal arrays in ${this.name}.`, SCOPE)
+        await Promise.all(this._montages.map(m => m.releaseSignalArrays()))
+        await this._service?.releaseSignalArrays()
+        this.signalCacheStatus = [0, 0]
+    }
+
+    /**
+     * Level 2 of the three-level cache lifecycle. Tears down the worker-side
+     * mutex completely and releases the SAB from the memory manager. The
+     * service is no longer ready after this call; a fresh `setupCache`/
+     * `setupMutex` round-trip is required to use the cache again.
+     */
     async releaseBuffers () {
         Log.debug(`Releasing data buffers in ${this.name}.`, SCOPE)
         await Promise.all(this._montages.map(m => m.releaseBuffers({ removeFromManager: false})))
@@ -789,6 +835,16 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         await this._memoryManager?.release(...ids)
         this.signalCacheStatus = [0, 0]
+    }
+
+    removeAllTrends (): void {
+        const names = [...this._trends.keys()]
+        Log.debug(`[trend] removeAllTrends: cancelling [${names.join(', ')}]`, 'GenericBiosignalResource')
+        for (const trend of this._trends.values()) {
+            trend.cancelTrendComputation()
+        }
+        this._trends.clear()
+        this.dispatchPropertyChangeEvent('trends', this.trends, undefined)
     }
 
     removeEvents (...events: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[]
@@ -879,6 +935,18 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             callback: () => newLabels,
         })
         return deleted
+    }
+
+    removeTrend (name: string): boolean {
+        const trend = this._trends.get(name)
+        if (!trend) {
+            Log.error(`Cannot remove trend '${name}': not found on this recording.`, SCOPE)
+            return false
+        }
+        trend.cancelTrendComputation()
+        this._trends.delete(name)
+        this.dispatchPropertyChangeEvent('trends', this.trends, undefined)
+        return true
     }
 
     async setActiveMontage (montage: number | string | null) {

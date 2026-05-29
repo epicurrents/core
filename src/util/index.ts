@@ -85,6 +85,15 @@ export {
     NUMERIC_ERROR_VALUE,
 }
 export {
+    butterBandpass,
+    butterBandstop,
+    butterHighpass,
+    butterLowpass,
+    FFT,
+    SOSFilter,
+} from './dsp'
+export type { Biquad, Biquad as BiquadSOS } from './dsp'
+export {
     awaitThenSleep,
     calculateSignalOffsets,
     combineAllSignalParts,

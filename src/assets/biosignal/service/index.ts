@@ -5,6 +5,9 @@ import MontageProcessor from './MontageProcessor'
 import MontageService from './MontageService'
 import MontageWorkerSubstitute from './MontageWorkerSubstitute'
 import SharedWorkerCache from './SharedWorkerCache'
+import TrendProcessor from './TrendProcessor'
+import TrendService from './TrendService'
+import TrendWorkerSubstitute from './TrendWorkerSubstitute'
 
 export {
     BiosignalCache,
@@ -14,4 +17,7 @@ export {
     MontageService,
     MontageWorkerSubstitute,
     SharedWorkerCache,
+    TrendProcessor,
+    TrendService,
+    TrendWorkerSubstitute,
 }

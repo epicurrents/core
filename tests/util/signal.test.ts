@@ -1321,8 +1321,9 @@ describe('Signal utilities', () => {
         })
 
         it('should recover the peak amplitude of an in-band sine wave (linear, minmax)', () => {
-            // 10 Hz sine inside the 2–15 Hz band, 20 µV peak. After rectification the maximum is
-            // close to the peak amplitude (~20 µV) and the minimum is close to zero.
+            // 10 Hz sine inside the 2–15 Hz band, 20 µV peak.
+            // computeAmplitudeIntegratedEpoch returns per-window peak-to-peak values.
+            // For a ±20 µV sine the peak-to-peak is ≈ 40 µV, so max ≈ 2 × amplitude.
             const amplitude = 20
             const sig = new Float32Array(generateSineWave(fs, 15, [10, amplitude]))
             const [min, max] = computeAmplitudeIntegratedEpoch(sig, fs, {
@@ -1331,12 +1332,13 @@ describe('Signal utilities', () => {
                 envelopeMethod: 'minmax',
                 scaleCompression: 'linear',
             })
-            // Allow some slack for filter ringing / quantisation.
-            expect(max).toBeGreaterThan(amplitude*0.85)
-            expect(max).toBeLessThan(amplitude*1.05)
-            expect(min).toBeGreaterThanOrEqual(0)
-            expect(min).toBeLessThan(1)
+            // peak-to-peak ≈ 2A for a ±A sine; allow slack for filter transients.
+            expect(max).toBeGreaterThan(amplitude * 1.7)
+            expect(max).toBeLessThan(amplitude * 2.3)
+            // min of peak-to-peak is also close to max for a pure steady sine.
+            expect(min).toBeGreaterThan(amplitude * 1.5)
         })
+
 
         it('should attenuate an out-of-band sine wave', () => {
             // 60 Hz sine well outside the 2–15 Hz band. Should be attenuated below the in-band peak.

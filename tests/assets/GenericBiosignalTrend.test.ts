@@ -90,7 +90,7 @@ describe('GenericBiosignalTrend', () => {
     describe('constructor', () => {
         it('should expose derivation, label, sampling rate and epoch length', () => {
             const trend = new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG P3-P4', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG P3-P4', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             expect(trend.name).toBe('aeeg-test')
             expect(trend.label).toBe('aEEG P3-P4')
@@ -102,20 +102,21 @@ describe('GenericBiosignalTrend', () => {
 
         it('should call service.setupTrend with the right arguments', () => {
             new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             expect(mockService.setupTrend).toHaveBeenCalledWith(
-                'aeeg-test', baseDerivation, 0.133, 15, 'average'
+                'aeeg-test', baseDerivation, 0.133, 15,
+                expect.objectContaining({ downsamplingMethod: 'average' }),
             )
         })
 
         it('should honour an overridden downsamplingMethod from extraProperties', () => {
             new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any,
-                { downsamplingMethod: 'maximum' as any }
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15, downsamplingMethod: 'maximum' as any }
             )
             expect(mockService.setupTrend).toHaveBeenCalledWith(
-                'aeeg-test', baseDerivation, 0.133, 15, 'maximum'
+                'aeeg-test', baseDerivation, 0.133, 15,
+                expect.objectContaining({ downsamplingMethod: 'maximum' }),
             )
         })
     })
@@ -123,7 +124,7 @@ describe('GenericBiosignalTrend', () => {
     describe('computeTrend', () => {
         it('should accumulate per-epoch results into the signal buffer at correct slots', async () => {
             const trend = new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             // Capture the onEpochReady callback by starting (but not yet awaiting) the loop.
             const compute = trend.computeTrend()
@@ -137,7 +138,7 @@ describe('GenericBiosignalTrend', () => {
 
         it('should overwrite an epoch slot when delivered again (idempotent re-deliveries)', async () => {
             const trend = new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             const compute = trend.computeTrend()
             mockService._props.deliver([1, 2], 0, 2)
@@ -150,7 +151,7 @@ describe('GenericBiosignalTrend', () => {
 
         it('should reset the signal buffer when computeTrend is called again', async () => {
             const trend = new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             const first = trend.computeTrend()
             mockService._props.deliver([1, 2], 0, 2)
@@ -167,7 +168,7 @@ describe('GenericBiosignalTrend', () => {
 
         it('should pass a range through to the service when provided', async () => {
             const trend = new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             const compute = trend.computeTrend([30, 60])
             await compute
@@ -178,7 +179,7 @@ describe('GenericBiosignalTrend', () => {
     describe('cancelTrendComputation', () => {
         it('should call service cancel when a computation is running', () => {
             const trend = new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             // Make the service compute promise pending so the trend doesn't clean up before we call cancel.
             mockService._setResult(new Promise(() => {}))
@@ -189,7 +190,7 @@ describe('GenericBiosignalTrend', () => {
 
         it('should be safe to call when no computation is in flight', () => {
             const trend = new GenericBiosignalTrend(
-                'aeeg-test', 'aEEG', baseDerivation, 0.133, 15, mockService as any
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
             )
             expect(() => trend.cancelTrendComputation()).not.toThrow()
         })

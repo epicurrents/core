@@ -288,6 +288,46 @@ export type CommonBiosignalSettings = {
             /** Amplitude scale compression applied to the envelope before plotting. */
             scaleCompression: 'semilog' | 'linear'
         }
+        /** Pairwise derived Brain Symmetry Index math knobs. Display-only settings
+         *  (threshold value, show-fill / show-threshold toggles, markCrossing) live in
+         *  `EegInterfaceSettings.trends.pdbsi` in the interface module. */
+        pdbsi?: {
+            /** Epoch length in seconds (controls time resolution). */
+            epochLength: number
+            /** Frequency band `[hp, lp]` in Hz integrated per electrode. Defaults to delta = [1, 4]. */
+            band: [number, number]
+            /** Apply Common Average Reference before the FFT. */
+            averageReference: boolean
+        }
+        /** Hemisphere-level ratio index math knobs (TAR, DAR, DTABR). Display-only
+         *  settings (threshold value, show-fill / show-threshold toggles, mirror
+         *  mode, displayMode, markCrossing) live in `EegInterfaceSettings.trends.ratio`
+         *  in the interface module — those don't affect what the trend worker computes. */
+        ratio?: {
+            /** Epoch length in seconds (controls time resolution). */
+            epochLength: number
+            /** Numerator band `[hp, lp]` in Hz. Defaults to TAR (theta = [4, 8]). */
+            numeratorBand: [number, number]
+            /** Denominator band `[hp, lp]` in Hz. Defaults to TAR (alpha = [8, 13]). */
+            denominatorBand: [number, number]
+            /** Apply Common Average Reference before the FFT (recommended for noisy refs). */
+            averageReference: boolean
+        }
+        /** Power spectrogram trend settings. */
+        spectrogram?: {
+            /** Epoch length in seconds (controls time resolution). */
+            epochLength: number
+            /** Upper frequency limit in Hz (bins above this are discarded). */
+            maxFreqHz: number
+            /** Visualisation mode. `power` = brightness encodes power; `proportion` = column height encodes relative share. */
+            mode: 'power' | 'proportion'
+            /**
+             * Use Common Average Reference (mean of all channels) instead of the
+             * configured reference channel. Reduces artefacts from a single noisy
+             * reference electrode contaminating the spectrogram.
+             */
+            averageReference: boolean
+        }
     }
 }
 export type ConfigBiosignalMontage = {
