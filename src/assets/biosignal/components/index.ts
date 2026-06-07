@@ -1,4 +1,5 @@
 import GenericBiosignalAnnotation from '#assets/annotation/GenericAnnotation'
+import GenericBiosignalCascadeMontage from './GenericBiosignalCascadeMontage'
 import GenericBiosignalChannel from './GenericBiosignalChannel'
 import GenericBiosignalChannelMarker from './GenericBiosignalChannelMarker'
 import GenericBiosignalEvent from './GenericBiosignalEvent'
@@ -12,6 +13,7 @@ import GenericSourceChannel from './GenericSourceChannel'
 
 export {
     GenericBiosignalAnnotation,
+    GenericBiosignalCascadeMontage,
     GenericBiosignalChannel,
     GenericBiosignalChannelMarker,
     GenericBiosignalEvent,

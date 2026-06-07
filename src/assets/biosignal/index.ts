@@ -1,5 +1,6 @@
 import GenericBiosignalResource from './GenericBiosignalResource'
 import {
+    GenericBiosignalCascadeMontage,
     GenericBiosignalChannel,
     GenericBiosignalChannelMarker,
     GenericBiosignalEvent,
@@ -30,6 +31,7 @@ export {
     BiosignalCache,
     BiosignalMutex,
     BiosignalStudyLoader,
+    GenericBiosignalCascadeMontage,
     GenericBiosignalChannel,
     GenericBiosignalChannelMarker,
     GenericBiosignalEvent,

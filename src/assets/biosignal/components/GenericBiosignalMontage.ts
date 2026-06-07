@@ -81,11 +81,16 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         notch: 0,
     } as BiosignalFilters
     protected _highlights = new Map<string, unknown>()
+    protected _applyToMontage: boolean = false
     protected _label: string
+    protected _pageLength: number | null = null
+    protected _pageStep: number | null = null
     protected _reference: BiosignalMontageReferenceSignal = null
     protected _recording: BiosignalResource
+    protected _sensitivity: number | null = null
     protected _service: MontageService
     protected _setup: BiosignalSetup
+    protected _timebaseUnit: string | null = null
     protected _trends = new Map<string, BiosignalTrend>()
 
     constructor (
@@ -104,6 +109,12 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         if (template) {
             this.setupChannels(template)
         }
+    }
+    get applyToMontage () {
+        return this._applyToMontage
+    }
+    set applyToMontage (value: boolean) {
+        this._setPropertyValue('applyToMontage', value)
     }
     get cacheStatus ()  {
         return this._cachedSignals
@@ -128,13 +139,33 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._config
     }
     get filters () {
-        // Primarily return local filter values, secondarily recording scope values.
+        // When this montage owns its display state (`applyToMontage` true), return montage-level
+        // values authoritatively — no fallback to the recording. Otherwise return montage values
+        // with the recording's values as the secondary source (current behaviour for normal
+        // montages, where the recording-level setting is the user's "global" filter choice).
+        if (this._applyToMontage) {
+            return {
+                bandreject: [...this._filters.bandreject],
+                highpass: this._filters.highpass,
+                lowpass: this._filters.lowpass,
+                notch: this._filters.notch,
+            }
+        }
         return {
             bandreject: [...this._filters.bandreject, ...this._recording.filters.bandreject],
             highpass: this._filters.highpass || this._recording.filters.highpass,
             lowpass: this._filters.lowpass || this._recording.filters.lowpass,
             notch: this._filters.notch || this._recording.filters.notch,
         }
+    }
+    set filters (value: BiosignalFilters) {
+        this._filters = {
+            bandreject: [...value.bandreject],
+            highpass: value.highpass,
+            lowpass: value.lowpass,
+            notch: value.notch,
+        }
+        this._setPropertyValue('filters', this._filters)
     }
     get hasCommonReference () {
         return this._reference?.common || false
@@ -146,11 +177,26 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
         return highlightsObj
     }
+    get isCascade () {
+        return false
+    }
     get label () {
         return this._label
     }
     set label (label: string) {
         this._setPropertyValue('label', label)
+    }
+    get pageLength () {
+        return this._pageLength
+    }
+    set pageLength (value: number | null) {
+        this._setPropertyValue('pageLength', value)
+    }
+    get pageStep () {
+        return this._pageStep
+    }
+    set pageStep (value: number | null) {
+        this._setPropertyValue('pageStep', value)
     }
     get recording () {
         return this._recording
@@ -169,6 +215,22 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
     }
     get serviceId () {
         return this._service.id
+    }
+    get sensitivity () {
+        return this._sensitivity
+    }
+    set sensitivity (value: number | null) {
+        if (value !== null && value <= 0) {
+            Log.error(`Cannot set montage sensitivity to ${value}; value must be greater than zero.`, SCOPE)
+            return
+        }
+        this._setPropertyValue('sensitivity', value)
+    }
+    get timebaseUnit () {
+        return this._timebaseUnit
+    }
+    set timebaseUnit (value: string | null) {
+        this._setPropertyValue('timebaseUnit', value)
     }
     get trends () {
         const trendsObj = new Object(null) as { [key: string]: BiosignalTrend }

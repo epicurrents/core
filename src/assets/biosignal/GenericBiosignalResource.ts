@@ -15,6 +15,7 @@ import {
 import GenericBiosignalChannel from './components/GenericBiosignalChannel'
 import { nullPromise } from '#util/general'
 import GenericResource from '#assets/GenericResource'
+import { INDEX_NOT_ASSIGNED } from '#util/constants'
 import type {
     AnnotationLabel,
     PropertyChangeContext,
@@ -239,6 +240,11 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     get filters () {
+        // Effective value: an active montage that owns its display state surfaces its own filter
+        // set authoritatively; otherwise the recording's own filters apply.
+        if (this._activeMontage?.applyToMontage) {
+            return this._activeMontage.filters
+        }
         return { ...this._filters }
     }
 
@@ -317,11 +323,26 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     get sensitivity () {
+        // Effective value: if the active montage owns its display state and has a sensitivity
+        // override, use it; otherwise fall back to the recording's own value.
+        if (this._activeMontage?.applyToMontage && this._activeMontage.sensitivity !== null) {
+            return this._activeMontage.sensitivity
+        }
         return this._sensitivity
     }
     set sensitivity (value: number) {
         if (value <= 0) {
             Log.error(`Cannot set sensitivity to ${value}; value must be greater than zero.`, SCOPE)
+            return
+        }
+        const prevState = this.sensitivity
+        // Route to the active montage when it owns its display state; otherwise land on the
+        // recording as before (the dominant pattern — most montages don't override). Either way,
+        // dispatch 'sensitivity' at the recording level so subscribers to the recording-level
+        // event react without needing to know about the override mechanism.
+        if (this._activeMontage?.applyToMontage) {
+            this._activeMontage.sensitivity = value
+            this.dispatchPropertyChangeEvent('sensitivity', this.sensitivity, prevState)
             return
         }
         this._setPropertyValue('sensitivity', value)
@@ -357,6 +378,18 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this._setPropertyValue('startTime', value)
     }
 
+    get mainViewLength (): number | null {
+        // Recording-level page length for the user's regular view, in seconds. The active
+        // montage may route `timebase` to its own `pageLength` (cascade does), so this getter
+        // bypasses the routing and returns the underlying value. Falls back to null when the
+        // recording's saved unit is calibrated (cm/sec) — callers should then use a settings
+        // default since cm/sec → seconds depends on viewport geometry.
+        if (this._timebaseUnit === 'secPerPage' && this._timebase > 0) {
+            return this._timebase
+        }
+        return null
+    }
+
     get subject () {
         return this._subject
     }
@@ -365,13 +398,38 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     get timebase () {
+        // Effective value: when the active montage owns its display state and the current unit
+        // is sec/page (which is the only mode applyToMontage montages support today), surface
+        // the montage's `pageLength` override. Falls back to the recording's own value when the
+        // montage doesn't override.
+        if (this._activeMontage?.applyToMontage
+            && this.timebaseUnit === 'secPerPage'
+            && this._activeMontage.pageLength !== null) {
+            return this._activeMontage.pageLength
+        }
         return this._timebase
     }
     set timebase (value: number) {
+        // Route to the active montage's pageLength when it owns its display state and the
+        // effective unit is sec/page — that's how cascade-style montages keep their per-row
+        // page geometry independent from the recording-level timebase. Dispatch at the
+        // recording level so subscribers to the recording-level event react without needing to
+        // know about the override mechanism.
+        if (this._activeMontage?.applyToMontage && this.timebaseUnit === 'secPerPage') {
+            const prevState = this._timebase
+            this._activeMontage.pageLength = value
+            this.dispatchPropertyChangeEvent('timebase', this.timebase, prevState)
+            return
+        }
         this._setPropertyValue('timebase', value)
     }
 
     get timebaseUnit () {
+        // Effective unit: an applyToMontage montage that forces a specific unit (e.g. cascade
+        // hard-locks 'secPerPage') wins over the recording's own setting.
+        if (this._activeMontage?.applyToMontage && this._activeMontage.timebaseUnit !== null) {
+            return this._activeMontage.timebaseUnit
+        }
         return this._timebaseUnit
     }
     set timebaseUnit (value: string) {
@@ -414,6 +472,30 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this.activeMontage
                ? this.activeMontage.channels.filter(c => shouldDisplayChannel(c, false))
                : this._channels.filter(c => shouldDisplayChannel(c, true))
+    }
+
+    // ///////////////////////////////////////////// //
+    //                   HELPERS                     //
+    // ///////////////////////////////////////////// //
+
+    /**
+     * Template-method hook for {@link addCascadeMontage}. `GenericBiosignalCascadeMontage` is
+     * abstract — its `_createChannel` requires a modality-specific implementation — so the base
+     * resource cannot construct a concrete cascade instance directly. Modality subclasses
+     * override this hook to return their own concrete cascade class. Calling
+     * `addCascadeMontage` on a resource that hasn't overridden the hook throws.
+     */
+    protected _constructCascadeMontage (
+        _name: string,
+        _setup: BiosignalSetup,
+        _sourceLabel: string,
+        _rowCount: number,
+        _pageLength: number,
+        _config?: { label: string },
+    ): BiosignalMontage {
+        throw new Error(
+            `${this.constructor.name} must override _constructCascadeMontage to support cascade montages.`,
+        )
     }
 
     // ///////////////////////////////////////////// //
@@ -556,6 +638,41 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     get trends (): { [name: string]: BiosignalTrend } {
         return Object.fromEntries(this._trends)
+    }
+
+    async addCascadeMontage (
+        name: string,
+        label: string,
+        setup: BiosignalSetup,
+        sourceLabel: string,
+        rowCount: number,
+        pageLength: number,
+    ): Promise<BiosignalMontage | null> {
+        let montage = this._montages.find(m => m.name === name) || null
+        if (this._mutexProps && this._service?.bufferRangeStart === INDEX_NOT_ASSIGNED) {
+            Log.error(`Cannot add a cascade montage before buffer has been initialized.`, SCOPE)
+            return null
+        }
+        if (montage) {
+            Log.debug(`Montage '${name}' already exists.`, SCOPE)
+        } else {
+            montage = this._constructCascadeMontage(
+                name, setup, sourceLabel, rowCount, pageLength, { label }
+            )
+            montage.mapChannels()
+            if (!montage.channels.length) {
+                // _resolveSourceChannel on the cascade base logs the underlying reason.
+                return null
+            }
+            // Cascade montages deliberately skip the worker-setup dance (setup-worker /
+            // setup-cache / set-interruptions). Every row reads from the same source channel
+            // with no derivation, so the cascade's `getAllSignals` override fetches the raw
+            // source directly via the recording's `getAllRawSignals` path and slices it on the
+            // main thread. The MontageService still exists on the montage but its worker stays
+            // idle.
+            this._setPropertyValue('montages', [...this._montages, montage])
+        }
+        return montage
     }
 
     addTrend (trend: BiosignalTrend): boolean {
@@ -1005,10 +1122,23 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         } else if (value < 0) {
             Log.error(`Highpass filter value must be zero or greater, ${value} was given.`, SCOPE)
             return
-        } else if (value === this._filters.highpass) {
+        } else if (value === this.filters.highpass) {
+            // Compare against the effective value (routing-aware), not the recording's raw state.
+            // Otherwise a cascade montage with highpass=0.5 won't see a user set-to-0 click when
+            // the recording's value happens to be 0 already.
             return
         }
         const prevState = { ...this.filters }
+        // Route to the active montage when it owns its display state — the montage's own filter
+        // store becomes the truth; the recording's stays untouched until the user switches back.
+        // The dispatched event still carries `this.filters`, which (via the routing getter)
+        // already returns the montage's new values — so subscribers at recording level see the
+        // change without needing to know about the override mechanism.
+        if (this._activeMontage?.applyToMontage) {
+            await this._activeMontage.setHighpassFilter(value, target)
+            this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
+            return
+        }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             await this._activeMontage.setHighpassFilter(value, target)
@@ -1032,10 +1162,17 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         } else if (value < 0) {
             Log.error(`Lowpass filter value must be zero or greater, ${value} was given.`, SCOPE)
             return
-        } else if (value === this._filters.lowpass) {
+        } else if (value === this.filters.lowpass) {
+            // See setHighpassFilter — compare against the effective value, not the recording's raw state.
             return
         }
         const prevState = { ...this.filters }
+        // See setHighpassFilter — route per active-montage flag, with dispatch retained.
+        if (this._activeMontage?.applyToMontage) {
+            await this._activeMontage.setLowpassFilter(value, target)
+            this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
+            return
+        }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             await this._activeMontage.setLowpassFilter(value, target)
@@ -1062,10 +1199,17 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         } else if (value < 0) {
             Log.error(`Notch filter value must be zero or greater, ${value} was given.`, SCOPE)
             return
-        } else if (value === this._filters.notch) {
+        } else if (value === this.filters.notch) {
+            // See setHighpassFilter — compare against the effective value, not the recording's raw state.
             return
         }
         const prevState = { ...this.filters }
+        // See setHighpassFilter — route per active-montage flag, with dispatch retained.
+        if (this._activeMontage?.applyToMontage) {
+            await this._activeMontage.setNotchFilter(value, target)
+            this.dispatchPropertyChangeEvent('filters', this.filters, prevState)
+            return
+        }
         if (typeof target === 'number' && this._activeMontage) {
             // Channel index can only refer to montage channels.
             await this._activeMontage.setNotchFilter(value, target)

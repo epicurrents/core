@@ -692,6 +692,14 @@ export interface BiosignalMetaField extends MutexMetaField {
  * Signal montage describes how a particular set of signals should be displayed.
  */
 export interface BiosignalMontage extends BaseAsset {
+    /**
+     * When true, mutations targeting `sensitivity`, `filters`, `pageLength`, `timebaseUnit`, etc.
+     * land on this montage instead of the recording, and reader sites prefer the montage's value
+     * over the recording's. Default is false — mutations and reads behave as if the montage were
+     * a view onto recording-level state. Cascade-style montages flip this true so their per-row
+     * sensitivity / filter / sec-per-page choices stay separate from the user's regular settings.
+     */
+    applyToMontage: boolean
     /** Cached signal ranges. */
     cacheStatus: SignalCachePart
     /** Configuration for each channel in this montage, null for missing channels. */
@@ -704,19 +712,49 @@ export interface BiosignalMontage extends BaseAsset {
     hasCommonReference: boolean
     /** Named highlight contexts attached to this montage. */
     highlights: { [key: string]: unknown }
+    /**
+     * True for cascade montages (N rows of one source channel, time-shifted) and false for regular
+     * montages. Used as a discriminant: consumers cast to `BiosignalCascadeMontage` for row math
+     * (`getRowAtTime`, `getRowAtY`, ...) when this flag is set.
+     */
+    isCascade: boolean
     /** Descriptive name for this montage. */
     label: string
     /** Unique, identifying name for this montage. */
     name: string
+    /**
+     * Montage-level override for the recording's page length (seconds per page). When null, the
+     * recording / settings default is used. Set by montages whose layout depends on a specific page
+     * length.
+     */
+    pageLength: number | null
+    /**
+     * Seconds advanced by one page-turn (`goForward` / `goBackward`). When null, navigation falls
+     * back to the recording's page length. Cascade-style montages set this to `rowCount * pageLength`
+     * so a single page-turn advances the whole stack.
+     */
+    pageStep: number | null
     /** Parent recording of this montage. */
     recording: BiosignalResource
     /** Label of the (possible) common reference electrode/signal. */
     referenceLabel: string
+    /**
+     * Montage-level sensitivity override. When `null`, reader sites fall back to the recording's
+     * sensitivity. When a positive number AND `applyToMontage` is true, reader sites use this
+     * value while the montage is active.
+     */
+    sensitivity: number | null
     /** Service handle for this montage (used for signal derivation and filter work). */
     service: BiosignalMontageService
     /** ID of the service of this montage. */
     serviceId: string
     setup: BiosignalSetup
+    /**
+     * Montage-level override for the recording's timebase unit. When null, the recording default is
+     * used. Montages whose layout assumes constant sec/page geometry set this to `'sec'` so
+     * calibrated (cm/sec) timebase is silently coerced while the montage is active.
+     */
+    timebaseUnit: string | null
     /** This montage's visible channels. */
     visibleChannels: MontageChannel[]
     /**
@@ -872,6 +910,34 @@ export interface BiosignalMontage extends BaseAsset {
      */
     updateFilters (): Promise<SetFiltersResponse>
 }
+/**
+ * Cascade montage view: N vertically stacked rows display successive `pageLength`-second
+ * slices of the same source channel. Consumers narrow `BiosignalMontage` to this type when
+ * `isCascade` is true to access the row math helpers.
+ */
+export interface BiosignalCascadeMontage extends BiosignalMontage {
+    readonly isCascade: true
+    /** Number of stacked rows. */
+    readonly rowCount: number
+    /**
+     * Row index whose y-band contains a relative y position `relYFromBottom` in `[0, 1]` (0 =
+     * bottom of the cascade, 1 = top). Clamps to the nearest row when the value falls just
+     * outside the valid range.
+     */
+    getRowAtY (relYFromBottom: number): number
+    /**
+     * Row index covering recording time `time`. Returns -1 when `time` falls outside the
+     * cascade's currently-visible reach `[viewStart, viewStart + rowCount * pageLength)`.
+     */
+    getRowAtTime (time: number): number
+    /** Recording-time range `[start, end]` displayed by row `rowIndex`, or null if out of range. */
+    getRowTimeRange (rowIndex: number): [number, number] | null
+    /**
+     * Convert a (row index, seconds-from-row-start) pair into recording time.
+     */
+    getTimeAtRowPosition (rowIndex: number, secondsWithinRow: number): number
+}
+
 /**
  * Montage reference signal definition.
  */
@@ -1120,6 +1186,14 @@ export interface BiosignalResource extends DataResource {
         sex?: 'female' | 'male'
         weight?: number
     } | null
+    /**
+     * Page length (seconds) for the recording's regular (non-routing) display state. Returns the
+     * recording-level `timebase` value when its unit is sec/page, otherwise null. Cascade-style
+     * views read this to know how wide the recording's main page would be — when a cascade is
+     * active the effective `timebase` getter is routed through the cascade montage's
+     * `pageLength`, so this getter is the only path back to the underlying main page length.
+     */
+    mainViewLength: number | null
     /** Active timebase value. */
     timebase: number
     /**
@@ -1136,6 +1210,31 @@ export interface BiosignalResource extends DataResource {
     viewStart: number
     /** This resource's currently visible channels (primarily montage channels if a montage is active). */
     visibleChannels: (MontageChannel | SourceChannel)[]
+    /**
+     * Register a cascade montage on this recording — N vertically stacked rows of one source
+     * channel, each row a different `pageLength`-second slice. Constructs the modality-appropriate
+     * cascade class via the `_constructCascadeMontage` hook (modality subclasses override the
+     * hook to return their own class), maps channels, and publishes the new montage on
+     * `montages`. Cascade montages deliberately skip the worker-setup dance: every row reads
+     * from the same source with no derivation, so the cascade's `getAllSignals` override fetches
+     * the raw source directly via `getAllRawSignals`.
+     * @param name - Unique name for the montage.
+     * @param label - Human-readable label for the montage.
+     * @param setup - Electrode setup the source channel is resolved against.
+     * @param sourceLabel - Name or label of the source channel in `setup`.
+     * @param rowCount - Number of vertically stacked rows.
+     * @param pageLength - Seconds displayed per row.
+     * @returns The created (or existing) montage, or null when the cascade cannot be built
+     *          (source candidate not in setup, buffer not yet initialised, etc.).
+     */
+    addCascadeMontage (
+        name: string,
+        label: string,
+        setup: BiosignalSetup,
+        sourceLabel: string,
+        rowCount: number,
+        pageLength: number,
+    ): Promise<BiosignalMontage | null>
     /**
      * Add the given `cursors` to this resource.
      * @param cursors - Cursors to add.
