@@ -58,7 +58,6 @@ import {
     GenericSignalProcessor,
     GenericSignalReader,
     GenericSignalWriter,
-    GenericTextReader,
     LocalFileReader,
     MixedFileSystemItem,
 } from './reader'
@@ -99,7 +98,6 @@ export {
     GenericStudyImporter,
     GenericStudyLoader,
     GenericSourceChannel,
-    GenericTextReader,
     LocalFileReader,
     MixedFileSystemItem,
     MixedMediaDataset,

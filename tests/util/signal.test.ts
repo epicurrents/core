@@ -1144,6 +1144,11 @@ describe('Signal utilities', () => {
             expect(getSignalScale('millivolts')).toBe(1e-3)
         })
 
+        it('should return standard gravity for acceleration in g', () => {
+            expect(getSignalScale('g')).toBeCloseTo(9.80665, 5)
+            expect(getSignalScale('G')).toBeCloseTo(9.80665, 5)
+        })
+
         it('should return 1 for unknown units', () => {
             expect(getSignalScale('V')).toBe(1)
             expect(getSignalScale('unknown')).toBe(1)

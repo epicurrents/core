@@ -10,6 +10,7 @@ import { AnnotationTemplate, BaseAsset } from './application'
 import {
     AnnotationEventTemplate,
     AnnotationLabelTemplate,
+    BiosignalCacheDerivationSlot,
     BiosignalHeaderRecord,
     SignalDataCache,
     SignalInterruption,
@@ -144,10 +145,17 @@ export interface DataProcessorCache {
     releaseCache (): Promise<void>
     /**
      * Initialize a new, plain reader cache.
-     * @param bufferSize - Buffer size in bytes, if known.
+     *
+     * `derivationSlots` carries setup-declared derivation cache slots (sizing only — the worker
+     * doesn't see the full `SetupDerivation` objects). Implementations append one cache entry
+     * per slot after the source signals, with their indices starting at `header.signals.length`.
+     *
+     * @param dataDuration - Total data duration in seconds, if known.
+     * @param derivationSlots - Optional list of derivation cache slots; empty when the resource
+     *                          declares no setup-level derivations.
      * @returns Created cache on success, null on failure.
      */
-    setupCache (bufferSize?: number): unknown | null
+    setupCache (dataDuration?: number, derivationSlots?: BiosignalCacheDerivationSlot[]): unknown | null
     /**
      * Set up a simple data cache as the data source for this montage.
      * @param params - Implementation specific parameters for setting up the cache.
@@ -157,15 +165,22 @@ export interface DataProcessorCache {
     setupCacheWithInput (...params: unknown[]): void
     /**
      * Initialize a new shared array mutex using the given `buffer`.
+     *
+     * `derivationSlots` carries setup-declared derivation cache slots (sizing only — the worker
+     * doesn't see the full `SetupDerivation` objects). The mutex allocates one signal-array slot
+     * per derivation slot after the source signals, with their indices starting at
+     * `header.signals.length`.
+     *
      * @param buffer - Buffer to store the data in.
      * @param bufferStart - Starting index within the buffer allocated to this mutex.
-     * @param bufferSize - Optional size of the buffer allocated to this mutex.
+     * @param derivationSlots - Optional list of derivation cache slots; empty when the resource
+     *                          declares no setup-level derivations.
      * @returns Export properties of the new mutex or null on failure.
      */
     setupMutex (
         buffer: SharedArrayBuffer,
         bufferStart: number,
-        bufferSize?: number,
+        derivationSlots?: BiosignalCacheDerivationSlot[],
     ): Promise<MutexExportProperties|null>
     /**
      * Set up an input mutex as the source for file loading. This will create a new mutex for storing processed data
@@ -683,23 +698,6 @@ export interface SignalStudyImporter extends FileFormatImporter {
 export type SuccessReject = (reason: string) => void
 export type SuccessResolve = (response: SuccessResponse) => void
 export type SuccessResponse = boolean
-
-export interface TextDataReader extends DataProcessorCache {
-    /**
-     * Read and cache the entire file from a URL.
-     * @param url - Optional override for the URL to read from.
-     * @param options - Optional method options.
-     * @returns True if successful, false otherwise.
-     */
-    readFileFromUrl (url?: string, options?: ReadTextFromUrlOptions): Promise<boolean>
-    /**
-     * Read a part of the text data from the source file.
-     * @param start - Starting byte position of the part to read.
-     * @param length - Length of the part to read.
-     * @returns The requested part of the file as a text string, or null if unable to read.
-     */
-    readPartFromFile (start: number, length: number): Promise<string | null>
-}
 
 /** Target for writing study export files. */
 export type WriterMode = 'file' | 'dataset'

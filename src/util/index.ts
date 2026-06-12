@@ -142,3 +142,12 @@ export {
     timePartsToShortString,
     validateCommissionProps,
 }
+export {
+    detectTextEncoding,
+    fetchTextFile,
+    readTextPart,
+} from './text'
+export type {
+    TextEncodingInfo,
+    TextEncodingLabel,
+} from './text'

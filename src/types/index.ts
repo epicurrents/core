@@ -67,6 +67,7 @@ import type {
     AnnotationLabelTemplate,
     BiosignalAnnotationEvent,
     BiosignalAnnotationEventOptions,
+    BiosignalCacheDerivationSlot,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,
@@ -80,6 +81,7 @@ import type {
     BiosignalDataReject,
     BiosignalDataResolve,
     BiosignalDataService,
+    BiosignalDerivationOperation,
     BiosignalDownsamplingMethod,
     BiosignalFilters,
     BiosignalFilterType,
@@ -119,6 +121,7 @@ import type {
     SetFiltersResponse,
     SetupCacheResponse,
     SetupChannel,
+    SetupDerivation,
     SetupMutexResponse,
     SetupSharedWorkerResponse,
     SignalDataCache,
@@ -137,6 +140,7 @@ export {
     AnnotationLabelTemplate,
     BiosignalAnnotationEvent,
     BiosignalAnnotationEventOptions,
+    BiosignalCacheDerivationSlot,
     BiosignalChannel,
     BiosignalChannelDerivationTemplate,
     BiosignalChannelFilters,
@@ -150,6 +154,7 @@ export {
     BiosignalDataReject,
     BiosignalDataResolve,
     BiosignalDataService,
+    BiosignalDerivationOperation,
     BiosignalDownsamplingMethod,
     BiosignalFilters,
     BiosignalFilterType,
@@ -189,6 +194,7 @@ export {
     SetFiltersResponse,
     SetupCacheResponse,
     SetupChannel,
+    SetupDerivation,
     SetupMutexResponse,
     SetupSharedWorkerResponse,
     SignalDataCache,
@@ -371,7 +377,6 @@ import type {
     SuccessReject,
     SuccessResolve,
     SuccessResponse,
-    TextDataReader,
     WriterMode,
 } from './reader'
 export {
@@ -404,7 +409,6 @@ export {
     SuccessReject,
     SuccessResolve,
     SuccessResponse,
-    TextDataReader,
     WriterMode,
 }
 

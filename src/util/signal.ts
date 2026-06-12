@@ -1035,7 +1035,15 @@ export const getIncludedChannels = <T extends Array<unknown>>(
 }
 
 /**
- * Get the scale factor for the given physical unit.
+ * Get the scale factor that normalises a physical unit to the modality's base
+ * unit. Voltages (EEG / EMG / ECG) normalise to volts. Acceleration (ACC)
+ * normalises to m/s², so `'g'` maps to `9.80665` (the standard-gravity value
+ * used by IMU / accelerometer vendors).
+ *
+ * Any unknown unit returns `1` — meaning "no scaling" — so callers that don't
+ * care about unit conversion (display-only paths) keep their existing
+ * behaviour.
+ *
  * @param unit - Name of the physical unit of the signal.
  * @returns Scale factor for the unit.
  */
@@ -1046,6 +1054,12 @@ export const getSignalScale = (unit: string): number => {
     }
     if (unitLower === 'mv' || unitLower.startsWith('millivolt')) {
         return 1e-3
+    }
+    if (unitLower === 'g') {
+        // Standard gravity in m/s² (CODATA value). g-stored accelerometer files
+        // get normalised to m/s² on decode the same way mV-stored EEG channels
+        // get normalised to V.
+        return 9.80665
     }
     return 1
 }

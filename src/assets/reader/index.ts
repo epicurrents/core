@@ -1,7 +1,6 @@
 import GenericSignalProcessor from './GenericSignalProcessor'
 import GenericSignalReader from './GenericSignalReader'
 import GenericSignalWriter from './GenericSignalWriter'
-import GenericTextReader from './GenericTextReader'
 import LocalFileReader from './LocalFileReader'
 import {
     FileSystemDirectory,
@@ -15,7 +14,6 @@ export {
     GenericSignalProcessor,
     GenericSignalReader,
     GenericSignalWriter,
-    GenericTextReader,
     LocalFileReader,
     MixedFileSystemItem,
 }
