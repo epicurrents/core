@@ -180,6 +180,22 @@ describe('GenericBiosignalService', () => {
             } as any)
             expect(mockRecording.setInterruptions).toHaveBeenCalled()
         })
+
+        it('should ignore a cache-signals progress message without a range', async () => {
+            // Regression: a worker progress message that lacks `range` (or
+            // carries a non-array value) must not crash the spread into
+            // `signalCacheStatus`. Previously this threw "undefined is not
+            // iterable" and masked the underlying failure with a confusing
+            // TypeError that left the UI stuck on "Loading data".
+            const service = new TestBiosignalService(mockRecording)
+            const prior = mockRecording.signalCacheStatus
+            const result = await service.handleMessage({
+                data: { action: 'cache-signals' },
+            } as any)
+            expect(result).toBe(false)
+            // signalCacheStatus stays at whatever it was — no partial update.
+            expect(mockRecording.signalCacheStatus).toBe(prior)
+        })
     })
 
     describe('addActionWatcher', () => {

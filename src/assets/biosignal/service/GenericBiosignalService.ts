@@ -7,6 +7,7 @@
 
 import type {
     AnnotationEventTemplate,
+    BiosignalCacheDerivationSlot,
     BiosignalDataService,
     BiosignalHeaderRecord,
     BiosignalResource,
@@ -110,16 +111,39 @@ export default abstract class GenericBiosignalService extends GenericService imp
         const commission = this._getCommissionForMessage(message)
         // Cache signals is called from the worker, it may have no commission.
         if (data.action === 'cache-signals') {
-            if (commission && data.complete) {
-                if (data.success) {
+            // Two kinds of `cache-signals` messages flow through this handler:
+            //   1. Commission reply — has `rn`, has `complete`, carries no
+            //      `range`. The reply's `complete` field is the operation
+            //      outcome (the worker always wraps with success:true; the real
+            //      success/failure is in `complete`). Resolve the commission
+            //      with that value and stop.
+            //   2. Progress update — broadcast from the reader's
+            //      updateCallback. No `rn` match, no `complete` field, ALWAYS
+            //      has a numeric `range`. Use it to advance signalCacheStatus.
+            //
+            // Distinguishing by the commission match (not by `data.complete`)
+            // matters because `complete: false` is a legitimate failure reply
+            // that omits `range`. Falling through to `[...data.range]` on that
+            // path throws "undefined is not iterable" and masks the underlying
+            // cache-init failure with a confusing TypeError that leaves the UI
+            // stuck on "Loading data".
+            if (commission) {
+                if (data.complete) {
                     Log.debug(`Finished caching signals from File or URL.`, SCOPE)
                 } else {
                     Log.error(`Caching signals from File or URL failed.`, SCOPE)
                 }
-                commission.resolve(data.success as CacheSignalsResponse)
+                commission.resolve(Boolean(data.complete) as CacheSignalsResponse)
                 return true
             }
-            const range = data.range as number[]
+            const range = data.range as number[] | undefined
+            if (!Array.isArray(range)) {
+                Log.error(
+                    `Ignoring cache-signals progress message with no usable range.`,
+                    SCOPE,
+                )
+                return false
+            }
             this._recording.signalCacheStatus = [...range]
             const events = data.events as AnnotationEventTemplate[] | undefined
             if (events?.length) {
@@ -176,11 +200,17 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return super._handleWorkerCommission(message)
     }
 
-    async setupCache (dataDuration: number): Promise<SignalDataCache|null> {
+    async setupCache (
+        dataDuration: number,
+        derivationSlots: BiosignalCacheDerivationSlot[] = [],
+    ): Promise<SignalDataCache|null> {
         this._initWaiters('setup-cache')
         const commission = this._commissionWorker(
             'setup-cache',
-            new Map([['dataDuration', dataDuration]]),
+            new Map<string, unknown>([
+                ['dataDuration', dataDuration],
+                ['derivationSlots', derivationSlots],
+            ]),
         )
         return commission.promise as Promise<SignalDataCache|null>
     }
