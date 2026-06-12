@@ -103,6 +103,10 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                 laterality: config?.laterality || '',
                 modality: config?.modality || undefined,
                 name: config?.name || '',
+                // Default to `linear` when omitted. Unknown values are normalised to the default at materialisation
+                // time so a typo doesn't silently bypass the linear path.
+                operation: config?.operation || 'linear',
+                options: config?.options,
                 samplingRate: config?.samplingRate || 0,
                 scale: config?.scale || 0,
                 unit: config?.unit || '?',
@@ -292,6 +296,8 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
                             laterality: chan.laterality,
                             modality: chan.modality,
                             name: chan.name,
+                            operation: chan.operation,
+                            options: chan.options,
                             samplingRate: chan.samplingRate,
                             scale: chan.scale,
                             unit: chan.unit,

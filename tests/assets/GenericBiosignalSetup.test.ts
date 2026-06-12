@@ -143,6 +143,56 @@ describe('GenericBiosignalSetup', () => {
             expect(setup.derivations[0]).toHaveProperty('reference')
         })
 
+        it('should default derivation operation to linear when omitted', () => {
+            const signals = [makeChannel('Fp1'), makeChannel('Fp2')]
+            const config = {
+                channels: [
+                    { name: 'Fp1', label: 'Fp1' },
+                    { name: 'Fp2', label: 'Fp2' },
+                ],
+                derivations: [
+                    {
+                        name: 'Fp1-Fp2',
+                        label: 'Fp1-Fp2',
+                        active: { name: 'Fp1' },
+                        reference: [{ name: 'Fp2' }],
+                    },
+                ],
+            } as any
+            const setup = new GenericBiosignalSetup('Test', signals, config)
+            expect(setup.derivations[0].operation).toBe('linear')
+            expect(setup.derivations[0].options).toBeUndefined()
+        })
+
+        it('should round-trip derivation operation and options', () => {
+            const signals = [makeChannel('wrist_x'), makeChannel('wrist_y'), makeChannel('wrist_z')]
+            const config = {
+                channels: [
+                    { name: 'wrist_x', label: 'wrist_x' },
+                    { name: 'wrist_y', label: 'wrist_y' },
+                    { name: 'wrist_z', label: 'wrist_z' },
+                ],
+                derivations: [
+                    {
+                        name: 'wrist_mag',
+                        label: 'Wrist |a|',
+                        operation: 'magnitude',
+                        options: { sampleRate: 100 },
+                        active: [
+                            { name: 'wrist_x' },
+                            { name: 'wrist_y' },
+                            { name: 'wrist_z' },
+                        ],
+                        reference: [],
+                    },
+                ],
+            } as any
+            const setup = new GenericBiosignalSetup('Test', signals, config)
+            expect(setup.derivations).toHaveLength(1)
+            expect(setup.derivations[0].operation).toBe('magnitude')
+            expect(setup.derivations[0].options).toEqual({ sampleRate: 100 })
+        })
+
         it('should use config label when loading', () => {
             const setup = new GenericBiosignalSetup('Test')
             setup.loadConfig([], { label: 'Loaded Label' } as any)

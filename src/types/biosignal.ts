@@ -298,6 +298,16 @@ export type BiosignalChannelDerivationTemplate = BiosignalChannelTemplate & {
      * */
     active: BiosignalReferenceChannelTemplate[]
     /**
+     * Operation for combining the matched inputs. Defaults to `'linear'` when omitted.
+     * See {@link BiosignalDerivationOperation} for the available operations and their input semantics.
+     */
+    operation?: BiosignalDerivationOperation
+    /**
+     * Operation-specific knobs (e.g. window size for a future `'rms'` op). Passed through to the materialisation
+     * step verbatim.
+     */
+    options?: Record<string, unknown>
+    /**
      * Properties for matching reference channel signals. Name of the signal is used to match to the already mapped
      * setup channels and if that fails, only then against the source file signal labels.
      * If more than one channel is given, a weighted average of the signals will be calculated.
@@ -524,9 +534,10 @@ export interface BiosignalDataService extends AssetService {
     /**
      * Setup a simple signal data cache.
      * @param dataDuration - Duration of signal data in the recording in seconds.
+     * @param derivationSlots - Optional setup-declared derivation slots to allocate after source signals.
      * @returns A promise that resolves with the created cache if successful, null otherwise.
      */
-    setupCache (dataDuration: number): Promise<SignalDataCache|null>
+    setupCache (dataDuration: number, derivationSlots?: BiosignalCacheDerivationSlot[]): Promise<SignalDataCache|null>
 }
 /**
  * Downsampling method applied to a signal.
@@ -1865,15 +1876,91 @@ export interface SetupChannel extends BiosignalChannelTemplate {
     reference: DerivedChannelProperties
 }
 /**
- * Configuration for a single derived channel in BiosignalSetup.
+ * Operation used to compute a {@link SetupDerivation}'s samples from its inputs.
+ *
+ * - `'linear'` (default): weighted sum of `active` minus weighted sum of `reference`.
+ *   Composes within the existing montage-derivation loop sample-by-sample, so a
+ *   linear derivation can also be expressed inline on a `MontageChannel.active` /
+ *   `.reference`. Declaring it at setup level is useful when the same weighted
+ *   combination is consumed by several montage channels and the materialised
+ *   signal should appear in the raw-signal cache (reachable by cascade montage
+ *   and trend services).
+ * - `'magnitude'`: pointwise `sqrt(Σᵢ activeᵢ²)` over the weighted active set;
+ *   `reference` is unused. Per-axis weights flow through unchanged (a weight of
+ *   2 doubles that axis's contribution before squaring).
+ *
+ * Adding a new operation: extend this union, document the input semantics here,
+ * dispatch on it in the materialisation pipeline, and reject unknown values at
+ * the setup-loader boundary so a typo doesn't silently degrade to `'linear'`.
  */
-export type SetupDerivation = {
+export type BiosignalDerivationOperation = 'linear' | 'magnitude'
+/**
+ * Serialisable description of one materialised derivation cache slot. The resource resolves
+ * these from `_setup.derivations` and hands them to the worker so the SAB allocator and the
+ * fallback cache both reserve room for the derived signal alongside source channels. Sizing
+ * is computed on the main thread (the worker doesn't see `SetupDerivation` directly), so the
+ * payload is small and worker-message-friendly.
+ */
+export type BiosignalCacheDerivationSlot = {
+    /**
+     * Weighted active inputs. Indices reference source channels in the same cache (slots
+     * `0..header.signals.length - 1`). The encoding matches {@link DerivedChannelProperties}.
+     */
+    active: number | DerivedChannelProperties
+    /** Diagnostic label (matches the derivation's `label`). Worker uses it for log messages. */
+    label?: string
+    /** Diagnostic name (matches the derivation's `name`). */
+    name?: string
+    /**
+     * Operation used to compute samples. Defaults to `'linear'` when omitted at the materialisation
+     * site (the resource fills this in from `derivation.operation`, defaulting there too).
+     */
+    operation: BiosignalDerivationOperation
+    /** Operation-specific knobs forwarded verbatim from `derivation.options`. */
+    options?: Record<string, unknown>
+    /**
+     * Weighted reference inputs (used only by `'linear'`; non-linear ops ignore this field).
+     * Indices reference source channels in the same cache.
+     */
+    reference: DerivedChannelProperties
+    /** Number of samples to allocate for this slot in the full-buffer case. */
+    sampleCount: number
+    /** Sampling rate of the derived signal, in Hz. */
+    samplingRate: number
+}
+/**
+ * Configuration for a single derived channel in BiosignalSetup.
+ *
+ * A derivation is materialised after raw signals are decoded and exposed as an
+ * additional source-channel slot in the signal cache. This makes the derived
+ * signal reachable from the cascade montage's raw-signal path and from trend
+ * services that pull through `getAllRawSignals`. The materialisation runs once
+ * per cache fill against the raw (unfiltered) inputs; display filters are
+ * applied downstream in the montage processor as usual.
+ *
+ * Extends {@link BiosignalChannelTemplate} so the channel-like display metadata
+ * (`label`, `samplingRate`, `unit`, `scale`, `laterality`, `modality`, `name`)
+ * sits in one place — the derivation appears alongside source channels in the
+ * SAB and needs the same descriptive surface to render.
+ */
+export type SetupDerivation = BiosignalChannelTemplate & {
     /** Properties of the active channel(s). */
     active: number | DerivedChannelProperties
     /** Set to true if the raw signal uses average reference, so it is not applied twice. */
     averaged: boolean
     /** Non-default polarity of this channel's signal. */
     displayPolarity: SignalPolarity
+    /**
+     * Operation used to compute samples from {@link active} and {@link reference}.
+     * Defaults to `'linear'` when omitted. See {@link BiosignalDerivationOperation}.
+     */
+    operation?: BiosignalDerivationOperation
+    /**
+     * Operation-specific knobs (e.g. window size for a future `'rms'` op). Kept
+     * deliberately open-shaped; each operation's handler picks the keys it cares
+     * about. Unknown keys are ignored.
+     */
+    options?: Record<string, unknown>
     /** Set of reference channel indices; multiple channels will be averaged. */
     reference: DerivedChannelProperties
 }

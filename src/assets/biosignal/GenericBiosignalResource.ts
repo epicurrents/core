@@ -23,6 +23,7 @@ import type {
 import type {
     AnnotationLabelTemplate,
     AnnotationEventTemplate,
+    BiosignalCacheDerivationSlot,
     BiosignalFilters,
     BiosignalAnnotationEvent,
     BiosignalCursor,
@@ -32,6 +33,8 @@ import type {
     BiosignalResource,
     BiosignalSetup,
     BiosignalTrend,
+    DerivedChannelProperties,
+    SetupDerivation,
     SignalDataCache,
     SignalInterruption,
     SignalInterruptionMap,
@@ -477,6 +480,81 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     // ///////////////////////////////////////////// //
     //                   HELPERS                     //
     // ///////////////////////////////////////////// //
+
+    /**
+     * Template-method hook for default-setup application. Modality subclasses override this to
+     * attach their canonical setups (and any setup-level derivations) to the resource. The hook
+     * is expected to be called during {@link prepare} — i.e. **after** the worker has parsed the
+     * file header and **before** the resource is activated — so that any `SetupDerivation`
+     * entries are known to the activation-time memory budgeter and SAB sizer.
+     *
+     * The base implementation is a no-op; subclasses that don't ship default setups inherit it
+     * harmlessly. Subclasses that do override should be idempotent — `prepare` may be invoked
+     * more than once on a recording across a lifetime (e.g. after a reset), and re-applying the
+     * same setup twice should be a no-op rather than producing duplicates.
+     */
+    protected async _applyDefaultSetups (): Promise<void> {
+        // No-op by default. Subclasses override.
+    }
+
+    /**
+     * Resolve the materialised cache-slot sizing for each `SetupDerivation` declared on the
+     * active setup. Each returned entry corresponds to one additional cache slot that the SAB
+     * allocator must reserve alongside source channels.
+     *
+     * Sampling rate is taken from `derivation.samplingRate` when set; otherwise it is inferred
+     * from the first active input by walking back to the source channel's sampling rate. A
+     * derivation whose rate can't be resolved (no `samplingRate`, no resolvable input) is
+     * dropped from the result with a debug log — the consumer keeps the source channels but
+     * won't allocate a phantom slot.
+     */
+    protected _derivationCacheSlots (): Array<{
+        derivation: SetupDerivation
+        samplingRate: number
+        sampleCount: number
+    }> {
+        const derivations = this._setup?.derivations
+        if (!derivations?.length) {
+            return []
+        }
+        const slots: Array<{ derivation: SetupDerivation, samplingRate: number, sampleCount: number }> = []
+        for (const deriv of derivations) {
+            const samplingRate = deriv.samplingRate || this._resolveDerivationSamplingRate(deriv)
+            if (samplingRate <= 0) {
+                continue
+            }
+            slots.push({
+                derivation: deriv,
+                samplingRate,
+                sampleCount: Math.round(samplingRate*this._dataDuration),
+            })
+        }
+        return slots
+    }
+
+    /**
+     * Look up a derivation's effective sampling rate from its first active input. Treats `active`
+     * as either a bare index, an `[index, weight]` pair, or a list of either. Returns 0 when no
+     * usable input is found — callers should treat that as "drop this derivation from sizing".
+     */
+    protected _resolveDerivationSamplingRate (deriv: SetupDerivation): number {
+        const pickFirstIndex = (entry: number | (number | number[])[]): number => {
+            if (typeof entry === 'number') {
+                return entry
+            }
+            const first = entry[0]
+            if (typeof first === 'number') {
+                return first
+            }
+            // [index, weight] tuple.
+            return Array.isArray(first) ? first[0] : -1
+        }
+        const idx = pickFirstIndex(deriv.active as number | DerivedChannelProperties)
+        if (typeof idx !== 'number' || idx < 0) {
+            return 0
+        }
+        return this._channels[idx]?.samplingRate ?? 0
+    }
 
     /**
      * Template-method hook for {@link addCascadeMontage}. `GenericBiosignalCascadeMontage` is
@@ -1231,7 +1309,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot setup cache before service has been set.`, SCOPE)
             return null
         }
-        const result = await this._service.setupCache(this._dataDuration)
+        const derivationSlots = this._derivationCacheSlotsForCommission()
+        const result = await this._service.setupCache(this._dataDuration, derivationSlots)
         if (result) {
             this._cacheProps = result
         }
@@ -1243,7 +1322,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot setup cache before service has been set.`, SCOPE)
             return null
         }
-        const result = await this._service.setupMutex().then(response => {
+        const derivationSlots = this._derivationCacheSlotsForCommission()
+        const result = await this._service.setupMutex(derivationSlots).then(response => {
             if (response) {
                 Log.debug(`Mutex cache for raw signal data initiated.`, SCOPE)
                 this._mutexProps = response
@@ -1257,6 +1337,25 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             return null
         })
         return result
+    }
+
+    /**
+     * Project `_derivationCacheSlots()` to the worker-message-friendly shape
+     * (`BiosignalCacheDerivationSlot[]`). The `SetupDerivation` reference itself is dropped (it
+     * carries display-state with no serialiser); the slot fields the materialisation pipeline
+     * actually needs — sizing, op, inputs, options — cross the boundary verbatim.
+     */
+    protected _derivationCacheSlotsForCommission (): BiosignalCacheDerivationSlot[] {
+        return this._derivationCacheSlots().map(s => ({
+            active: s.derivation.active,
+            label: s.derivation.label,
+            name: s.derivation.name,
+            operation: s.derivation.operation ?? 'linear',
+            options: s.derivation.options,
+            reference: s.derivation.reference,
+            sampleCount: s.sampleCount,
+            samplingRate: s.samplingRate,
+        }))
     }
 
     async unload () {

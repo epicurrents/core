@@ -88,6 +88,10 @@ class TestSignalReader extends GenericSignalReader {
     set testHeader(v: any) { this._header = v }
     set testFileTypeHeader(v: any) { this._fileTypeHeader = v }
     set testDecoder(v: any) { this._decoder = v }
+    // Expose the protected materialisation method so tests can pin its math.
+    testMaterialiseDerivation(slot: any, sourceSignals: any) {
+        return this._materialiseDerivation(slot, sourceSignals)
+    }
 }
 
 describe('GenericSignalReader', () => {
@@ -296,6 +300,96 @@ describe('GenericSignalReader', () => {
             expect(level1Spy).toHaveBeenCalled()
             // And the cache is gone afterwards (full Level 2 teardown).
             expect(reader.cacheReady).toBe(false)
+        })
+    })
+
+    describe('_materialiseDerivation', () => {
+        const makeSource = (data: number[]) => ({
+            data: new Float32Array(data),
+            samplingRate: 100,
+        })
+
+        it('computes magnitude as sqrt of squared sum of active inputs', () => {
+            const reader = new TestSignalReader()
+            const sources = [
+                makeSource([3, 0, 1]),
+                makeSource([4, 0, 0]),
+                makeSource([0, 0, 0]),
+            ]
+            const slot = {
+                active: [0, 1, 2],
+                operation: 'magnitude' as const,
+                reference: [],
+                sampleCount: 3,
+                samplingRate: 100,
+            }
+            const out = reader.testMaterialiseDerivation(slot, sources)
+            // sqrt(9 + 16 + 0) = 5; sqrt(0 + 0 + 0) = 0; sqrt(1 + 0 + 0) = 1.
+            expect(Array.from(out)).toEqual([5, 0, 1])
+        })
+
+        it('applies per-input weights before squaring in magnitude', () => {
+            const reader = new TestSignalReader()
+            const sources = [
+                makeSource([1, 1]),
+                makeSource([1, 1]),
+            ]
+            const slot = {
+                // Weight 3 on the first input, default 1 on the second.
+                // sqrt((1*3)^2 + (1*1)^2) = sqrt(9 + 1) = sqrt(10).
+                active: [[0, 3], [1]] as any,
+                operation: 'magnitude' as const,
+                reference: [],
+                sampleCount: 2,
+                samplingRate: 100,
+            }
+            const out = reader.testMaterialiseDerivation(slot, sources)
+            expect(out[0]).toBeCloseTo(Math.sqrt(10))
+            expect(out[1]).toBeCloseTo(Math.sqrt(10))
+        })
+
+        it('computes linear derivation as active mean minus reference mean', () => {
+            const reader = new TestSignalReader()
+            const sources = [
+                makeSource([10, 20]),  // active
+                makeSource([2, 4]),    // reference
+            ]
+            const slot = {
+                active: [0],
+                operation: 'linear' as const,
+                reference: [[1]] as any,
+                sampleCount: 2,
+                samplingRate: 100,
+            }
+            const out = reader.testMaterialiseDerivation(slot, sources)
+            // [10 - 2, 20 - 4]
+            expect(Array.from(out)).toEqual([8, 16])
+        })
+
+        it('returns empty array when active inputs are empty', () => {
+            const reader = new TestSignalReader()
+            const slot = {
+                active: [] as any,
+                operation: 'magnitude' as const,
+                reference: [],
+                sampleCount: 0,
+                samplingRate: 100,
+            }
+            const out = reader.testMaterialiseDerivation(slot, [])
+            expect(out.length).toBe(0)
+        })
+
+        it('returns empty array when first active input is missing from sources', () => {
+            const reader = new TestSignalReader()
+            const slot = {
+                active: [5] as any,  // index 5 doesn't exist
+                operation: 'magnitude' as const,
+                reference: [],
+                sampleCount: 0,
+                samplingRate: 100,
+            }
+            const out = reader.testMaterialiseDerivation(slot, [])
+            expect(out.length).toBe(0)
         })
     })
 })

@@ -8,7 +8,7 @@
 import { type AsymmetricMutex, type MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import { ReadDirection } from './reader'
-import { SignalPart } from './biosignal'
+import { BiosignalCacheDerivationSlot, SignalPart } from './biosignal'
 
 export type ActionWatcher = {
     actions: string[]
@@ -82,9 +82,10 @@ export interface AssetService extends BaseAsset {
     setBufferRange: (range: number[]) => Promise<void>
     /**
      * Set up the mutex in the web worker cache, returning the created mutex export properties or null if
-     * an error occurred.
+     * an error occurred. `derivationSlots` carries setup-declared derivation slots (sizing only) that
+     * the worker allocates after source signals; empty when the resource declares no derivations.
      */
-    setupMutex (): Promise<MutexExportProperties|null>
+    setupMutex (derivationSlots?: BiosignalCacheDerivationSlot[]): Promise<MutexExportProperties|null>
     /**
      * Perform necessary setup in the worker handling commissions for this service.
      * @param params - Any parameters required for the setup.

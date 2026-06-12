@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import type { BiosignalCacheDerivationSlot } from '#types/biosignal'
 import type {
     ActionWatcher,
     AssetService,
@@ -482,7 +483,9 @@ export default abstract class GenericService extends GenericAsset implements Ass
         }
     }
 
-    async setupMutex (): Promise<MutexExportProperties|null> {
+    async setupMutex (
+        derivationSlots: BiosignalCacheDerivationSlot[] = [],
+    ): Promise<MutexExportProperties|null> {
         if (!this._manager) {
             Log.error(`Cannot initialize buffer, memory manager has not been set up.`, SCOPE)
             return null
@@ -499,6 +502,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 ['buffer', this._manager.buffer],
                 ['range', this._memoryRange],
                 ['useMemoryManager', true],
+                ['derivationSlots', derivationSlots],
             ])
         )
         const initResult = await commission.promise as MutexExportProperties | null

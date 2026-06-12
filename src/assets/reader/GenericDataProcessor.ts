@@ -9,6 +9,7 @@ import {
     NUMERIC_ERROR_VALUE,
 } from '#util'
 import type {
+    BiosignalCacheDerivationSlot,
     DataProcessorCache,
     SignalCacheMutex,
     SignalDataCache,
@@ -135,7 +136,7 @@ export default abstract class GenericDataProcessor implements DataProcessorCache
         Log.debug(`Signal arrays released.`, SCOPE)
     }
 
-    setupCache (_bufferSize?: number): SignalDataCache | null {
+    setupCache (_dataDuration?: number, _derivationSlots?: BiosignalCacheDerivationSlot[]): SignalDataCache | null {
         Log.error(`setupCache has not been overridden in the child class.`, SCOPE)
         return null
     }
@@ -147,7 +148,7 @@ export default abstract class GenericDataProcessor implements DataProcessorCache
     async setupMutex (
         _buffer: SharedArrayBuffer,
         _bufferStart: number,
-        _bufferSize?: number
+        _derivationSlots?: BiosignalCacheDerivationSlot[]
     ): Promise<MutexExportProperties|null> {
         Log.error(`setupMutex has not been overridden in the child class.`, SCOPE)
         return null

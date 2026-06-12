@@ -14,7 +14,9 @@ import {
 } from '#util'
 import type {
     AppSettings,
+    BiosignalCacheDerivationSlot,
     ConfigChannelFilter,
+    DerivedChannelProperties,
     ReadDirection,
     SignalCachePart,
     SignalCacheProcess,
@@ -80,6 +82,13 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
     protected _dataOffset = 0
     /** Decoder used to extract signal data from the file. */
     protected _decoder: SignalDataDecoder | null = null
+    /**
+     * Setup-declared derivation slots that follow source signals in the signal cache.
+     * Empty when the resource declares no setup-level derivations. Populated by
+     * `setupCache` / `setupMutex` and used by the materialisation pipeline (TODO) to
+     * compute and write derived samples after every raw-decode batch.
+     */
+    protected _derivationSlots: BiosignalCacheDerivationSlot[] = []
     /** The file to load. */
     protected _file = null as SignalFilePart | null
     /** Index of next data data unit to load. */
@@ -472,6 +481,16 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 cacheSignals.push({
                     data: isAnnotation ? new Float32Array() : new Float32Array(sigData.signals[i]),
                     samplingRate: isAnnotation ? 0 : sigSr,
+                })
+            }
+            // Materialise setup-declared derivations from the freshly decoded source signals.
+            // Each derivation contributes one extra cache slot after the source ones — the indices
+            // line up with the slots `setupMutex` / `setupCache` allocated. Computed against raw
+            // (unfiltered) samples so display filters apply downstream in the montage processor.
+            for (const slot of this._derivationSlots) {
+                cacheSignals.push({
+                    data: this._materialiseDerivation(slot, cacheSignals),
+                    samplingRate: slot.samplingRate,
                 })
             }
             return {
@@ -1124,17 +1143,95 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         return true
     }
 
-    setupCache (dataDuration = 0) {
+    /**
+     * Compute one derivation's samples from already-decoded source signals.
+     *
+     * Dispatches on `slot.operation`:
+     * - `'linear'`: weighted sum of `active` minus weighted sum of `reference`, sample by sample.
+     *   Matches the inline weighted-combination math that `MontageProcessor` already runs for
+     *   `MontageChannel.active` / `.reference` — declaring the same combination at setup level
+     *   buys cascade-reach and trend-reach for free.
+     * - `'magnitude'`: pointwise `sqrt(Σᵢ (activeᵢ × weightᵢ)²)`. `reference` is unused.
+     *
+     * All inputs must share the slot's sampling rate (which is itself inferred from the first
+     * active input's rate, or supplied explicitly on the derivation). The output buffer matches
+     * the length of `sourceSignals[input].data` for whichever input is referenced — caller is
+     * responsible for that being consistent across the active set.
+     */
+    protected _materialiseDerivation (
+        slot: BiosignalCacheDerivationSlot,
+        sourceSignals: SignalCachePart["signals"],
+    ): Float32Array {
+        const toEntries = (active: number | DerivedChannelProperties): Array<[number, number]> => {
+            // Normalise to a list of `[index, weight]` tuples, defaulting weight to 1.
+            if (typeof active === 'number') {
+                return [[active, 1]]
+            }
+            return active.map(entry =>
+                Array.isArray(entry)
+                    ? [entry[0], (entry[1] as number | undefined) ?? 1]
+                    : [entry, 1]
+            )
+        }
+        const actives = toEntries(slot.active)
+        if (!actives.length) {
+            return new Float32Array(0)
+        }
+        const firstSrc = sourceSignals[actives[0][0]]?.data
+        if (!firstSrc) {
+            return new Float32Array(0)
+        }
+        const length = firstSrc.length
+        const out = new Float32Array(length)
+        if (slot.operation === 'magnitude') {
+            for (let i = 0; i < length; i++) {
+                let sumSq = 0
+                for (const [idx, weight] of actives) {
+                    const v = (sourceSignals[idx]?.data[i] ?? 0)*weight
+                    sumSq += v*v
+                }
+                out[i] = Math.sqrt(sumSq)
+            }
+            return out
+        }
+        // Default: linear (active − reference), matching the inline derivation in MontageProcessor.
+        const refs = toEntries(slot.reference)
+        for (let i = 0; i < length; i++) {
+            let act = 0
+            for (const [idx, weight] of actives) {
+                act += (sourceSignals[idx]?.data[i] ?? 0)*weight
+            }
+            if (actives.length > 1) {
+                act /= actives.length
+            }
+            let ref = 0
+            for (const [idx, weight] of refs) {
+                ref += (sourceSignals[idx]?.data[i] ?? 0)*weight
+            }
+            if (refs.length > 1) {
+                ref /= refs.length
+            }
+            out[i] = act - ref
+        }
+        return out
+    }
+
+    setupCache (dataDuration = 0, derivationSlots: BiosignalCacheDerivationSlot[] = []) {
         if (this._fallbackCache) {
             Log.warn(`Tried to re-initialize already initialized signal data cache.`, SCOPE)
         } else {
             this._fallbackCache = new BiosignalCache(dataDuration)
             this._buildDataBlocks()
         }
+        this._derivationSlots = derivationSlots
         return this._fallbackCache
     }
 
-    async setupMutex (buffer: SharedArrayBuffer, bufferStart: number): Promise<MutexExportProperties|null> {
+    async setupMutex (
+        buffer: SharedArrayBuffer,
+        bufferStart: number,
+        derivationSlots: BiosignalCacheDerivationSlot[] = [],
+    ): Promise<MutexExportProperties|null> {
         if (this._mutex) {
             Log.warn(`Tried to re-initialize already initialized signal data cache.`, SCOPE)
             return this._mutex.propertiesForCoupling
@@ -1156,6 +1253,17 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                               : sig.samplingRate
             })
         }
+        // Derivation slots append after source signals. Their indices start at
+        // `header.signals.length` and stay stable for the lifetime of the cache;
+        // downstream code that references them (montage channels, cascade source resolver)
+        // uses the same numeric index as a source channel would.
+        for (const slot of derivationSlots) {
+            cacheProps.signals.push({
+                data: new Float32Array(),
+                samplingRate: slot.samplingRate,
+            })
+        }
+        this._derivationSlots = derivationSlots
         this._buildDataBlocks()
         this._mutex = new BiosignalMutex()
         // For rolling caches, the mutex buffer holds only the active 3-block window in data-time
