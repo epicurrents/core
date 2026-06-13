@@ -892,19 +892,30 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 if (endPos <= dataPartLen) {
                     this.setData(i, signalPart.signals[i].data, startPos)
                 } else {
-                    // Need to truncate the data to fit it into the remaining buffer.
+                    // Truncate to the remaining buffer space (between `startPos` and
+                    // `dataPartLen`). The buffer-size mismatch typically comes from
+                    // floating-point round-off — `Math.floor(samplingRate × dataLength)`
+                    // (the allocation) and `Math.round(end × samplingRate)` (here) can
+                    // differ by one sample whenever `samplingRate × dataLength` has a
+                    // fractional part ≥ 0.5.
+                    const fittedLen = Math.max(0, dataPartLen - startPos)
                     Log.warn(`New signal data exceeded available buffer by ${endPos - dataPartLen} values `+
-                             `and had to be truncated.`, SCOPE)
-                    this.setData(i, signalPart.signals[i].data.subarray(0, endPos - dataPartLen), startPos)
+                             `and had to be truncated to ${fittedLen} samples.`, SCOPE)
+                    this.setData(i, signalPart.signals[i].data.subarray(0, fittedLen), startPos)
                 }
-                // Update the range of up-to-date signal values if needed.
+                // Clamp the stored end position to the actual buffer size — without this
+                // the read-back via `outputSignalUpdatedRanges → range.end / samplingRate`
+                // exceeds `_totalDataLength` and trips `_cacheTimeToRecordingTime`'s
+                // bounds check on the consumer side, even though the underlying sample
+                // data was correctly truncated above.
                 const updatedRangeStart = dataView[BiosignalMutex.SIGNAL_UPDATED_START_POS]
                 const updatedRangeEnd = dataView[BiosignalMutex.SIGNAL_UPDATED_END_POS]
+                const clampedEnd = Math.min(endPos, dataPartLen)
                 if (updatedRangeStart === BiosignalMutex.EMPTY_FIELD || updatedRangeStart > startPos) {
                     this.setDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_START_NAME, startPos, [i])
                 }
-                if (updatedRangeEnd === BiosignalMutex.EMPTY_FIELD || updatedRangeEnd < endPos) {
-                    this.setDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_END_NAME, endPos, [i])
+                if (updatedRangeEnd === BiosignalMutex.EMPTY_FIELD || updatedRangeEnd < clampedEnd) {
+                    this.setDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_END_NAME, clampedEnd, [i])
                 }
                 Log.debug(
                     `Inserted new signal data for signal ${i} into the buffer, `

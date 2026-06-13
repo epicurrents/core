@@ -176,4 +176,103 @@ describe('BiosignalMutex', () => {
             mutex.destroy()
         })
     })
+
+    describe('insertSignals — buffer-overshoot path', () => {
+        // When the cache loop asks to insert a part whose `end × samplingRate`
+        // exceeds the allocated buffer by less than one sample (a routine
+        // outcome whenever `samplingRate × dataLength` has fractional part
+        // ≥ 0.5), the truncation path runs. Two things must hold:
+        //   1. `setData` is given exactly the prefix that fits between
+        //      `startPos` and the end of the buffer — not the difference
+        //      between requested and allocated lengths.
+        //   2. `SIGNAL_UPDATED_END` is stored clamped to `dataPartLen`, so the
+        //      read-back via `range.end / samplingRate` cannot overshoot
+        //      `_totalDataLength` downstream.
+        const setupOvershootMutex = (dataPartLen: number, samplingRate: number) => {
+            const mutex = new BiosignalMutex()
+            const view = new Float32Array(dataPartLen + 3) // +3 for the three field slots
+            view[BiosignalMutex.SIGNAL_SAMPLING_RATE_POS] = samplingRate
+            view[BiosignalMutex.SIGNAL_UPDATED_START_POS] = -1 // EMPTY_FIELD
+            view[BiosignalMutex.SIGNAL_UPDATED_END_POS] = -1 // EMPTY_FIELD
+            ;(mutex as unknown as { _outputData: unknown })._outputData = {
+                arrays: [{ view }],
+                fields: [],
+            }
+            // outputRangeStart / outputRangeEnd are async getters bound to the
+            // mocked IOMutex meta layer. Stub them to a known buffer range.
+            Object.defineProperty(mutex, 'outputRangeStart', {
+                get: () => Promise.resolve(0),
+                configurable: true,
+            })
+            Object.defineProperty(mutex, 'outputRangeEnd', {
+                get: () => Promise.resolve(32),
+                configurable: true,
+            })
+            return { mutex, view }
+        }
+
+        it('truncates the inserted data to the buffer remainder, not the overshoot', async () => {
+            const dataPartLen = 3199
+            const samplingRate = 99.9977
+            const { mutex } = setupOvershootMutex(dataPartLen, samplingRate)
+            const setDataSpy = vi.spyOn(mutex, 'setData')
+            const part = {
+                start: 0,
+                end: 32,
+                signals: [{ data: new Float32Array(3200), samplingRate }],
+            }
+            await mutex.insertSignals(part)
+            // setData was called with the buffer-remainder prefix
+            // (dataPartLen - startPos = 3199 - 0 = 3199), not the overshoot
+            // count (endPos - dataPartLen = 1).
+            expect(setDataSpy).toHaveBeenCalledTimes(1)
+            const [channelIdx, writtenData, atStartPos] = setDataSpy.mock.calls[0]
+            expect(channelIdx).toBe(0)
+            expect(atStartPos).toBe(0)
+            expect((writtenData as Float32Array).length).toBe(3199)
+        })
+
+        it('clamps SIGNAL_UPDATED_END to the buffer size on overshoot', async () => {
+            const dataPartLen = 3199
+            const samplingRate = 99.9977
+            const { mutex } = setupOvershootMutex(dataPartLen, samplingRate)
+            const setFieldSpy = vi.spyOn(mutex, 'setDataFieldValue')
+            const part = {
+                start: 0,
+                end: 32,
+                signals: [{ data: new Float32Array(3200), samplingRate }],
+            }
+            await mutex.insertSignals(part)
+            const endCalls = setFieldSpy.mock.calls.filter(
+                (call) => call[0] === BiosignalMutex.SIGNAL_UPDATED_END_NAME
+            )
+            expect(endCalls).toHaveLength(1)
+            // Round((32 − 0) × 99.9977) = 3200 — the unclamped value the bug
+            // used to store. The clamp pins the stored end to dataPartLen so
+            // `range.end / samplingRate = 3199 / 99.9977 ≈ 31.9976 ≤ 32`.
+            const [, storedEnd] = endCalls[0]
+            expect(storedEnd).toBe(dataPartLen)
+        })
+
+        it('stores the unclamped endPos when the data fits without truncation', async () => {
+            // The clamp must not regress the in-bounds path: when nothing was
+            // truncated, the stored end is the same `round(end × sr)` value
+            // that downstream code converts back to seconds.
+            const dataPartLen = 3200
+            const samplingRate = 100
+            const { mutex } = setupOvershootMutex(dataPartLen, samplingRate)
+            const setFieldSpy = vi.spyOn(mutex, 'setDataFieldValue')
+            const part = {
+                start: 0,
+                end: 32,
+                signals: [{ data: new Float32Array(3200), samplingRate }],
+            }
+            await mutex.insertSignals(part)
+            const endCalls = setFieldSpy.mock.calls.filter(
+                (call) => call[0] === BiosignalMutex.SIGNAL_UPDATED_END_NAME
+            )
+            expect(endCalls).toHaveLength(1)
+            expect(endCalls[0][1]).toBe(3200)
+        })
+    })
 })
