@@ -19,6 +19,7 @@
     "./util": "./dist/util/index.js",
     "./workers": "./dist/workers/index.js",
     "./package.json": "./package.json",
+    "./tsconfig.base.json": "./tsconfig.base.json",
     "./dist/assets": "./dist/assets/index.js",
     "./dist/config": "./dist/config/index.js",
     "./dist/events": "./dist/events/index.js",
@@ -37,7 +38,8 @@
     "umd/*.js",
     "umd/*.LICENSE.txt",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "tsconfig.base.json"
   ],
   "scripts": {
     "build": "npm run build:umd && npm run build:tsc",
