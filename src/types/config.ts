@@ -190,6 +190,14 @@ export type CommonBiosignalSettings = {
     showMissingChannels: boolean
     /** Should the resource be automatically unloaded from memory when it is closed. */
     unloadOnClose: boolean
+    /**
+     * Frequency bands surfaced by the FFT analysis tool. Each entry adds a
+     * vertical guideline at `upperLimit` Hz, an optional symbol label at the
+     * band's left edge, and a per-band power-density row in the side panel.
+     * Modalities without canonical bands (e.g. accelerometry) can leave this
+     * empty; the FFT spectrum still draws — only the band annotations drop.
+     */
+    frequencyBands?: { name: string, symbol?: string, upperLimit: number }[]
     /////////////////////
     // Filter settings //
     /////////////////////

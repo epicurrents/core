@@ -1144,9 +1144,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     async setActiveMontage (montage: number | string | null) {
         const prevMontage = this.activeMontage
-        prevMontage?.removeAllEventListeners()
         if (montage === null) {
             // Use raw signals.
+            prevMontage?.removeAllEventListeners()
             if (this._activeMontage) {
                 this._activeMontage.stopCachingSignals()
             }
@@ -1167,6 +1167,12 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         }
         if ((montage as number) >= 0 && (montage as number) < this._montages.length) {
             if (this._activeMontage?.name !== this._montages[montage as number].name) {
+                // Tear down the previous montage's listeners only when we are
+                // actually switching. Doing this unconditionally (which the
+                // previous version did) strips the per-channel relay listener
+                // installed below and never re-adds it on a same-name no-op
+                // call, silently breaking redraws for the rest of the session.
+                prevMontage?.removeAllEventListeners()
                 this._activeMontage?.stopCachingSignals()
                 this._setPropertyValue('activeMontage', this._montages[montage as number])
                 // Relay channel updates to the resource listeners.
