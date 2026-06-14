@@ -109,9 +109,21 @@ describe('BiosignalAudio', () => {
     })
 
     describe('buffer', () => {
-        it('should return null when no audio context', () => {
+        it('should return null when no buffer loaded', () => {
             const audio = new BiosignalAudio('Test')
             expect(audio.buffer).toBeNull()
+        })
+    })
+
+    describe('setBuffer', () => {
+        it('should load a buffer and mirror its duration, sample count and sampling rate', () => {
+            const audio = new BiosignalAudio('Test')
+            const buffer = { length: 8, sampleRate: 4, duration: 2 } as unknown as AudioBuffer
+            audio.setBuffer(buffer)
+            expect(audio.buffer).toBe(buffer)
+            expect(audio.sampleCount).toBe(8)
+            expect(audio.samplingRate).toBe(4)
+            expect(audio.duration).toBe(2)
         })
     })
 

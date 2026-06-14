@@ -6,6 +6,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
+import { mintDirectBuffer } from './synthesizers/direct'
 import { type AudioRecording } from '#types/media'
 import { Log } from 'scoped-event-log'
 
@@ -25,8 +26,6 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _audio: AudioContext | null = null
     protected _buffer: AudioBuffer | null = null
     protected _compressor: DynamicsCompressorNode | null = null
-    /** This is a backup of the channel audio data. */
-    protected _data: Float32Array[] = []
     protected _duration = 0
     protected _hasStarted = false
     protected _isPlaying = false
@@ -37,7 +36,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _sampleCount = 0
     protected _sampleMaxAbsValue: number
     protected _samplingRate = 0
-    /** This is the non-normalized signal data measured in physical units. */
+    /** Non-normalized signal data measured in physical units, retained for inspection via the `signals` getter. */
     protected _signals: Float32Array[] = []
     protected _source: AudioBufferSourceNode | null = null
     protected _startTime = 0
@@ -52,10 +51,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     }
 
     get buffer () {
-        if (!this._audio || !this._source || this._source.buffer) {
-            return null
-        }
-        return this._source.buffer
+        return this._buffer
     }
 
     get currentTime () {
@@ -134,7 +130,6 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._audio = null
         this._buffer = null
         this._compressor = null
-        this._data.length = 0
         this._previousGain = 1.0
         this._signals.length = 0
         this._source = null
@@ -143,45 +138,29 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     }
 
     async loadBuffer () {
-        if (!this._data) {
+        if (!this._buffer) {
             return
         }
-        this._audio = new AudioContext()
-        const sampleRate = this._samplingRate || this._audio.sampleRate
-        if (!this.sampleCount) {
-            // Calculate sample count based on duration and audio device sampling rate.
-            const nSamples = Math.floor(sampleRate*this._duration)
-            this._sampleCount = nSamples
-        }
-        const buffer = this._audio.createBuffer(this._data.length, this._sampleCount, sampleRate)
-        for (let i=0; i<buffer.numberOfChannels; i++) {
-            const data = buffer.getChannelData(i)
-            data.set(this._data[i].slice(0))
+        if (!this._audio) {
+            this._audio = new AudioContext()
         }
         this._source = this._audio.createBufferSource()
-        this._source.buffer = buffer
+        this._source.buffer = this._buffer
         this._previousGain = 1.0
     }
 
     async loadFile (fileBuffer: ArrayBuffer) {
-        this._audio = new AudioContext()
-        this._source = this._audio.createBufferSource()
-        this._source.buffer = await this._audio.decodeAudioData(fileBuffer.slice(0))
-        this._data = []
+        const context = new AudioContext()
+        const decoded = await context.decodeAudioData(fileBuffer.slice(0))
         const prevSignals = this._signals
-        for (let i=0; i<this._source.buffer.numberOfChannels; i++) {
-            const data = this._source.buffer.getChannelData(i)
-            this._signals.push(data)
-            // Save copy channel data for replays.
-            this._data.push(data.slice(0))
-            if (!this._samplingRate) {
-                this._setPropertyValue('samplingRate', this._source.buffer.sampleRate)
-            }
+        this._signals = []
+        for (let i=0; i<decoded.numberOfChannels; i++) {
+            this._signals.push(decoded.getChannelData(i))
         }
         this.dispatchPropertyChangeEvent('signals', this.signals, prevSignals)
-        this._setPropertyValue('duration', this._source.buffer.duration)
-        this._setPropertyValue('sampleCount', Math.floor(this._audio.sampleRate*this._duration))
-        this._previousGain = 1.0
+        this.setBuffer(decoded)
+        // The playback context is created lazily on first play; the decode context is no longer needed.
+        await context.close().catch(() => {})
     }
 
     pause () {
@@ -195,7 +174,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     }
 
     async play (position = 0, gain = this._previousGain) {
-        if (!this._audio) {
+        if (!this._audio || !this._source) {
             await this.loadBuffer()
         }
         if (!this._source || !this._audio) {
@@ -253,6 +232,14 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         }
     }
 
+    setBuffer (buffer: AudioBuffer) {
+        this._buffer = buffer
+        this._setPropertyValue('sampleCount', buffer.length)
+        this._setPropertyValue('samplingRate', buffer.sampleRate)
+        this._setPropertyValue('duration', buffer.duration)
+        this._previousGain = 1.0
+    }
+
     setGain (gain: number) {
         if (!this._volume) {
             return
@@ -266,40 +253,11 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     }
 
     setSignals (length: number, samplingRate: number, ...data: Float32Array[]) {
-        this._audio = new AudioContext({ sampleRate: samplingRate })
-        const nSamples = Math.floor(samplingRate*length)
-        this._setPropertyValue('sampleCount', nSamples)
-        const buffer = this._audio.createBuffer(data.length, nSamples, samplingRate)
-        this._setPropertyValue('duration', length)
-        for (let i=0; i<buffer.numberOfChannels; i++) {
-            const channel = buffer.getChannelData(i)
-            // The source sampling rate may be higher than our audio device sampling rate,
-            // in which case we must downsample.
-            const chanData = new Float32Array(nSamples)
-            // This will handle simple down-sampling if source has higher sampling rate
-            // than the native audio device. Super-sampling is not supported yet.
-            const dsFactor = data[i].length/nSamples
-            if (samplingRate < this._audio.sampleRate) {
-                Log.warn(`Source sampling rate (${samplingRate} Hz) is lower than audio device sampling rate ` +
-                         `(${this._audio.sampleRate} Hz).`, SCOPE)
-            }
-            for (let j=0; j<nSamples; j++) {
-                const value = this._sampleMaxAbsValue ? data[i][Math.floor(j*dsFactor)]/this._sampleMaxAbsValue
-                                                      : data[i][Math.floor(j*dsFactor)]
-                chanData.set([Math.max(-1, Math.min(1, value))], j)
-            }
-            if (!this._samplingRate) {
-                this._setPropertyValue('samplingRate', samplingRate)
-            }
-            channel.set(chanData)
-            this._signals.push(data[i])
-            // Clone an independent array of the data that was used.
-            const clonedData = chanData.slice(0)
-            this._data.push(clonedData)
-        }
-        this._source = this._audio.createBufferSource()
-        this._source.buffer = buffer
-        this._previousGain = 1.0
+        this._signals = data.slice()
+        this.setBuffer(mintDirectBuffer(data, samplingRate, {
+            durationSeconds: length,
+            sampleMaxAbsValue: this._sampleMaxAbsValue,
+        }))
     }
 
     stop () {

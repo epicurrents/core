@@ -8,11 +8,25 @@
 import { BaseAsset } from '#types/application'
 
 /**
+ * A single biquad EQ band applied while shaping synthesized audio.
+ */
+export interface AudioEqBand {
+    /** Centre / cutoff frequency in Hz. */
+    frequency: number
+    /** Gain in dB; applies to peaking and shelving filter types only. */
+    gain?: number
+    /** Quality factor. */
+    q?: number
+    /** Biquad filter type. */
+    type: BiquadFilterType
+}
+
+/**
  * General type for audio recordings.
  */
 export interface AudioRecording extends BaseAsset {
-    /** Buffer to use as audio data source. */
-    buffer: ArrayBuffer | null
+    /** The AudioBuffer currently loaded for playback, or null if none is loaded. */
+    buffer: AudioBuffer | null
     /** Current audio playback time. */
     currentTime: number
     /** Total audio duration. */
@@ -47,7 +61,7 @@ export interface AudioRecording extends BaseAsset {
      */
     destroy (dispatchEvent?: boolean): void
     /**
-     * Load the buffer set to the `buffer` property.
+     * Arm the playback source from the currently loaded buffer.
      * @returns Promise that resolves when loading is complete.
      */
     loadBuffer (): Promise<void>
@@ -79,6 +93,12 @@ export interface AudioRecording extends BaseAsset {
      */
     removePlayStartedCallback (callback: (() => unknown)): void
     /**
+     * Set the AudioBuffer to play, replacing any currently loaded buffer. Updates duration, sample count, and
+     * sampling rate to match the buffer.
+     * @param buffer - The rendered audio buffer to play.
+     */
+    setBuffer (buffer: AudioBuffer): void
+    /**
      * Set the audio gain to account for display scale.
      * @param gain - Gain factor, which is the reciprocal of sensitivity (vertical uV/D value).
      * @example
@@ -97,4 +117,40 @@ export interface AudioRecording extends BaseAsset {
      * Stop audio playback.
      */
     stop (): void
+}
+
+/**
+ * Options common to all audio synthesis methods.
+ */
+export interface AudioSynthesisOptions {
+    /** Recording duration in seconds; defaults to `signals[0].length / sampleRate`. */
+    durationSeconds?: number
+}
+
+/**
+ * Turns raw biosignal channels into a playable AudioBuffer. Implementations render off the UI thread with an
+ * `OfflineAudioContext` and hand the result to a player via {@link AudioRecording.setBuffer}.
+ */
+export interface AudioSynthesizer {
+    /**
+     * Render the given signals into an AudioBuffer.
+     * @param signals - One continuous Float32Array per channel, in physical units.
+     * @param sampleRate - Sampling rate of the signals in Hz.
+     * @param opts - Method-specific synthesis options.
+     * @returns Promise resolving with the rendered audio buffer.
+     */
+    synthesize (signals: Float32Array[], sampleRate: number, opts?: AudioSynthesisOptions): Promise<AudioBuffer>
+}
+
+/**
+ * Options for the `direct` synthesis method.
+ */
+export interface DirectSynthesisOptions extends AudioSynthesisOptions {
+    /** Optional EQ band chain applied through an offline render. */
+    eq?: AudioEqBand[]
+    /**
+     * Maximum absolute physical-unit value; the signal is normalised against this and clipped to [-1, 1]. A falsy
+     * value disables normalisation.
+     */
+    sampleMaxAbsValue?: number
 }

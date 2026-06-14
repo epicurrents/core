@@ -46,6 +46,8 @@ import {
 } from './error'
 import {
     BiosignalAudio,
+    DirectSynthesizer,
+    renderOffline,
 } from './media'
 import {
     GenericService,
@@ -74,6 +76,7 @@ export {
     BiosignalCache,
     BiosignalMutex,
     BiosignalStudyLoader,
+    DirectSynthesizer,
     ErrorResource,
     FileSystemDirectory,
     FileSystemFile,
@@ -112,6 +115,7 @@ export {
     TrendWorkerSubstitute,
     StudyCollection,
     studyContextTemplate,
+    renderOffline,
     WebDAVConnector,
 }
 import GenericAsset from './GenericAsset'

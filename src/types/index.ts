@@ -337,10 +337,18 @@ export {
 /////////////////////////////////////////////////
 
 import type {
+    AudioEqBand,
     AudioRecording,
+    AudioSynthesisOptions,
+    AudioSynthesizer,
+    DirectSynthesisOptions,
 } from './media'
 export {
+    AudioEqBand,
     AudioRecording,
+    AudioSynthesisOptions,
+    AudioSynthesizer,
+    DirectSynthesisOptions,
 }
 
 /////////////////////////////////////////////////
