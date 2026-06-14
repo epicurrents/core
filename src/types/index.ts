@@ -339,16 +339,22 @@ export {
 import type {
     AudioEqBand,
     AudioRecording,
+    AudioSynthesisMethod,
     AudioSynthesisOptions,
     AudioSynthesizer,
     DirectSynthesisOptions,
+    SpectralToneSynthesisOptions,
+    StethoscopeSynthesisOptions,
 } from './media'
 export {
     AudioEqBand,
     AudioRecording,
+    AudioSynthesisMethod,
     AudioSynthesisOptions,
     AudioSynthesizer,
     DirectSynthesisOptions,
+    SpectralToneSynthesisOptions,
+    StethoscopeSynthesisOptions,
 }
 
 /////////////////////////////////////////////////

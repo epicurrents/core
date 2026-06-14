@@ -120,10 +120,19 @@ export interface AudioRecording extends BaseAsset {
 }
 
 /**
+ * Identifier for a registered audio synthesis method. The built-in methods are `direct`, `stethoscope`, and
+ * `spectral-tone`; the registry accepts any string so projects can register their own.
+ */
+export type AudioSynthesisMethod = 'direct' | 'spectral-tone' | 'stethoscope'
+
+/**
  * Options common to all audio synthesis methods.
  */
 export interface AudioSynthesisOptions {
-    /** Recording duration in seconds; defaults to `signals[0].length / sampleRate`. */
+    /**
+     * Output duration in seconds. The `direct` method defaults to `signals[0].length / sampleRate`; `stethoscope`
+     * defaults to the signal duration (it is time-preserving); `spectral-tone` defaults to a fixed sustain.
+     */
     durationSeconds?: number
 }
 
@@ -153,4 +162,32 @@ export interface DirectSynthesisOptions extends AudioSynthesisOptions {
      * value disables normalisation.
      */
     sampleMaxAbsValue?: number
+}
+
+/**
+ * Options for the `spectral-tone` synthesis method, which resynthesises the dominant spectral peaks of a clean signal
+ * window as a steady, audible tone.
+ */
+export interface SpectralToneSynthesisOptions extends AudioSynthesisOptions {
+    /** Number of spectral peaks to resynthesise additively (default 5). */
+    peakCount?: number
+    /** Explicit multiplicative speed-up factor applied to every peak frequency; overrides `targetFundamentalHz`. */
+    speedUp?: number
+    /** Target frequency (Hz) for the dominant peak; the speed-up factor is derived to land it here (default 440). */
+    targetFundamentalHz?: number
+}
+
+/**
+ * Options for the `stethoscope` synthesis method, which maps a sub-audible signal onto an audible carrier in a
+ * time-preserving way (brain-stethoscope style).
+ */
+export interface StethoscopeSynthesisOptions extends AudioSynthesisOptions {
+    /** Carrier frequency band [min, max] in Hz used when tracking signal frequency (default [110, 880]). */
+    carrierBandHz?: [number, number]
+    /** Base carrier frequency in Hz used when frequency is not tracked (default 220). */
+    carrierHz?: number
+    /** Control-curve update rate in Hz for the amplitude / frequency automation (default 50). */
+    controlRateHz?: number
+    /** Track the signal's instantaneous frequency to modulate carrier pitch; when false the carrier stays at `carrierHz` (default true). */
+    trackFrequency?: boolean
 }

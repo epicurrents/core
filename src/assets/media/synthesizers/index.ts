@@ -5,12 +5,19 @@
  * @license    Apache-2.0
  */
 
-import DirectSynthesizer, { mintDirectBuffer, normalizeChannels } from './direct'
-import { renderOffline } from './renderOffline'
+import DirectSynthesizer from './direct'
+import SpectralToneSynthesizer from './spectralTone'
+import StethoscopeSynthesizer from './stethoscope'
+import { getSynthesizer, listSynthesizers, registerSynthesizer } from './registry'
+import { renderGraph, renderOffline } from './renderOffline'
 
 export {
     DirectSynthesizer,
-    mintDirectBuffer,
-    normalizeChannels,
+    SpectralToneSynthesizer,
+    StethoscopeSynthesizer,
+    getSynthesizer,
+    listSynthesizers,
+    registerSynthesizer,
+    renderGraph,
     renderOffline,
 }

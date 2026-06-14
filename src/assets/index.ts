@@ -47,6 +47,12 @@ import {
 import {
     BiosignalAudio,
     DirectSynthesizer,
+    SpectralToneSynthesizer,
+    StethoscopeSynthesizer,
+    getSynthesizer,
+    listSynthesizers,
+    registerSynthesizer,
+    renderGraph,
     renderOffline,
 } from './media'
 import {
@@ -77,6 +83,11 @@ export {
     BiosignalMutex,
     BiosignalStudyLoader,
     DirectSynthesizer,
+    SpectralToneSynthesizer,
+    StethoscopeSynthesizer,
+    getSynthesizer,
+    listSynthesizers,
+    registerSynthesizer,
     ErrorResource,
     FileSystemDirectory,
     FileSystemFile,
@@ -115,6 +126,7 @@ export {
     TrendWorkerSubstitute,
     StudyCollection,
     studyContextTemplate,
+    renderGraph,
     renderOffline,
     WebDAVConnector,
 }
