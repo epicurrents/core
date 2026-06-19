@@ -330,11 +330,15 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             let j = 0
             for (let n=dataStart; n<dataEnd; n++) {
                 let refAvg = 0
-                // Just leave the value at zero if we are outside tha actual signal range.
-                if (n < 0 || n >= activeLen) {
+                // Nothing to read from an empty channel.
+                if (!activeLen) {
                     j++
                     continue
                 }
+                // Clamp reads to the signal edges so out-of-range filter padding repeats the edge value (a constant
+                // DC) instead of zero. A high-pass on a zero-padded, DC-offset signal — e.g. accelerometry sitting on
+                // its ~1 g gravity baseline — would otherwise ring down from the offset across the first seconds.
+                const sn = n < 0 ? 0 : (n >= activeLen ? activeLen - 1 : n)
                 // Check if the average for this particular datapoint has already been calculated.
                 if (chan.averaged && avgMap[j] !== undefined) {
                     refAvg = avgMap[j]
@@ -344,7 +348,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                         for (const ref of refs) {
                             const refWeight = Array.isArray(ref) ? ref[1] : 1
                             const refIndex = Array.isArray(ref) ? ref[0] : ref
-                            refAvg += SIGNALS[refIndex][n]*refWeight
+                            refAvg += SIGNALS[refIndex][sn]*refWeight
                         }
                         refAvg /= refs.length
                         avgMap[j] = refAvg
@@ -353,16 +357,16 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                     } else {
                         const refWeight = Array.isArray(refs[0]) ? refs[0][1] : 1
                         const refIndex = Array.isArray(refs[0]) ? refs[0][0] : refs[0]
-                        refAvg = SIGNALS[refIndex][n]*refWeight
+                        refAvg = SIGNALS[refIndex][sn]*refWeight
                     }
                 }
-                let actAvg = Array.isArray(chan.active) ? 0 : SIGNALS[chan.active][n]
+                let actAvg = Array.isArray(chan.active) ? 0 : SIGNALS[chan.active][sn]
                 if (Array.isArray(chan.active)) {
                     // Calculate the average of all active signals.
                     for (const act of chan.active) {
                         const actWeight = Array.isArray(act) ? act[1] : 1
                         const actIndex = Array.isArray(act) ? act[0] : act
-                        actAvg += SIGNALS[actIndex][n]*actWeight
+                        actAvg += SIGNALS[actIndex][sn]*actWeight
                     }
                     actAvg /= chan.active.length
                 }

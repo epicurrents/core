@@ -743,11 +743,35 @@ export const filterSignal = (
         return signal
     }
     // Clamp both cutoffs to valid range (strictly inside 0 … Nyquist).
-    if (lp) lp = Math.min(lp, fs / 2 - 0.1)
-    if (hp && hp >= fs / 2) hp = 0   // HP at or above Nyquist is degenerate — skip
+    if (lp) {
+        lp = Math.min(lp, fs / 2 - 0.1)
+    }
+    // A high-pass at or above Nyquist is degenerate — skip it.
+    if (hp && hp >= fs / 2) {
+        hp = 0
+    }
     if (lp && hp && lp <= hp) {
         Log.debug(`Low-pass threshold must be higher than high-pass threshold, ignoring band-pass.`, SCOPE)
     } else {
+        if (hp) {
+            // A high-pass removes the DC component anyway (highpass(mean) = 0), so subtracting the mean first leaves
+            // the interior output unchanged while sparing the filter from settling out a large constant. Without
+            // this, a big baseline — e.g. accelerometry's ~1 g gravity offset — makes the filter ring down from that
+            // level across the first seconds: a visible edge transient no padding removes, because the filter's own
+            // initial-condition approximation, not padding length, governs it.
+            let sum = 0
+            for (let i = 0; i < signal.length; i++) {
+                sum += signal[i]
+            }
+            const mean = sum/signal.length
+            if (mean) {
+                const centered = new Float32Array(signal.length)
+                for (let i = 0; i < signal.length; i++) {
+                    centered[i] = signal[i] - mean
+                }
+                signal = centered
+            }
+        }
         if (hp && lp) {
             // Sequential highpass + lowpass — preserves the strong stopband attenuation
             // of each independent filter (effective ~8th-order at each edge with filtfilt).
