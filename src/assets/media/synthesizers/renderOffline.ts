@@ -6,6 +6,13 @@
  */
 
 /**
+ * Output sample rate for synthesized audible audio. Methods that generate sound (oscillator carriers, additive tones)
+ * render at this rate rather than the source signal's rate — biosignal rates are sub-audible (e.g. accelerometry at
+ * 100 Hz) and fall below the `OfflineAudioContext` minimum of 3000 Hz. The input rate is used only for signal analysis.
+ */
+export const AUDIBLE_SAMPLE_RATE = 44_100
+
+/**
  * Render an audio graph to an AudioBuffer with an `OfflineAudioContext`, faster than real time and off the UI thread.
  * The `build` callback wires the graph: it creates source / oscillator / processing nodes, connects them to
  * `context.destination`, and starts them.

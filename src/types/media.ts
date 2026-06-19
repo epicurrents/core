@@ -96,8 +96,9 @@ export interface AudioRecording extends BaseAsset {
      * Set the AudioBuffer to play, replacing any currently loaded buffer. Updates duration, sample count, and
      * sampling rate to match the buffer.
      * @param buffer - The rendered audio buffer to play.
+     * @param loop - Whether the buffer should loop perpetually on playback (default false).
      */
-    setBuffer (buffer: AudioBuffer): void
+    setBuffer (buffer: AudioBuffer, loop?: boolean): void
     /**
      * Set the audio gain to account for display scale.
      * @param gain - Gain factor, which is the reciprocal of sensitivity (vertical uV/D value).
@@ -169,8 +170,13 @@ export interface DirectSynthesisOptions extends AudioSynthesisOptions {
  * window as a steady, audible tone.
  */
 export interface SpectralToneSynthesisOptions extends AudioSynthesisOptions {
-    /** Number of spectral peaks to resynthesise additively (default 5). */
+    /** Maximum number of spectral peaks to resynthesise additively (default 24). */
     peakCount?: number
+    /**
+     * Minimum peak magnitude to resynthesise, as a fraction of the dominant peak (default 0.1). A narrow, stable
+     * spectrum keeps few peaks above this (a pure tone); a distributed, jerky spectrum keeps many (a richer tone).
+     */
+    peakThreshold?: number
     /** Explicit multiplicative speed-up factor applied to every peak frequency; overrides `targetFundamentalHz`. */
     speedUp?: number
     /** Target frequency (Hz) for the dominant peak; the speed-up factor is derived to land it here (default 440). */

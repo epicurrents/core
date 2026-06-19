@@ -13,10 +13,11 @@ import SpectralToneSynthesizer, {
 import StethoscopeSynthesizer, {
     envelopeCurve,
     mapToBand,
+    removeMean,
     zeroCrossingFrequencyCurve,
 } from '../../src/assets/media/synthesizers/stethoscope'
 import { getSynthesizer, listSynthesizers, registerSynthesizer } from '../../src/assets/media/synthesizers/registry'
-import { renderOffline } from '../../src/assets/media/synthesizers/renderOffline'
+import { AUDIBLE_SAMPLE_RATE, renderOffline } from '../../src/assets/media/synthesizers/renderOffline'
 import { generateSineWave } from '../../src/util/signal'
 
 /** Minimal stand-in for the Web Audio `AudioBuffer`, which jsdom does not provide. */
@@ -186,10 +187,11 @@ function mockOfflineContext (rendered: unknown) {
         }),
         startRendering: vi.fn().mockResolvedValue(rendered),
     }
-    ;(globalThis as any).OfflineAudioContext = vi.fn(function () {
+    const ctor = vi.fn(function () {
         return context
     })
-    return { context, gains, oscillators }
+    ;(globalThis as any).OfflineAudioContext = ctor
+    return { context, ctor, gains, oscillators }
 }
 
 describe('pickTopPeaks', () => {
@@ -274,6 +276,22 @@ describe('mapToBand', () => {
     })
 })
 
+describe('removeMean', () => {
+    const mean = (a: Float32Array) => a.reduce((sum, value) => sum + value, 0)/(a.length || 1)
+
+    it('subtracts the mean, centring the signal on zero', () => {
+        expect(Array.from(removeMean(new Float32Array([1, 2, 3, 4])))).toEqual([-1.5, -0.5, 0.5, 1.5])
+    })
+
+    it('lets a DC-offset oscillation be detected only after centring', () => {
+        // A 5 Hz oscillation lifted well above zero (like ACC magnitude on top of gravity) never crosses zero.
+        const offset = new Float32Array(generateSineWave(1000, 1, [5, 1]).map(v => v + 10))
+        expect(mean(zeroCrossingFrequencyCurve(offset, 1000, 10))).toBe(0)
+        const centeredFreq = mean(zeroCrossingFrequencyCurve(removeMean(offset), 1000, 10))
+        expect(Math.abs(centeredFreq - 5)).toBeLessThan(1)
+    })
+})
+
 describe('SpectralToneSynthesizer', () => {
     afterEach(() => {
         delete (globalThis as any).OfflineAudioContext
@@ -281,18 +299,43 @@ describe('SpectralToneSynthesizer', () => {
 
     it('renders the dominant peak onto the target frequency via additive oscillators', async () => {
         const rendered = {}
-        const { context, oscillators } = mockOfflineContext(rendered)
+        const { context, ctor, oscillators } = mockOfflineContext(rendered)
         const signal = new Float32Array(generateSineWave(1000, 1, [10, 1]))
         const out = await new SpectralToneSynthesizer().synthesize([signal], 1000, {
             peakCount: 3,
             targetFundamentalHz: 440,
             durationSeconds: 1,
         })
+        // Renders at the audible rate, not the sub-audible input rate (1000 Hz).
+        expect(ctor).toHaveBeenCalledWith(1, expect.any(Number), AUDIBLE_SAMPLE_RATE)
         expect(oscillators.length).toBeGreaterThanOrEqual(1)
         expect(oscillators.length).toBeLessThanOrEqual(3)
         expect(oscillators[0].frequency.value).toBeCloseTo(440, 3)
         expect(context.startRendering).toHaveBeenCalled()
         expect(out).toBe(rendered)
+    })
+
+    it('uses fewer components for a narrow spectrum than a distributed one', async () => {
+        const narrow = mockOfflineContext({})
+        await new SpectralToneSynthesizer().synthesize(
+            [new Float32Array(generateSineWave(1000, 2, [10, 1]))],
+            1000,
+            { durationSeconds: 1 },
+        )
+        const narrowCount = narrow.oscillators.length
+        delete (globalThis as any).OfflineAudioContext
+
+        const components: [number, number][] = []
+        for (let f = 5; f <= 50; f += 5) {
+            components.push([f, 1])
+        }
+        const distributed = mockOfflineContext({})
+        await new SpectralToneSynthesizer().synthesize(
+            [new Float32Array(generateSineWave(1000, 2, ...components))],
+            1000,
+            { durationSeconds: 1 },
+        )
+        expect(narrowCount).toBeLessThan(distributed.oscillators.length)
     })
 })
 
@@ -303,12 +346,14 @@ describe('StethoscopeSynthesizer', () => {
 
     it('automates carrier frequency and gain from the signal curves', async () => {
         const rendered = {}
-        const { context, gains, oscillators } = mockOfflineContext(rendered)
+        const { context, ctor, gains, oscillators } = mockOfflineContext(rendered)
         const signal = new Float32Array(generateSineWave(1000, 1, [10, 1]))
         const out = await new StethoscopeSynthesizer().synthesize([signal], 1000, {
             controlRateHz: 10,
             durationSeconds: 1,
         })
+        // Renders at the audible rate, not the sub-audible input rate (1000 Hz).
+        expect(ctor).toHaveBeenCalledWith(1, expect.any(Number), AUDIBLE_SAMPLE_RATE)
         expect(oscillators.length).toBe(1)
         expect(oscillators[0].frequency.setValueCurveAtTime).toHaveBeenCalled()
         expect(gains[0].gain.setValueCurveAtTime).toHaveBeenCalled()

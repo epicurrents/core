@@ -29,6 +29,8 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _duration = 0
     protected _hasStarted = false
     protected _isPlaying = false
+    /** Whether the loaded buffer loops perpetually on playback. */
+    protected _loop = false
     protected _playEndedCallbacks: (() => unknown)[] = []
     protected _playStartedCallbacks: (() => unknown)[] = []
     protected _position = 0
@@ -146,6 +148,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         }
         this._source = this._audio.createBufferSource()
         this._source.buffer = this._buffer
+        this._source.loop = this._loop
         this._previousGain = 1.0
     }
 
@@ -232,8 +235,9 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         }
     }
 
-    setBuffer (buffer: AudioBuffer) {
+    setBuffer (buffer: AudioBuffer, loop = false) {
         this._buffer = buffer
+        this._loop = loop
         this._setPropertyValue('sampleCount', buffer.length)
         this._setPropertyValue('samplingRate', buffer.sampleRate)
         this._setPropertyValue('duration', buffer.duration)

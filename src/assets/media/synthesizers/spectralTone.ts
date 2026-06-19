@@ -6,7 +6,7 @@
  */
 
 import { fftAnalysis } from '#util/signal'
-import { renderGraph } from './renderOffline'
+import { AUDIBLE_SAMPLE_RATE, renderGraph } from './renderOffline'
 import type { AudioSynthesizer, SpectralToneSynthesisOptions } from '#types/media'
 
 /** A spectral peak: a frequency bin and its magnitude. */
@@ -76,15 +76,21 @@ export default class SpectralToneSynthesizer implements AudioSynthesizer {
     ): Promise<AudioBuffer> {
         const channel = signals[0] ?? new Float32Array()
         const durationSeconds = opts.durationSeconds ?? 2
-        const length = Math.max(1, Math.floor(sampleRate*durationSeconds))
+        // The tone is synthesised audible audio, so the output renders at the audible rate; the signal's own
+        // (sub-audible) rate stays with fftAnalysis for the spectral analysis.
+        const length = Math.max(1, Math.floor(AUDIBLE_SAMPLE_RATE*durationSeconds))
         const { frequencyBins, magnitudes } = fftAnalysis(channel, sampleRate)
-        const peaks = pickTopPeaks(magnitudes, frequencyBins, opts.peakCount ?? 5)
+        const candidates = pickTopPeaks(magnitudes, frequencyBins, opts.peakCount ?? 24)
+        // Keep only peaks above a fraction of the dominant: a narrow, stable spectrum collapses to a few clean
+        // components, while a distributed, jerky one keeps many — so the tone reflects the spectral character.
+        const threshold = (opts.peakThreshold ?? 0.1)*(candidates[0]?.magnitude ?? 0)
+        const peaks = candidates.filter(peak => peak.magnitude >= threshold)
         if (!peaks.length) {
-            return renderGraph(1, length, sampleRate, () => {})
+            return renderGraph(1, length, AUDIBLE_SAMPLE_RATE, () => {})
         }
         const speedUp = spectralSpeedUp(peaks[0].frequency, opts.targetFundamentalHz ?? 440, opts.speedUp)
         const totalMagnitude = peaks.reduce((sum, peak) => sum + peak.magnitude, 0) || 1
-        return renderGraph(1, length, sampleRate, (context) => {
+        return renderGraph(1, length, AUDIBLE_SAMPLE_RATE, (context) => {
             const master = context.createGain()
             master.gain.value = 0.8
             master.connect(context.destination)

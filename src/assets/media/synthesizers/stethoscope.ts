@@ -6,7 +6,7 @@
  */
 
 import { calculateAmplitudeEnvelope } from '#util/signal'
-import { renderGraph } from './renderOffline'
+import { AUDIBLE_SAMPLE_RATE, renderGraph } from './renderOffline'
 import type { AudioSynthesizer, StethoscopeSynthesisOptions } from '#types/media'
 
 /**
@@ -92,6 +92,29 @@ export function mapToBand (curve: Float32Array, band: [number, number]): Float32
     return out
 }
 
+/**
+ * Subtract the signal's mean, centring it on zero. Biosignals such as accelerometry magnitude carry a large constant
+ * baseline (gravity ≈ 1 g); without removing it the amplitude envelope is swamped by the offset and the signal never
+ * crosses zero, so neither loudness nor frequency would track the actual movement.
+ * @param signal - Signal data in physical units.
+ * @returns The mean-centred signal.
+ */
+export function removeMean (signal: Float32Array): Float32Array {
+    if (!signal.length) {
+        return new Float32Array()
+    }
+    let sum = 0
+    for (const value of signal) {
+        sum += value
+    }
+    const mean = sum/signal.length
+    const out = new Float32Array(signal.length)
+    for (let i=0; i<signal.length; i++) {
+        out[i] = signal[i] - mean
+    }
+    return out
+}
+
 /** Ensure an automation curve has at least the two points `setValueCurveAtTime` requires. */
 function ensureCurve (curve: Float32Array, fallback: number): Float32Array {
     if (curve.length >= 2) {
@@ -116,18 +139,22 @@ export default class StethoscopeSynthesizer implements AudioSynthesizer {
         const controlRateHz = opts.controlRateHz ?? 50
         const durationSeconds = opts.durationSeconds ?? channel.length/sampleRate
         if (!channel.length || durationSeconds <= 0) {
-            return renderGraph(1, 1, sampleRate, () => {})
+            return renderGraph(1, 1, AUDIBLE_SAMPLE_RATE, () => {})
         }
-        const length = Math.max(1, Math.floor(sampleRate*durationSeconds))
-        const gainCurve = ensureCurve(envelopeCurve(channel, sampleRate, controlRateHz), 0)
+        // The carrier is synthesised audible audio, so the output renders at the audible rate; the signal's own
+        // (sub-audible) rate is used only to derive the control curves below.
+        const length = Math.max(1, Math.floor(AUDIBLE_SAMPLE_RATE*durationSeconds))
+        // Centre the signal so loudness and frequency track the movement, not the baseline (e.g. gravity).
+        const centered = removeMean(channel)
+        const gainCurve = ensureCurve(envelopeCurve(centered, sampleRate, controlRateHz), 0)
         const carrierHz = opts.carrierHz ?? 220
         const frequencyCurve = (opts.trackFrequency ?? true)
             ? ensureCurve(
-                mapToBand(zeroCrossingFrequencyCurve(channel, sampleRate, controlRateHz), opts.carrierBandHz ?? [110, 880]),
+                mapToBand(zeroCrossingFrequencyCurve(centered, sampleRate, controlRateHz), opts.carrierBandHz ?? [110, 880]),
                 carrierHz
             )
             : Float32Array.of(carrierHz, carrierHz)
-        return renderGraph(1, length, sampleRate, (context) => {
+        return renderGraph(1, length, AUDIBLE_SAMPLE_RATE, (context) => {
             const oscillator = context.createOscillator()
             oscillator.frequency.setValueCurveAtTime(frequencyCurve, 0, durationSeconds)
             const gain = context.createGain()
