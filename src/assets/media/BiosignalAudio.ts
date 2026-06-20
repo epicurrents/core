@@ -31,6 +31,8 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
     protected _isPlaying = false
     /** Whether the loaded buffer loops perpetually on playback. */
     protected _loop = false
+    /** Playback-rate multiplier applied to the source (1 = native); set live via setPlaybackRate. */
+    protected _playbackRate = 1
     protected _playEndedCallbacks: (() => unknown)[] = []
     protected _playStartedCallbacks: (() => unknown)[] = []
     protected _position = 0
@@ -149,6 +151,7 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._source = this._audio.createBufferSource()
         this._source.buffer = this._buffer
         this._source.loop = this._loop
+        this._source.playbackRate.value = this._playbackRate
         this._previousGain = 1.0
     }
 
@@ -254,6 +257,19 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._previousGain = gain
         // We need to tone the volume down a bit (TODO: Allow user-defined scaling).
         this._volume.gain.value = gain*SAMPLE_MAX_VALUE/10
+    }
+
+    /**
+     * Set the playback-rate multiplier (1 = native). Applies to the live source
+     * immediately and is stored so a re-armed source inherits it — so pitch can
+     * be swept while a looping buffer plays without re-rendering or restarting.
+     * @param rate - Playback-rate multiplier (> 0).
+     */
+    setPlaybackRate (rate: number) {
+        this._playbackRate = rate
+        if (this._source) {
+            this._source.playbackRate.value = rate
+        }
     }
 
     setSignals (length: number, samplingRate: number, ...data: Float32Array[]) {

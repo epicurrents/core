@@ -96,7 +96,12 @@ export default class SpectralToneSynthesizer implements AudioSynthesizer {
             master.connect(context.destination)
             for (const peak of peaks) {
                 const oscillator = context.createOscillator()
-                oscillator.frequency.value = peak.frequency*speedUp
+                // Snap to a whole number of cycles across the buffer so a looped
+                // tone has no phase discontinuity (click/gap) at the seam: a
+                // frequency of k/durationSeconds returns to phase 0 at the loop
+                // point. The snap error is < 0.5/durationSeconds Hz — inaudible.
+                const cycles = Math.max(1, Math.round(peak.frequency*speedUp*durationSeconds))
+                oscillator.frequency.value = cycles/durationSeconds
                 const gain = context.createGain()
                 gain.gain.value = peak.magnitude/totalMagnitude
                 oscillator.connect(gain)
