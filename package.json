@@ -18,6 +18,7 @@
     "./types": "./dist/types/index.d.ts",
     "./util": "./dist/util/index.js",
     "./workers": "./dist/workers/index.js",
+    "./workers/*": "./umd/*",
     "./package.json": "./package.json",
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./dist/assets": "./dist/assets/index.js",
@@ -27,7 +28,8 @@
     "./dist/runtime": "./dist/runtime/index.js",
     "./dist/types": "./dist/types/index.d.ts",
     "./dist/util": "./dist/util/index.js",
-    "./dist/workers": "./dist/workers/index.js"
+    "./dist/workers": "./dist/workers/index.js",
+    "./umd/*": "./umd/*"
   },
   "imports": {
     "#runtime*": "./src/runtime/index.ts",
