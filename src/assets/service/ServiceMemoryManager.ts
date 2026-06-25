@@ -291,11 +291,16 @@ export default class ServiceMemoryManager extends GenericService implements Memo
             }
         }
         // Commission worker to fill possible empty spaces by shifting following ranges down.
+        // Rebuild every range as a fresh primitive array. A managed service may be held by a
+        // host that wraps it in a reactive proxy (e.g. Vue's reactivity on the runtime tree),
+        // which makes its `bufferRange` a proxy too. Structured clone rejects proxies, so the
+        // values that cross to the worker must be plain — copying index-by-index strips any
+        // wrapper without this layer needing to know which host produced it.
         const rearrange = [] as { id: string, range: number[] }[]
         for (const managed of this._managed.values()) {
             rearrange.push({
                 id: managed.service.id,
-                range: managed.bufferRange
+                range: [managed.bufferRange[0], managed.bufferRange[1]],
             })
         }
         if (!ranges.length || !rearrange.length) {
@@ -310,7 +315,7 @@ export default class ServiceMemoryManager extends GenericService implements Memo
             'release-and-rearrange',
             new Map<string, unknown>([
                 ['rearrange', rearrange],
-                ['release', ranges],
+                ['release', ranges.map(range => [range[0], range[1]])],
             ])
         )
         const result = await commission.promise as { rearrange: { id: string, range: number[] }[] }

@@ -142,6 +142,66 @@ export const syncSettings = (
 }
 
 /**
+ * Recursively rebuild plain `Object` / `Array` / `Map` / `Set` structures so any exotic wrapper —
+ * most often a host UI framework's reactive `Proxy` — is stripped, leaving a value the structured
+ * clone algorithm can serialise across a worker boundary. Binary payloads (typed arrays,
+ * `ArrayBuffer`, `SharedArrayBuffer`, `DataView`) are returned **by reference**, so transferables
+ * survive the transfer list and shared memory stays shared rather than being copied. Cyclic
+ * references are resolved through a seen-map so reactive trees that link parent ↔ child don't
+ * recurse forever.
+ *
+ * This is a recovery path, not a routine one: callers should pass plain data so it never runs. It
+ * exists to turn an otherwise fatal `DataCloneError` into a logged warning plus a working post.
+ */
+export const toPlainData = (value: unknown, seen: WeakMap<object, unknown> = new WeakMap()): unknown => {
+    if (value === null || typeof value !== 'object') {
+        return value
+    }
+    // Binary payloads must cross by reference, never copied.
+    if (
+        ArrayBuffer.isView(value) ||
+        value instanceof ArrayBuffer ||
+        (typeof SharedArrayBuffer !== 'undefined' && value instanceof SharedArrayBuffer)
+    ) {
+        return value
+    }
+    const existing = seen.get(value)
+    if (existing !== undefined) {
+        return existing
+    }
+    if (Array.isArray(value)) {
+        const out = [] as unknown[]
+        seen.set(value, out)
+        for (const item of value) {
+            out.push(toPlainData(item, seen))
+        }
+        return out
+    }
+    if (value instanceof Map) {
+        const out = new Map<unknown, unknown>()
+        seen.set(value, out)
+        for (const [key, val] of value) {
+            out.set(toPlainData(key, seen), toPlainData(val, seen))
+        }
+        return out
+    }
+    if (value instanceof Set) {
+        const out = new Set<unknown>()
+        seen.set(value, out)
+        for (const val of value) {
+            out.add(toPlainData(val, seen))
+        }
+        return out
+    }
+    const out = {} as Record<string, unknown>
+    seen.set(value, out)
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+        out[key] = toPlainData(val, seen)
+    }
+    return out
+}
+
+/**
  * Validate that a commission message has all the require properties.
  * @param data - The data property of the worker message.
  * @param requiredProps - Required data properties as property constructor names or arrays of names. Properties with names ending with '?' are considered optional.

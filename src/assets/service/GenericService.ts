@@ -23,6 +23,7 @@ import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { getOrSetValue, nullPromise, safeObjectFrom } from '#util/general'
+import { toPlainData } from '#util/worker'
 import { MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericService'
@@ -174,11 +175,34 @@ export default abstract class GenericService extends GenericAsset implements Ass
             reject: commission.reject,
             resolve: commission.resolve,
         })
-        if (options?.transferList) {
-            // Transferable objects must be added as individual properties.
-            this._worker.postMessage({ ...msgData, ...options.transferList }, options.transferList)
-        } else {
-            this._worker.postMessage(msgData)
+        try {
+            if (options?.transferList) {
+                // Transferable objects must be added as individual properties.
+                this._worker.postMessage({ ...msgData, ...options.transferList }, options.transferList)
+            } else {
+                this._worker.postMessage(msgData)
+            }
+        } catch (e) {
+            if ((e as DOMException)?.name !== 'DataCloneError') {
+                throw e
+            }
+            // A value in this commission could not be structured-cloned — almost always a reactive
+            // proxy that leaked in from the host application. `postMessage` throws before anything
+            // is transferred or delivered, so a sanitized retry is safe: strip wrappers to plain
+            // data (binary payloads stay by reference, so the transfer list is unaffected) and post
+            // again. This degrades a single bad call site to a warning instead of crashing the app;
+            // the originating caller should still pass plain data, so the warning names the action.
+            Log.warn(
+                `Commission '${action}' carried a non-cloneable value (likely a reactive proxy); ` +
+                `posting a sanitized copy. Fix the originating call site to pass plain data.`,
+                SCOPE
+            )
+            const plainData = toPlainData(msgData) as WorkerMessage['data']
+            if (options?.transferList) {
+                this._worker.postMessage({ ...plainData, ...options.transferList }, options.transferList)
+            } else {
+                this._worker.postMessage(plainData)
+            }
         }
         return {
             promise: returnPromise,

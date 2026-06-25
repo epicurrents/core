@@ -68,6 +68,7 @@ import {
     returnFailure,
     returnSuccess,
     syncSettings,
+    toPlainData,
     validateCommissionProps,
     type RelayLogMessage,
 } from './worker'
@@ -140,6 +141,7 @@ export {
     sleep,
     syncSettings,
     timePartsToShortString,
+    toPlainData,
     validateCommissionProps,
 }
 export {
