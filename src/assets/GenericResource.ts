@@ -111,6 +111,10 @@ export default abstract class GenericResource extends GenericAsset implements Da
         }
     }
 
+    async awaitDeactivation () {
+        // No deferred teardown by default; subclasses that release on deactivation override this.
+    }
+
     destroy () {
         this._dependenciesMissing.length = 0
         this._dependenciesReady.length = 0

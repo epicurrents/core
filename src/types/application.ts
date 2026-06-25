@@ -415,6 +415,16 @@ export interface BaseAsset {
      * Unload the resource, releasing any reserved memory.
      */
     unload (): Promise<void>
+    /**
+     * Resolve once any teardown started by setting `isActive` to `false` has fully completed
+     * (signal arrays released, shared buffer freed and rearranged). A resource that defers its
+     * teardown to a background task — flipping `isActive` synchronously while the actual release
+     * runs afterwards — returns the in-flight promise here. Callers that must not touch the
+     * shared memory buffer until a deactivating resource has finished releasing it (chiefly the
+     * resource switch under the memory manager) await this. Resources with no deferred teardown
+     * resolve immediately.
+     */
+    awaitDeactivation (): Promise<void>
 }
 /**
  * The main Epicurrents application.
