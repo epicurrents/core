@@ -339,6 +339,14 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchPayloadEvent('set-active-dataset', dataset, 'before')
         const prevActive = state.APP.activeDataset
         if (prevActive) {
+            // Cascade deactivation to the outgoing dataset's active resources so
+            // each runs its own deactivation teardown. The resource layer is
+            // otherwise only deactivated by setActiveResource, so a dataset switch
+            // that doesn't also switch the resource would leave the prior resource
+            // active and any deactivation-driven cleanup unrun.
+            for (const resource of prevActive.activeResources) {
+                resource.isActive = false
+            }
             prevActive.isActive = false
         }
         state.APP.activeDataset = dataset
