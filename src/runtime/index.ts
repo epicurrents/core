@@ -396,14 +396,23 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
 
     setModulePropertyValue (module: string, property: string, value: unknown, resource?: DataResource): void {
         const mod = this.MODULES.get(module)
-        if (mod) {
-            mod.setPropertyValue(property, value, resource, this)
-        } else {
+        if (!mod) {
             Log.error(
                 `Could not set property '${property}' value in resource module ${module}; the module is not loaded.`,
                 SCOPE
             )
+            return
         }
+        // Resolve the resource this module governs. After a modality switch the resource
+        // display properties (sensitivity, timebase, timebase unit) can otherwise leak
+        // across modalities. A property mutation addressed to a module only ever applies
+        // to that module's own active resource; if none is active the mutation is a no-op.
+        const target = resource
+            ?? state.APP.activeDataset?.activeResources.find(res => res.modality === module)
+        if (!target) {
+            return
+        }
+        mod.setPropertyValue(property, value, target, this)
     }
 
     setService (name: string, service: AssetService | null) {

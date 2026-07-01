@@ -137,3 +137,80 @@ describe('RuntimeStateManager.setActiveDataset', () => {
         expect(incoming.isActive).toBe(true)
     })
 })
+
+/** Resource stub carrying a `modality` so property routing can be exercised. */
+const makeModalResource = (id: string, modality: string) => ({ id, modality, isActive: true })
+
+/** Module runtime stub with a spyable `setPropertyValue`. */
+const makeModule = () => ({ setPropertyValue: vi.fn() })
+
+describe('RuntimeStateManager.setModulePropertyValue', () => {
+    let manager: RuntimeStateManager
+
+    beforeEach(() => {
+        ;(Log.error as ReturnType<typeof vi.fn>).mockClear()
+
+        const mockEventBus = {
+            addScopedEventListener: vi.fn(),
+            dispatchScopedEvent: vi.fn().mockReturnValue(true),
+            getEventHooks: vi.fn(),
+            removeAllScopedEventListeners: vi.fn(),
+            removeScopedEventListener: vi.fn(),
+            removeScope: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            unsubscribeAll: vi.fn(),
+        }
+        Object.defineProperty(global, 'window', {
+            value: { __EPICURRENTS__: { APP: {}, EVENT_BUS: mockEventBus, RUNTIME: null } } as any,
+            writable: true,
+        })
+        ;(EventBus as MockedClass<typeof EventBus>).mockImplementation(function () {
+            return mockEventBus as any
+        })
+
+        state.APP.activeDataset = null
+        state.MODULES.clear()
+        manager = new RuntimeStateManager()
+    })
+
+    it('routes to the active resource matching the module, not the first active resource', () => {
+        // ACC is first in the active set — the positional `activeResources[0]`
+        // fallback would land an EEG mutation on the ACC resource (the leak).
+        const accRes = makeModalResource('acc1', 'acc')
+        const eegRes = makeModalResource('eeg1', 'eeg')
+        state.APP.activeDataset = makeDataset('d1', [accRes, eegRes]) as any
+        const eegMod = makeModule()
+        state.MODULES.set('eeg', eegMod as any)
+
+        manager.setModulePropertyValue('eeg', 'sensitivity', 5)
+
+        expect(eegMod.setPropertyValue).toHaveBeenCalledWith('sensitivity', 5, eegRes, manager)
+    })
+
+    it('is a no-op when no active resource of the addressed modality exists', () => {
+        state.APP.activeDataset = makeDataset('d1', [makeModalResource('acc1', 'acc')]) as any
+        const eegMod = makeModule()
+        state.MODULES.set('eeg', eegMod as any)
+
+        manager.setModulePropertyValue('eeg', 'timebase-unit', 'cmPerSec')
+
+        expect(eegMod.setPropertyValue).not.toHaveBeenCalled()
+    })
+
+    it('honours an explicitly passed resource over the active-set lookup', () => {
+        const explicitRes = makeModalResource('eeg-off', 'eeg')
+        state.APP.activeDataset = makeDataset('d1', [makeModalResource('acc1', 'acc')]) as any
+        const eegMod = makeModule()
+        state.MODULES.set('eeg', eegMod as any)
+
+        manager.setModulePropertyValue('eeg', 'timebase', 3, explicitRes as any)
+
+        expect(eegMod.setPropertyValue).toHaveBeenCalledWith('timebase', 3, explicitRes, manager)
+    })
+
+    it('logs an error and does not throw when the module is not loaded', () => {
+        expect(() => manager.setModulePropertyValue('nope', 'sensitivity', 5)).not.toThrow()
+        expect(Log.error).toHaveBeenCalled()
+    })
+})
