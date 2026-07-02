@@ -184,9 +184,7 @@ export default abstract class GenericDataset extends GenericResource implements 
         // Add listeners for new resources.
         for (const context of value) {
             if (!this._resources.some(existing => existing.resource.id === context.resource.id)) {
-                context.resource.onPropertyChange('isActive', () => {
-                    this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
-                }, this.id)
+                this._watchResourceActiveState(context)
             }
         }
         this._setPropertyValue('resources', value)
@@ -234,6 +232,18 @@ export default abstract class GenericDataset extends GenericResource implements 
         return mapped
     }
 
+    /**
+     * Watch a newly inserted resource's active state and keep the dataset's
+     * ``activeResources`` in sync: whenever the resource's ``isActive`` flips, an
+     * ``activeResources`` property change is dispatched. Shared by both insertion
+     * paths (the ``resources`` setter and ``addResource``) so the wiring is identical.
+     */
+    protected _watchResourceActiveState (context: DatasetResourceContext) {
+        context.resource.onPropertyChange('isActive', () => {
+            this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
+        }, this.id)
+    }
+
     addResource (...contexts: DatasetResourceContext[]) {
         const toAdd = [] as DatasetResourceContext[]
         for (const context of contexts) {
@@ -250,19 +260,20 @@ export default abstract class GenericDataset extends GenericResource implements 
         const prevState = [...this.resources]
         this.dispatchPayloadEvent('add-resource', toAdd.length === 1 ? toAdd[0] : toAdd, 'before')
         for (const context of toAdd) {
-            // Listen to changes in the resource's active state and update the dataset's active resources accordingly.
-            context.resource.onPropertyChange('isActive', () => {
-                this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
-            }, this.id)
+            this._watchResourceActiveState(context)
             this._resources.push(context)
             if (this._resourceSorting.scheme === 'id') {
                 this._resourceSorting.order.push(context.resource.id)
             }
             this.dispatchPayloadEvent('add-resource', context, 'after')
             Log.debug(`Added ${context.resource.name} to dataset resources.`, SCOPE)
-            // Also dispatch a property change event.
         }
         this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
+        // A resource added while already active never trips its isActive listener,
+        // so dispatch once for the batch to keep the active set in sync.
+        if (toAdd.some(context => context.resource.isActive)) {
+            this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
+        }
     }
 
     async destroy () {

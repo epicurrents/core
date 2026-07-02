@@ -214,6 +214,67 @@ describe('GenericDataset', () => {
             dataset.addResource({ resource: mockResource } as any)
             expect(dataset.resourceSorting.order).toContain('res-1')
         })
+
+        const activeResourceDispatches = () =>
+            mockEventBus.dispatchScopedEvent.mock.calls.filter(
+                (call: any[]) => call[0] === 'property-change:activeResources'
+            )
+
+        it('should dispatch activeResources once when an added resource is already active', () => {
+            const dataset = new TestDataset('Test')
+            const mockResource = {
+                id: 'res-active',
+                name: 'Active Resource',
+                modality: 'test',
+                isActive: true,
+                activeChildResource: null,
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
+            }
+            mockEventBus.dispatchScopedEvent.mockClear()
+            dataset.addResource({ resource: mockResource } as any)
+            expect(activeResourceDispatches()).toHaveLength(1)
+            expect(dataset.activeResources).toHaveLength(1)
+        })
+
+        it('should not dispatch activeResources when an added resource is inactive', () => {
+            const dataset = new TestDataset('Test')
+            const mockResource = {
+                id: 'res-inactive',
+                name: 'Inactive Resource',
+                modality: 'test',
+                isActive: false,
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
+            }
+            mockEventBus.dispatchScopedEvent.mockClear()
+            dataset.addResource({ resource: mockResource } as any)
+            expect(activeResourceDispatches()).toHaveLength(0)
+        })
+
+        it('should dispatch activeResources when a watched resource later becomes active', () => {
+            const dataset = new TestDataset('Test')
+            let isActiveHandler: (() => void) | null = null
+            const mockResource = {
+                id: 'res-1',
+                name: 'Resource 1',
+                modality: 'test',
+                isActive: false,
+                activeChildResource: null,
+                onPropertyChange: vi.fn((prop: string, handler: () => void) => {
+                    if (prop === 'isActive') {
+                        isActiveHandler = handler
+                    }
+                }),
+                removeAllEventListeners: vi.fn(),
+            }
+            dataset.addResource({ resource: mockResource } as any)
+            mockEventBus.dispatchScopedEvent.mockClear()
+            // Simulate the resource activating after it was added.
+            mockResource.isActive = true
+            isActiveHandler!()
+            expect(activeResourceDispatches()).toHaveLength(1)
+        })
     })
 
     describe('removeResource', () => {
