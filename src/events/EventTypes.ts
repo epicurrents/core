@@ -22,6 +22,17 @@ import type {
 } from '#types/event'
 
 /**
+ * Reserved semantic event scopes for emitters that are not assets. Assets scope their events
+ * by instance id; these named scopes keep non-asset emitters in their own namespace so their
+ * events never share a scope with an asset id.
+ */
+export enum EventScopes {
+    /** Application-level scope (configuration and lifecycle events). */
+    APPLICATION = 'application',
+    /** Interface (UI) layer scope. */
+    INTERFACE = 'interface',
+}
+/**
  * Application events.
  */
 export enum ApplicationEvents {

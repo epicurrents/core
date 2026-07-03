@@ -8,6 +8,7 @@
 
 import EventBus from '#events/EventBus'
 import { deepClone, safeObjectFrom } from '#util'
+import { dispatchPropertyChange } from '#events/dispatch'
 import { Log } from 'scoped-event-log'
 import { AssetEvents } from '#events/EventTypes'
 import type {
@@ -18,7 +19,7 @@ import type {
     PropertyChangeHandler,
 } from '#types/application'
 import type { ConfigSchema, ResourceConfig } from '#types/config'
-import type { EventWithPayload, PropertyChangeEvent } from '#types/event'
+import type { EventWithPayload } from '#types/event'
 import type {
     ScopedEventBus,
     ScopedEventCallback,
@@ -383,13 +384,15 @@ export default abstract class GenericAsset implements BaseAsset {
         phase: ScopedEventPhase = 'after',
         context?: PropertyChangeContext,
     ) {
-        const detail = {
-            property: property,
-            newValue: newValue !== undefined ? newValue : this[property],
-            oldValue: oldValue !== undefined ? oldValue : this[property],
-            source: context?.source,
-        } as PropertyChangeEvent<T>['detail']
-        return this.dispatchEvent(context?.event || `property-change:${property.toString()}`, phase, detail)
+        return dispatchPropertyChange(
+            this._eventBus,
+            this.id,
+            property.toString(),
+            newValue !== undefined ? newValue : this[property],
+            oldValue !== undefined ? oldValue : this[property],
+            phase,
+            { event: context?.event, origin: this, source: context?.source },
+        )
     }
 
     getEventHooks (event: string, subscriber: string): ReturnType<ScopedEventBus['getEventHooks']> {

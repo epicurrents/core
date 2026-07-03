@@ -1,4 +1,5 @@
 import EventBus from './EventBus'
+import { dispatchPropertyChange } from './dispatch'
 import {
     ApplicationEvents,
     AssetEvents,
@@ -6,6 +7,7 @@ import {
     BiosignalPropertyEvents,
     BiosignalResourceEvents,
     DatasetEvents,
+    EventScopes,
     ResourceEvents,
     ResourcePropertyEvents,
     type ApplicationEvent,
@@ -31,7 +33,9 @@ export {
     BiosignalResourceEvent,
     DatasetEvent,
     DatasetEvents,
+    dispatchPropertyChange,
     EventBus,
+    EventScopes,
     ResourceEvent,
     ResourceEvents,
     ResourcePropertyEvent,

@@ -126,7 +126,9 @@ import {
     type BiosignalPropertyEvent,
     type BiosignalResourceEvent,
     type DatasetEvent,
+    dispatchPropertyChange,
     EventBus,
+    EventScopes,
     type ResourcePropertyEvent,
 } from '#events'
 export {
@@ -135,7 +137,9 @@ export {
     BiosignalPropertyEvent,
     BiosignalResourceEvent,
     DatasetEvent,
+    dispatchPropertyChange,
     EventBus,
+    EventScopes,
     ResourcePropertyEvent,
 }
 import SETTINGS from './config/Settings'
