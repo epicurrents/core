@@ -17,12 +17,16 @@
  */
 
 import { Log } from 'scoped-event-log'
+import type { MutexExportProperties } from 'asymmetric-io-mutex'
 import type {
     BiosignalResource,
     BiosignalSetup,
     MontageChannel,
     SetFiltersResponse,
+    SetupCacheResponse,
     SetupChannel,
+    SetupMutexResponse,
+    SignalDataCache,
     SignalInterruptionMap,
 } from '#types/biosignal'
 import type {
@@ -285,5 +289,20 @@ export default abstract class GenericBiosignalCascadeMontage extends GenericBios
     // rendered cascade rows will keep showing unfiltered raw source.
     async updateFilters (): Promise<SetFiltersResponse> {
         return { success: true, updated: false }
+    }
+
+    // No-op overrides. The cascade bypasses the montage worker, so it never commissions
+    // `setup-worker` and has no worker-side processor. Forwarding to the service would post
+    // `setup-input-mutex` / `setup-input-cache` to a worker that was never set up and be rejected
+    // ("... before required setup was complete") — as happens when a reactivation re-wires every
+    // montage's data source. There is nothing to wire, so report success.
+    // GOTCHA — Remove these overrides when the cascade worker is enabled (ROADMAP: "Viewer —
+    // cascade montage worker enablement"); the cascade will then need its input wired like any montage.
+    async setupServiceWithInputMutex (_inputProps: MutexExportProperties): Promise<SetupMutexResponse> {
+        return { success: true }
+    }
+
+    async setupServiceWithCache (_cache: SignalDataCache): Promise<SetupCacheResponse> {
+        return { success: true }
     }
 }

@@ -334,8 +334,11 @@ export const calculateSignalOffsets = (
     config?: ConfigChannelLayout,
     correctedChannelSuffix = '_orig'
 ) => {
-    // Check if this is an 'as recorded' montage.
-    if (!config || config?.isRaw) {
+    // Check if this is an 'as recorded' montage. A config whose layout is absent or
+    // not an array (it can arrive as a not-yet-populated or proxied value from the
+    // host store, since this runs on the main thread outside the worker-commission
+    // proxy guard) falls back to the raw 'as recorded' spacing rather than throwing.
+    if (!config || config?.isRaw || !Array.isArray(config.layout)) {
         // Separate original (pre-correction) overlay channels — they share their primary channel's layout slot.
         const displayed = channels.filter(chan => shouldDisplayChannel(chan, true))
         const layoutChannels = displayed.filter(chan => !chan.isOriginal)
@@ -380,8 +383,10 @@ export const calculateSignalOffsets = (
     let nGroups = 0
     let nChannels = 0
     let nChanTotal = 0
-    // Grab layout from default config if not provided.
-    const configLayout = requiredConfig.layout
+    // Copy to a plain array — reaching here guarantees an array (the guard above),
+    // but it may be a reactive proxy from the host store, and the offset maths below
+    // index and iterate it directly on the main thread.
+    const configLayout = [...requiredConfig.layout]
     const layout = []
     for (const group of configLayout) {
         let nGroup = 0

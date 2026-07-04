@@ -341,6 +341,27 @@ describe('Signal utilities', () => {
             expect(channels[0].offset.baseline).toBeCloseTo(0.6, 4)
             expect(channels[1].offset.baseline).toBeCloseTo(0.4, 4)
         })
+
+        it('should fall back to raw spacing when the config layout is missing or not an array', () => {
+            const channels = [
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true }
+            ]
+            type OffsetConfig = Parameters<typeof calculateSignalOffsets>[1]
+            // A config that arrives with no layout — before the montage template is
+            // applied, or as a proxied host value — must not throw and lays out as raw.
+            expect(() => calculateSignalOffsets(
+                channels, { isRaw: false } as unknown as OffsetConfig
+            )).not.toThrow()
+            expect(channels[0].offset.baseline).toBeCloseTo(0.75, 4)
+            expect(channels[1].offset.baseline).toBeCloseTo(0.5, 4)
+            expect(channels[2].offset.baseline).toBeCloseTo(0.25, 4)
+            // A non-array layout value must also degrade gracefully rather than crash.
+            expect(() => calculateSignalOffsets(
+                channels, { isRaw: false, layout: {} } as unknown as OffsetConfig
+            )).not.toThrow()
+        })
     })
 
     describe('combineAllSignalParts', () => {
