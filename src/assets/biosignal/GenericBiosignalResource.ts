@@ -849,12 +849,14 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         for (const chan of getIncludedChannels(this._channels, config)) {
             const startSignalIndex = range.length >= 1
                                      ? Math.round(range[0]*chan.samplingRate) : 0
+            // Exclusive end index (as `subarray` expects), so the slice covers exactly the requested span. An end
+            // equal to the signal length is a valid full-length slice, so only a strictly larger end needs a refetch.
             const endSignalIndex = range.length === 2
-                                   ? Math.round(range[1]*chan.samplingRate) - 1 : undefined
+                                   ? Math.round(range[1]*chan.samplingRate) : undefined
             if (
                 !chan.signal?.length ||
                 startSignalIndex >= chan.signal.length ||
-                (endSignalIndex && endSignalIndex >= chan.signal.length)
+                (endSignalIndex !== undefined && endSignalIndex > chan.signal.length)
             ) {
                 allCached = false
                 break

@@ -419,6 +419,35 @@ describe('GenericBiosignalResource', () => {
         })
     })
 
+    describe('getAllRawSignals', () => {
+        function withSignal (sr: number, seconds: number) {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const signal = new Float32Array(sr*seconds)
+            for (let i = 0; i < signal.length; i++) {
+                signal[i] = i
+            }
+            ;(resource as any)._channels = [{ samplingRate: sr, signal }]
+            return resource
+        }
+
+        it('returns exactly range*samplingRate samples with no off-by-one at the end', async () => {
+            const resource = withSignal(4, 3)
+            const res = await resource.getAllRawSignals([0, 3])
+            expect(res).not.toBeNull()
+            // 12 samples, not 11 — the last sample must not be dropped.
+            expect(res!.signals[0].data.length).toBe(12)
+            expect(Array.from(res!.signals[0].data)).toEqual(Array.from({ length: 12 }, (_, i) => i))
+        })
+
+        it('returns contiguous windows without dropping the seam sample between them', async () => {
+            const resource = withSignal(4, 3)
+            const first = await resource.getAllRawSignals([0, 1])
+            const second = await resource.getAllRawSignals([1, 2])
+            expect(Array.from(first!.signals[0].data)).toEqual([0, 1, 2, 3])
+            expect(Array.from(second!.signals[0].data)).toEqual([4, 5, 6, 7])
+        })
+    })
+
     describe('getAbsoluteTimeAt', () => {
         it('should return relative time when no start time', () => {
             const resource = new TestBiosignalResource('Test', 'eeg')
