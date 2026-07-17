@@ -228,6 +228,79 @@ describe('GenericSignalReader', () => {
         })
     })
 
+    // The response must carry every datapoint the requested range contains, and its allocation and
+    // its source slice must be derived from the same count. Sizing them independently lets them
+    // disagree by a datapoint: a short slice leaves a zero at the end of the signal, a long one
+    // overruns the array and `set` throws. Rounding the count instead of taking the ceiling drops
+    // the last datapoint whenever the range does not land on a sample boundary — imperceptible at
+    // EEG rates, but a whole second of a 1 Hz trend.
+    describe('getSignals datapoint count', () => {
+        class CacheInjectReader extends TestSignalReader {
+            // `_cache` is a getter resolving to the mutex or the fallback cache; inject the latter.
+            set testCache (value: any) { (this as any)._fallbackCache = value }
+        }
+        const RECORDING_LENGTH = 100
+        /** Cache holding `signals`, reporting them as fully loaded. */
+        const makeCache = (signals: { data: Float32Array, samplingRate: number }[]) => ({
+            outputRangeStart: Promise.resolve(0),
+            outputRangeEnd: Promise.resolve(RECORDING_LENGTH),
+            outputSignalUpdatedRanges: signals.map(s => Promise.resolve({ start: 0, end: s.data.length })),
+            outputSignalSamplingRates: signals.map(s => Promise.resolve(s.samplingRate)),
+            asCachePart: vi.fn().mockResolvedValue({ start: 0, end: RECORDING_LENGTH, signals }),
+            insertSignals: vi.fn(),
+            releaseBuffers: vi.fn(),
+        })
+        /** Non-zero ramp, so a datapoint left unwritten is detectable as a zero. */
+        const ramp = (n: number) => Float32Array.from({ length: n }, (_, i) => i + 1)
+        const makeReader = (signals: { data: Float32Array, samplingRate: number }[]) => {
+            const reader = new CacheInjectReader()
+            reader.testFileTypeHeader = { version: '1.0' }
+            // Recording bounds must be known: updated cache ranges are reported in recording time.
+            reader.testTotalRecordingLength = RECORDING_LENGTH
+            reader.testTotalDataLength = RECORDING_LENGTH
+            reader.testCache = makeCache(signals)
+            return reader
+        }
+
+        it('returns every datapoint of a range that does not end on a sample boundary', async () => {
+            const reader = makeReader([{ data: ramp(100), samplingRate: 1 }])
+            // [0, 10.3) at 1 Hz holds the datapoints at t = 0…10.
+            const result = await reader.getSignals([0, 10.3])
+            expect(result?.signals[0].data.length).toBe(11)
+        })
+
+        it('does not leave a zero datapoint at the end of the signal', async () => {
+            const reader = makeReader([{ data: ramp(100), samplingRate: 1 }])
+            const result = await reader.getSignals([0, 10.3])
+            const data = result!.signals[0].data
+            expect(data[data.length - 1]).toBe(11)
+        })
+
+        it('fills a range offset from the sample grid without overrunning the response', async () => {
+            const reader = makeReader([{ data: ramp(100), samplingRate: 1 }])
+            const result = await reader.getSignals([3.4, 13.7])
+            const data = result!.signals[0].data
+            expect(data.length).toBe(11)
+            expect(data[data.length - 1]).not.toBe(0)
+        })
+
+        it('keeps the count exact when the range lands on a sample boundary', async () => {
+            const reader = makeReader([{ data: ramp(4000), samplingRate: 256 }])
+            const result = await reader.getSignals([0, 10])
+            expect(result?.signals[0].data.length).toBe(2560)
+        })
+
+        it('counts each channel at its own sampling rate', async () => {
+            const reader = makeReader([
+                { data: ramp(4000), samplingRate: 256 },
+                { data: ramp(100), samplingRate: 1 },
+            ])
+            const result = await reader.getSignals([0, 10.3])
+            expect(result?.signals[0].data.length).toBe(Math.ceil(10.3*256))
+            expect(result?.signals[1].data.length).toBe(11)
+        })
+    })
+
     // Cross-activation race regression tests. The drain in `releaseSignalArrays`
     // and the cascade from `releaseCache` are documented in CLAUDE.md under
     // "Three-level cache lifecycle" — removing or reordering them reintroduces

@@ -816,24 +816,35 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             if (included.length && included.indexOf(i) === -1) {
                 continue
             }
-            const signalForRange = new Float32Array(
-                Math.round((range[1] - range[0])*requestedSigs.signals[i].samplingRate)
-            ).fill(0.0)
+            const signalSr = requestedSigs.signals[i].samplingRate
+            // Datapoints the response spans, interruption time included. A half-open range
+            // [start, end) at rate r holds ceil((end - start)*r) datapoints — the one at `end`
+            // starts the next range. Rounding instead drops the last datapoint whenever the range
+            // does not land on a sample boundary: imperceptible at EEG rates, but a whole second
+            // of a 1 Hz trend.
+            const rangeSampleCount = Math.ceil((range[1] - range[0])*signalSr)
+            const signalForRange = new Float32Array(rangeSampleCount).fill(0.0)
             if (rangeStart === rangeEnd) {
                 // The whole range is interruption time.
                 responseSigs.signals.push({
                     data: signalForRange,
-                    samplingRate: requestedSigs.signals[i].samplingRate,
+                    samplingRate: signalSr,
                 })
                 continue
             }
-            const startSignalIndex = Math.round((rangeStart - requestedSigs.start)*requestedSigs.signals[i].samplingRate)
-            const endSignalIndex = Math.round((rangeEnd - requestedSigs.start)*requestedSigs.signals[i].samplingRate)
+            // Datapoints of actual signal, i.e. the range minus its interruption time.
+            const dataSampleCount = Math.min(Math.ceil((rangeEnd - rangeStart)*signalSr), rangeSampleCount)
+            const startSignalIndex = Math.round((rangeStart - requestedSigs.start)*signalSr)
+            // Derive the slice end from the datapoint count instead of rounding the end time
+            // separately. The two roundings can disagree by a datapoint, and then the slice either
+            // overruns the array it is written into (`set` throws) or falls short of it, leaving a
+            // zero datapoint at the end of the signal.
+            const endSignalIndex = startSignalIndex + dataSampleCount
             signalForRange.set(requestedSigs.signals[i].data.slice(startSignalIndex, endSignalIndex))
             for (const intr of interruptions) {
-                const startPos = Math.round((intr.start - range[0])*requestedSigs.signals[i].samplingRate)
+                const startPos = Math.round((intr.start - range[0])*signalSr)
                 const endPos = Math.min(
-                    startPos + Math.round(intr.duration*requestedSigs.signals[i].samplingRate),
+                    startPos + Math.round(intr.duration*signalSr),
                     startPos + signalForRange.length
                 )
                 // Move the existing array members upward.
@@ -852,7 +863,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             }
             responseSigs.signals.push({
                 data: signalForRange,
-                samplingRate: requestedSigs.signals[i].samplingRate,
+                samplingRate: signalSr,
             })
         }
         return responseSigs
