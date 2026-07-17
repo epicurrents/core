@@ -1325,6 +1325,15 @@ export interface BiosignalResource extends DataResource {
      */
     destroy (): void | Promise<void>
     /**
+     * Decode the study and cache all raw signals into a plain (non-SAB) cache **without activating
+     * the resource**. This is the lightweight path used by format conversion and export: it skips
+     * the SAB allocation, default montages, derivation slots, trend service, and rolling-window
+     * machinery that full activation (`isActive = true`) sets up — none of which raw-signal export
+     * needs. After it resolves, `getAllRawSignals` returns the cached signals.
+     * @returns Promise resolving to true when the signals are cached, false if any step failed.
+     */
+    loadAndCacheSignals (): Promise<boolean>
+    /**
      * Get the absolute time at the given time in seconds since recording start.
      * @param time - Time point in seconds.
      * @returns Date and time properties at the given time point. `day` property starts from 1 instead of 0.

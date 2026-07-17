@@ -996,6 +996,45 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return false
     }
 
+    async loadAndCacheSignals (): Promise<boolean> {
+        if (!this._service) {
+            Log.error(`Cannot load and cache signals before the service has been set.`, SCOPE)
+            return false
+        }
+        // 1. Decode the study parameters (worker + header setup). This is the "load" step; `prepare`
+        //    is a no-op once `state === 'ready'`, so reuse it rather than duplicating the worker
+        //    setup. `prepare` also applies default setups, which are harmless on this path — export
+        //    reads the raw source channels, not setups.
+        if (this.state !== 'ready') {
+            // `prepare` resolves true only after flipping `state` to 'ready', so its return value
+            // is a sufficient readiness check on its own.
+            const prepared = await this.prepare()
+            if (!prepared) {
+                Log.error(`Cannot cache signals: the resource failed to prepare.`, SCOPE)
+                return false
+            }
+        }
+        // 2. Set up a plain JS-heap cache in the worker (no SAB / mutex, no derivation slots) so the
+        //    reader has somewhere to write the decoded records. Skip if a cache or mutex already
+        //    exists from an earlier activation on this resource.
+        if (!this._cacheProps && !this._mutexProps) {
+            const cache = await this.setupCache()
+            if (!cache) {
+                Log.error(`Cannot cache signals: cache setup failed.`, SCOPE)
+                return false
+            }
+        }
+        // 3. Decode and cache all raw signals. Call the service directly to bypass the `isActive`
+        //    gate in `cacheSignals` — this path deliberately never activates the resource, so it
+        //    incurs no SAB allocation, montage building, or rolling-window machinery.
+        const result = await this._service.cacheSignals()
+        if (result === false) {
+            Log.error(`Signal caching failed for ${this.name}.`, SCOPE)
+            return false
+        }
+        return true
+    }
+
     /**
      * Level 1 of the three-level cache lifecycle. Tells the service-side worker
      * to drop signal-array views and cancel in-flight caching, but preserves

@@ -593,6 +593,83 @@ describe('GenericBiosignalResource', () => {
         })
     })
 
+    describe('loadAndCacheSignals', () => {
+        const makeService = () => ({
+            setupCache: vi.fn().mockResolvedValue({ insertSignals: vi.fn() }),
+            cacheSignals: vi.fn().mockResolvedValue(true),
+        })
+
+        it('should return false when service is not set', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const result = await resource.loadAndCacheSignals()
+            expect(result).toBe(false)
+            expect(Log.error).toHaveBeenCalled()
+        })
+
+        it('should prepare, set up a cache, and cache signals on the happy path', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const service = makeService()
+            ;(resource as any)._service = service
+            const prepareSpy = vi.spyOn(resource, 'prepare')
+            const result = await resource.loadAndCacheSignals()
+            expect(result).toBe(true)
+            expect(prepareSpy).toHaveBeenCalledTimes(1)
+            expect(service.setupCache).toHaveBeenCalledTimes(1)
+            expect(service.cacheSignals).toHaveBeenCalledTimes(1)
+        })
+
+        it('should skip prepare when the resource is already ready', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const service = makeService()
+            ;(resource as any)._service = service
+            resource.state = 'ready'
+            const prepareSpy = vi.spyOn(resource, 'prepare')
+            const result = await resource.loadAndCacheSignals()
+            expect(result).toBe(true)
+            expect(prepareSpy).not.toHaveBeenCalled()
+        })
+
+        it('should skip cache setup when a cache already exists', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const service = makeService()
+            ;(resource as any)._service = service
+            ;(resource as any)._cacheProps = { insertSignals: vi.fn() }
+            const result = await resource.loadAndCacheSignals()
+            expect(result).toBe(true)
+            expect(service.setupCache).not.toHaveBeenCalled()
+            expect(service.cacheSignals).toHaveBeenCalledTimes(1)
+        })
+
+        it('should return false when cache setup fails', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const service = makeService()
+            service.setupCache.mockResolvedValue(null)
+            ;(resource as any)._service = service
+            const result = await resource.loadAndCacheSignals()
+            expect(result).toBe(false)
+            expect(service.cacheSignals).not.toHaveBeenCalled()
+        })
+
+        it('should return false when preparation fails', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const service = makeService()
+            ;(resource as any)._service = service
+            vi.spyOn(resource, 'prepare').mockResolvedValue(false)
+            const result = await resource.loadAndCacheSignals()
+            expect(result).toBe(false)
+            expect(service.setupCache).not.toHaveBeenCalled()
+        })
+
+        it('should return false when signal caching fails', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const service = makeService()
+            service.cacheSignals.mockResolvedValue(false)
+            ;(resource as any)._service = service
+            const result = await resource.loadAndCacheSignals()
+            expect(result).toBe(false)
+        })
+    })
+
     describe('destroy', () => {
         it('should clean up all resources', async () => {
             const resource = new TestBiosignalResource('Test', 'eeg')
