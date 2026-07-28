@@ -176,6 +176,19 @@ describe('requestSignals on the rolling path', () => {
             GenericSignalReader.LOAD_BLOCK_TIMEOUT = originalTimeout
         }
     })
+    test('releasing signal arrays supersedes pending requests and clears residency flags', async () => {
+        const { reader, blocks } = await setupReader()
+        const request = await reader.requestSignals([5, 15])
+        expect(request.status).toBe('pending')
+        await until(() => reader.blockLoads.length === 1)
+        reader.blockLoads[0].resolve(true)
+        expect(blocks[0].loaded).toBe(true)
+        await reader.releaseSignalArrays()
+        const result = await (request as { ready: Promise<SignalRequest> }).ready
+        expect(result.status).toBe('superseded')
+        // No block may claim residency into a released buffer.
+        expect(blocks.some(b => b.loaded)).toBe(false)
+    })
     test('a non-view stream never slides the window', async () => {
         const { reader, mutex } = await setupReader()
         const rangeBefore = [await mutex.outputRangeStart, await mutex.outputRangeEnd]

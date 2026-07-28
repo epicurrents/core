@@ -103,6 +103,25 @@ describe('SignalReaderOpQueue', () => {
         expect(log).toContain('end:a:aborted')
         expect(log).not.toContain('start:b')
     })
+    test('superseding all streams drops every queued op and aborts the in-flight one', async () => {
+        const queue = new SignalReaderOpQueue()
+        const log: string[] = []
+        const a = makeOp('a', 'view', log)
+        const b = makeOp('b', 'trend', log)
+        const c = makeOp('c', 'view', log)
+        queue.enqueue(a.op)
+        queue.enqueue(b.op)
+        queue.enqueue(c.op)
+        await until(() => log.includes('start:a'))
+        queue.supersedeAll()
+        expect(log).toContain('superseded:b')
+        expect(log).toContain('superseded:c')
+        a.release()
+        await until(() => queue.pending === 0)
+        expect(log).toContain('end:a:aborted')
+        expect(log).not.toContain('start:b')
+        expect(log).not.toContain('start:c')
+    })
     test('a throwing op does not stop the pump', async () => {
         const queue = new SignalReaderOpQueue()
         const log: string[] = []
