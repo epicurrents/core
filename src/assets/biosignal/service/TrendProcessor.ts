@@ -23,7 +23,7 @@ import type {
     SignalInterruptionMap,
     SignalPart,
 } from '#types'
-import type { MutexExportProperties } from 'asymmetric-io-mutex'
+import type { BufferRangeMove, MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'TrendProcessor'
 
@@ -744,6 +744,21 @@ export default class TrendProcessor {
         this._fftCache.clear()
         this._inputCache = null
         this._outputMutex = null
+    }
+
+    /**
+     * Reposition input views after the memory manager has rearranged the shared buffer. The
+     * trend processor holds no allocation of its own — only the input views coupled to the
+     * reader's region can move, so `range` is ignored. On the fallback cache path there are no
+     * buffer views and the call is a no-op success.
+     * @param range - Own allocated index range (unused; the trend processor has no own region).
+     * @param moves - All region moves performed in the rearrange.
+     */
+    setBufferRange (_range?: number[], moves?: BufferRangeMove[]): boolean {
+        if (moves?.length && this._inputCache && 'shiftInputPositions' in this._inputCache) {
+            return (this._inputCache as SignalCacheMutex).shiftInputPositions(moves)
+        }
+        return true
     }
 
     setInterruptions (interruptions: SignalInterruptionMap) {

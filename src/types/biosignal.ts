@@ -41,7 +41,7 @@ import {
     WorkerMessage,
 } from './service'
 import { StudyContext } from './study'
-import { type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-mutex'
+import { type BufferRangeMove, type MutexExportProperties, type MutexMetaField } from 'asymmetric-io-mutex'
 import { Modify } from './util'
 
 /**
@@ -1028,6 +1028,14 @@ export interface BiosignalMontageService extends AssetService {
  */
 export interface BiosignalTrendService {
     /**
+     * Reposition the worker's input views after the source (reader) service's buffer region has
+     * moved in a memory-manager rearrange. Forwarded by the owning resource — the trend service
+     * holds no managed allocation, so the manager cannot reach it directly.
+     * @param moves - Region moves performed in the rearrange, in 32-bit element indices.
+     * @returns Promise that resolves true when the worker has acknowledged the reposition.
+     */
+    shiftInputPositions (moves: BufferRangeMove[]): Promise<boolean>
+    /**
      * Connect the service to the EDF reader's output SAB (SAB path).
      * Must be called once before any setupTrend / computeTrend commissions.
      * @param inputProps - Export properties from the EDF reader's output mutex.
@@ -1730,6 +1738,18 @@ export type MontageWorkerCommission = {
         /** Array of data interruptions. */
         interruptions: { duration: number, start: number }[]
     }
+    /**
+     * Reposition the worker's buffer views after the memory manager has rearranged the shared
+     * buffer. `range` is the service's own (possibly moved) allocation; `moves` lists every
+     * region move in the rearrange so input views coupled to another service's region can be
+     * repositioned too. Either may be omitted, but not both.
+     */
+    'set-buffer-range': WorkerMessage['data'] & {
+        /** The service's own allocated index range as `[start, end]`. */
+        range?: number[]
+        /** All region moves performed in the rearrange. */
+        moves?: BufferRangeMove[]
+    }
     /** Set default filters as a JSON string. */
     'set-filters': WorkerMessage['data'] & {
         /** Filters as a JSON string. */
@@ -1788,6 +1808,16 @@ export type TrendWorkerCommission = {
     /** Cancel an ongoing trend computation between epochs. */
     'cancel-trend-computation': WorkerMessage['data'] & {
         name: string
+    }
+    /**
+     * Reposition the worker's input views after the memory manager has rearranged the shared
+     * buffer. The trend worker has no allocation of its own, so only `moves` is meaningful.
+     */
+    'set-buffer-range': WorkerMessage['data'] & {
+        /** The service's own allocated index range as `[start, end]` (unused by the trend worker). */
+        range?: number[]
+        /** All region moves performed in the rearrange. */
+        moves?: BufferRangeMove[]
     }
     /** Compute the trend signal for the given data-unit range. */
     'compute-trend': WorkerMessage['data'] & {

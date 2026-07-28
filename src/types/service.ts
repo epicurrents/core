@@ -5,7 +5,7 @@
  * @license    Apache-2.0
  */
 
-import { type AsymmetricMutex, type MutexExportProperties } from 'asymmetric-io-mutex'
+import { type AsymmetricMutex, type BufferRangeMove, type MutexExportProperties } from 'asymmetric-io-mutex'
 import { BaseAsset } from './application'
 import { ReadDirection } from './reader'
 import { BiosignalCacheDerivationSlot, SignalPart } from './biosignal'
@@ -24,6 +24,8 @@ export type AllocateMemoryResponse = { start: number, end: number } | null
  * Basic service type that all media and resource services should extend.
  */
 export interface AssetService extends BaseAsset {
+    /** The 32-bit index range reserved for this service in the shared buffer as `[start, end]`, or `null` when none is reserved. */
+    bufferRange: number[] | null
     /** Starting index of the reserved buffer range (-1 if no range is reserved). */
     bufferRangeStart: number
     /**
@@ -75,11 +77,13 @@ export interface AssetService extends BaseAsset {
      */
     requestMemory (amount: number): Promise<RequestMemoryResponse>
     /**
-     * Set the byte range allocated to this service in the shared buffer.
-     * @param range - Allocated byte range.
-     * @returns Promise that fulfills when worker has acknowledged the change.
+     * Set the 32-bit index range allocated to this service in the shared buffer and reposition
+     * the worker-side buffer views accordingly.
+     * @param range - Allocated index range as `[start, end]`.
+     * @param moves - All region moves performed by the memory manager in the same rearrange, so the worker can also reposition input views coupled to another service's moved region.
+     * @returns Promise that resolves true when the worker has acknowledged the change, false when the reposition failed — the caller must treat a false result as a hard error, since the worker's views no longer match the manager's bookkeeping.
      */
-    setBufferRange: (range: number[]) => Promise<void>
+    setBufferRange: (range: number[], moves?: BufferRangeMove[]) => Promise<boolean>
     /**
      * Set up the mutex in the web worker cache, returning the created mutex export properties or null if
      * an error occurred. `derivationSlots` carries setup-declared derivation slots (sizing only) that

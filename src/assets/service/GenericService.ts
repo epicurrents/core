@@ -24,7 +24,7 @@ import GenericAsset from '#assets/GenericAsset'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { getOrSetValue, nullPromise, safeObjectFrom } from '#util/general'
 import { toPlainData } from '#util/worker'
-import { MutexExportProperties } from 'asymmetric-io-mutex'
+import { BufferRangeMove, MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericService'
 
@@ -78,6 +78,13 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 Log.registerWorker(this._worker)
             }
         }
+    }
+
+    get bufferRange (): number[] | null {
+        if (!this._memoryRange) {
+            return null
+        }
+        return [this._memoryRange.start, this._memoryRange.end]
     }
 
     get bufferRangeStart () {
@@ -280,7 +287,10 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 commission.resolve(message.data.result)
                 return true
             } else if (message.data.success === false && commission.reject) {
-                commission.reject(message.data.reason || '')
+                // Workers report the failure cause in `error` (see BaseWorker._failure); some
+                // legacy paths use `reason`. Forward whichever is present so the awaiting
+                // caller sees the actual cause instead of an empty string.
+                commission.reject((message.data.reason || message.data.error || '') as string)
                 return false
             } else {
                 commission.resolve() // Same as undefined result
@@ -476,35 +486,47 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return true
     }
 
-    async setBufferRange (range: number[]): Promise<void> {
+    async setBufferRange (range: number[], moves?: BufferRangeMove[]): Promise<boolean> {
         if (!this._manager) {
-            Log.error(`Cannot initialize buffer, memory manager has not been set up.`, SCOPE)
-            return
+            Log.error(`Cannot set buffer range, memory manager has not been set up.`, SCOPE)
+            return false
         }
         if (!this._memoryRange) {
-            Log.error(`Cannot initialize buffer, loader doesn't have any allocated memory.`, SCOPE)
-            return
+            Log.error(`Cannot set buffer range, loader doesn't have any allocated memory.`, SCOPE)
+            return false
         }
         if (!(await this._isBufferReady())) {
             Log.error(`Could not set buffer range, buffer setup was not successful.`, SCOPE)
-            return
+            return false
         }
         Log.debug(`Initiating buffer range shift.`, SCOPE)
         this._initWaiters('set-buffer-range')
-        const commission = this._commissionWorker(
-            'set-buffer-range',
-            new Map<string, unknown>([
-                ['range', range],
-            ])
-        )
-        const response = await commission.promise as WorkerResponse["data"]
-        if (response.success) {
+        let success = false
+        try {
+            const commission = this._commissionWorker(
+                'set-buffer-range',
+                new Map<string, unknown>([
+                    ['range', range],
+                    ['moves', moves ?? []],
+                ])
+            )
+            await commission.promise
+            success = true
+            const prevRange = [this._memoryRange.start, this._memoryRange.end]
             this._memoryRange.start = range[0]
             this._memoryRange.end = range[1]
             Log.debug(`Buffer range shift successful, new range is ${range.join('-')}.`, SCOPE)
-        } else {
-            Log.debug(`Buffer range shift failed: ${response.reason}`, SCOPE)
+            // Announce the move so dependents outside the memory manager's bookkeeping (e.g. a
+            // trend service coupled to this service's buffer region) can reposition their views.
+            this.dispatchPropertyChangeEvent('bufferRange', range, prevRange)
+        } catch (e) {
+            Log.error(`Buffer range shift failed: ${(e as Error)?.message ?? e}.`, SCOPE)
+        } finally {
+            // Waiters must be notified on every outcome — an unresolved 'set-buffer-range'
+            // entry blocks every subsequent `_isBufferReady()` on this service forever.
+            this._notifyWaiters('set-buffer-range', success)
         }
+        return success
     }
 
     async setupMutex (

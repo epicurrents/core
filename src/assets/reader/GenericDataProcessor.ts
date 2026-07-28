@@ -15,7 +15,7 @@ import type {
     SignalDataCache,
     TypedNumberArrayConstructor,
 } from '#types'
-import { type MutexExportProperties } from 'asymmetric-io-mutex'
+import { type BufferRangeMove, type MutexExportProperties } from 'asymmetric-io-mutex'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'SignalFileReader'
@@ -134,6 +134,32 @@ export default abstract class GenericDataProcessor implements DataProcessorCache
             (this._mutex as unknown as { releaseSignalArrays: () => void }).releaseSignalArrays()
         }
         Log.debug(`Signal arrays released.`, SCOPE)
+    }
+
+    /**
+     * Reposition buffer-backed views after the memory manager has rearranged the shared buffer.
+     * `range` is this processor's own (possibly moved) allocation, applied to the mutex's output
+     * views; `moves` lists every region move in the rearrange, applied to input views coupled to
+     * another mutex's moved region. On the fallback (non-SAB) cache path, or when no mutex is
+     * bound, there are no buffer views to move and the call is a no-op success.
+     * @param range - Own allocated index range as `[start, end]`.
+     * @param moves - All region moves performed in the rearrange.
+     */
+    setBufferRange (range?: number[], moves?: BufferRangeMove[]): boolean {
+        if (!this._mutex) {
+            return true
+        }
+        if (range && this._mutex.writeLockBuffer && this._mutex.BUFFER_START !== range[0]) {
+            if (!this._mutex.setBufferStartPosition(range[0])) {
+                Log.error(`Repositioning the mutex's own buffer views to index ${range[0]} failed.`, SCOPE)
+                return false
+            }
+        }
+        if (moves?.length && !this._mutex.shiftInputPositions(moves)) {
+            Log.error(`Repositioning the mutex's input views failed.`, SCOPE)
+            return false
+        }
+        return true
     }
 
     setupCache (_dataDuration?: number, _derivationSlots?: BiosignalCacheDerivationSlot[]): SignalDataCache | null {

@@ -35,6 +35,14 @@ import { type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'GenericSignalFileReader'
 
+/**
+ * Number of data blocks held simultaneously by the rolling-window cache: the centre block the view
+ * sits in, plus one block of lookahead on each side. The mutex buffer, the resource's memory budget
+ * request, and the adaptive block-duration sizing are all derived from this single constant — they
+ * must never diverge, or the cache window and the allocated buffer disagree.
+ */
+const ROLLING_WINDOW_BLOCKS = 3
+
 export default abstract class GenericSignalReader extends GenericSignalProcessor implements SignalDataReader {
 
     /** Timeout in milliseconds to wait for awaited data to load before rejecting the promise. */
@@ -643,18 +651,27 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 Log.error(`Rolling cache requested but no data blocks have been built.`, SCOPE)
                 return false
             }
-            // Find the block that contains the requested view position. The view is in data-time
-            // (gap-exclusive) just like the block boundaries, so a simple linear scan suffices.
-            // For positions at or past the last block's `endTime` (e.g. user navigates to the very
-            // end of the recording where viewStart can equal totalDataLength), default to the last
-            // block instead of falling through to 0 — sliding back to block 0 would be the opposite
-            // of what the user requested.
+            // `startFrom` arrives in recording time (the UI viewport's gap-inclusive time base,
+            // same as the full-load branch above), but the block boundaries are in data-time
+            // (gap-exclusive). Convert before the scan — on a discontinuous file the two bases
+            // diverge by the accumulated interruption time, and scanning with recording time
+            // selects a block ahead of the view by exactly that amount, loading the cache window
+            // ahead of what the user is looking at.
+            const convertedStart = this._recordingTimeToCacheTime(
+                Math.min(startFrom, this._totalRecordingLength)
+            )
+            const dataTimeStart = convertedStart === NUMERIC_ERROR_VALUE ? startFrom : convertedStart
+            // Find the block that contains the requested view position. For positions at or past
+            // the last block's `endTime` (e.g. user navigates to the very end of the recording
+            // where the position can equal totalDataLength), default to the last block instead of
+            // falling through to 0 — sliding back to block 0 would be the opposite of what the
+            // user requested.
             let viewBlock = this._dataBlocks.length - 1
-            if (startFrom < this._dataBlocks[0].startTime) {
+            if (dataTimeStart < this._dataBlocks[0].startTime) {
                 viewBlock = 0
             } else {
                 for (let i = 0; i < this._dataBlocks.length; i++) {
-                    if (this._dataBlocks[i].startTime <= startFrom && this._dataBlocks[i].endTime > startFrom) {
+                    if (this._dataBlocks[i].startTime <= dataTimeStart && this._dataBlocks[i].endTime > dataTimeStart) {
                         viewBlock = i
                         break
                     }
@@ -963,13 +980,26 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             this._maxDataBlocks = totalBlocks
             this._useRolling = false
         } else {
-            // Rolling path: how many whole blocks fit?
-            this._maxDataBlocks = Math.max(0, Math.floor(maxCacheBytes / blockSignalDataSize))
+            // Rolling path. The window is a fixed THREE blocks — the same count the mutex buffer is
+            // sized for (`_blockDuration * 3` in setupMutex) and that the resource's memory budget
+            // requests from the manager (`3 * blockDuration` per channel). `_maxDataBlocks` MUST
+            // match that allocation, otherwise `_slideToBlock` builds a window narrower than the
+            // buffer and the shrink logic pushes the centre block to the window edge — the cache
+            // then loads ahead of (or behind) the view. `blockDuration` was already chosen so three
+            // blocks fit in ~95 % of the budget, so three always fit; deriving the count from a
+            // second `floor(maxCacheBytes / blockSignalDataSize)` formula (rounded-up block size vs.
+            // full budget) is what previously produced a stray 2 on some recordings.
+            this._maxDataBlocks = Math.min(ROLLING_WINDOW_BLOCKS, totalBlocks)
             this._useRolling = true
-            if (this._maxDataBlocks < 3) {
+            // Diagnostic only: how many blocks the raw budget would hold. If this drops below the
+            // window size the adaptive block duration hit its 60 s floor and the budget is genuinely
+            // too small — a misconfiguration the failsafe elsewhere should have refused.
+            const budgetBlocks = Math.max(0, Math.floor(maxCacheBytes / blockSignalDataSize))
+            if (budgetBlocks < ROLLING_WINDOW_BLOCKS) {
                 Log.warn(
-                    `Cache size ${maxCacheBytes} bytes can only hold ${this._maxDataBlocks} block(s) of ` +
-                    `${blockSeconds.toFixed(1)} s each for this recording; rolling cache requires at least 3.`,
+                    `Cache size ${maxCacheBytes} bytes fits only ${budgetBlocks} block(s) of ` +
+                    `${blockSeconds.toFixed(1)} s each for this recording; the rolling window needs ` +
+                    `${ROLLING_WINDOW_BLOCKS}.`,
                     SCOPE
                 )
             }
@@ -1088,7 +1118,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             return false
         }
         const lastIdx = this._dataBlocks.length - 1
-        const targetCount = Math.min(3, this._maxDataBlocks, lastIdx + 1)
+        const targetCount = Math.min(ROLLING_WINDOW_BLOCKS, this._maxDataBlocks, lastIdx + 1)
         // Target a window of exactly `targetCount` blocks, centred on `centerIdx` when possible.
         // At the leading/trailing edge of the recording, "centre" doesn't have a block to its
         // left/right — extend the other direction so the window stays the same width. This keeps
@@ -1123,6 +1153,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         const blocksToLoadCount = this._dataBlocks
             .slice(firstIdx, secondIdx + 1)
             .filter(b => !b.loaded).length
+        // console.info (not Log.info) so the probe survives the WARN log threshold set in dev.
         // TODO: Remove once rolling window cache is implemented.
         Log.info(
             `_slideToBlock(center=${centerIdx}): window=[${firstIdx},${secondIdx}] ` +
@@ -1284,10 +1315,13 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         // and channel sample rates. For non-rolling caches `dataLength` is the full data-time
         // length of the recording.
         const dataLength = this._useRolling
-            ? Math.min(this._totalDataLength, this._blockDuration * 3)
+            ? Math.min(this._totalDataLength, this._blockDuration * ROLLING_WINDOW_BLOCKS)
             : this._totalDataLength
-        this._mutex.initSignalBuffers(cacheProps, dataLength, buffer, bufferStart)
-        Log.debug(`Signal data cache initiation complete.`, SCOPE)
+        // Await the initialisation: it takes the output write lock and seeds every metadata
+        // field, and callers use the returned coupling props (and commission `cacheSignals`)
+        // immediately — racing them against a half-initialised mutex produces reads of unseeded
+        // fields.
+        await this._mutex.initSignalBuffers(cacheProps, dataLength, buffer, bufferStart)
         // Mutex is fully set up.
         this._isMutexReady = true
         return this._mutex.propertiesForCoupling

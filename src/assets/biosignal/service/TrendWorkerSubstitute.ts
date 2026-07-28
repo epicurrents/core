@@ -16,7 +16,7 @@ import type {
 import type { CommonBiosignalSettings } from '#types/config'
 import type { SetupWorkerResponse } from '#types/service'
 import { Log } from 'scoped-event-log'
-import type { MutexExportProperties } from 'asymmetric-io-mutex'
+import type { BufferRangeMove, MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'TrendWorkerSubstitute'
 
@@ -102,6 +102,12 @@ export default class TrendWorkerSubstitute implements BiosignalTrendService {
 
     setInterruptions (interruptions: import('#types/biosignal').SignalInterruptionMap) {
         this._processor?.setInterruptions(interruptions)
+    }
+
+    async shiftInputPositions (moves: BufferRangeMove[]): Promise<boolean> {
+        // The in-process processor delegates to its input cache; on the no-SAB path there are
+        // no buffer views and the call is a no-op success.
+        return this._processor?.setBufferRange(undefined, moves) ?? true
     }
 
     async setupTrend (

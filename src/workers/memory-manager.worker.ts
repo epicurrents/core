@@ -35,13 +35,15 @@ export class MemoryManagerWorker extends BaseWorker {
             Log.error('Cannot remove and rearrange buffer when the buffer is not set.', SCOPE)
             return false
         }
+        if (!rearrange.length) {
+            // Validate before taking the master lock — an early return after the lock is
+            // acquired would leave it permanently held.
+            Log.error('release-and-rearrange did not contain any elements to rearrange.', SCOPE)
+            return false
+        }
         // The master array lock must be zero (off).
         if (Atomics.compareExchange(this._view, 0, 0, 1) !== 0) {
             Log.error('Encountered a locked master buffer when trying to remove and rearrange.', SCOPE)
-            return false
-        }
-        if (!rearrange.length) {
-            Log.error('release-and-rearrange did not contain any elements to rearrange.', SCOPE)
             return false
         }
         // Check for and remove possible empty or invalid ranges.
@@ -65,37 +67,35 @@ export class MemoryManagerWorker extends BaseWorker {
                 i--
             }
         }
-        // Go through each remove entry.
-        let prevRemoves = 0
-        for (let i=0; i<remove.length; i++) {
-            const toRemove = remove[i]
-            const removeRange = toRemove[1] - toRemove[0]
-            const nextRemove = remove[i + 1]
-            let prevShifts = 0
-            for (const toRetain of rearrange) {
-                if (
-                    toRetain.range[0] > toRemove[0] &&
-                    (
-                        nextRemove === undefined ||
-                        toRetain.range[0] < nextRemove[0]
-                    )
-                ) {
-                    // Move the array members down and set new index values.
-                    this._view.set(
-                        this._view.subarray(toRetain.range[0], toRetain.range[1]),
-                        toRemove[0] - prevRemoves + prevShifts
-                    )
-                    toRetain.range[0] -= removeRange
-                    toRetain.range[1] -= removeRange
-                    prevShifts += toRetain.range[1] - toRetain.range[0]
-                }
+        // Shift every retained range down by the total size of the removed regions before it.
+        // Retained ranges are processed in ascending start order, so each leftward copy lands in
+        // space that is already vacated (removed, or previously shifted out of), and no source
+        // region is clobbered before it has been copied. The shift amount must accumulate over
+        // ALL removed regions preceding the range — shifting by only the nearest removed region's
+        // size would leave the recorded range diverged from where the bytes were actually copied.
+        let removedBefore = 0
+        let removeIdx = 0
+        for (const toRetain of rearrange) {
+            while (removeIdx < remove.length && remove[removeIdx][1] <= toRetain.range[0]) {
+                removedBefore += remove[removeIdx][1] - remove[removeIdx][0]
+                removeIdx++
             }
-            prevRemoves += removeRange
+            if (removedBefore > 0) {
+                this._view.set(
+                    this._view.subarray(toRetain.range[0], toRetain.range[1]),
+                    toRetain.range[0] - removedBefore
+                )
+                toRetain.range[0] -= removedBefore
+                toRetain.range[1] -= removedBefore
+            }
         }
         if (Atomics.compareExchange(this._view, 0, 1, 0) !== 1) {
             // This is really just here to catch possible bugs in buffer management.
             Log.warn('Master buffer was not in locked state at the end of release-and-rearrange.', SCOPE)
         }
+        // Wake any thread parked in `Atomics.wait` on the master lock — without the notify a
+        // waiter sleeps its full timeout even though the lock cleared immediately.
+        Atomics.notify(this._view, 0)
         return true
     }
     async releaseAndRearrange (msgData: WorkerMessage['data']) {

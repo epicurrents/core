@@ -32,6 +32,7 @@ export class TrendWorker extends BaseWorker {
     >([
         ['cancel-trend-computation', this.cancelTrendComputation.bind(this)],
         ['compute-trend',            this.computeTrend.bind(this)],
+        ['set-buffer-range',         this.setBufferRange.bind(this)],
         ['set-interruptions',        this.setInterruptions.bind(this)],
         ['setup-trend',              this.setupTrend.bind(this)],
         ['setup-worker',             this.setupWorker.bind(this)],
@@ -41,6 +42,10 @@ export class TrendWorker extends BaseWorker {
 
     protected _namespace = ''
     protected _processor: TrendProcessor | null = null
+
+    protected _getBufferRangeTarget () {
+        return this._processor
+    }
 
     async cancelTrendComputation (msgData: WorkerMessage['data']) {
         const data = validateCommissionProps(

@@ -15,6 +15,7 @@ import {
     type ReleaseAssetResponse,
     type WorkerResponse,
 } from '#types/service'
+import { type BufferRangeMove } from 'asymmetric-io-mutex'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'ServiceMemoryManager'
@@ -319,30 +320,65 @@ export default class ServiceMemoryManager extends GenericService implements Memo
             ])
         )
         const result = await commission.promise as { rearrange: { id: string, range: number[] }[] }
+        // Compute the region moves the worker performed (old range → new range) before touching
+        // any bookkeeping, so every surviving service receives the complete move list — a service
+        // whose own range did not move may still hold input views coupled to a region that did.
+        const moves = [] as BufferRangeMove[]
         for (const rearranged of result.rearrange) {
             const managed = this._managed.get(rearranged.id)
             if (!managed) {
-                Log.error(
-                    `Could not find the managed for a loader returned by worker release-and-rearrange.`,
-                    SCOPE)
                 continue
             }
-            managed.bufferRange = rearranged.range
-            // Catch per-service `setBufferRange` failures so a single service whose worker
-            // doesn't implement the `set-buffer-range` action (e.g. the montage worker, which
-            // only carries tiny meta-only allocations and doesn't need to reposition signal
-            // views) can't abort the rest of the rearrange. Previously, the first montage in
-            // the result list threw at this line and left every subsequent managed entry's
-            // `bufferRange` un-updated, so the next `allocate` computed `endIndex` from stale
-            // high positions and overflowed the buffer.
-            try {
-                await managed.service.setBufferRange(rearranged.range)
-            } catch (e) {
-                Log.warn(
-                    `setBufferRange failed for service ${rearranged.id.slice(0, 8)}: ` +
-                    `${(e as Error)?.message ?? e}. Continuing with manager-side range update only.`,
-                    SCOPE
-                )
+            const delta = rearranged.range[0] - managed.bufferRange[0]
+            if (delta) {
+                moves.push({
+                    start: managed.bufferRange[0],
+                    end: managed.bufferRange[1],
+                    delta: delta,
+                })
+            }
+        }
+        if (moves.length) {
+            for (const rearranged of result.rearrange) {
+                const managed = this._managed.get(rearranged.id)
+                if (!managed) {
+                    Log.error(
+                        `Could not find the managed for a loader returned by worker release-and-rearrange.`,
+                        SCOPE)
+                    continue
+                }
+                // Reposition the worker-side views first and update manager bookkeeping only on
+                // acknowledgement. A failed reposition is a hard error: the worker's views still
+                // point at pre-rearrange positions, so any further use of the service would read
+                // another service's region and the next allocation could overlap live data. The
+                // service is unloaded and dropped from management so the bookkeeping stays
+                // consistent with reality; its resource sees `isReady` flip and can re-run setup.
+                const ok = await managed.service.setBufferRange(rearranged.range, moves)
+                    .catch((e: unknown) => {
+                        Log.error(
+                            `setBufferRange threw for service ${rearranged.id.slice(0, 8)}: ` +
+                            `${(e as Error)?.message ?? e}.`,
+                            SCOPE
+                        )
+                        return false
+                    })
+                if (ok) {
+                    managed.bufferRange = rearranged.range
+                } else {
+                    Log.error(
+                        `Service ${rearranged.id.slice(0, 8)} failed to reposition its buffer views after a ` +
+                        `rearrange and will be unloaded to keep manager bookkeeping consistent.`,
+                        SCOPE
+                    )
+                    this._managed.delete(rearranged.id)
+                    await managed.service.unload(false).catch((e: unknown) => {
+                        Log.error(
+                            `Unloading service ${rearranged.id.slice(0, 8)} after a failed reposition threw: ` +
+                            `${(e as Error)?.message ?? e}.`,
+                            SCOPE
+                        )
+                    })
+                }
             }
         }
         // TODO: Unlock buffers in each service.

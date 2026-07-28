@@ -766,12 +766,22 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async cacheSignals (..._ranges: [number, number][]) {
-        // Start caching file data if recording was activated.
-        if (this.isActive && !this._signalCacheStatus[1]) {
-            Log.debug('Starting to cache signals from file.', SCOPE)
-            return this._service?.cacheSignals() || false
+        if (!this.isActive) {
+            return false
         }
-        return false
+        // Always (re)position the rolling window at the CURRENT view. `unloadOnClose` is false, so a
+        // closed recording stays resident and `signalCacheStatus` keeps its old non-empty range —
+        // but the memory manager may have evicted or moved the buffer while another recording was
+        // open, dropping the signal arrays without resetting that status. Gating on
+        // `!signalCacheStatus[1]` (the old behaviour) therefore skipped re-establishing the cache on
+        // reopen, leaving the reader with no initialized signals and the view unnavigable until an
+        // explicit jump. Instead, unconditionally drive a slide to `viewStart`: when the window is
+        // already correctly positioned and valid the slide short-circuits (no blocks to load), so
+        // this is cheap; when it was invalidated it reloads the view's blocks. `startFrom` targets
+        // the view, not 0, so a restored position is covered immediately. For a full-load cache the
+        // worker's fill is idempotent (nothing left to cache → no-op success).
+        Log.debug('Positioning signal cache window at the current view.', SCOPE)
+        return this._service?.cacheSignals(this._viewStart || 0) ?? false
     }
 
     configure (config: ResourceConfig) {

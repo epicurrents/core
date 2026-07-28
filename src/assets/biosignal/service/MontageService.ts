@@ -9,10 +9,8 @@ import BiosignalMutex from './BiosignalMutex'
 import MontageWorkerSubstitute from './MontageWorkerSubstitute'
 import type {
     BiosignalChannelFilters,
-    BiosignalDownsamplingMethod,
     BiosignalMontage,
     BiosignalMontageService,
-    BiosignalTrendDerivation,
     GetSignalsResponse,
     MontageChannel,
     MontageWorkerCommission,
@@ -36,17 +34,7 @@ import { mapSignalsToSamplingRates } from '#util/signal'
 
 const SCOPE = "MontageService"
 
-type TrendComputationProps = {
-    cancel: () => void
-    name: string
-    onEpochReady: (signal: number[], epochIndex: number, totalEpochs: number) => void
-    reject: (reason: string) => void
-    resolve: (value: unknown) => void
-}
-
 export default class MontageService extends GenericService implements BiosignalMontageService {
-    /** Active trend computations keyed by trend name. */
-    protected _trendComputations = new Map<string, TrendComputationProps>()
     private _mutex = null as null | BiosignalMutex
     private _montage: BiosignalMontage
 
@@ -108,45 +96,6 @@ export default class MontageService extends GenericService implements BiosignalM
         })
     }
 
-    computeTrend (name: string, range?: number[]) {
-        // Cancel any prior computation for the same trend before starting a new one.
-        const prior = this._trendComputations.get(name)
-        if (prior) {
-            prior.cancel()
-            prior.reject('Trend computation cancelled in favor of a new computation.')
-            this._trendComputations.delete(name)
-        }
-        const props: TrendComputationProps = {
-            cancel: () => {
-                this._commissionWorker(
-                    'cancel-trend-computation',
-                    new Map<string, unknown>([['name', name]])
-                )
-            },
-            name: name,
-            onEpochReady: (_signal: number[], _epochIndex: number, _totalEpochs: number) => {},
-            reject: (_reason: string) => {},
-            resolve: (_value: unknown) => {},
-        }
-        const result = new Promise((resolve, reject) => {
-            props.resolve = resolve
-            props.reject = reject
-        })
-        this._trendComputations.set(name, props)
-        const commissionArgs = new Map<string, unknown>([['name', name]])
-        if (range) {
-            commissionArgs.set('range', range)
-        }
-        this._commissionWorker('compute-trend', commissionArgs)
-        return {
-            cancel: props.cancel,
-            onEpochReady: (callback: (signal: number[], epochIndex: number, totalEpochs: number) => void) => {
-                props.onEpochReady = callback
-            },
-            result,
-        }
-    }
-
     async destroy () {
         this._montage = null as unknown as BiosignalMontage
         this._mutex = null
@@ -173,42 +122,6 @@ export default class MontageService extends GenericService implements BiosignalM
             return false
         }
         if (super._handleWorkerUpdate(message)) {
-            return true
-        }
-        // Trend-related messages are side-channel pushes from the processor — they have no
-        // commission `rn` to match. Handle them before the commission lookup so they aren't
-        // dropped along with other unrecognised broadcasts.
-        if (data.action === 'trend-epoch') {
-            const trendName = data.name as string
-            this._trendComputations.get(trendName)?.onEpochReady(
-                data.signal as number[],
-                data.epochIndex as number,
-                data.totalEpochs as number
-            )
-            return true
-        } else if (data.action === 'trend-complete') {
-            const trendName = data.name as string
-            const props = this._trendComputations.get(trendName)
-            props?.resolve(data.result)
-            if (props) {
-                this._trendComputations.delete(trendName)
-            }
-            return true
-        } else if (data.action === 'trend-cancelled') {
-            const trendName = data.name as string
-            const props = this._trendComputations.get(trendName)
-            props?.reject('Trend computation cancelled.')
-            if (props) {
-                this._trendComputations.delete(trendName)
-            }
-            return true
-        } else if (data.action === 'trend-error') {
-            const trendName = data.name as string
-            const props = this._trendComputations.get(trendName)
-            props?.reject((data.error as string) || 'Trend computation failed.')
-            if (props) {
-                this._trendComputations.delete(trendName)
-            }
             return true
         }
         const commission = this._getCommissionForMessage(message)
@@ -416,26 +329,6 @@ export default class MontageService extends GenericService implements BiosignalM
             ])
         )
         return montage.promise as Promise<SetupSharedWorkerResponse>
-    }
-
-    setupTrend (
-        name: string,
-        derivation: BiosignalTrendDerivation,
-        samplingRate: number,
-        epochLength: number,
-        downsamplingMethod: BiosignalDownsamplingMethod = 'average'
-    ): Promise<SetupWorkerResponse> {
-        const commission = this._commissionWorker(
-            'setup-trend',
-            new Map<string, unknown>([
-                ['derivation', derivation],
-                ['downsamplingMethod', downsamplingMethod],
-                ['epochLength', epochLength],
-                ['name', name],
-                ['samplingRate', samplingRate],
-            ])
-        )
-        return commission.promise
     }
 
     async setupWorker () {

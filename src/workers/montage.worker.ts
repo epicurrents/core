@@ -31,6 +31,7 @@ export class MontageWorker extends BaseWorker {
         ['map-channels', this.mapChannels],
         ['release-cache', this.releaseCache],
         ['release-signal-arrays', this.releaseSignalArrays],
+        ['set-buffer-range', this.setBufferRange],
         ['set-interruptions', this.setInterruptions],
         ['set-filters', this.setFilters],
         ['setup-input-cache', this.setInputCache],
@@ -61,6 +62,10 @@ export class MontageWorker extends BaseWorker {
 
     constructor () {
         super()
+    }
+
+    protected _getBufferRangeTarget () {
+        return this._montage
     }
 
     /**

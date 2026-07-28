@@ -10,8 +10,10 @@ import EventBus from '../../src/events/EventBus'
 import GenericBiosignalService from '../../src/assets/biosignal/service/GenericBiosignalService'
 import GenericAsset from '../../src/assets/GenericAsset'
 
-vi.mock('scoped-event-log', () => ({
-    Log: {
+vi.mock('scoped-event-log', () => {
+    // The subject imports Log as a default import, so the mock has to expose both bindings from a
+    // shared reference; a named-only mock throws as soon as a logging branch is reached.
+    const log = {
         add: vi.fn(),
         debug: vi.fn(),
         error: vi.fn(),
@@ -20,7 +22,12 @@ vi.mock('scoped-event-log', () => ({
         registerWorker: vi.fn(),
         LEVELS: {},
     }
-}))
+    return {
+        __esModule: true,
+        default: log,
+        Log: log,
+    }
+})
 
 vi.mock('../../src/events/EventBus')
 

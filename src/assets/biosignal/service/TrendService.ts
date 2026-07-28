@@ -19,7 +19,7 @@ import type {
 } from '#types/service'
 import type { SetupCacheResponse } from '#types/biosignal'
 import { Log } from 'scoped-event-log'
-import type { MutexExportProperties } from 'asymmetric-io-mutex'
+import type { BufferRangeMove, MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'TrendService'
 
@@ -44,6 +44,30 @@ export default class TrendService extends GenericService implements BiosignalTre
             this._worker.addEventListener('message', this.handleMessage.bind(this))
         } else {
             Log.warn(`Trend worker not found in RUNTIME.WORKERS; TrendService will not compute.`, SCOPE)
+        }
+    }
+
+    /**
+     * Reposition the worker's input views after the source (reader) service's buffer region has
+     * moved in a memory-manager rearrange. The trend service holds no managed allocation of its
+     * own, so the manager cannot reach it through the managed-services loop — the owning
+     * resource forwards the move here instead.
+     * @param moves - Region moves performed in the rearrange, in 32-bit element indices.
+     * @returns Promise that resolves true when the worker has acknowledged the reposition.
+     */
+    async shiftInputPositions (moves: BufferRangeMove[]): Promise<boolean> {
+        const commission = this._commissionWorker(
+            'set-buffer-range',
+            new Map<string, unknown>([
+                ['moves', moves],
+            ])
+        )
+        try {
+            await commission.promise
+            return true
+        } catch (e) {
+            Log.error(`Repositioning trend input views failed: ${(e as Error)?.message ?? e}.`, SCOPE)
+            return false
         }
     }
 
