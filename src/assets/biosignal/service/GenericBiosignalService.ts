@@ -189,14 +189,12 @@ export default abstract class GenericBiosignalService extends GenericService imp
                 )
                 return false
             }
-            this._recording.signalCacheStatus = [...range]
-            if (typeof data.exploredEnd === 'number') {
-                this._recording.exploredEnd = data.exploredEnd
-            }
-            const events = data.events as AnnotationEventTemplate[] | undefined
-            if (events?.length) {
-                this._recording.addEventsFromTemplates({ source: 'system' }, ...events)
-            }
+            // Apply interruptions BEFORE signalCacheStatus. The latter is what drives consumers
+            // to compute over the newly cached range (the trend extends, the plot redraws), and
+            // those consumers convert recording↔data time using the interruption table — so the
+            // table must already carry any gap this same message just discovered. Setting the
+            // status first computed the fresh range against a stale table, mislocating every gap
+            // discovered in the block that revealed it.
             const interruptions = data.interruptions as SignalInterruption[] | undefined
             if (interruptions?.length) {
                 const newGaps = new Map<number, number>() as SignalInterruptionMap
@@ -206,6 +204,14 @@ export default abstract class GenericBiosignalService extends GenericService imp
                 // Interruption information can change as the file is loaded, it must be reset when caching new data.
                 this._recording.setInterruptions(newGaps)
             }
+            const events = data.events as AnnotationEventTemplate[] | undefined
+            if (events?.length) {
+                this._recording.addEventsFromTemplates({ source: 'system' }, ...events)
+            }
+            if (typeof data.exploredEnd === 'number') {
+                this._recording.exploredEnd = data.exploredEnd
+            }
+            this._recording.signalCacheStatus = [...range]
             return true
         }
         if (data.action === 'request-signals') {
