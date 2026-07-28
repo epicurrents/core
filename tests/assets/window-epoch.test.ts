@@ -69,6 +69,29 @@ describe('Window-epoch counter on the writer side', () => {
     })
 })
 
+describe('Window-epoch bracket resilience', () => {
+    test('A mutation that throws still restores even parity', async () => {
+        // A throw between the paired bumps would otherwise invert the counter's parity
+        // permanently — every consumer would read "mid-mutation" for the rest of the session.
+        const writer = await buildWriter()
+        const bracket = (writer as unknown as {
+            _withWindowEpochBracket: <T>(f: () => T) => Promise<T>
+        })._withWindowEpochBracket.bind(writer)
+        await expect(bracket(() => {
+            throw new Error('boom')
+        })).rejects.toThrow('boom')
+        expect(writer.windowEpochSync()).toBe(2)
+    })
+    test('An odd epoch at bracket open is repaired before the mutation', async () => {
+        const writer = await buildWriter()
+        ;(writer as unknown as { _bumpWindowEpoch: () => void })._bumpWindowEpoch()
+        expect(Math.abs(writer.windowEpochSync() as number) % 2).toBe(1)
+        await writer.setSignalRange(5, 35)
+        // Repair (+1) then the mutation's own pair (+2): 1 → 2 → 3 → 4.
+        expect(writer.windowEpochSync()).toBe(4)
+    })
+})
+
 describe('Window-epoch counter on the consumer side', () => {
     test('A coupled input-only mutex reads the same epoch via the INPUT scope', async () => {
         const writer = await buildWriter()
