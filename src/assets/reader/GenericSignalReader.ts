@@ -24,10 +24,12 @@ import type {
     SignalDataReader,
     SignalDecodeResult,
     SignalFilePart,
+    SignalRequest,
     TypedNumberArrayConstructor,
 } from '#types'
 import { Log } from 'scoped-event-log'
 import GenericSignalProcessor from './GenericSignalProcessor'
+import SignalReaderOpQueue, { type ReaderOp } from './SignalReaderOpQueue'
 import SETTINGS from '#config/Settings'
 import BiosignalCache from '#assets/biosignal/service/BiosignalCache'
 import BiosignalMutex from '#assets/biosignal/service/BiosignalMutex'
@@ -47,6 +49,13 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
 
     /** Timeout in milliseconds to wait for awaited data to load before rejecting the promise. */
     static AWAIT_DATA_TIMEOUT = 5000
+    /**
+     * Timeout in milliseconds for a single rolling-window block load. Sized for a multi-megabyte
+     * block on a slow connection — generous, because expiry settles the dependent requests with
+     * an error; its purpose is to keep a hung fetch from wedging the operation queue, not to
+     * police ordinary slowness.
+     */
+    static LOAD_BLOCK_TIMEOUT = 30000
     /** Alternate read direction between following and preceding parts. */
     static readonly READ_DIRECTION_ALTERNATING: ReadDirection = 'alternate'
     /** Read direction for loading data backward. */
@@ -117,6 +126,12 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * to open the recording.
      */
     protected _maxDataBlocks = 0
+    /**
+     * FIFO queue serialising every rolling-window mutation (invalidate, per-block load) and
+     * coordinated read, so a read never observes a half-invalidated window and only one op
+     * touches the window at a time. See {@link requestSignals} and {@link _slideToBlock}.
+     */
+    protected _opQueue = new SignalReaderOpQueue()
     /** Loading process start time (for debugging). */
     protected _startTime = 0
     /**
@@ -125,6 +140,12 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * {@link _buildDataBlocks}. The full-cache path is used when this is false.
      */
     protected _useRolling = false
+    /**
+     * Generation counter for view-stream {@link requestSignals} calls. Each call increments it;
+     * a call that observes a newer generation after any await returns `superseded` instead of
+     * enqueueing further work, so two racing view requests can never interleave their ops.
+     */
+    protected _viewRequestGen = 0
     /**
      * The actual block duration in seconds chosen for the rolling cache, computed adaptively
      * from the channel sample rates and `maxLoadCacheSize` budget. Used by {@link setupMutex}
@@ -321,9 +342,10 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * Read a single part from the cached file.
      * @param startFrom - Starting point of the loading process in seconds of file duration.
      * @param dataLength - Length of the requested data in seconds.
+     * @param signal - Optional AbortSignal that cancels an in-flight URL fetch (a local file slice is synchronous and unaffected).
      * @returns Promise containing the signal file part or null.
      */
-    async _readPartFromFile (startFrom: number, dataLength: number): Promise<SignalFilePart | null> {
+    async _readPartFromFile (startFrom: number, dataLength: number, signal?: AbortSignal): Promise<SignalFilePart | null> {
         if (!this._url.length) {
             Log.error(`Could not load file part, there is no source URL to load from.`, SCOPE)
             return null
@@ -355,7 +377,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             if (this._authHeader) {
                 headers.set('Authorization', this._authHeader)
             }
-            return await fetch(this._url, {  headers }).then(response => response.blob()).then(blob => {
+            return await fetch(this._url, { headers, signal }).then(response => response.blob()).then(blob => {
                 if (blob instanceof File || (blob as File).lastModified) {
                     // If the response is a File, it has been downloaded in full (this can happen in e.g. Firefox).
                     return (blob as File).slice(dataStart, dataEnd)
@@ -383,9 +405,10 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * @param end - End time as seconds.
      * @param unknownData - Is the signal data unknown, or especially, can it contain unknown interruptions. If true, final end time is corrected to contain new interruptions (default true).
      * @param raw - Return raw In16 signals instead of physical signals (default false).
+     * @param signal - Optional AbortSignal that cancels an in-flight URL fetch of the underlying file part.
      * @returns Promise with signals and corrected start and end times.
      */
-    async _readSignalPart (start: number, end: number, unknownData = true, raw = false)
+    async _readSignalPart (start: number, end: number, unknownData = true, raw = false, signal?: AbortSignal)
         : Promise<SignalCachePart & Omit<SignalDecodeResult, "signals"> | null>
     {
         // Check that all required parameters are set.
@@ -420,7 +443,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         const fileStart = start - priorGaps
         const fileEnd = end - priorGaps - innerGaps
         // readPartFromFile performs its own interruption detection.
-        const filePart = await this._readPartFromFile(start, end - start)
+        const filePart = await this._readPartFromFile(start, end - start, signal)
         if (!filePart) {
             Log.error(`File loader couldn't load signal part between ${fileStart}-${fileEnd}.`, SCOPE)
             return { signals: [], start: start, end: end }
@@ -651,33 +674,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 Log.error(`Rolling cache requested but no data blocks have been built.`, SCOPE)
                 return false
             }
-            // `startFrom` arrives in recording time (the UI viewport's gap-inclusive time base,
-            // same as the full-load branch above), but the block boundaries are in data-time
-            // (gap-exclusive). Convert before the scan — on a discontinuous file the two bases
-            // diverge by the accumulated interruption time, and scanning with recording time
-            // selects a block ahead of the view by exactly that amount, loading the cache window
-            // ahead of what the user is looking at.
-            const convertedStart = this._recordingTimeToCacheTime(
-                Math.min(startFrom, this._totalRecordingLength)
-            )
-            const dataTimeStart = convertedStart === NUMERIC_ERROR_VALUE ? startFrom : convertedStart
-            // Find the block that contains the requested view position. For positions at or past
-            // the last block's `endTime` (e.g. user navigates to the very end of the recording
-            // where the position can equal totalDataLength), default to the last block instead of
-            // falling through to 0 — sliding back to block 0 would be the opposite of what the
-            // user requested.
-            let viewBlock = this._dataBlocks.length - 1
-            if (dataTimeStart < this._dataBlocks[0].startTime) {
-                viewBlock = 0
-            } else {
-                for (let i = 0; i < this._dataBlocks.length; i++) {
-                    if (this._dataBlocks[i].startTime <= dataTimeStart && this._dataBlocks[i].endTime > dataTimeStart) {
-                        viewBlock = i
-                        break
-                    }
-                }
-            }
-            return await this._slideToBlock(viewBlock)
+            return await this._slideToBlock(this._viewBlockForPosition(startFrom))
         }
         return true
     }
@@ -886,6 +883,114 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         return responseSigs
     }
 
+    /**
+     * Serialised, view-anchored signal read (the rolling-cache request protocol). Ensures the
+     * rolling window covers `range` — sliding if needed — and resolves with the data or an
+     * explicit pending/error state; see the SignalRequest type for the full contract.
+     *
+     * Streams: `'view'` (the default) is the only stream that may move the window, and a newer
+     * view-stream call supersedes older pending view ops (newest target wins). Any other stream
+     * never slides — it gets a coordinated read of whatever the current window (or, on the
+     * full-load path, the cache) yields.
+     *
+     * On the full-load (non-rolling) path this delegates to {@link getSignals}, which already
+     * waits briefly for in-flight cache processes to cover the range.
+     * @param range - Requested range in seconds of recording time, `[start, end)`.
+     * @param config - Optional channel filter passed through to the read.
+     * @param stream - Consumer stream for supersession scoping (default `'view'`).
+     */
+    async requestSignals (range: number[], config?: ConfigChannelFilter, stream = 'view'): Promise<SignalRequest> {
+        if (!this._fileTypeHeader || !this._cache) {
+            return { status: 'error', reason: 'Signal cache has not been set up yet.' }
+        }
+        if (this._mutex && !this._isMutexReady) {
+            return { status: 'error', reason: 'Signal cache has not been initialized yet.' }
+        }
+        if (!range || range.length !== 2 || range[0] >= range[1]) {
+            return { status: 'error', reason: `Requested range [${range?.[0]}, ${range?.[1]}] is empty or invalid.` }
+        }
+        if (!this._useRolling) {
+            const part = await this.getSignals(range, config)
+            return part ? { status: 'ready', part } : { status: 'error', reason: 'Reading signals failed.' }
+        }
+        if (!this._dataBlocks.length) {
+            return { status: 'error', reason: 'Rolling cache requested but no data blocks have been built.' }
+        }
+        if (stream !== 'view') {
+            // Non-view consumers never move the window; serve what the current window yields.
+            const part = await this._enqueueRead(range, config, stream)
+            if (part === 'superseded') {
+                return { status: 'superseded' }
+            }
+            return part ? { status: 'ready', part } : { status: 'error', reason: 'Reading signals failed.' }
+        }
+        // View stream: this call becomes the newest request — older pending view ops are
+        // superseded, and this call abandons itself if it observes a newer generation after
+        // any await (two racing view requests must never interleave their ops).
+        const gen = ++this._viewRequestGen
+        const win = this._windowForCenter(this._viewBlockForPosition(range[0]))
+        if (!win) {
+            return { status: 'error', reason: 'Could not resolve a rolling window for the requested range.' }
+        }
+        this._opQueue.supersedeStream('view')
+        const missing = this._dataBlocks
+            .slice(win.firstIdx, win.secondIdx + 1)
+            .filter(b => !b.loaded).length
+        if (!missing) {
+            // Window already resident: a single coordinated read.
+            const part = await this._enqueueRead(range, config, 'view')
+            if (part === 'superseded' || gen !== this._viewRequestGen) {
+                return { status: 'superseded' }
+            }
+            return part ? { status: 'ready', part } : { status: 'error', reason: 'Reading signals failed.' }
+        }
+        // Slide needed: enqueue invalidate + per-block loads + the final read, and return
+        // immediately with a pending handle that the final read settles.
+        let settled = false
+        let resolveReady!: (result: SignalRequest) => void
+        const ready = new Promise<SignalRequest>((resolve) => {
+            resolveReady = (result: SignalRequest) => {
+                if (!settled) {
+                    settled = true
+                    resolve(result)
+                }
+            }
+        })
+        const settleSuperseded = () => resolveReady({ status: 'superseded' })
+        const failures: number[] = []
+        for (const op of this._buildSlideOps(win, 'view', settleSuperseded, failures)) {
+            this._opQueue.enqueue(op)
+        }
+        this._opQueue.enqueue({
+            kind: 'read',
+            stream: 'view',
+            settleSuperseded,
+            run: async (signal) => {
+                if (signal.aborted) {
+                    settleSuperseded()
+                    return
+                }
+                if (failures.length) {
+                    resolveReady({
+                        status: 'error',
+                        reason: `Data block(s) ${failures.join(', ')} failed to load.`,
+                    })
+                    return
+                }
+                try {
+                    const part = await this.getSignals(range, config)
+                    resolveReady(part
+                        ? { status: 'ready', part }
+                        : { status: 'error', reason: 'Reading signals failed.' }
+                    )
+                } catch (e: unknown) {
+                    resolveReady({ status: 'error', reason: (e as Error)?.message ?? 'Reading signals failed.' })
+                }
+            },
+        })
+        return { status: 'pending', ready }
+    }
+
     async readFileFromUrl (url?: string) {
         const headers = new Headers()
         if (this._authHeader) {
@@ -1025,8 +1130,12 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * "this block has been loaded since the last slide" from `data === null`. The actual sample
      * bytes live in the SAB-backed mutex, not in this field — keeping a parallel copy would
      * defeat the rolling cache's memory savings.
+     *
+     * An abort via `signal` (supersession or load timeout) returns false without logging an
+     * error and leaves `loaded` false, so the block is simply fetched again the next time the
+     * window needs it.
      */
-    protected async _loadBlock (idx: number): Promise<boolean> {
+    protected async _loadBlock (idx: number, signal?: AbortSignal): Promise<boolean> {
         if (idx < 0 || idx >= this._dataBlocks.length) {
             Log.warn(`Block index ${idx} is out of range [0, ${this._dataBlocks.length}).`, SCOPE)
             return false
@@ -1041,7 +1150,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             return false
         }
         try {
-            const newSignals = await this._readSignalPart(block.startTime, block.endTime)
+            const newSignals = await this._readSignalPart(block.startTime, block.endTime, true, false, signal)
             if (!newSignals || !newSignals.signals.length) {
                 Log.warn(`Block ${idx} read returned no signals.`, SCOPE)
                 return false
@@ -1085,6 +1194,10 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             block.loaded = true
             return true
         } catch (e: unknown) {
+            if (signal?.aborted) {
+                Log.debug(`Block ${idx} load was aborted.`, SCOPE)
+                return false
+            }
             Log.error(`Failed to load block ${idx}: ${(e as Error).message}.`, SCOPE, e as Error)
             return false
         }
@@ -1103,29 +1216,56 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
     }
 
     /**
-     * Slide the rolling-window cache so that the three blocks `[centerIdx - 1, centerIdx, centerIdx + 1]`
-     * (clamped to valid indices) are the ones held in the mutex. Existing in-window data is preserved
-     * via {@link BiosignalMutex.setSignalRange} (which shifts samples within the SAB and resets
-     * per-channel `updated_start`/`updated_end` for evicted regions); blocks outside the new window
-     * are marked evicted via {@link _evictBlock}; blocks inside the new window that are not yet
-     * present are loaded via {@link _loadBlock} (in parallel).
+     * Locate the data block that contains the given recording-time position.
      *
-     * No-op if the recording is not in rolling mode, or if the requested window already matches the
-     * current one.
+     * `startFrom` arrives in recording time (the UI viewport's gap-inclusive time base), but the
+     * block boundaries are in data-time (gap-exclusive) — convert before the scan. On a
+     * discontinuous file the two bases diverge by the accumulated interruption time, and scanning
+     * with recording time selects a block ahead of the view by exactly that amount, loading the
+     * cache window ahead of what the user is looking at.
+     *
+     * For positions at or past the last block's `endTime` (e.g. the user navigates to the very
+     * end of the recording where the position can equal totalDataLength), defaults to the last
+     * block instead of falling through to 0 — sliding back to block 0 would be the opposite of
+     * what the user requested.
      */
-    protected async _slideToBlock (centerIdx: number): Promise<boolean> {
-        if (!this._useRolling || !this._mutex || !this._dataBlocks.length) {
-            return false
+    protected _viewBlockForPosition (startFrom: number): number {
+        const convertedStart = this._recordingTimeToCacheTime(
+            Math.min(startFrom, this._totalRecordingLength)
+        )
+        const dataTimeStart = convertedStart === NUMERIC_ERROR_VALUE ? startFrom : convertedStart
+        let viewBlock = this._dataBlocks.length - 1
+        if (dataTimeStart < this._dataBlocks[0].startTime) {
+            viewBlock = 0
+        } else {
+            for (let i = 0; i < this._dataBlocks.length; i++) {
+                if (this._dataBlocks[i].startTime <= dataTimeStart && this._dataBlocks[i].endTime > dataTimeStart) {
+                    viewBlock = i
+                    break
+                }
+            }
+        }
+        return viewBlock
+    }
+
+    /**
+     * Compute the rolling-window block span and data-time range for a window centred on
+     * `centerIdx`. Targets exactly `min(ROLLING_WINDOW_BLOCKS, _maxDataBlocks, totalBlocks)`
+     * blocks: at the leading/trailing edge of the recording, "centre" doesn't have a block to
+     * its left/right — the window extends the other direction so it keeps the same width, which
+     * keeps the mutex's RANGE_START / RANGE_END stable for the initial call and avoids the
+     * costly contain/contract paths in {@link BiosignalMutex.setSignalRange}.
+     *
+     * Returns null when the reader is not in rolling mode or has no block table.
+     */
+    protected _windowForCenter (centerIdx: number):
+        { firstIdx: number, secondIdx: number, rangeStart: number, rangeEnd: number } | null
+    {
+        if (!this._useRolling || !this._dataBlocks.length) {
+            return null
         }
         const lastIdx = this._dataBlocks.length - 1
         const targetCount = Math.min(ROLLING_WINDOW_BLOCKS, this._maxDataBlocks, lastIdx + 1)
-        // Target a window of exactly `targetCount` blocks, centred on `centerIdx` when possible.
-        // At the leading/trailing edge of the recording, "centre" doesn't have a block to its
-        // left/right — extend the other direction so the window stays the same width. This keeps
-        // the mutex's RANGE_START / RANGE_END at the values picked at setupMutex for the initial
-        // call (viewBlock=0), avoiding the costly and currently-buggy case 4 / case 3 paths in
-        // `BiosignalMutex.setSignalRange` when the window contains or contracts from the existing
-        // one.
         let firstIdx = Math.max(0, centerIdx - 1)
         let secondIdx = Math.min(lastIdx, centerIdx + 1)
         while (secondIdx - firstIdx + 1 < targetCount) {
@@ -1150,39 +1290,159 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         // Clamp the end at the recording duration — the last block may be shorter than a full
         // `dataBlockDuration` and the mutex's allocated range starts at `cacheProps.start = 0`.
         const rangeEnd = Math.min(this._dataBlocks[secondIdx].endTime, this._totalDataLength)
+        return { firstIdx, secondIdx, rangeStart, rangeEnd }
+    }
+
+    /**
+     * Build the queue ops that move the rolling window to `win`: one `invalidate` op (mutex
+     * range update + block-table eviction; a same-range update short-circuits inside
+     * {@link BiosignalMutex.setSignalRange}) followed by one abortable, timeout-guarded `load`
+     * op per target block that is not resident. Load failures push the block index onto
+     * `failures`; an abort (supersession) pushes nothing. The ops are built, not enqueued —
+     * the caller enqueues them together with whatever completion op it needs.
+     */
+    protected _buildSlideOps (
+        win: { firstIdx: number, secondIdx: number, rangeStart: number, rangeEnd: number },
+        stream: string,
+        settleSuperseded: () => void,
+        failures: number[],
+    ): ReaderOp[] {
+        const ops: ReaderOp[] = [{
+            kind: 'invalidate',
+            stream,
+            settleSuperseded,
+            run: async () => {
+                // For a forward slide (rangeStart > oldStart) the mutex shifts in-window data
+                // down to position 0; for a backward slide (rangeEnd < oldEnd) it shifts data up.
+                await this._mutex?.setSignalRange(win.rangeStart, win.rangeEnd)
+                for (let i = 0; i < this._dataBlocks.length; i++) {
+                    if (i < win.firstIdx || i > win.secondIdx) {
+                        this._evictBlock(i)
+                    }
+                }
+            },
+        }]
+        for (let i = win.firstIdx; i <= win.secondIdx; i++) {
+            if (this._dataBlocks[i].loaded) {
+                continue
+            }
+            const idx = i
+            ops.push({
+                kind: 'load',
+                stream,
+                settleSuperseded,
+                run: async (signal) => {
+                    // Merge the op's supersede signal with the per-load timeout so neither a
+                    // superseded target nor a hung fetch can hold the queue.
+                    const merged = new AbortController()
+                    const onAbort = () => merged.abort()
+                    signal.addEventListener('abort', onAbort)
+                    const timeout = setTimeout(onAbort, GenericSignalReader.LOAD_BLOCK_TIMEOUT)
+                    try {
+                        const ok = await this._loadBlock(idx, merged.signal)
+                        if (!ok && !signal.aborted) {
+                            failures.push(idx)
+                        }
+                    } finally {
+                        clearTimeout(timeout as unknown as number)
+                        signal.removeEventListener('abort', onAbort)
+                    }
+                },
+            })
+        }
+        return ops
+    }
+
+    /**
+     * Enqueue a coordinated read of `range` on the operation queue and resolve with its result:
+     * the read part, null on a read failure, or the string 'superseded' when a newer same-stream
+     * request dropped the op before it ran.
+     */
+    protected _enqueueRead (
+        range: number[],
+        config: ConfigChannelFilter | undefined,
+        stream: string,
+    ): Promise<SignalCachePart | null | 'superseded'> {
+        return new Promise((resolve) => {
+            let settled = false
+            const settle = (value: SignalCachePart | null | 'superseded') => {
+                if (!settled) {
+                    settled = true
+                    resolve(value)
+                }
+            }
+            this._opQueue.enqueue({
+                kind: 'read',
+                stream,
+                settleSuperseded: () => settle('superseded'),
+                run: async (signal) => {
+                    if (signal.aborted) {
+                        settle('superseded')
+                        return
+                    }
+                    try {
+                        settle(await this.getSignals(range, config))
+                    } catch (e: unknown) {
+                        Log.error(`Coordinated read failed: ${(e as Error).message}.`, SCOPE, e as Error)
+                        settle(null)
+                    }
+                },
+            })
+        })
+    }
+
+    /**
+     * Slide the rolling-window cache so that the blocks around `centerIdx` are the ones held in
+     * the mutex. The slide runs on the operation queue as an invalidate op plus one load op per
+     * missing block, so it is serialised against every coordinated read and any pending
+     * view-stream ops for an older target are superseded first (newest target wins). Existing
+     * in-window data is preserved via {@link BiosignalMutex.setSignalRange}.
+     *
+     * Resolves true when the window is established (or a newer slide superseded this one —
+     * the newer op carries the work), false when a block load failed.
+     */
+    protected async _slideToBlock (centerIdx: number): Promise<boolean> {
+        if (!this._useRolling || !this._mutex || !this._dataBlocks.length) {
+            return false
+        }
+        const win = this._windowForCenter(centerIdx)
+        if (!win) {
+            return false
+        }
+        this._opQueue.supersedeStream('view')
         const blocksToLoadCount = this._dataBlocks
-            .slice(firstIdx, secondIdx + 1)
+            .slice(win.firstIdx, win.secondIdx + 1)
             .filter(b => !b.loaded).length
-        // console.info (not Log.info) so the probe survives the WARN log threshold set in dev.
-        // TODO: Remove once rolling window cache is implemented.
         Log.info(
-            `_slideToBlock(center=${centerIdx}): window=[${firstIdx},${secondIdx}] ` +
-            `range=[${rangeStart},${rangeEnd}]s blocksToLoad=${blocksToLoadCount}`,
+            `_slideToBlock(center=${centerIdx}): window=[${win.firstIdx},${win.secondIdx}] ` +
+            `range=[${win.rangeStart},${win.rangeEnd}]s blocksToLoad=${blocksToLoadCount}`,
             SCOPE
         )
-        // Update the mutex range. For a forward slide (rangeStart > oldStart) the mutex shifts
-        // in-window data down to position 0; for a backward slide (rangeEnd < oldEnd) it shifts
-        // data up. For "same range" (e.g. the initial call when the target already matches the
-        // window picked by setupMutex), `setSignalRange` short-circuits without touching anything.
-        await this._mutex.setSignalRange(rangeStart, rangeEnd)
-        // Block-table bookkeeping: blocks outside the new window are evicted, blocks now in range
-        // but not yet present are loaded.
-        for (let i = 0; i < this._dataBlocks.length; i++) {
-            if (i < firstIdx || i > secondIdx) {
-                this._evictBlock(i)
+        return await new Promise<boolean>((resolve) => {
+            let settled = false
+            const settle = (value: boolean) => {
+                if (!settled) {
+                    settled = true
+                    resolve(value)
+                }
             }
-        }
-        const loadTasks: Promise<boolean>[] = []
-        for (let i = firstIdx; i <= secondIdx; i++) {
-            if (!this._dataBlocks[i].loaded) {
-                loadTasks.push(this._loadBlock(i))
+            const failures: number[] = []
+            // A superseding slide means a newer target took over; that is not a failure of the
+            // window (the newer op establishes it), so callers get success.
+            const settleSuperseded = () => settle(true)
+            for (const op of this._buildSlideOps(win, 'view', settleSuperseded, failures)) {
+                this._opQueue.enqueue(op)
             }
-        }
-        if (loadTasks.length) {
-            const results = await Promise.all(loadTasks)
-            return results.every(Boolean)
-        }
-        return true
+            // Completion marker: runs after the last load op and reports the outcome.
+            this._opQueue.enqueue({
+                kind: 'load',
+                stream: 'view',
+                settleSuperseded,
+                run: async () => {
+                    settle(!failures.length)
+                },
+            })
+        })
     }
 
     /**

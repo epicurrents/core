@@ -462,6 +462,27 @@ export type SignalCacheProcess = {
 
 export type SignalCacheResponse = SignalCachePart | null
 /**
+ * Outcome of a view-anchored signal request (see the rolling-cache request protocol).
+ *
+ * - `ready`: `part` fully covers the requested range.
+ * - `partial`: `part` carries the resident portion; `ready` resolves when the rest has loaded.
+ * - `pending`: nothing resident for the range yet; `ready` resolves when it is.
+ * - `superseded`: a newer request in the same consumer stream replaced this one — abandon it,
+ *   the newer request carries the work.
+ * - `error`: the request failed and will not complete; `reason` carries the cause.
+ *
+ * `ready` always resolves (never rejects) to a terminal `ready`/`error`/`superseded` result
+ * for the same requested range, so a consumer can await it without re-requesting.
+ */
+export type SignalRequest =
+    | { status: 'ready', part: SignalCachePart }
+    | { status: 'partial', part: SignalCachePart, ready: Promise<SignalRequest> }
+    | { status: 'pending', ready: Promise<SignalRequest> }
+    | { status: 'superseded' }
+    | { status: 'error', reason: string }
+/** Status discriminator of a {@link SignalRequest}. */
+export type SignalRequestStatus = SignalRequest['status']
+/**
  * Details of the commission given to the worker.
  */
 export type WorkerCommission = {
