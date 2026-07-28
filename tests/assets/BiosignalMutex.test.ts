@@ -80,6 +80,12 @@ describe('BiosignalMutex', () => {
             expect(BiosignalMutex.DATA_UNIT_DURATION_LENGTH).toBe(1)
         })
 
+        it('should have window_epoch meta field constants at position 4', () => {
+            expect(BiosignalMutex.WINDOW_EPOCH_NAME).toBe('window_epoch')
+            expect(BiosignalMutex.WINDOW_EPOCH_POS).toBe(4)
+            expect(BiosignalMutex.WINDOW_EPOCH_LENGTH).toBe(1)
+        })
+
         it('should have signal data field constants', () => {
             expect(BiosignalMutex.SIGNAL_DATA_NAME).toBe('data')
             expect(BiosignalMutex.SIGNAL_SAMPLING_RATE_NAME).toBe('sampling_rate')

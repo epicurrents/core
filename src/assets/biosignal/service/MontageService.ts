@@ -280,7 +280,9 @@ export default class MontageService extends GenericService implements BiosignalM
             (m) => (m as unknown as { precacheMontages?: number }).precacheMontages
         )
         if (precacheMontages) {
-            let totalMem = 4 // From lock and meta fields.
+            // Lock cell (1) + meta fields (5: allocated, start, end, data_unit_duration,
+            // window_epoch). Must track the meta-field set in BiosignalMutex.
+            let totalMem = 6
             const dataFieldsLen = BiosignalMutex.SIGNAL_DATA_POS
             for (const chan of this._montage.channels) {
                 if (chan) {

@@ -144,6 +144,7 @@ describe('Fresh mutex initialisation over a dirty region', () => {
         expect(await second.getMetaFieldValue(BiosignalMutex.RANGE_START_NAME)).toBe(0)
         expect(await second.getMetaFieldValue(BiosignalMutex.RANGE_END_NAME)).toBe(DATA_LENGTH)
         expect(await second.getMetaFieldValue(BiosignalMutex.RANGE_ALLOCATED_NAME)).toBe(DATA_LENGTH)
+        expect(second.windowEpochSync()).toBe(0)
         const updatedStarts = await second.getDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_START_NAME)
         const updatedEnds = await second.getDataFieldValue(BiosignalMutex.SIGNAL_UPDATED_END_NAME)
         for (const value of updatedStarts) {

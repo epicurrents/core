@@ -80,6 +80,18 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     static readonly DATA_UNIT_DURATION_LENGTH = 1
     static readonly DATA_UNIT_DURATION_NAME = 'data_unit_duration'
     static readonly DATA_UNIT_DURATION_POS = 3
+    /**
+     * Window-epoch seqlock counter (Int32). The writer increments it immediately before the first
+     * and immediately after the last write of every window-metadata mutation, so an odd value means
+     * "mid-mutation" and an even value means "stable". Consumers in other threads validate a
+     * lock-free snapshot by reading the epoch (must be even), reading the window metadata and
+     * signal data, and re-reading the epoch (must be unchanged). Comparison is equality-only, so
+     * Int32 wraparound is harmless. Note that the pre-initialisation meta seed (`EMPTY_FIELD`) is
+     * an odd value, so an uninitialised epoch cell reads as mid-mutation — fail-safe by default.
+     */
+    static readonly WINDOW_EPOCH_LENGTH = 1
+    static readonly WINDOW_EPOCH_NAME = 'window_epoch'
+    static readonly WINDOW_EPOCH_POS = 4
 
     // Signal meta fields
     /** Name of the signal data field. */
@@ -194,6 +206,11 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             name: BiosignalMutex.DATA_UNIT_DURATION_NAME,
             length: BiosignalMutex.DATA_UNIT_DURATION_LENGTH,
             position: BiosignalMutex.DATA_UNIT_DURATION_POS,
+        },{
+            constructor: Int32Array,
+            name: BiosignalMutex.WINDOW_EPOCH_NAME,
+            length: BiosignalMutex.WINDOW_EPOCH_LENGTH,
+            position: BiosignalMutex.WINDOW_EPOCH_POS,
         }]
         if (coupledProps) {
             const nameToConstr = (name: string) => {
@@ -239,7 +256,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 meta: {
                     buffer: null,
                     fields: metaFields,
-                    length: 4,
+                    length: 5,
                     position: IOMutex.UNASSIGNED_VALUE,
                     view: null,
                 },
@@ -549,6 +566,23 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
     }
 
     /**
+     * Increment the window-epoch counter by one. Called in pairs around every window-metadata
+     * mutation — once immediately before the first write (making the value odd) and once
+     * immediately after the last (making it even again) — while holding the output write lock.
+     * Mutating calls are serialised by the owning reader, so brackets never nest.
+     */
+    protected _bumpWindowEpoch = () => {
+        // The meta view is always constructed as an Int32Array; its declared type is the
+        // wider TypedNumberArray union, which Atomics operations reject.
+        const view = this._outputMeta.view as Int32Array | null
+        if (!view) {
+            return
+        }
+        Atomics.add(view, BiosignalMutex.WINDOW_EPOCH_POS, 1)
+        Atomics.notify(view, BiosignalMutex.WINDOW_EPOCH_POS)
+    }
+
+    /**
      * Get the amount of memory (in seconds of signal range) allocated to the signal data.
      * @param scope - Optional scope of the signals (INPUT or OUTPUT - default OUTPUT).
      */
@@ -796,6 +830,10 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             // Data-unit duration in milliseconds — allows range values to be interpreted correctly
             // without external context. Default 1000 ms = 1 second preserves existing behaviour.
             this._setOutputMetaFieldValue(BiosignalMutex.DATA_UNIT_DURATION_NAME, dataUnitDurationMs)
+            // Window-epoch counter starts at 0 (even = stable). `initialize` pre-seeds every meta
+            // cell to EMPTY_FIELD (odd = mid-mutation), so consumers coupled before this write
+            // treat the window as not-yet-readable rather than tearing.
+            this._setOutputMetaFieldValue(BiosignalMutex.WINDOW_EPOCH_NAME, 0)
             /*
             // Determine the amount of memory available for cached signals
             let totalBytesForSecond = 0
@@ -864,6 +902,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             signalPart.end = maxEnd
         }
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, IOMutex.OPERATION_MODE.WRITE, async () => {
+            this._bumpWindowEpoch()
             for (let i=0; i<(this._outputData?.arrays || []).length; i++) {
                 // This is an empty or disabled signal, skip.
                 if (!signalPart.signals[i].samplingRate) {
@@ -924,6 +963,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     SCOPE
                 )
             }
+            this._bumpWindowEpoch()
         })
     }
 
@@ -996,6 +1036,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                     Log.error(`Cannot set signal data in an uninitialized mutex.`, SCOPE)
                     return
                 }
+                this._bumpWindowEpoch()
                 for (let i=0; i<this._outputData.arrays.length; i++) {
                     const dataView = this._outputData.arrays[i].view
                     if (!dataView) {
@@ -1077,8 +1118,31 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
                 // The meta view will not be unset after it has been initialized, so this is safe.
                 this._setOutputMetaFieldValue(BiosignalMutex.RANGE_START_NAME, rangeStart)
                 this._setOutputMetaFieldValue(BiosignalMutex.RANGE_END_NAME, rangeEnd)
+                this._bumpWindowEpoch()
             })
         }
+    }
+
+    /**
+     * Lock-free read of the window-epoch counter (see {@link WINDOW_EPOCH_NAME}). An odd value
+     * means window metadata is mid-mutation and a snapshot must not be trusted; consumers retry
+     * until two consecutive reads bracketing their data reads return the same even value.
+     * Returns null when the requested scope has no meta view (OUTPUT on an input-only mutex,
+     * or before initialisation / after release).
+     * @param scope - Mutex scope to read from (INPUT or OUTPUT - default OUTPUT).
+     */
+    windowEpochSync (scope: MutexScope = IOMutex.MUTEX_SCOPE.OUTPUT): number | null {
+        // Both meta views are constructed as Int32Arrays at runtime: the input view's
+        // ReadonlyTypedArray type and the output view's TypedNumberArray union are compile-time
+        // guards that Atomics operations reject. Atomics.load does not mutate, so the casts are
+        // sound.
+        const view = scope === IOMutex.MUTEX_SCOPE.INPUT
+                     ? this._inputMetaView as unknown as Int32Array | null
+                     : this._outputMeta.view as Int32Array | null
+        if (!view) {
+            return null
+        }
+        return Atomics.load(view, BiosignalMutex.WINDOW_EPOCH_POS)
     }
 
     /**
