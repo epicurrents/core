@@ -52,6 +52,7 @@ import type {
     MemoryManager,
     SignalCachePart,
     SignalCacheResponse,
+    SignalRequest,
 } from '#types/service'
 import type { StudyContext } from '#types/study'
 import Log from 'scoped-event-log'
@@ -850,6 +851,23 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             return this.getAllRawSignals(range, config)
         }
         return this._activeMontage.getAllSignals(range, config)
+    }
+
+    async requestSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalRequest> {
+        if (!this._service) {
+            return { status: 'error', reason: 'The resource has no signal data service.' }
+        }
+        return this._service.requestSignals(range, config)
+    }
+
+    async ensureViewCached (range: number[]): Promise<boolean> {
+        const request = await this.requestSignals(range)
+        const terminal = request.status === 'pending' || request.status === 'partial'
+                         ? await request.ready
+                         : request
+        // A superseded request means a newer view request took over establishing coverage;
+        // that is not a failure of this range's caching.
+        return terminal.status === 'ready' || terminal.status === 'superseded'
     }
 
     async getAllRawSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse | null> {

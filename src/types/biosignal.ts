@@ -37,6 +37,7 @@ import {
     SetupWorkerResponse,
     SignalCacheResponse,
     SignalCachePart,
+    SignalRequest,
     WorkerResponse,
     WorkerMessage,
 } from './service'
@@ -520,6 +521,14 @@ export interface BiosignalDataService extends AssetService {
      * If none of those match, pass the message up to the parent class.
      */
     handleMessage (message: WorkerResponse): Promise<MessageHandled>
+    /**
+     * Serialised, view-anchored signal read (the rolling-cache request protocol). Ensures the
+     * cache covers `range` — sliding the rolling window if needed — and resolves with the data
+     * or an explicit pending/error state; see SignalRequest for the full contract.
+     * @param range - Requested range in seconds of recording time, `[start (included), end (excluded)]`.
+     * @param config - Optional channel filter passed through to the read.
+     */
+    requestSignals (range: number[], config?: unknown): Promise<SignalRequest>
     /**
      * Prepare the worker with the given biosignal study.
      * @param header - BiosignalHeaderRecord for the study.
@@ -1359,6 +1368,13 @@ export interface BiosignalResource extends DataResource {
         second: number
     }
     /**
+     * Ensure the signal cache covers the given view range, sliding the rolling window if needed.
+     * Resolves true when the range is covered (or a newer view request superseded this one — the
+     * newer request establishes coverage), false when loading failed.
+     * @param range - View range in seconds of recording time, `[start (included), end (excluded)]`.
+     */
+    ensureViewCached (range: number[]): Promise<boolean>
+    /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
      * @param config - Optional config (TODO: Config definitions).
@@ -1372,6 +1388,14 @@ export interface BiosignalResource extends DataResource {
      * @returns Signals from requested range or null.
      */
     getAllSignals (range: number[], config?: unknown): Promise<SignalCacheResponse>
+    /**
+     * Serialised, view-anchored read of raw signals (the rolling-cache request protocol).
+     * Ensures the cache covers `range` — sliding the rolling window if needed — and resolves
+     * with the data or an explicit pending/error state; see SignalRequest for the full contract.
+     * @param range - Requested range in seconds of recording time, `[start (included), end (excluded)]`.
+     * @param config - Optional channel filter passed through to the read.
+     */
+    requestSignals (range: number[], config?: unknown): Promise<SignalRequest>
     /**
      * Get position information of the channel at given y-position. Each channel is considered
      * to take one channels spacing worth of space vertically.

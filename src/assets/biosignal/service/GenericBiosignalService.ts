@@ -20,7 +20,10 @@ import type {
     CacheSignalsResponse,
     MemoryManager,
     SetupStudyResponse,
+    SignalCachePart,
     SignalCacheResponse,
+    SignalRequest,
+    SignalRequestStatus,
     WorkerResponse,
 } from '#types/service'
 import type { StudyContext } from '#types/study'
@@ -32,6 +35,13 @@ import Log from 'scoped-event-log'
 const SCOPE = "GenericBiosignalService"
 
 export default abstract class GenericBiosignalService extends GenericService implements BiosignalDataService {
+    /**
+     * Ready-promise resolvers of two-stage `request-signals` commissions, keyed by request
+     * number. The first-stage (`final: false`) response resolves the commission with a
+     * pending/partial handle and stashes the resolver here; the final-stage response settles
+     * it with the terminal result.
+     */
+    protected _pendingSignalRequests = new Map<number, (result: SignalRequest) => void>()
     /** Parent recording of this loader. */
     protected _recording: BiosignalResource
     /** Resolved or rejected based on the success of worker setup. */
@@ -103,6 +113,20 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return commission.promise as Promise<SignalCacheResponse>
     }
 
+    async requestSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalRequest> {
+        if (!(await this._isStudyReady())) {
+            return { status: 'error', reason: 'The study is not ready.' }
+        }
+        const commission = this._commissionWorker(
+            'request-signals',
+            new Map<string, unknown>([
+                ['range', range],
+                ['config', config],
+            ])
+        )
+        return commission.promise as Promise<SignalRequest>
+    }
+
     async handleMessage (message: WorkerResponse) {
         const data = message.data
         if (!data) {
@@ -157,6 +181,51 @@ export default abstract class GenericBiosignalService extends GenericService imp
                 }
                 // Interruption information can change as the file is loaded, it must be reset when caching new data.
                 this._recording.setInterruptions(newGaps)
+            }
+            return true
+        }
+        if (data.action === 'request-signals') {
+            // Two-stage protocol: promises cannot cross postMessage, so a non-terminal state
+            // arrives as `final: false` (resolve the commission with a handle whose `ready` the
+            // final-stage message settles) and the terminal state as `final: true` (settle the
+            // stashed handle, or resolve the commission directly for a single-stage response —
+            // which may arrive after the commission entry is gone, hence no commission guard).
+            const rn = (data.rn as number | undefined) ?? 0
+            const status = data.status as SignalRequestStatus | undefined
+            const part = Array.isArray(data.signals)
+                ? {
+                    start: data.start as number,
+                    end: data.end as number,
+                    signals: data.signals as SignalCachePart['signals'],
+                } as SignalCachePart
+                : null
+            if (data.final === false) {
+                let resolveReady!: (result: SignalRequest) => void
+                const ready = new Promise<SignalRequest>((resolve) => {
+                    resolveReady = resolve
+                })
+                this._pendingSignalRequests.set(rn, resolveReady)
+                const initial: SignalRequest = status === 'partial' && part
+                    ? { status: 'partial', part, ready }
+                    : { status: 'pending', ready }
+                commission?.resolve(initial)
+                return true
+            }
+            const terminal: SignalRequest =
+                status === 'ready' && part ? { status: 'ready', part }
+                : status === 'superseded' ? { status: 'superseded' }
+                : {
+                    status: 'error',
+                    reason: (data.reason as string | undefined)
+                            ?? (data.error as string | undefined)
+                            ?? 'Signal request failed in the worker.',
+                }
+            const pending = this._pendingSignalRequests.get(rn)
+            if (pending) {
+                this._pendingSignalRequests.delete(rn)
+                pending(terminal)
+            } else {
+                commission?.resolve(terminal)
             }
             return true
         }

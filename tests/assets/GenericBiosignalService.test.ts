@@ -188,6 +188,80 @@ describe('GenericBiosignalService', () => {
             expect(mockRecording.setInterruptions).toHaveBeenCalled()
         })
 
+        it('should resolve a single-stage terminal request-signals response', async () => {
+            const service = new TestBiosignalService(mockRecording)
+            let resolved: any = null
+            ;(service as any)._commissions.set(
+                'request-signals',
+                new Map([[5, { rn: 5, resolve: (value: any) => { resolved = value }, reject: vi.fn() }]])
+            )
+            const result = await service.handleMessage({
+                data: {
+                    action: 'request-signals', rn: 5, success: true,
+                    status: 'ready', final: true, start: 0, end: 10, signals: [],
+                },
+            } as any)
+            expect(result).toBe(true)
+            expect(resolved.status).toBe('ready')
+            expect(resolved.part.end).toBe(10)
+        })
+
+        it('should reconstruct a two-stage request-signals response through the ready promise', async () => {
+            const service = new TestBiosignalService(mockRecording)
+            let resolved: any = null
+            ;(service as any)._commissions.set(
+                'request-signals',
+                new Map([[6, { rn: 6, resolve: (value: any) => { resolved = value }, reject: vi.fn() }]])
+            )
+            await service.handleMessage({
+                data: { action: 'request-signals', rn: 6, success: true, status: 'pending', final: false },
+            } as any)
+            expect(resolved.status).toBe('pending')
+            expect(resolved.ready).toBeInstanceOf(Promise)
+            await service.handleMessage({
+                data: {
+                    action: 'request-signals', rn: 6, success: true,
+                    status: 'ready', final: true, start: 5, end: 15, signals: [],
+                },
+            } as any)
+            const terminal = await resolved.ready
+            expect(terminal.status).toBe('ready')
+            expect(terminal.part.start).toBe(5)
+            expect((service as any)._pendingSignalRequests.size).toBe(0)
+        })
+
+        it('should settle a pending request-signals handle as superseded', async () => {
+            const service = new TestBiosignalService(mockRecording)
+            let resolved: any = null
+            ;(service as any)._commissions.set(
+                'request-signals',
+                new Map([[7, { rn: 7, resolve: (value: any) => { resolved = value }, reject: vi.fn() }]])
+            )
+            await service.handleMessage({
+                data: { action: 'request-signals', rn: 7, success: true, status: 'pending', final: false },
+            } as any)
+            await service.handleMessage({
+                data: { action: 'request-signals', rn: 7, success: true, status: 'superseded', final: true },
+            } as any)
+            const terminal = await resolved.ready
+            expect(terminal.status).toBe('superseded')
+        })
+
+        it('should map a request-signals worker failure to an error result', async () => {
+            const service = new TestBiosignalService(mockRecording)
+            let resolved: any = null
+            ;(service as any)._commissions.set(
+                'request-signals',
+                new Map([[8, { rn: 8, resolve: (value: any) => { resolved = value }, reject: vi.fn() }]])
+            )
+            const result = await service.handleMessage({
+                data: { action: 'request-signals', rn: 8, success: false, error: 'boom' },
+            } as any)
+            expect(result).toBe(true)
+            expect(resolved.status).toBe('error')
+            expect(resolved.reason).toBe('boom')
+        })
+
         it('should ignore a cache-signals progress message without a range', async () => {
             // Regression: a worker progress message that lacks `range` (or
             // carries a non-array value) must not crash the spread into
