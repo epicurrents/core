@@ -23,7 +23,7 @@ import type {
     SignalInterruptionMap,
     SignalPart,
 } from '#types'
-import type { BufferRangeMove, MutexExportProperties } from 'asymmetric-io-mutex'
+import { IOMutex, type BufferRangeMove, type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = 'TrendProcessor'
 
@@ -589,9 +589,24 @@ export default class TrendProcessor {
         let allSignals: Float32Array[]
         let cacheStart: number
         let cacheEnd: number
-        if (this._inputCache instanceof BiosignalMutex) {
-            allSignals = await this._inputCache.inputSignals
-            cacheStart = (await this._inputCache.inputRangeStart) ?? 0
+        /** Window epoch at read time on the SAB path; null on the plain-cache path. */
+        let epochAtEntry: number | null = null
+        const mutexCache = this._inputCache instanceof BiosignalMutex ? this._inputCache : null
+        if (mutexCache) {
+            // Optimistic, lock-free read (mirrors the montage processor): read the window epoch,
+            // consume the live views, and re-check the epoch after the last consumer below. No
+            // lock is taken — holding the reader-preference read lock across a derivation would
+            // starve the reader's block-load writes.
+            epochAtEntry = mutexCache.windowEpochSync(IOMutex.MUTEX_SCOPE.INPUT)
+            const rangeStart = mutexCache.inputRangeStartSync()
+            const signals = mutexCache.inputSignalsSync()
+            if (epochAtEntry === null || epochAtEntry % 2 !== 0 || rangeStart === null || !signals) {
+                // Window metadata is mid-mutation (or not bound yet); skip this epoch — the next
+                // covering cache update recomputes it.
+                return null
+            }
+            allSignals = signals
+            cacheStart = rangeStart
             // inputRangeEnd returns the ALLOCATED total (constant = totalDataDuration).
             // During progressive caching allSignals[i] is only the committed subarray,
             // so sr = sig.length / totalDataDuration would be far too low. Derive the
@@ -599,7 +614,7 @@ export default class TrendProcessor {
             const sr0 = this._inputChannelSamplingRates[0]
             cacheEnd = (sr0 && allSignals[0]?.length)
                 ? cacheStart + allSignals[0].length / sr0
-                : (await this._inputCache.inputRangeEnd) ?? this._totalDataLength
+                : (mutexCache.inputRangeEndSync() ?? this._totalDataLength)
         } else {
             const part  = (this._inputCache as SignalDataCache).asCachePart()
             allSignals  = part.signals.map(s => s.data)
@@ -611,9 +626,15 @@ export default class TrendProcessor {
             return null
         }
         if (trendProps.derivation.type === 'pdbsi') {
-            return this._computePdbsiEpoch(
+            const result = await this._computePdbsiEpoch(
                 name, trendProps, allSignals, cacheStart, cacheEnd, dataStart, dataEnd
             )
+            if (mutexCache && mutexCache.windowEpochSync(IOMutex.MUTEX_SCOPE.INPUT) !== epochAtEntry) {
+                // The reader mutated the window mid-derivation; discard rather than post values
+                // computed from torn samples.
+                return null
+            }
+            return result
         }
         // Derive source and reference signals using data-time positions.
         const sourceSignal = this._combineChannels(
@@ -647,6 +668,12 @@ export default class TrendProcessor {
                 trendProps.derivation.referenceFunction,
                 dataStart, dataEnd
             )
+        }
+        // The last consumer of the live signal views is above — validate the optimistic read
+        // before trusting anything derived from them. A mismatch means the reader mutated the
+        // window mid-derivation; discard and let the next covering cache update recompute.
+        if (mutexCache && mutexCache.windowEpochSync(IOMutex.MUTEX_SCOPE.INPUT) !== epochAtEntry) {
+            return null
         }
         // Infer sampling rate from the source signal length (samples / epochLength).
         // epochLength is the recording-time span; the data slice is the same duration
