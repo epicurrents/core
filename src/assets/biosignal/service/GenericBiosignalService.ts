@@ -169,6 +169,9 @@ export default abstract class GenericBiosignalService extends GenericService imp
                 return false
             }
             this._recording.signalCacheStatus = [...range]
+            if (typeof data.exploredEnd === 'number') {
+                this._recording.exploredEnd = data.exploredEnd
+            }
             const events = data.events as AnnotationEventTemplate[] | undefined
             if (events?.length) {
                 this._recording.addEventsFromTemplates({ source: 'system' }, ...events)

@@ -1375,6 +1375,13 @@ export interface BiosignalResource extends DataResource {
      */
     ensureViewCached (range: number[]): Promise<boolean>
     /**
+     * Recording-time end of the trusted-navigation span, or -1 when navigation is unrestricted.
+     * On a discontinuous recording without a complete interruption table, only positions within
+     * the explored span have exact timing; the `viewStart` setter clamps to this value and the
+     * navigator renders the span beyond it as off-limits.
+     */
+    exploredEnd: number
+    /**
      * Get raw signals from all channels for the given range.
      * @param range - Signal range in seconds `[start (included), end (excluded)]`.
      * @param config - Optional config (TODO: Config definitions).

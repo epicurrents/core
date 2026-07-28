@@ -269,18 +269,23 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     return NUMERIC_ERROR_VALUE
                 }
                 // Report signal cache progress and send new event and interruption information.
+                // The range converts to recording time: `signalCacheStatus` consumers (the
+                // navigator's cache display, view-coverage checks) compare against recording-time
+                // view positions, and the awaited-data range below arrives in recording time too.
+                const [progressStart, progressEnd] = this._cacheRangeToRecordingRange(updated.start, updated.end)
                 if (this._updateCallback) {
                     this._updateCallback({
                         action: 'cache-signals',
                         events: this.getEvents([startTime, endTime]),
+                        exploredEnd: this._exploredRecordingEnd(),
                         // Interruption information can change as the file is loaded, they must always be reset.
                         interruptions: this.getInterruptions(undefined, true),
-                        range: [updated.start, updated.end],
+                        range: [progressStart, progressEnd],
                         success: true,
                     })
                 }
                 if (this._awaitData) {
-                    if (this._awaitData.range[0] >= updated.start && this._awaitData.range[1] <= updated.end) {
+                    if (this._awaitData.range[0] >= progressStart && this._awaitData.range[1] <= progressEnd) {
                         Log.debug(`Awaited data loaded, resolving.`, SCOPE)
                         this._awaitData.resolve()
                     }
@@ -448,6 +453,14 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             Log.error(`File loader couldn't load signal part between ${fileStart}-${fileEnd}.`, SCOPE)
             return { signals: [], start: start, end: end }
         }
+        // Resolve the fetched unit range now, with the same interruption table the fetch used —
+        // the decode below can add new interruptions, after which the same conversion would
+        // yield different indices than the ones actually read. Mirrors `_readPartFromFile`.
+        const exploredUnitStart = Math.max(0, Math.floor(this._timeToDataUnitIndex(start)))
+        const exploredUnitEnd = Math.min(
+            Math.ceil(this._timeToDataUnitIndex(end)),
+            this._dataUnitCount
+        )
         const recordsPerSecond = 1/this._dataUnitDuration
         // This block is meant to catch possible errors in the decoder and signal interpolation.
         try {
@@ -503,6 +516,9 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     end += total - innerGaps // Total minus already known interruptions.
                 }
             }
+            // The decoded units' timing TALs are now known; advance the exploration frontier
+            // (no-op unless the range is contiguous with the already-explored span).
+            this._extendExploredUnits(exploredUnitStart, exploredUnitEnd)
             // Construct a cache object to return the signal data in.
             const cacheSignals = [] as SignalCachePart["signals"]
             for (let i=0; i<sigData.signals.length; i++) {
@@ -1150,7 +1166,22 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             return false
         }
         try {
-            const newSignals = await this._readSignalPart(block.startTime, block.endTime, true, false, signal)
+            // Block bounds are data-time (gap-exclusive) but `_readSignalPart` takes recording
+            // time — it subtracts prior interruption time itself, and the mutex insert converts
+            // the result back to cache time. Passing data-time bounds directly would subtract
+            // the gaps twice, fetching file positions earlier than this block for every block
+            // past the first interruption. The conversion uses the known gap table, which is
+            // exact for blocks within (or adjacent to) the explored span — the only blocks a
+            // clamped slide can target.
+            const readStart = this._cacheTimeToRecordingTime(block.startTime)
+            const readEnd = block.endTime >= this._totalDataLength
+                            ? this._totalRecordingLength
+                            : this._cacheTimeToRecordingTime(block.endTime)
+            if (readStart === NUMERIC_ERROR_VALUE || readEnd === NUMERIC_ERROR_VALUE) {
+                Log.error(`Cannot load block ${idx}, block bounds failed recording-time conversion.`, SCOPE)
+                return false
+            }
+            const newSignals = await this._readSignalPart(readStart, readEnd, true, false, signal)
             if (!newSignals || !newSignals.signals.length) {
                 Log.warn(`Block ${idx} read returned no signals.`, SCOPE)
                 return false
@@ -1174,17 +1205,20 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             const cacheRange = await this._getSignalCacheRange()
             const absStart = cacheRange.start + updated.start
             const absEnd = cacheRange.start + updated.end
+            // Progress reports in recording time — see `_cacheRangeToRecordingRange` for why.
+            const [progressStart, progressEnd] = this._cacheRangeToRecordingRange(absStart, absEnd)
             if (this._updateCallback) {
                 this._updateCallback({
                     action: 'cache-signals',
-                    events: this.getEvents([block.startTime, block.endTime]),
+                    events: this.getEvents([readStart, readEnd]),
+                    exploredEnd: this._exploredRecordingEnd(),
                     interruptions: this.getInterruptions(undefined, true),
-                    range: [absStart, absEnd],
+                    range: [progressStart, progressEnd],
                     success: true,
                 })
             }
             if (this._awaitData) {
-                if (this._awaitData.range[0] >= absStart && this._awaitData.range[1] <= absEnd) {
+                if (this._awaitData.range[0] >= progressStart && this._awaitData.range[1] <= progressEnd) {
                     this._awaitData.resolve()
                 }
             }
@@ -1201,6 +1235,23 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             Log.error(`Failed to load block ${idx}: ${(e as Error).message}.`, SCOPE, e as Error)
             return false
         }
+    }
+
+    /**
+     * Convert a cache-time (gap-exclusive) range to recording time for progress reporting.
+     * `signalCacheStatus` consumers — the navigator's cache display, view-coverage checks —
+     * compare against recording-time view positions; on a discontinuous file the raw cache-time
+     * range lags recording time by the accumulated interruption total, which shows up as the
+     * cache display "falling behind" the actually covered span. Values are clamped to the data
+     * length before conversion; a failed conversion falls back to the raw value.
+     */
+    protected _cacheRangeToRecordingRange (start: number, end: number): [number, number] {
+        const convert = (time: number) => {
+            const clamped = Math.max(0, Math.min(time, this._totalDataLength))
+            const converted = this._cacheTimeToRecordingTime(clamped)
+            return converted === NUMERIC_ERROR_VALUE ? time : converted
+        }
+        return [convert(start), convert(end)]
     }
 
     /**
@@ -1230,6 +1281,14 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * what the user requested.
      */
     protected _viewBlockForPosition (startFrom: number): number {
+        // On a restricted recording (discontinuous without a complete interruption table) a
+        // position beyond the explored span cannot be trusted — the conversion below would
+        // silently ignore unseen gaps. Clamp the target to the frontier; loading blocks at the
+        // frontier is what pushes it forward.
+        const exploredLimit = this._exploredRecordingEnd()
+        if (exploredLimit >= 0 && startFrom > exploredLimit) {
+            startFrom = exploredLimit
+        }
         const convertedStart = this._recordingTimeToCacheTime(
             Math.min(startFrom, this._totalRecordingLength)
         )

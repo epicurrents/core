@@ -902,6 +902,57 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         Log.debug(`Mutex initialization complete.`, SCOPE)
     }
 
+    /**
+     * Lock-free synchronous read of the INPUT-scope signal range end (in data units). For use in
+     * epoch-validated read sections, where the async getter's own locking would both defeat the
+     * lock-free design and stall the section at an await. Returns null when no input meta view
+     * is bound or the field is unset.
+     */
+    inputRangeEndSync (): number | null {
+        const view = this._inputMetaView as unknown as Int32Array | null
+        if (!view) {
+            return null
+        }
+        const value = Atomics.load(view, BiosignalMutex.RANGE_END_POS)
+        return value === this._EMPTY_FIELD ? null : value
+    }
+
+    /**
+     * Lock-free synchronous read of the INPUT-scope signal range start (in data units). For use
+     * in epoch-validated read sections; see {@link inputRangeEndSync}.
+     */
+    inputRangeStartSync (): number | null {
+        const view = this._inputMetaView as unknown as Int32Array | null
+        if (!view) {
+            return null
+        }
+        const value = Atomics.load(view, BiosignalMutex.RANGE_START_POS)
+        return value === this._EMPTY_FIELD ? null : value
+    }
+
+    /**
+     * Lock-free synchronous version of the `inputSignals` getter for epoch-validated read
+     * sections: returns each input channel's updated-range subarray without taking the lock.
+     * The returned arrays are live views into the shared buffer — anything computed from them
+     * is only trustworthy if the window epoch reads unchanged across the whole computation.
+     */
+    inputSignalsSync (): Float32Array[] | null {
+        if (!this._inputDataViews.length) {
+            return null
+        }
+        const sigs = [] as Float32Array[]
+        for (let i=0; i<this._inputDataViews.length; i++) {
+            const view = this._inputDataViews[i] as unknown as Float32Array
+            const updatedStart = view[BiosignalMutex.SIGNAL_UPDATED_START_POS]
+            const updatedEnd = view[BiosignalMutex.SIGNAL_UPDATED_END_POS]
+            sigs.push(view.subarray(
+                updatedStart + this._outputDataFieldsLen,
+                updatedEnd + this._outputDataFieldsLen,
+            ))
+        }
+        return sigs
+    }
+
     async insertSignals (signalPart: SignalCachePart) {
         if (!this._outputData) {
             return

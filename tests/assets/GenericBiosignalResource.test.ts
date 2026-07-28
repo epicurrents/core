@@ -290,6 +290,22 @@ describe('GenericBiosignalResource', () => {
             resource.viewStart = -5
             expect(resource.viewStart).toBe(0)
         })
+
+        it('should clamp to the explored end on a restricted recording', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            resource.exploredEnd = 120
+            resource.viewStart = 500
+            expect(resource.viewStart).toBe(120)
+            resource.viewStart = 60
+            expect(resource.viewStart).toBe(60)
+        })
+
+        it('should not clamp when navigation is unrestricted', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            expect(resource.exploredEnd).toBe(-1)
+            resource.viewStart = 500
+            expect(resource.viewStart).toBe(500)
+        })
     })
 
     describe('startTime', () => {

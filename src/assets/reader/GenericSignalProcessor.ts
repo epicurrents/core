@@ -43,7 +43,21 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
     protected _fileTypeHeader: unknown | null = null
     protected _header: GenericBiosignalHeader | null = null
     /** Map of recording interruptions as <data position, length> in seconds. */
+    /**
+     * Highest data-unit index up to which the recording has been contiguously decoded. On a
+     * discontinuous file without a complete interruption table, the recording-time↔data-time
+     * mapping is only exact within this explored span — every conversion beyond it silently
+     * ignores unseen gaps. Extended by {@link _extendExploredUnits}; retained across cache
+     * releases (like the interruption table itself, it is knowledge, not cached data).
+     */
+    protected _exploredUnitEnd = 0
     protected _interruptions = new Map<number, number>() as SignalInterruptionMap
+    /**
+     * True when the interruption table was provided complete from trusted external metadata
+     * rather than discovered during decoding. Lifts the exploration restriction on
+     * discontinuous files — see {@link _exploredRecordingEnd}.
+     */
+    protected _interruptionsComplete = false
     /** List of labels. */
     protected _labels = [] as AnnotationLabelTemplate[]
     protected _sourceDigitalSignals: TypedNumberArray[] | null = null
@@ -420,8 +434,46 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         }
     }
 
-    setInterruptions (interruptions: SignalInterruptionMap) {
+    /**
+     * Extend the contiguously explored span with a freshly decoded data-unit range. The range
+     * only counts when it is adjacent to (or overlaps) the current explored span — a decode at
+     * a detached position (e.g. the duration probe of the last record at setup) proves nothing
+     * about the gaps before it and must not advance the frontier.
+     */
+    protected _extendExploredUnits (unitStart: number, unitEnd: number) {
+        if (unitStart <= this._exploredUnitEnd && unitEnd > this._exploredUnitEnd) {
+            this._exploredUnitEnd = unitEnd
+        }
+    }
+
+    /**
+     * Recording-time end of the span within which view positions can be trusted, or -1 when
+     * navigation is unrestricted (continuous recording, or a complete trusted interruption
+     * table). Beyond this point on a restricted recording, the recording-time→record mapping
+     * would silently ignore unseen gaps and place signals at the wrong time.
+     */
+    protected _exploredRecordingEnd (): number {
+        if (!this._discontinuous || this._interruptionsComplete) {
+            return -1
+        }
+        if (!this._exploredUnitEnd) {
+            return 0
+        }
+        const converted = this._dataUnitIndexToTime(this._exploredUnitEnd)
+        return converted === NUMERIC_ERROR_VALUE ? 0 : converted
+    }
+
+    /**
+     * Replace the interruption table. `complete` marks the table as covering the whole
+     * recording from trusted external metadata, which lifts the exploration restriction on
+     * discontinuous files ({@link _exploredRecordingEnd}); discovered (partial) tables must
+     * leave it false.
+     */
+    setInterruptions (interruptions: SignalInterruptionMap, complete = false) {
         this._interruptions = interruptions
+        if (complete) {
+            this._interruptionsComplete = true
+        }
     }
 
     setFileTypeHeader(header: unknown): void {

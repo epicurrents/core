@@ -35,10 +35,10 @@ import type {
     ConfigMapChannels,
 } from '#types/config'
 import type { SignalDataReader } from '#types/reader'
-import type { SignalCacheMutex, SignalCachePart } from '#types/service'
+import type { SignalCachePart } from '#types/service'
 
 import { Log } from 'scoped-event-log'
-import type { MutexExportProperties } from 'asymmetric-io-mutex'
+import { IOMutex, type MutexExportProperties } from 'asymmetric-io-mutex'
 
 const SCOPE = "MontageProcessor"
 
@@ -96,34 +96,45 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
     }
 
     /**
-     * Get montage signals for the given part.
-     * @param start - Part start (in seconds, included).
-     * @param end - Part end (in seconds, excluded).
-     * @param cachePart - Should the caculated signals be cached (default true).
-     * @param config - Additional configuration (optional).
-     * @returns False if an error occurred and depending on the value of parameter `cachePart`:
-     *          - If true, returns true if caching was successful.
-     *          - If false, calculated signals as SignalCachePart.
+     * View-anchored empty part: the montage's honest answer when the requested range is not
+     * (consistently) readable — outside the resident window, or the input snapshot could not be
+     * validated. Channel count and sampling rates match a real part so consumers can render a
+     * loading state without special-casing.
      */
-    async calculateSignalsForPart (
+    protected _emptyPartFor (start: number, end: number): SignalCachePart {
+        return {
+            start: start,
+            end: end,
+            signals: this._channels.map(chan => ({
+                data: new Float32Array(),
+                samplingRate: chan?.samplingRate || 0,
+            })),
+        }
+    }
+
+    /**
+     * Derive montage signals for the given part from one epoch-validated view of the input
+     * window. Synchronous by design: on the SAB path the caller reads the window epoch before
+     * calling and re-checks it on the returned part, discarding the result if a mutation landed
+     * mid-derivation — introducing an await here would widen that race window and break the
+     * validation. The caller supplies the window bounds and per-channel signal views it read
+     * together with the entry epoch.
+     * @param start - Part start in seconds of recording time (included).
+     * @param end - Part end in seconds of recording time (excluded).
+     * @param inputRangeStart - Input window range start (in data units) read with the same entry epoch as `SIGNALS`.
+     * @param inputRangeEnd - Input window range end (in data units) read with the same entry epoch as `SIGNALS`.
+     * @param SIGNALS - Per-channel updated-range signal views read with the same entry epoch.
+     * @param config - Additional configuration (optional).
+     * @returns The derived part, or a view-anchored empty part when the range is outside the window.
+     */
+    protected _derivePartFromInput (
         start: number,
         end: number,
-        cachePart = true,
-        config?: ConfigChannelFilter & { excludeActiveFromAvg?: boolean }
-    ) {
-        // Check that cache is ready.
-        if (!this._cache) {
-            Log.error("Cannot return signal part, signal cache has not been set up yet.", SCOPE)
-            return false
-        }
-        // Check the limits of the signal data cache.
-        const inputRangeStart = await this._cache.inputRangeStart
-        const inputRangeEnd = await this._cache.inputRangeEnd
-        if (inputRangeStart === null || inputRangeEnd === null) {
-            // TODO: Signal that the required part must be loaded by the file loader first.
-            Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
-            return false
-        }
+        inputRangeStart: number,
+        inputRangeEnd: number,
+        SIGNALS: Float32Array[],
+        config?: ConfigChannelFilter & { excludeActiveFromAvg?: boolean },
+    ): SignalCachePart {
         // Clamp range to actual cached bounds.
         const cacheStart = Math.max(
             0,
@@ -145,14 +156,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         // normal transiently during a slide; a persistent occurrence means the window is
         // mis-centred (see the rolling-window sizing invariant in GenericSignalReader).
         if (cacheEnd <= cacheStart) {
-            return {
-                start: start,
-                end: end,
-                signals: this._channels.map(chan => ({
-                    data: new Float32Array(),
-                    samplingRate: chan?.samplingRate || 0,
-                })),
-            } as SignalCachePart
+            return this._emptyPartFor(start, end)
         }
         const relStart = cacheStart - inputRangeStart
         const relEnd = cacheEnd - inputRangeStart
@@ -179,65 +183,6 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 }
             }
         }
-        // Phase C v3 diagnostic probe (non-invasive): read `inputSignalUpdatedRanges` exactly once
-        // per request, log when the requested range exceeds the per-channel loaded subrange. Does
-        // NOT change behaviour — still falls through to the normal read path so whatever was in the
-        // SAB (including zeros for not-yet-loaded blocks) ends up in the result. The point is to
-        // measure how often this happens with the current prefetch + slide-serialisation setup, so
-        // we can decide whether the "skip render on miss" fix is needed at all. Remove or gate
-        // behind a debug flag once we have the diagnostic data.
-        const inputUpdatedRangesGetter = this._cache.inputSignalUpdatedRanges
-        if (inputUpdatedRangesGetter) {
-            const samplingRatesAsync = (this._cache as SignalCacheMutex).inputSignalSamplingRates
-            const [updated, samplingRates] = await Promise.all([
-                Promise.all(inputUpdatedRangesGetter),
-                Promise.all(samplingRatesAsync),
-            ])
-            const requiredInputChannels = new Set<number>()
-            for (const chan of channels) {
-                if (Array.isArray(chan.active)) {
-                    for (const a of chan.active) {
-                        requiredInputChannels.add(Array.isArray(a) ? a[0] : a)
-                    }
-                } else if (typeof chan.active === 'number' && chan.active >= 0) {
-                    requiredInputChannels.add(chan.active)
-                }
-                for (const r of chan.reference) {
-                    requiredInputChannels.add(Array.isArray(r) ? r[0] : r)
-                }
-            }
-            let firstMiss: { idx: number, reqStart: number, reqEnd: number, updStart: number, updEnd: number } | null = null
-            for (const idx of requiredInputChannels) {
-                const sr = samplingRates[idx]
-                if (!sr || sr <= 0) {
-                    continue
-                }
-                const reqStart = Math.floor(relStart*sr)
-                const reqEnd = Math.ceil(relEnd*sr)
-                const upd = updated[idx]
-                if (!upd || upd.start > reqStart || upd.end < reqEnd) {
-                    firstMiss = {
-                        idx,
-                        reqStart,
-                        reqEnd,
-                        updStart: upd?.start ?? NaN,
-                        updEnd: upd?.end ?? NaN,
-                    }
-                    break
-                }
-            }
-            if (firstMiss) {
-                Log.info(
-                    `[cache-miss-probe] relStart=${relStart.toFixed(2)}s relEnd=${relEnd.toFixed(2)}s ` +
-                    `firstMiss=ch${firstMiss.idx} reqRange=[${firstMiss.reqStart},${firstMiss.reqEnd}] ` +
-                    `loadedRange=[${firstMiss.updStart},${firstMiss.updEnd}] ` +
-                    `skipFilters=${config?.skipFilters ?? false}`,
-                    SCOPE
-                )
-            }
-        }
-        // Get the input signals
-        const SIGNALS = await this._cache.inputSignals
         const padding = this._settings.filterPaddingSeconds || 0
         // Check for possible interruptions in this range.
         const filterRangeStart = Math.max(cacheStart - padding, 0)
@@ -434,6 +379,70 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                     : data
             }
             derived.signals.push(sigProps)
+        }
+        return derived
+    }
+
+    /**
+     * Get montage signals for the given part.
+     * @param start - Part start (in seconds, included).
+     * @param end - Part end (in seconds, excluded).
+     * @param cachePart - Should the caculated signals be cached (default true).
+     * @param config - Additional configuration (optional).
+     * @returns False if an error occurred and depending on the value of parameter `cachePart`:
+     *          - If true, returns true if caching was successful.
+     *          - If false, calculated signals as SignalCachePart.
+     */
+    async calculateSignalsForPart (
+        start: number,
+        end: number,
+        cachePart = true,
+        config?: ConfigChannelFilter & { excludeActiveFromAvg?: boolean }
+    ) {
+        // Check that cache is ready.
+        if (!this._cache) {
+            Log.error("Cannot return signal part, signal cache has not been set up yet.", SCOPE)
+            return false
+        }
+        let derived: SignalCachePart | null = null
+        const mutex = this._mutex instanceof BiosignalMutex ? this._mutex : null
+        if (mutex) {
+            // Optimistic, lock-free read (seqlock): read the epoch, derive from the live views,
+            // re-read the epoch. The reader mutates window metadata and samples only between
+            // paired epoch bumps, so an unchanged even epoch proves the derivation consumed a
+            // stable window; on a mismatch the result is discarded — never drawn — and the next
+            // view change or covering cache update retries. Deliberately NO lock is taken: the
+            // RW lock is reader-preference, and holding the input read lock across a derivation
+            // starves the reader's write lock during block loads (surfacing as `Maximum retries
+            // of locking operation reached` aborts mid-slide when reads arrive back to back).
+            const epochAtEntry = mutex.windowEpochSync(IOMutex.MUTEX_SCOPE.INPUT)
+            const inputRangeStart = mutex.inputRangeStartSync()
+            const inputRangeEnd = mutex.inputRangeEndSync()
+            const signals = mutex.inputSignalsSync()
+            if (
+                epochAtEntry === null || epochAtEntry % 2 !== 0 ||
+                inputRangeStart === null || inputRangeEnd === null || !signals
+            ) {
+                derived = this._emptyPartFor(start, end)
+            } else {
+                const part = this._derivePartFromInput(
+                    start, end, inputRangeStart, inputRangeEnd, signals, config
+                )
+                derived = mutex.windowEpochSync(IOMutex.MUTEX_SCOPE.INPUT) === epochAtEntry
+                          ? part
+                          : this._emptyPartFor(start, end)
+            }
+        } else {
+            // Main-thread cache fallback: single-threaded access, no locking or epoch discipline
+            // needed — the async getters cannot race anything.
+            const inputRangeStart = await this._cache.inputRangeStart
+            const inputRangeEnd = await this._cache.inputRangeEnd
+            if (inputRangeStart === null || inputRangeEnd === null) {
+                Log.error("Cannot return signal part, requested raw signals have not been loaded yet.", SCOPE)
+                return false
+            }
+            const SIGNALS = await this._cache.inputSignals
+            derived = this._derivePartFromInput(start, end, inputRangeStart, inputRangeEnd, SIGNALS, config)
         }
         if (cachePart) {
             // Finally, assign the signals to out montage mutex.

@@ -142,6 +142,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         lowpass: 0,
         notch: 0,
     } as BiosignalFilters
+    /**
+     * Recording-time end of the trusted-navigation span reported by the reader, or -1 when
+     * navigation is unrestricted. On a discontinuous recording without a complete interruption
+     * table only positions within the explored span have exact timing; the viewStart setter
+     * clamps to this value so no navigation path can land beyond it.
+     */
+    protected _exploredEnd = -1
     protected _interruptions: SignalInterruptionMap = new Map<number, number>()
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
@@ -216,6 +223,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
     set dataDuration (value: number) {
         this._setPropertyValue('dataDuration', value)
+    }
+
+    get exploredEnd () {
+        return this._exploredEnd
+    }
+    set exploredEnd (value: number) {
+        this._setPropertyValue('exploredEnd', value)
     }
 
     get displayViewStart () {
@@ -468,6 +482,12 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     set viewStart (value: number) {
         if (value < 0) {
             value = 0
+        }
+        // On a restricted recording (see `exploredEnd`) a view start beyond the explored span
+        // would display signals at silently wrong times — clamp every navigation path here, the
+        // single setter chokepoint. Loading at the frontier is what pushes the limit forward.
+        if (this._exploredEnd >= 0 && value > this._exploredEnd) {
+            value = this._exploredEnd
         }
         this._setPropertyValue('viewStart', value)
     }
