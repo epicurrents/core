@@ -709,6 +709,14 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * teardown.
      */
     async releaseSignalArrays () {
+        // The rolling window's backing buffer is going away: supersede every queued and
+        // in-flight window op so nothing touches the released buffer afterwards, and mark all
+        // blocks not-resident so a later rebind reloads them instead of trusting flags from the
+        // previous tenancy.
+        this._opQueue.supersedeAll()
+        for (const block of this._dataBlocks) {
+            block.loaded = false
+        }
         // Signal every running loop to exit at its next iteration.
         for (const proc of this._cacheProcesses) {
             proc.continue = false

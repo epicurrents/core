@@ -86,6 +86,19 @@ export default class SignalReaderOpQueue {
     }
 
     /**
+     * Supersede every pending operation regardless of stream. The release path uses this when
+     * the backing buffer is going away: queued ops are dropped and settled, the in-flight op is
+     * aborted, and nothing can touch the released buffer afterwards.
+     */
+    supersedeAll (): void {
+        for (const op of this._queue) {
+            op.settleSuperseded()
+        }
+        this._queue = []
+        this._current?.controller.abort()
+    }
+
+    /**
      * Supersede every pending operation of the given stream: queued ops are removed and settled
      * via their `settleSuperseded`, and an in-flight op of the stream has its abort signal fired
      * (its own body settles its promises). Ops of other streams are unaffected.

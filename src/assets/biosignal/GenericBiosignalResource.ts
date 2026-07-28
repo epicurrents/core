@@ -807,7 +807,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         // already correctly positioned and valid the slide short-circuits (no blocks to load), so
         // this is cheap; when it was invalidated it reloads the view's blocks. `startFrom` targets
         // the view, not 0, so a restored position is covered immediately. For a full-load cache the
-        // worker's fill is idempotent (nothing left to cache → no-op success).
+        // worker's fill is idempotent (nothing left to cache → no-op success). The slide runs on
+        // the reader's operation queue as a view-stream op, so a newer navigation supersedes it —
+        // it can never fight the plot's own requests over the window.
         Log.debug('Positioning signal cache window at the current view.', SCOPE)
         return this._service?.cacheSignals(this._viewStart || 0) ?? false
     }
