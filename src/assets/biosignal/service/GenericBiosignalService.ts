@@ -113,6 +113,27 @@ export default abstract class GenericBiosignalService extends GenericService imp
         return commission.promise as Promise<SignalCacheResponse>
     }
 
+    async setInterruptions (interruptions: SignalInterruptionMap, complete = false): Promise<boolean> {
+        if (!(await this._isStudyReady())) {
+            return false
+        }
+        // Map is serialized as an array of [start, duration] pairs for postMessage.
+        const commission = this._commissionWorker(
+            'set-interruptions',
+            new Map<string, unknown>([
+                ['complete', complete],
+                ['interruptions', [...interruptions.entries()]],
+            ])
+        )
+        try {
+            await commission.promise
+            return true
+        } catch (e: unknown) {
+            Log.error(`Setting reader interruptions failed: ${(e as Error)?.message ?? e}.`, SCOPE)
+            return false
+        }
+    }
+
     async requestSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalRequest> {
         if (!(await this._isStudyReady())) {
             return { status: 'error', reason: 'The study is not ready.' }

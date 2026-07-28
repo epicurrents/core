@@ -530,6 +530,15 @@ export interface BiosignalDataService extends AssetService {
      */
     requestSignals (range: number[], config?: unknown): Promise<SignalRequest>
     /**
+     * Replace the reader's interruption table. `complete` marks the table as covering the whole
+     * recording from trusted external metadata, which lifts the explored-span navigation
+     * restriction on discontinuous recordings. Must be sent only after worker study setup —
+     * format readers may clear the discovered table during setup probes.
+     * @param interruptions - Interruption map keyed by data-time start (seconds), values are durations.
+     * @param complete - True when the table covers the whole recording from trusted metadata.
+     */
+    setInterruptions (interruptions: SignalInterruptionMap, complete?: boolean): Promise<boolean>
+    /**
      * Prepare the worker with the given biosignal study.
      * @param header - BiosignalHeaderRecord for the study.
      * @param study - Study object to load.
@@ -1403,6 +1412,14 @@ export interface BiosignalResource extends DataResource {
      * @param config - Optional channel filter passed through to the read.
      */
     requestSignals (range: number[], config?: unknown): Promise<SignalRequest>
+    /**
+     * Provide the complete interruption table from trusted external metadata (e.g. a platform
+     * that parsed the whole file at ingest). Applies the table to the resource and its montages
+     * and delivers it to the signal reader, lifting the explored-span navigation restriction on
+     * discontinuous recordings.
+     * @param interruptions - Interruption map keyed by data-time start (seconds), values are durations.
+     */
+    setTrustedInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Get position information of the channel at given y-position. Each channel is considered
      * to take one channels spacing worth of space vertically.

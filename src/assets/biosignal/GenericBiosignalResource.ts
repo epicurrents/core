@@ -163,6 +163,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     protected _setup: BiosignalSetup | null = null
     protected _signalCacheStatus: number[] = [0, 0]
     protected _startTime: Date | null = null
+    /**
+     * Complete interruption table from trusted external metadata, or null when only discovered
+     * interruptions exist. Stored so the activation flow can forward it to the reader after
+     * worker study setup (format readers may clear the discovered table during setup probes);
+     * marks the table complete, which lifts the explored-span navigation restriction.
+     */
+    protected _trustedInterruptions: SignalInterruptionMap | null = null
     protected _subject: {
         age?: number
         gender?: string
@@ -1283,6 +1290,19 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             montage.setInterruptions(interruptions)
         }
         this.dispatchPropertyChangeEvent('interruptions', this.interruptions, prevState)
+    }
+
+    setTrustedInterruptions (interruptions: SignalInterruptionMap) {
+        this._trustedInterruptions = interruptions
+        this.setInterruptions(interruptions)
+        // A complete table makes every position's timing known — lift any navigation
+        // restriction immediately; the reader confirms with its next progress report once the
+        // activation flow has delivered the table to it.
+        this.exploredEnd = -1
+        if (this._service?.isReady) {
+            // The reader is already set up (e.g. injection after activation): deliver directly.
+            this._service.setInterruptions(interruptions, true)
+        }
     }
 
     setDefaultSensitivity (value: number) {
