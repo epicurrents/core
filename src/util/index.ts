@@ -153,3 +153,26 @@ export type {
     TextEncodingInfo,
     TextEncodingLabel,
 } from './text'
+export {
+    BreakerRegistry,
+    CATEGORY_TIMEOUT_MS,
+    CircuitBreaker,
+    classifyFetchOutcome,
+    DEFAULT_BACKOFF,
+    DEFAULT_BREAKER_CONFIG,
+    DEFAULT_RETRIES,
+    networkBreakers,
+    NetworkError,
+    resilientFetch,
+    setNetworkStatusHandler,
+} from './network'
+export type {
+    BackoffConfig,
+    BreakerConfig,
+    BreakerState,
+    BreakerTrip,
+    FetchCategory,
+    FetchFailureKind,
+    FetchOutcome,
+    ResilientFetchOptions,
+} from './network'
