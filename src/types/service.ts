@@ -77,6 +77,12 @@ export interface AssetService extends BaseAsset {
      */
     requestMemory (amount: number): Promise<RequestMemoryResponse>
     /**
+     * Reset this service's network circuit breakers after re-authentication: the main-thread
+     * registry plus the worker's own, via a fire-and-forget message.
+     * @param origin - Restrict to a single origin, or omit to reset every breaker.
+     */
+    resetNetwork (origin?: string): void
+    /**
      * Set the 32-bit index range allocated to this service in the shared buffer and reposition
      * the worker-side buffer views accordingly.
      * @param range - Allocated index range as `[start, end]`.

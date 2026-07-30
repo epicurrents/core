@@ -498,6 +498,13 @@ export interface EpicurrentsApp {
         options?: ConfigStudyLoader
     ): Promise<DataResource|null>
     /**
+     * Notify the app that the host session was (re-)established, e.g. after a re-login. Clears the
+     * network circuit breakers across every active service so loads latched on a prior auth failure
+     * resume. A neutral fact notification — the host announces the session change and need not know
+     * the app has a network layer; other post-re-auth mechanisms can hook the same signal later.
+     */
+    notifySessionRestored (): void
+    /**
      * Register an interface module to be used with the application.
      * @param intf - Constructor for the app interface.
      */

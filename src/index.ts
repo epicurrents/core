@@ -372,6 +372,17 @@ export class Epicurrents implements EpicurrentsApp {
         return null
     }
 
+    notifySessionRestored () {
+        // Clear the main-thread breakers (connectors, main-thread readers) once, then have each
+        // service reset its worker's registry. resetNetwork also clears the main registry, but that
+        // is idempotent, so the redundant clears are harmless; the top-level call covers the case
+        // where no services are registered.
+        util.networkBreakers.reset()
+        for (const service of this.#runtime.SERVICES.values()) {
+            service.resetNetwork()
+        }
+    }
+
     registerInterface (intf: InterfaceModuleConstructor) {
         this.#interfaceConstructor = intf
     }
