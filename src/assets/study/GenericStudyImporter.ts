@@ -6,6 +6,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
+import { networkBreakers, resilientFetch } from '#util'
 import type { AssociatedFileType, FileFormatImporter } from '#types/reader'
 import type { MemoryManager } from '#types/service'
 import type {
@@ -128,6 +129,35 @@ export default abstract class GenericStudyImporter extends GenericAsset implemen
             headerText += byte.toString(16)
         }
     }*/
+
+    /**
+     * Fetch a URL as an ArrayBuffer through the resilient network layer. Adds the auth header and an
+     * optional inclusive byte range, checks `response.ok` — so an error body is never decoded as
+     * file content — and consults the per-origin breaker. Runs breaker-only: no internal timeout or
+     * retry (a one-shot setup read owns no cancellation and must not be killed on a slow link), but
+     * the breaker still coordinates auth failures per origin. Throws a typed `NetworkError` on any
+     * terminal failure; importers call it inside their own try/catch and fall back to their sentinel.
+     * @param url - Source URL.
+     * @param opts - Optional auth header and an inclusive `[start, end]` byte range.
+     */
+    protected async _fetchArrayBuffer (
+        url: string,
+        opts?: { authHeader?: string, range?: [number, number] },
+    ): Promise<ArrayBuffer> {
+        const headers = new Headers()
+        if (opts?.authHeader) {
+            headers.set('Authorization', opts.authHeader)
+        }
+        if (opts?.range) {
+            headers.set('Range', `bytes=${opts.range[0]}-${opts.range[1]}`)
+        }
+        const response = await resilientFetch(url, { headers }, {
+            registry: networkBreakers,
+            retries: 0,
+            timeoutMs: Infinity,
+        })
+        return response.arrayBuffer()
+    }
 
     async importFile (source: File | StudyContextFile): Promise<StudyContextFile|null> {
         if (typeof source === 'object' && Object.hasOwn(source, 'url')) {
