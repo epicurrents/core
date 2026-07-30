@@ -85,10 +85,19 @@ export async function fetchTextFile (
         headers.append('Authorization', options.authHeader)
     }
     const startTime = Date.now()
-    // First fetch the file size using a HEAD request.
+    // First fetch the file size using a HEAD request. A failure here is non-fatal: fall back to a
+    // single-shot load (fileSize 0), which does its own error handling — the probe must not reject
+    // out of a function whose contract is to return null on failure.
     headers.append('X-HTTP-Method-Override', 'HEAD')
-    const headResponse = await fetch(url, { headers })
-    let fileSize = parseInt(headResponse.headers.get('Content-Length') || '0', 10)
+    let fileSize = 0
+    try {
+        const headResponse = await fetch(url, { headers })
+        if (headResponse.ok) {
+            fileSize = parseInt(headResponse.headers.get('Content-Length') || '0', 10)
+        }
+    } catch (e) {
+        Log.warn(`Could not probe file size for '${url}': ${(e as Error).message}.`, SCOPE)
+    }
     if (isNaN(fileSize) || fileSize <= 0) {
         Log.warn(`Could not determine file size from URL '${url}', loading entire file.`, SCOPE)
         fileSize = 0
@@ -100,6 +109,9 @@ export async function fetchTextFile (
         // didn't return a usable Content-Length.
         try {
             const response = await fetch(url, { headers })
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`)
+            }
             const blob = await response.blob()
             const file = new File([blob], 'recording')
             const head = await file.slice(0, Math.min(file.size, 4)).arrayBuffer()
@@ -127,6 +139,9 @@ export async function fetchTextFile (
         Log.debug(`Loading text range ${nextPos}-${rangeEnd} from URL.`, SCOPE)
         try {
             const response = await fetch(url, { headers })
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`)
+            }
             const blob = await response.blob()
             fileParts.push(blob)
             if (!encoding) {
@@ -209,7 +224,11 @@ export async function readTextPart (
             headers.append('Authorization', options.authHeader)
         }
         try {
-            return await (await fetch(source, { headers })).text()
+            const response = await fetch(source, { headers })
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`)
+            }
+            return await response.text()
         } catch (e) {
             Log.error(`Error reading text part from URL '${source}':`, SCOPE, e as Error)
             return null

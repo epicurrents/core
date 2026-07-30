@@ -76,6 +76,19 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 // Only Worker has the onerror property.
                 this._worker = worker as Worker
                 Log.registerWorker(this._worker)
+                // Backstop against wedged sessions: a worker that throws an uncaught error, or
+                // receives a message it cannot deserialise, posts no commission reply, so every
+                // awaiting commission promise would stay pending forever. These handlers carry no
+                // request number, so the only safe response is to reject all in-flight commissions.
+                // Individual worker handlers still post their own success:false on caught errors;
+                // this covers the paths that cannot report a specific failure.
+                this._worker.onerror = (event) => {
+                    const reason = (event instanceof ErrorEvent && event.message) ? event.message : 'unknown error'
+                    this._rejectAllCommissions(`Worker error: ${reason}`)
+                }
+                this._worker.onmessageerror = () => {
+                    this._rejectAllCommissions('Worker message could not be deserialised.')
+                }
             }
         }
     }
@@ -298,6 +311,28 @@ export default abstract class GenericService extends GenericAsset implements Ass
             }
         }
         return false
+    }
+
+    /**
+     * Reject every in-flight commission and clear the map. A backstop for worker-level failures
+     * (an uncaught error or an undeserialisable message) that arrive without a request number, so
+     * the awaiting promises cannot be matched and settled individually. Without this they would
+     * never settle, wedging whatever awaits them.
+     * @param reason - Failure reason forwarded to each commission's reject handler.
+     */
+    protected _rejectAllCommissions (reason: string) {
+        let pending = 0
+        for (const commMap of this._commissions.values()) {
+            for (const commission of commMap.values()) {
+                pending++
+                commission.reject(reason)
+            }
+            commMap.clear()
+        }
+        this._commissions.clear()
+        if (pending) {
+            Log.error(`${reason}. Rejected ${pending} pending commission(s).`, SCOPE)
+        }
     }
 
     /**
