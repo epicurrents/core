@@ -9,8 +9,10 @@ import {
     awaitThenSleep,
     combineSignalParts,
     MB_BYTES,
+    networkBreakers,
     NUMERIC_ERROR_VALUE,
     partsNotCached,
+    resilientFetch,
 } from '#util'
 import type {
     AppSettings,
@@ -65,14 +67,6 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
 
     /** Authorization header to include in requests. */
     protected _authHeader?: string
-    /**
-     * Latched when a signal fetch is rejected with 401/403. While set, every block and
-     * file read short-circuits before hitting the network, so a dropped session does not
-     * turn the view/cache-driven re-request cycle into a request storm against the server.
-     * Sticky for the reader's lifetime — a genuine re-authentication reopens the resource
-     * with a fresh reader.
-     */
-    protected _authFailed = false
     protected _awaitData = null as null | {
         range: number[],
         resolve: () => void,
@@ -358,26 +352,6 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * @param signal - Optional AbortSignal that cancels an in-flight URL fetch (a local file slice is synchronous and unaffected).
      * @returns Promise containing the signal file part or null.
      */
-    /**
-     * Handle an unsuccessful HTTP response from a block or file fetch. A 401/403 latches
-     * {@link _authFailed} so no further loads are attempted until the resource is reopened;
-     * other statuses (e.g. 5xx) are logged only, leaving a later request free to recover.
-     * @param status - HTTP status code of the failed response.
-     */
-    protected _handleFetchFailure (status: number) {
-        if (status === 401 || status === 403) {
-            if (!this._authFailed) {
-                Log.error(
-                    `Signal fetch rejected with HTTP ${status}; halting further loads until re-authentication.`,
-                    SCOPE
-                )
-            }
-            this._authFailed = true
-        } else {
-            Log.error(`Signal fetch failed with HTTP ${status}.`, SCOPE)
-        }
-    }
-
     async _readPartFromFile (startFrom: number, dataLength: number, signal?: AbortSignal): Promise<SignalFilePart | null> {
         if (!this._url.length) {
             Log.error(`Could not load file part, there is no source URL to load from.`, SCOPE)
@@ -385,10 +359,6 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         }
         if (!this._dataUnitSize) {
             Log.error(`Could not load file part, data unit size has not been set.`, SCOPE)
-            return null
-        }
-        if (this._authFailed) {
-            // Credentials were already rejected; do not re-issue the doomed request.
             return null
         }
         // Save starting time for debugging.
@@ -407,36 +377,44 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             // Slice the data directly from the file.
             return this._file?.data.slice(dataStart, dataEnd) as Blob
         } : async () => {
-            // Fetch the data from the file URL.
+            // Fetch the data from the file URL through the resilient layer: it retries transient
+            // failures, refuses through the origin's open circuit (so a dropped session does not
+            // storm the server), and throws a typed error rather than decoding an error body.
             const headers = new Headers()
             headers.set('Range', `bytes=${dataStart}-${dataEnd - 1}`)
             headers.set('Accept-Encoding', 'identity')
             if (this._authHeader) {
                 headers.set('Authorization', this._authHeader)
             }
-            return await fetch(this._url, { headers, signal }).then(response => {
-                if (!response.ok) {
-                    // A 401/403 error body must never be decoded as signal data; latch and bail.
-                    this._handleFetchFailure(response.status)
-                    return null
-                }
-                return response.blob()
-            }).then(blob => {
-                if (!blob) {
-                    return null
-                }
-                if (blob instanceof File || (blob as File).lastModified) {
-                    // If the response is a File, it has been downloaded in full (this can happen in e.g. Firefox).
-                    return (blob as File).slice(dataStart, dataEnd)
-                }
-                return blob
+            const response = await resilientFetch(this._url, { headers }, {
+                registry: networkBreakers,
+                signal,
+                // The op-queue already owns cancellation (its abort signal + LOAD_BLOCK_TIMEOUT) and
+                // re-requests superseded blocks, so run in breaker-only mode: no internal deadline
+                // (a slow block over a throttled link must not be killed) and no internal retry.
+                retries: 0,
+                timeoutMs: Infinity,
             })
+            const blob = await response.blob()
+            if (blob instanceof File || (blob as File).lastModified) {
+                // If the response is a File, it has been downloaded in full (this can happen in e.g. Firefox).
+                return (blob as File).slice(dataStart, dataEnd)
+            }
+            return blob
         }
         const startTime = this._dataUnitIndexToTime(unitStart)
         const partLength = this._dataUnitIndexToTime(unitEnd - unitStart)
-        const blob = await getBlob()
-        if (!blob) {
-            // Fetch was rejected (e.g. auth failure); nothing to cache.
+        let blob: Blob
+        try {
+            blob = await getBlob()
+        } catch {
+            if (signal?.aborted) {
+                // Superseded / cancelled by the op-queue — propagate as an abort exactly as the
+                // pre-resilientFetch fetch path did, so the caller treats it as a cancellation, not
+                // a load failure (which would log a spurious error and fail the cache commission).
+                throw new DOMException('Signal read aborted.', 'AbortError')
+            }
+            // A genuine terminal failure (auth, or an open circuit after a 401) — no data to cache.
             return null
         }
         const signalFilePart = this._blobToFile(
@@ -1063,36 +1041,28 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
     }
 
     async readFileFromUrl (url?: string) {
-        if (this._authFailed) {
-            return false
-        }
         const headers = new Headers()
         if (this._authHeader) {
             headers.set('Authorization', this._authHeader)
         }
-        return await fetch(url || this._url, { headers })
-            .then(response => {
-                if (!response.ok) {
-                    this._handleFetchFailure(response.status)
-                    return null
-                }
-                return response.blob()
+        try {
+            const response = await resilientFetch(url || this._url, { headers }, {
+                category: 'file',
+                registry: networkBreakers,
             })
-            .then(blobFile => {
-                if (!blobFile) {
-                    return false
-                }
-                this._file = {
-                    data: new File([blobFile], "recording"),
-                    dataLength: this._totalDataLength,
-                    start: 0,
-                    length: this._totalRecordingLength,
-                }
-                return true
-            }).catch((reason: Error) => {
-                Log.error(`Error loading file from URL '${url || this._url}':`, SCOPE, reason)
-                return false
-            })
+            const blobFile = await response.blob()
+            this._file = {
+                data: new File([blobFile], "recording"),
+                dataLength: this._totalDataLength,
+                start: 0,
+                length: this._totalRecordingLength,
+            }
+            return true
+        } catch (reason) {
+            // resilientFetch threw a terminal NetworkError (or the blob read failed).
+            Log.error(`Error loading file from URL '${url || this._url}':`, SCOPE, reason as Error)
+            return false
+        }
     }
 
     /**

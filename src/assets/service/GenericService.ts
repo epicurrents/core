@@ -23,6 +23,7 @@ import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { getOrSetValue, nullPromise, safeObjectFrom } from '#util/general'
+import { networkBreakers } from '#util/network'
 import { toPlainData } from '#util/worker'
 import { BufferRangeMove, MutexExportProperties } from 'asymmetric-io-mutex'
 
@@ -266,6 +267,17 @@ export default abstract class GenericService extends GenericAsset implements Ass
         const data = message.data
         if (!data || !data.action) {
             return false
+        }
+        if (data.action === 'network-status') {
+            // Unsolicited surfacing of a worker breaker transition (no rn). Re-emit on the main
+            // thread so the interface / platform can react (reconnecting, session-expired). The
+            // breaker origin is carried as `endpoint` — `origin` is reserved by dispatchEvent for
+            // the emitting asset.
+            this.dispatchEvent('network-status', 'after', {
+                endpoint: data.origin as string,
+                state: data.state as string,
+            })
+            return true
         }
         const commission = this._getCommissionForMessage(message)
         if (commission) {
@@ -519,6 +531,18 @@ export default abstract class GenericService extends GenericAsset implements Ass
             return false
         }
         return true
+    }
+
+    /**
+     * Reset the network circuit breakers after re-authentication: the main-thread registry, and the
+     * worker's own registry via a fire-and-forget message (no reply is expected, so a worker without
+     * a reader simply ignores the unknown action and none can hang on it). Called from the app's
+     * session-restored notification.
+     * @param origin - Restrict to a single origin, or omit to reset every breaker.
+     */
+    resetNetwork (origin?: string) {
+        networkBreakers.reset(origin)
+        this._worker?.postMessage({ action: 'reset-network', origin })
     }
 
     async setBufferRange (range: number[], moves?: BufferRangeMove[]): Promise<boolean> {
