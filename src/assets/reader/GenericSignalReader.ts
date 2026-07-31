@@ -810,7 +810,14 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         const loadedSignals = await this.getSignalUpdatedRange()
         if (loadedSignals.start === NUMERIC_ERROR_VALUE || loadedSignals.end === NUMERIC_ERROR_VALUE) {
             if (!this._cacheProcesses.length) {
-                Log.error(`Loading signals for range [${range[0]}, ${range[1]}] failed, cannot read updated signal ranges.`, SCOPE)
+                // Nothing initialised and no load running yet: the read raced ahead of the cache
+                // load's start on the initial draw/resize. Transient — the caller keeps the current
+                // frame and re-requests once a load lands (a genuine load failure is reported by
+                // cacheSignals). Debug, not error, matching the "waiting" branch below.
+                Log.debug(
+                    `Signals for range [${range[0]}, ${range[1]}] not available yet; awaiting a cache load.`,
+                    SCOPE
+                )
                 return null
             }
         }

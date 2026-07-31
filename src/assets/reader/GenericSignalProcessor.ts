@@ -405,7 +405,10 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
             }
         }
         if (highestStart === NUMERIC_ERROR_VALUE && lowestEnd === NUMERIC_ERROR_VALUE) {
-            Log.error(`Cannot get ranges of updated signals, cache has no initialized signals.`, SCOPE)
+            // No channel has an initialised range yet. This is a legitimate query result during the
+            // startup/resize race — a read can reach the worker before the cache load has populated
+            // the mutex — so it is a transient state, not an error; the caller decides how to react.
+            Log.debug(`No updated signal ranges yet, cache has no initialised signals.`, SCOPE)
             return { start: NUMERIC_ERROR_VALUE, end: NUMERIC_ERROR_VALUE }
         }
         return {
