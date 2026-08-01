@@ -567,6 +567,19 @@ export interface EpicurrentsApp {
     setWorkerOverride (name: string, getWorker: (() =>  Worker)|null): void
 }
 /**
+ * Epicurrents application handles exposed in the browser global scope as `window.__EPICURRENTS__`.
+ * This is the single canonical declaration; every package picks it up transitively by importing from
+ * this module, so no package should redeclare the global.
+ */
+export interface EpicurrentsGlobal {
+    /** The main Epicurrents application instance; `null` before instantiation. */
+    APP: EpicurrentsApp | null
+    /** Main event bus for broadcasting application events; `null` before instantiation. */
+    EVENT_BUS: ScopedEventBus | null
+    /** Runtime state manager of the initiated application; `null` before initiation. */
+    RUNTIME: StateManager | null
+}
+/**
  * A modular interface for the main application.
  */
 export interface InterfaceModule {
@@ -954,4 +967,16 @@ export type TaskResponse = {
     message?: string
     /** The raw HTTP response if the task was unsuccessful. */
     response?: Response
+}
+
+declare global {
+    interface Window {
+        /**
+         * Canonical Epicurrents application handles. Exposed on `window` so that modules compiled
+         * against possibly-divergent copies of the core package still resolve to one shared runtime
+         * object rather than each module's own imported singletons; see the package documentation for
+         * the version-skew rationale.
+         */
+        __EPICURRENTS__: EpicurrentsGlobal
+    }
 }

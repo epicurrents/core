@@ -25,3 +25,7 @@ Wiring it would let `unloadOnClose=true` reactivation skip the full walk, but it
 ## Produce `partial` request results
 
 `SignalRequest` carries a `partial` status, but the reader never produces it — a mid-slide read returns `pending` until the full target lands (see [Rolling signal cache → The request protocol](AGENTS.md#the-request-protocol)). Producing `partial` (return the resident, view-anchored overlap immediately plus a `ready` promise for the rest) lets the plot draw the still-valid portion of an overlapping jump instead of showing a loading state for the whole slide. The type and the consumer contract are already in place, so this needs no consumer-side change.
+
+## Retire per-package `globals.d.ts` after the Vite migration
+
+With the `window.__EPICURRENTS__` global now declared canonically in `application.ts` and inherited by every consumer, each package's `globals.d.ts` carries a single line — `declare let __webpack_public_path__`, a webpack build global. Once the toolchain moves from webpack to Vite family-wide, that last reason to keep the file disappears (Vite exposes the equivalent through `import.meta`), so `globals.d.ts` can be deleted from core and every sibling. Gated on the webpack → Vite migration, which is a builder-level toolchain change tracked outside this package.
