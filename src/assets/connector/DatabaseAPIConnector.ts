@@ -7,6 +7,7 @@
 
 import GenericAsset from '#assets/GenericAsset'
 import { modifyStudyContext } from '#util/conversions'
+import { networkBreakers, NetworkError, resilientFetch } from '#util'
 import type {
     ConnectorCredentials,
     DatabaseConnector,
@@ -144,51 +145,50 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
      * @returns A promise that resolves to true if authentication was successful, otherwise returns a `TaskResponse`.
      */
     async authenticate (path?: string) {
+        const url = this._combineURLPath(this._source, path || 'auth/')
         try {
-            const url = this._combineURLPath(this._source, path || 'auth/')
-            const response = await fetch(url, {
+            // Authentication is the re-authentication path itself, so it deliberately skips the origin
+            // breaker — an open-auth circuit must not short-circuit the very request that would clear
+            // it — and is not retried, since a credential POST is not idempotent. The category timeout
+            // is the only guard here, bounding a hung connection.
+            const response = await resilientFetch(url, {
                 method: 'POST',
                 headers: this._authHeader ? {
                     'Authorization': this._authHeader
                 } : undefined,
                 body: this._credentials ? JSON.stringify(this._credentials) : undefined,
+            }, {
+                category: 'config',
+                retries: 0,
             })
-            if (!response.ok) {
-                Log.error(`Authentication failed with status ${response.status}: ${response.statusText}`, SCOPE)
-                return {
-                    message: `Authentication failed with status ${response.status}: ${response.statusText}`,
-                    response,
-                    success: false,
-                } as TaskResponse
-            }
             // Include possible additional information like user properties from the response.
             const data = response.headers.get('Content-Type') === 'application/json' ? await response.json() : null
             // If authentication was successful, return a success response.
             return { success: true, ...data }
         } catch (e) {
-            Log.error(`Failed to authenticate with API server. ${e as string}`, SCOPE)
+            const detail = e instanceof NetworkError && e.status ? ` (status ${e.status})` : ''
+            Log.error(`Failed to authenticate with API server${detail}. ${e as string}`, SCOPE)
             return {
-                error: e,
-                message: `Failed to authenticate with API server.`,
-                // Include response if it is returned with the error.
-                response: (e as { response?: unknown }).response ? (e as { response: unknown }).response : undefined,
+                error: e as Error,
+                message: `Failed to authenticate with API server${detail}.`,
                 success: false,
             } as TaskResponse
-        } 
+        }
     }
     async listContents (subpath?: string, options = this._listContentsOptions): Promise<StudyContext[]|null> {
         try {
             const url = this._combineURLPath(this._source, subpath || 'contents')
-            const response = await fetch(url, {
+            // A GET is idempotent, so it follows the default retry budget under the origin breaker;
+            // resilientFetch throws on a non-ok status, landing in the catch below.
+            const response = await resilientFetch(url, {
                 method: 'GET',
                 headers: this._authHeader ? {
                     'Authorization': this._authHeader
                 } : undefined,
+            }, {
+                category: 'config',
+                registry: networkBreakers,
             })
-            if (!response.ok) {
-                Log.error(`Listing contents failed with status ${response.status}: ${response.statusText}`, SCOPE)
-                return null
-            }
             // TODO: Other responses in addition to JSON.
             if (response.headers.get('Content-Type') === 'application/json') {
                 const data = modifyStudyContext(await response.json(), options) as StudyContext[]
@@ -239,15 +239,13 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
             url = urlObj.toString()
         }
         try {
-            const response = await fetch(url, fetchOptions)
-            if (!response.ok) {
-                Log.error(`Query failed with status ${response.status}: ${response.statusText}`, SCOPE)
-                return {
-                    message: `Query failed with status ${response.status}: ${response.statusText}`,
-                    response,
-                    success: false,
-                }
-            }
+            const response = await resilientFetch(url, fetchOptions, {
+                category: 'default',
+                registry: networkBreakers,
+                // A POST query carries side effects, so it is not retried; a GET query is idempotent
+                // and follows the default budget. resilientFetch throws on a non-ok status.
+                retries: fetchOptions.method === 'POST' ? 0 : undefined,
+            })
             const data = modifyStudyContext(await response.json(), options) as StudyContext[]
             if (options?.overrideProperties) {
                 Object.assign(data, options.overrideProperties)
@@ -263,10 +261,11 @@ export default class DatabaseAPIConnector extends GenericAsset implements Databa
                 return { data: xml, success: true }
             }
         } catch (error) {
-            Log.error(`Failed to fetch ${url}: ${error}`, SCOPE)
+            const detail = error instanceof NetworkError && error.status ? ` (status ${error.status})` : ''
+            Log.error(`Failed to fetch ${url}${detail}: ${error}`, SCOPE)
             return {
                 error: error as Error,
-                message: `Failed to fetch ${url}`,
+                message: `Failed to fetch ${url}${detail}`,
                 success: false,
             }
         }

@@ -21,22 +21,51 @@ vi.mock('scoped-event-log', () => ({
 
 vi.mock('../../src/events/EventBus')
 
-vi.mock('../../src/util', () => ({
-    deepClone: vi.fn((obj) => {
-        if (obj === null || obj === undefined) return obj
-        try {
-            return JSON.parse(JSON.stringify(obj))
-        } catch {
-            return null
+// A faithful resilientFetch double: it passes an ok response through and throws a typed NetworkError
+// (carrying the status) on a non-ok one, mirroring the real helper's contract without its retry/backoff
+// or the module-singleton breaker. The real retry and circuit-breaker behaviour is covered in
+// tests/util/network.test.ts; here the connector is unit-tested against the guaranteed-ok contract.
+// The factory is hoisted above module scope by vi.mock, so the error class is declared inside it.
+vi.mock('../../src/util', () => {
+    class NetworkError extends Error {
+        kind: string
+        status?: number
+        origin?: string
+        constructor (kind: string, message: string, opts?: { status?: number, origin?: string }) {
+            super(message)
+            this.name = 'NetworkError'
+            this.kind = kind
+            this.status = opts?.status
+            this.origin = opts?.origin
         }
-    }),
-    safeObjectFrom: vi.fn((obj) => {
-        if (!obj) return obj
-        const result = Object.assign({}, obj)
-        Object.setPrototypeOf(result, null)
-        return result
-    }),
-}))
+    }
+    return {
+        deepClone: vi.fn((obj) => {
+            if (obj === null || obj === undefined) return obj
+            try {
+                return JSON.parse(JSON.stringify(obj))
+            } catch {
+                return null
+            }
+        }),
+        safeObjectFrom: vi.fn((obj) => {
+            if (!obj) return obj
+            const result = Object.assign({}, obj)
+            Object.setPrototypeOf(result, null)
+            return result
+        }),
+        networkBreakers: { get: vi.fn(() => undefined), reset: vi.fn() },
+        NetworkError,
+        resilientFetch: vi.fn(async (url: string, init?: RequestInit) => {
+            const response = await fetch(url, init)
+            if (!response.ok) {
+                const kind = response.status === 401 || response.status === 403 ? 'auth' : 'transient'
+                throw new NetworkError(kind, `Request failed (${response.status}).`, { status: response.status })
+            }
+            return response
+        }),
+    }
+})
 
 vi.mock('../../src/util/conversions', () => ({
     modifyStudyContext: vi.fn((data) => data),
