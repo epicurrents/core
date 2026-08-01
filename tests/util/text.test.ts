@@ -96,7 +96,7 @@ describe('readTextPart', () => {
     })
 
     it('issues a Range request against a URL source', async () => {
-        const fetchSpy = vi.fn().mockResolvedValue({ text: () => Promise.resolve('hello') })
+        const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('hello') })
         ;(global as any).fetch = fetchSpy
         const result = await readTextPart('https://example.com/data.csv', 0, 5, UTF8_INFO)
         expect(result).toBe('hello')
@@ -105,7 +105,7 @@ describe('readTextPart', () => {
     })
 
     it('forwards an auth header on URL reads', async () => {
-        const fetchSpy = vi.fn().mockResolvedValue({ text: () => Promise.resolve('') })
+        const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('') })
         ;(global as any).fetch = fetchSpy
         await readTextPart('https://x', 0, 4, UTF8_INFO, { authHeader: 'Bearer abc' })
         const [, init] = fetchSpy.mock.calls[0]
@@ -129,9 +129,9 @@ describe('fetchTextFile', () => {
         const fetchSpy = vi.fn().mockImplementation((_url: string, init: any) => {
             // First call (HEAD via override) sizes the file; second call returns the body.
             if ((init.headers as Headers).get('X-HTTP-Method-Override') === 'HEAD') {
-                return Promise.resolve({ headers: new Headers({ 'Content-Length': String(body.length) }) })
+                return Promise.resolve({ ok: true, headers: new Headers({ 'Content-Length': String(body.length) }) })
             }
-            return Promise.resolve({ blob: () => Promise.resolve(blob) })
+            return Promise.resolve({ ok: true, blob: () => Promise.resolve(blob) })
         })
         ;(global as any).fetch = fetchSpy
         const result = await fetchTextFile('https://example.com/x.csv')
