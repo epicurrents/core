@@ -1,108 +1,110 @@
-# Epicurrents
+# @epicurrents/core
 
-An open-source JavaScript application for analyzing and visualizing neurophysiological signal data.
+The core library of the Epicurrents neurophysiological signal viewer. It defines the application entry point (`Epicurrents`), the runtime state manager, the asset / resource / module / service abstractions, the biosignal montage and trend machinery, the worker commission protocol, and the shared TypeScript types that every other `@epicurrents/*` package builds on. It contains no UI — the viewer interface, file-format readers, modality modules and computation services are separate packages that register themselves onto the application at setup time.
 
-## Overview
+## Documentation map
 
-The core module provides the main application class and base classes for different modules.
+| Document | Audience | Contents |
+|---|---|---|
+| README.md (this file) | Developers consuming or embedding the package | Structure, usage, build and test workflow |
+| [AGENTS.md](AGENTS.md) | AI coding assistants (useful to humans too) | In-depth internals: signal data flow, SAB cache lifecycle, rolling-cache protocol, worker commissions, network resilience, gotchas |
+| [ROADMAP.md](ROADMAP.md) | Contributors | General design directions and deferred work — explicitly not an issue tracker |
 
-## Contents
+The README / AGENTS split is deliberate: much of the intended audience is clinicians rather than career developers, and the deep technical material lives in AGENTS.md so that an AI coding agent can carry those concepts for them. A reader should get a working mental model of the package from this file alone, and point an agent at AGENTS.md for anything beyond it.
 
-- Main application class
-- Base classes for use in modules:
-  * Biosignal study modules
-  * Document modules
-  * File readers
-  * Services
-  * Workers
-# Epicurrents — core
 
-Epicurrents core is the central library for the Epicurrents application. It provides the main `Epicurrents` application class, the runtime state manager, base asset/resource classes and utilities used by modules (study loaders, readers, services and workers).
+## Role in the package family
 
-This package is intended to be consumed by higher-level modules (UI, study modules, services) and by applications that embed Epicurrents.
+`@epicurrents/core` is the dependency root. Sibling packages fall into three patterns, each documented in its own repository:
 
-**Main highlights**
-- `Epicurrents` application class (entry point)
-- Runtime state manager (`runtime`) and event bus
-- Base assets and resource classes (`src/assets`)
-- Study importers/exporters and loaders
-- Utilities and typed interfaces under `src/types` and `src/util`
+- **Readers** (`edf-reader`, `csv-reader`, `wav-reader`, `nic-reader`, `dicom-reader`, …) — parse a file format into studies and signals, usually with their own web worker.
+- **Modality modules** (`eeg-module`, `emg-module`, `ncs-module`, …) — the domain logic and settings for one recording modality.
+- **Services** (`pyodide-service`, `onnx-service`) — optional off-thread computation backends.
 
-Quick pointers
-- Library entry: `src/index.ts` (exports `Epicurrents`, `SETTINGS`, `RuntimeStateManager`, and all base assets)
-- Types: exported under `./types`
-- Build artifacts: `dist/` and UMD bundle under `umd/`
+Editions of the full viewer are assembled from these packages by the separate builder repository.
 
-Getting started
-
-Install dependencies and build locally:
+## Install and build
 
 ```bash
 npm install
-npm run build        # builds UMD + TypeScript outputs
-npm run dev          # start webpack dev server (for integrating UI)
-npm test             # run unit tests
+npm run build        # build:umd (worker bundles) + build:tsc (dist/)
+npm test             # vitest unit suite
+npm run lint         # eslint on src/
 ```
 
-Quick usage example (TypeScript)
+The two build outputs serve different consumers and must be regenerated together after any source change: `dist/` is the TSC ESM output imported by the main thread, and `umd/` holds the self-contained worker bundles. Rebuilding only one leaves the worker and main thread disagreeing about shared code — a mismatch the type system cannot see.
+
+`tsconfig.base.json` is exported and extended by every sibling package; the TypeScript version is pinned family-wide (see AGENTS.md → Version compliance).
+
+## Package structure
+
+```
+src/
+  index.ts             # Epicurrents application class + public exports
+  assets/
+    biosignal/         # biosignal resource, montage, trend, mutex + montage/trend services
+    connector/         # REST API and WebDAV data-source connectors
+    dataset/           # dataset containers for resources opened together
+    document/          # document (non-signal) resource base
+    reader/            # signal reader/writer/processor bases, rolling-cache op queue
+    service/           # web-worker service base, memory manager, worker substitutes
+    study/             # study loaders, importers and exporters
+    annotation/        # annotations and resource labels
+  config/              # Settings singleton
+  events/              # EventBus and application events
+  runtime/             # RuntimeStateManager
+  types/               # all shared TypeScript interfaces
+  util/                # constants, conversions, signal maths, network/ (resilientFetch)
+  workers/             # base, montage, trend and memory-manager workers
+```
+
+Subpath exports mirror this layout: `@epicurrents/core/dist/types`, `.../dist/util`, `.../runtime`, etc. Worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`) for `?raw` inlining.
+
+## Usage
 
 ```ts
-import { Epicurrents, SETTINGS } from '@epicurrents/core'
+import { Epicurrents } from '@epicurrents/core'
 
-// Create app instance
 const app = new Epicurrents()
+// Sets window.__EPICURRENTS__ = { APP, EVENT_BUS, RUNTIME }.
 
-// Optional: configure default settings before launching
-app.configure({ app: { useMemoryManager: false } })
+// Optionally override default settings before launching.
+app.configure({ 'app.useMemoryManager': false })
 
-// Register a platform-specific interface module (UI)
-// Example: app.registerInterface(MyInterfaceModule)
+// Register the modality modules, services, study importers and the UI.
+app.registerModule('eeg', eegModule)
+app.registerService('pyodide', pyodideService)
+app.registerStudyImporter('edf', 'EDF', 'file', edfLoader)
+app.registerInterface(MyInterfaceModule)
 
-// Register any resource modules or services
-// app.registerModule('eeg', eegResourceModule)
-// app.registerService('pyodide', pyodideServiceModule)
+// Launch: instantiates the interface, sets up the memory manager when SharedArrayBuffer is available.
+await app.launch()
 
-// Launch the application (provides runtime and instantiates the interface)
-await app.launch({ /* optional ApplicationConfig */ })
-
-// Create or switch datasets
-const dataset = app.createDataset('Demo dataset', true)
-
-// Load a study using a registered study importer
-// const resource = await app.loadStudy('edf-importer', '/url/to/study.edf', { dataset })
-
-// Add and open resources programmatically
-// app.addResource(resource)
-// app.openResource(resource)
+// Open a recording through a registered importer.
+const dataset = app.createDataset('Session 1', true)
+const resource = await app.loadStudy('edf', 'https://example.com/recording.edf', { dataset })
+if (resource) {
+    app.selectActiveResource(resource)
+}
 ```
 
-API highlights
-- `new Epicurrents()` — instantiate the main application; sets up global `window.__EPICURRENTS__` entries (`APP`, `EVENT_BUS`, `RUNTIME`).
-- `configure(map)` — set default configuration before launching.
-- `registerInterface(constructor)` — register an `InterfaceModule` constructor to be used by `launch()`.
-- `registerModule(name, module)` — register resource modality modules (e.g., biosignal loaders/processors).
-- `registerService(name, service)` — register application services.
-- `launch(config?) => Promise<boolean>` — initializes the interface and runtime; must be called after `registerInterface`.
-- `createDataset(name?, setAsActive?)` — convenience to create a `MixedMediaDataset` and add it to runtime. If no dataset is active when a study is loaded, one is created automatically.
-- `loadStudy(loaderName, source, options) => Promise<DataResource | null>` — load/import a study using a registered importer.
+Key `Epicurrents` methods beyond the flow above:
 
-Where to look next
-- `src/index.ts` — main entry and the `Epicurrents` class implementation.
-- `src/assets/` — base asset/resource classes used across modules.
-- `src/runtime/` — runtime state manager and module registration.
-- `src/events/` — event types and `EventBus` used for application-wide events.
+- `addResource(resource, modality?)` — add an already-constructed resource to the active dataset.
+- `setWorkerOverride(name, getWorker)` — inject a deployment-specific or test-double worker factory.
+- `notifySessionRestored()` — host applications call this after a re-login; it resets the network circuit breakers on the main thread and in every registered service's worker so latched fetch paths resume.
+- `setSettingsValue(field, value)` / `SETTINGS` — runtime settings access; user-overridable fields persist to `localStorage`.
 
-Development notes
-- This package builds a UMD bundle and typed `dist/` outputs. See `package.json` scripts for `build`, `dev`, and `test`.
-- Exports in `package.json` expose subpaths like `./assets`, `./runtime`, `./types` for direct imports from the compiled `dist` outputs.
+The event bus (`app.eventBus`, also `window.__EPICURRENTS__.EVENT_BUS`) carries scoped `property-change:*` and payload events for reactive consumers; see AGENTS.md → Event bus dispatch semantics for the contract.
 
-Contributing
+## Testing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/YourFeature`)
-3. Run tests and linting locally (`npm test`, `npm run lint`)
-4. Commit and push your changes and open a Pull Request
+Vitest suites live in `tests/`, mirroring `src/`. The SAB-dependent suites (mutex, memory rearrange, montage locked read) run against real `SharedArrayBuffer` instances. Run a single file with `npx vitest run tests/<path>`.
 
-License
+## Contributing
 
-Licensed under the Apache-2.0 License — see `LICENSE` for details.
+Work on a feature branch, keep `npm test` and `npm run lint` green, and regenerate both build outputs before verifying in a consuming application. Planned and deferred design work is listed in [ROADMAP.md](ROADMAP.md); bug reports and feature requests belong in the GitHub issue tracker.
+
+## License
+
+Copyright 2017-2022, 2023-2026 Sampsa Lohi. Licensed under the [Apache-2.0](LICENSE) license.
