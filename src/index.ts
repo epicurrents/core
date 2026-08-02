@@ -204,6 +204,9 @@ export class Epicurrents implements EpicurrentsApp {
                 APP: null,
                 EVENT_BUS: null,
                 RUNTIME: null,
+                // Empty placeholder until the host / interface writes the real setup; never null so
+                // consumers can read `SETUP.<field>` without guarding.
+                SETUP: {},
             }
         }
         if (window.__EPICURRENTS__.RUNTIME) {

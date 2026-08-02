@@ -169,6 +169,10 @@ export type ApplicationConfig = {
      */
     assetPath?: string
     /**
+     * Is the application running in production mode.
+     */
+    isProduction?: boolean
+    /**
      * Log priority required for message to be printed into the console.
      * Possible values (from least to most important):
      * DEBUG, INFO, WARN, ERROR
@@ -578,6 +582,13 @@ export interface EpicurrentsGlobal {
     EVENT_BUS: ScopedEventBus | null
     /** Runtime state manager of the initiated application; `null` before initiation. */
     RUNTIME: StateManager | null
+    /**
+     * Static application setup, defined before launch — the host→viewer configuration handoff, read once at
+     * bootstrap. Not runtime state; the live, mutable configuration is held by the runtime state manager. The
+     * fields are `Readonly` because consumers only read the setup; the single bootstrap writer replaces the
+     * whole object.
+     */
+    SETUP: Readonly<ApplicationConfig>
 }
 /**
  * A modular interface for the main application.
