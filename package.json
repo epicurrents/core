@@ -70,7 +70,6 @@
     "asymmetric-io-mutex": "^1.0.0",
     "codecutils": "^0.1.3",
     "downsample": "^1.4.0",
-    "fili": "^2.0.3",
     "onnxruntime-web": "^1.14.0",
     "scoped-event-bus": "^0.3.0",
     "scoped-event-log": "^3.2.0",

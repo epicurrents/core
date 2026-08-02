@@ -15,8 +15,3 @@ declare module 'codecutils' {
         getString8FromBuffer: string
     }
 }
-
-declare module 'fili' {
-    const Fili: any
-    export default Fili
-}
