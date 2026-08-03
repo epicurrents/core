@@ -119,7 +119,12 @@ const _settings = {
         dataBlockDuration: 3600,
         dataChunkSize: 5*MB_BYTES,
         get isSabUsed () {
-            return this.useMemoryManager && typeof SharedArrayBuffer !== 'undefined'
+            // Cross-origin isolation is part of the test: a non-isolated document still exposes the
+            // SharedArrayBuffer constructor but cannot hand a buffer to a worker, so reporting the
+            // SAB path as active there routes callers into an allocation that can never arrive.
+            return this.useMemoryManager
+                   && typeof SharedArrayBuffer !== 'undefined'
+                   && window.crossOriginIsolated
         },
         logThreshold: 'WARN',
         maxDirectLoadSize: 10*MB_BYTES,

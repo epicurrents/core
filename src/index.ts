@@ -296,6 +296,10 @@ export class Epicurrents implements EpicurrentsApp {
         if (SETTINGS.app.useMemoryManager) {
             if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
                 Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
+                // Clear the flag as well as the manager. Callers branch on the setting rather than
+                // on the manager reference, so leaving it set sends them down a shared-memory path
+                // with nothing behind it instead of onto the main-thread fallback.
+                SETTINGS.app.useMemoryManager = false
                 // TODO: Shared worker cache.
             } else {
                 this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
