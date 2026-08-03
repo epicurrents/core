@@ -326,7 +326,13 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         }
         const response = await this._service.getSignals(range, config)
         if (!response?.signals || !response.signals.length) {
-            Log.error(`Could not get signals for requested range [${range[0]}, ${range[1]}].`, SCOPE)
+            if (this._service.hasQueuedRead) {
+                // A newer view displaced this read before it ran. Expected during navigation — the
+                // newer request draws in this one's place.
+                Log.debug(`Read of range [${range[0]}, ${range[1]}] was superseded by a newer view.`, SCOPE)
+            } else {
+                Log.error(`Could not get signals for requested range [${range[0]}, ${range[1]}].`, SCOPE)
+            }
             return null
         }
         // Check that montages actually match.

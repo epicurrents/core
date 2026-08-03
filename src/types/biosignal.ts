@@ -488,10 +488,20 @@ export type BiosignalDataResolve = (response: SignalCacheResponse) => void
  * A service that loads raw biosignal data from the source file and returns it for caching.
  */
 export interface BiosignalDataService extends AssetService {
+    /**
+     * True when a newer read has displaced the one a caller is holding, telling a read that
+     * resolved empty because it was superseded from one that failed. See {@link getSignals}.
+     */
+    readonly hasQueuedRead: boolean
     /** Start index of the individual signal buffers in the managed memory buffer. */
     signalBufferStart: number
     /**
      * Start the process of caching raw signals from the preset File or URL.
+     *
+     * Calls are not coalesced: while a fill is running, a later call is serviced in the gaps the
+     * reader yields between chunks and returns as soon as it finds a cache process covering the
+     * range. Consumers may therefore call this per view change, and a montage service can read the
+     * shared cache while the reader is still filling it.
      * @param startFrom - Optional data-time offset (seconds) at which to centre the cache when the
      *                    rolling-window strategy is in use. Ignored for recordings that fit fully
      *                    in memory.
@@ -506,6 +516,10 @@ export interface BiosignalDataService extends AssetService {
     destroy (): void
     /**
     * Load montage signals within the given range.
+    *
+    * Reads are coalesced to one in flight plus one waiting, newest range wins. A read displaced by
+    * a newer one resolves empty rather than rejecting; see {@link hasQueuedRead} for telling that
+    * apart from a genuine failure.
     * @param range - Range in seconds [start (included), end (excluded)]
     * @param config - Optional configuration (TODO: Config definitions).
     * @return A promise with the loaded signals as SignalCacheResponse.
@@ -983,6 +997,11 @@ export type BiosignalMontageReferenceSignal = {
     unit?: string
 } | null
 export interface BiosignalMontageService extends AssetService {
+    /**
+     * True when a newer read has displaced the one a caller is holding, telling a read that
+     * resolved empty because it was superseded from one that failed. See {@link getSignals}.
+     */
+    readonly hasQueuedRead: boolean
     /** Mutex holding the cached signals, if using SharedArrayBuffers. */
     mutex: BiosignalMutex | null
     /** Name of the montage. */
@@ -993,6 +1012,11 @@ export interface BiosignalMontageService extends AssetService {
     cacheMontageSignals (): void
     /**
      * Load montage signals within the given range.
+     *
+     * Reads are coalesced to one in flight plus one waiting, newest range wins: the worker derives
+     * one view at a time and cannot be interrupted, so an unbounded queue would derive every view
+     * a burst of navigation passed through. A displaced read resolves unsuccessfully; see
+     * {@link hasQueuedRead} for telling that apart from a genuine failure.
      * @param range - Range in seconds [start (included), end (excluded)].
      * @param config - Optional configuration (TODO: Config definitions).
      * @return Promise for the loaded signals as SignalResponse.

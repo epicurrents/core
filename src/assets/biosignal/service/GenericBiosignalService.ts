@@ -47,6 +47,21 @@ export default abstract class GenericBiosignalService extends GenericService imp
     /** Resolved or rejected based on the success of worker setup. */
     protected _setupWorker: Promise<BiosignalSetupResponse> | null = null
     protected _signalBufferStart = INDEX_NOT_ASSIGNED
+    /**
+     * Newest read waiting for the in-flight one to finish, or `null` when nothing waits. Holds one
+     * entry at most: a newer read displaces the waiting one and resolves it as superseded.
+     */
+    protected _queuedRead: {
+        config?: ConfigChannelFilter
+        range: number[]
+        resolve: (response: SignalCacheResponse) => void
+    } | null = null
+    /** True while a {@link getSignals} commission is in flight. */
+    protected _readInFlight = false
+
+    get hasQueuedRead () {
+        return this._queuedRead !== null
+    }
 
     get signalBufferStart () {
         return this._signalBufferStart
@@ -84,6 +99,9 @@ export default abstract class GenericBiosignalService extends GenericService imp
         if (!(await this._isStudyReady())) {
             return false
         }
+        // Not coalesced, unlike getSignals: holding a later call behind the in-flight one would
+        // serialise the reader and the montage worker, so nothing draws until the whole recording
+        // is cached.
         const props = typeof startFrom === 'number'
             ? new Map<string, unknown>([['startFrom', startFrom]])
             : undefined
@@ -103,14 +121,46 @@ export default abstract class GenericBiosignalService extends GenericService imp
         if (!(await this._isStudyReady())) {
             return null
         }
-        const commission = this._commissionWorker(
-            'get-signals',
-            new Map<string, unknown>([
-                ['range', range],
-                ['config', config],
-            ])
-        )
-        return commission.promise as Promise<SignalCacheResponse>
+        if (this._readInFlight) {
+            // Displace whatever was waiting; only the newest target is worth deriving.
+            this._queuedRead?.resolve(null)
+            return new Promise<SignalCacheResponse>((resolve) => {
+                this._queuedRead = { config, range, resolve }
+            })
+        }
+        return this._dispatchRead(range, config)
+    }
+
+    /**
+     * Run one `get-signals` commission and, once it settles, start whichever read queued up behind
+     * it. Failures are contained so the in-flight flag is always released; leaking it would strand
+     * every later read.
+     */
+    protected async _dispatchRead (
+        range: number[],
+        config?: ConfigChannelFilter
+    ): Promise<SignalCacheResponse> {
+        this._readInFlight = true
+        try {
+            const commission = this._commissionWorker(
+                'get-signals',
+                new Map<string, unknown>([
+                    ['range', range],
+                    ['config', config],
+                ])
+            )
+            return await (commission.promise as Promise<SignalCacheResponse>)
+        } catch (e: unknown) {
+            Log.error(`Reading montage signals failed: ${(e as Error)?.message ?? e}.`, SCOPE)
+            return null
+        } finally {
+            this._readInFlight = false
+            const queued = this._queuedRead
+            if (queued) {
+                this._queuedRead = null
+                this._dispatchRead(queued.range, queued.config).then(queued.resolve)
+            }
+        }
     }
 
     async setInterruptions (interruptions: SignalInterruptionMap, complete = false): Promise<boolean> {
@@ -174,7 +224,10 @@ export default abstract class GenericBiosignalService extends GenericService imp
             // stuck on "Loading data".
             if (commission) {
                 if (data.complete) {
-                    Log.debug(`Finished caching signals from File or URL.`, SCOPE)
+                    // Reports the commission settling, not that anything was cached — the reply is
+                    // the same when the reader found nothing left to load. The reader logs which
+                    // of the two it was.
+                    Log.debug(`Signal caching commission completed.`, SCOPE)
                 } else {
                     Log.error(`Caching signals from File or URL failed.`, SCOPE)
                 }

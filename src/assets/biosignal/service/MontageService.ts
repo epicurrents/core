@@ -37,7 +37,21 @@ const SCOPE = "MontageService"
 export default class MontageService extends GenericService implements BiosignalMontageService {
     private _mutex = null as null | BiosignalMutex
     private _montage: BiosignalMontage
+    /**
+     * Newest read waiting for the in-flight one to finish, or `null` when nothing waits. Holds one
+     * entry at most: a newer read displaces the waiting one. See {@link getSignals}.
+     */
+    private _queuedRead: {
+        config?: ConfigChannelFilter & { overwriteRequest?: boolean }
+        range: number[]
+        resolve: (response: GetSignalsResponse) => void
+    } | null = null
+    /** True while a {@link getSignals} commission is in flight. */
+    private _readInFlight = false
 
+    get hasQueuedRead () {
+        return this._queuedRead !== null
+    }
     get mutex () {
         return this._mutex
     }
@@ -103,17 +117,51 @@ export default class MontageService extends GenericService implements BiosignalM
     }
 
     async getSignals (range: number[], config?: ConfigChannelFilter & { overwriteRequest?: boolean }) {
-        const signals = this._commissionWorker(
-            'get-signals',
-            new Map<string, unknown>([
-                ['range', range],
-                ['config', config],
-                ['montage', this.name],
-            ]),
-            undefined,
-            { overwriteRequest: config?.overwriteRequest }
-        )
-        return signals.promise as Promise<GetSignalsResponse>
+        // `overwriteRequest` is no substitute for this queue: it drops the main thread's
+        // bookkeeping for earlier commissions, but the messages are already posted, so the worker
+        // derives every one of them and the discarded promises never settle.
+        if (this._readInFlight) {
+            // Displace whatever was waiting; only the newest target is worth deriving.
+            this._queuedRead?.resolve({ success: false })
+            return new Promise<GetSignalsResponse>((resolve) => {
+                this._queuedRead = { config, range, resolve }
+            })
+        }
+        return this._dispatchRead(range, config)
+    }
+
+    /**
+     * Run one `get-signals` commission and start whichever read queued up behind it. Failures are
+     * contained so the in-flight flag is always released; leaking it would strand every later read.
+     */
+    private async _dispatchRead (
+        range: number[],
+        config?: ConfigChannelFilter & { overwriteRequest?: boolean }
+    ): Promise<GetSignalsResponse> {
+        this._readInFlight = true
+        try {
+            const signals = this._commissionWorker(
+                'get-signals',
+                new Map<string, unknown>([
+                    ['range', range],
+                    ['config', config],
+                    ['montage', this.name],
+                ]),
+                undefined,
+                { overwriteRequest: config?.overwriteRequest }
+            )
+            return await (signals.promise as Promise<GetSignalsResponse>)
+        } catch (e: unknown) {
+            Log.error(`Deriving montage signals failed: ${(e as Error)?.message ?? e}.`, SCOPE)
+            return { success: false }
+        } finally {
+            this._readInFlight = false
+            const queued = this._queuedRead
+            if (queued) {
+                this._queuedRead = null
+                this._dispatchRead(queued.range, queued.config).then(queued.resolve)
+            }
+        }
     }
 
     async handleMessage (message: WorkerResponse) {
