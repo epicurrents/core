@@ -797,20 +797,26 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (!this.isActive) {
             return false
         }
-        // Always (re)position the rolling window at the CURRENT view. `unloadOnClose` is false, so a
-        // closed recording stays resident and `signalCacheStatus` keeps its old non-empty range —
-        // but the memory manager may have evicted or moved the buffer while another recording was
-        // open, dropping the signal arrays without resetting that status. Gating on
-        // `!signalCacheStatus[1]` (the old behaviour) therefore skipped re-establishing the cache on
-        // reopen, leaving the reader with no initialized signals and the view unnavigable until an
-        // explicit jump. Instead, unconditionally drive a slide to `viewStart`: when the window is
-        // already correctly positioned and valid the slide short-circuits (no blocks to load), so
-        // this is cheap; when it was invalidated it reloads the view's blocks. `startFrom` targets
-        // the view, not 0, so a restored position is covered immediately. For a full-load cache the
-        // worker's fill is idempotent (nothing left to cache → no-op success). The slide runs on
-        // the reader's operation queue as a view-stream op, so a newer navigation supersedes it —
-        // it can never fight the plot's own requests over the window.
-        Log.debug('Positioning signal cache window at the current view.', SCOPE)
+        // A cache spanning the whole recording has no window to position, so skip the round-trip.
+        // The condition is deliberately whole-recording coverage rather than coverage of the view:
+        // a rolling window carries read-ahead on both sides of the view and still needs re-centring
+        // as the view nears its edge, and this layer cannot tell the strategies apart because
+        // `_useRolling` is decided worker-side. A rolling window can never span the recording, so
+        // the test cannot disable sliding.
+        if (this._signalCacheStatus[0] <= 0 && this._signalCacheStatus[1] >= this._totalDuration
+            && this._totalDuration > 0
+        ) {
+            return true
+        }
+        // Otherwise always drive a slide to the current view, without gating on the cache looking
+        // empty: `unloadOnClose` is false, so a closed recording keeps its old non-empty
+        // `signalCacheStatus` while the memory manager may have evicted or moved the buffer behind
+        // it. The slide short-circuits when the window is already valid and reloads the view's
+        // blocks when it is not. It runs on the reader's operation queue as a view-stream op, so a
+        // newer navigation supersedes it rather than fighting the plot over the window.
+        // Phrased as the request it is: whether any repositioning or loading actually follows is
+        // the reader's call, and the reader logs what it did.
+        Log.debug('Requesting signal cache positioning at the current view.', SCOPE)
         return this._service?.cacheSignals(this._viewStart || 0) ?? false
     }
 
