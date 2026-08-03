@@ -330,15 +330,9 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     nextRecord = -1
                 }
             }
-            // Remove possible process as completed.
-            if (process) {
-                for (let i=0; i<this._cacheProcesses.length; i++) {
-                    if (this._cacheProcesses[i] === process) {
-                        this._cacheProcesses.splice(i, 1)
-                        break
-                    }
-                }
-            }
+            // The process stays registered: this method reads ONE chunk of it, and its owner (the
+            // fill loop in `cacheSignals`) keeps calling back until the target is covered.
+            // Removal belongs to whoever pushed the process.
             return nextRecord
         } catch (e: unknown) {
             Log.error(`Failed to get signals: ${(e as Error).message}.`, SCOPE, e as Error)
@@ -648,9 +642,22 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         if (this.SETTINGS.app.maxLoadCacheSize >= totalSignalDataSize) {
             Log.debug(`Loading the whole recording to cache.`, SCOPE)
             if (startFrom) {
-                // Not starting from the beginning, load initial part at location.
+                // Not starting from the beginning, prioritise the part at the view so it is
+                // available before the sequential fill reaches it — but only when no cache process
+                // already covers it. This method runs on every cache-progress update and every view
+                // change, and the "nothing left to cache" short-circuit below sits *after* this
+                // read: without the guard each of those calls re-reads the same bytes, so a single
+                // load may re-requeste the view's range dozens of times over.
                 const startRecord = this._timeToDataUnitIndex(startFrom)
-                await this._readAndCachePart(startRecord)
+                const partStart = startRecord*this._dataUnitDuration
+                const startPart = {
+                    start: partStart,
+                    end: partStart + this._dataUnitDuration,
+                    signals: [],
+                } as SignalCachePart
+                if (partsNotCached(startPart, ...cacheTargets).length) {
+                    await this._readAndCachePart(startRecord)
+                }
             }
             const requestedPart = {
                 start: 0,
@@ -661,6 +668,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             const partsToCache = partsNotCached(requestedPart, ...cacheTargets)
             // No need to continue if there is nothing left to cache.
             if (!partsToCache.length) {
+                Log.debug(`Signal cache already covers the recording, nothing to load.`, SCOPE)
                 return true
             }
             // Otherwise, add the parts that still need caching into ongoing processes.
@@ -702,6 +710,12 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     nextPart = await proc.inFlightRead
                     proc.inFlightRead = null
                     proc.end = nextPart*this._dataUnitDuration
+                }
+                // Done with this part (covered, cancelled, or the cache was released). Deregister
+                // it now that it can no longer claim coverage it is not going to deliver.
+                const procIdx = this._cacheProcesses.indexOf(proc)
+                if (procIdx !== -1) {
+                    this._cacheProcesses.splice(procIdx, 1)
                 }
             }
         } else {
