@@ -380,6 +380,12 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         const srs = this._cache.outputSignalSamplingRates
         let highestStart = NUMERIC_ERROR_VALUE
         let lowestEnd = NUMERIC_ERROR_VALUE
+        // Signals whose mutex fields are still at the empty sentinel. Before the first cache load
+        // that is every one of them — the startup/resize race the summary below describes — so
+        // reporting them individually would fire two lines per channel on every open. Only a
+        // *mixed* result is worth a warning: the aggregates are then computed from the initialised
+        // channels alone and over-report the coverage the uninitialised ones actually have.
+        const uninitialised: number[] = []
         for (let i=0; i<ranges.length; i++) {
             const sr = await srs[i]
             if (!sr) {
@@ -396,13 +402,20 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
             if (range.start !== IOMutex.EMPTY_FIELD) {
                 highestStart = (highestStart === NUMERIC_ERROR_VALUE || tStart > highestStart) ? tStart : highestStart
             } else {
-                Log.warn(`Signal #${i} has not updated start position set.`, SCOPE)
+                uninitialised.push(i)
             }
             if (range.end !== IOMutex.EMPTY_FIELD) {
                 lowestEnd = (lowestEnd === NUMERIC_ERROR_VALUE || tEnd < lowestEnd) ? tEnd : lowestEnd
-            } else {
-                Log.warn(`Signal #${i} has not updated end position set.`, SCOPE)
+            } else if (!uninitialised.includes(i)) {
+                uninitialised.push(i)
             }
+        }
+        if (uninitialised.length && (highestStart !== NUMERIC_ERROR_VALUE || lowestEnd !== NUMERIC_ERROR_VALUE)) {
+            Log.warn(
+                `Signals #${uninitialised.join(', #')} have no updated position set while others do; ` +
+                `the reported range covers only the initialised signals.`,
+                SCOPE
+            )
         }
         if (highestStart === NUMERIC_ERROR_VALUE && lowestEnd === NUMERIC_ERROR_VALUE) {
             // No channel has an initialised range yet. This is a legitimate query result during the
