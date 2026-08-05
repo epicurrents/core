@@ -147,6 +147,7 @@ export {
 export {
     detectTextEncoding,
     fetchTextFile,
+    readTextFile,
     readTextPart,
 } from './text'
 export type {

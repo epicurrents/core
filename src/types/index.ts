@@ -237,6 +237,7 @@ import type {
     SettingsLine,
     SettingsValue,
     SettingsValueConstructor,
+    SignalSourceOptions,
     UrlAccessOptions,
 } from './config'
 export {
@@ -262,6 +263,7 @@ export {
     SettingsLine,
     SettingsValue,
     SettingsValueConstructor,
+    SignalSourceOptions,
     UrlAccessOptions,
 }
 
@@ -390,6 +392,7 @@ import type {
     SignalFilePart,
     SignalProcessorCache,
     SignalStudyImporter,
+    SignalStudyReader,
     SuccessReject,
     SuccessResolve,
     SuccessResponse,
@@ -422,6 +425,7 @@ export {
     SignalFilePart,
     SignalProcessorCache,
     SignalStudyImporter,
+    SignalStudyReader,
     SuccessReject,
     SuccessResolve,
     SuccessResponse,

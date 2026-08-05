@@ -325,7 +325,7 @@ export class Epicurrents implements EpicurrentsApp {
 
     async loadStudy (
         loader: string,
-        source: string | string[] | FileSystemItem,
+        source: string | string[] | File | FileSystemItem,
         options: ConfigStudyLoader & DatabaseQueryOptions = {}
     ) {
         const context = this.#runtime.APP.studyImporters.get(loader)
@@ -348,6 +348,7 @@ export class Epicurrents implements EpicurrentsApp {
                                                 MixedFileSystemItem.UrlsToFsItem(...source),
                                                 options
                                             )
+            : source instanceof File ? await context.loader.loadFromFile(source, options)
             : source.files.length ? await context.loader.loadFromDirectory(source, options)
             : source.file ? await context.loader.loadFromFile(source.file, options)
                           : null

@@ -213,12 +213,15 @@ export default class GenericStudyLoader implements StudyLoader {
             // Use file name as default.
             study.name = options.name || 'Study'
         }
-        Log.debug(`Started loading a study from file ${file.name} (${options.name}).`, SCOPE)
         // Try to load the file, according to extension.
         const fName = options.name || file.name
+        // The resolved name is only worth printing when the caller overrode the file's own name.
+        Log.debug(
+            `Started loading a study from file ${file.name}${fName !== file.name ? ` (${fName})` : ''}.`,
+        SCOPE)
         if (options.isValidated || this._studyImporter.matchName(fName)) {
             this._studyImporter.registerStudy(study)
-            if (!(await this._studyImporter.importFile(file, { name: fName }))) {
+            if (!(await this._studyImporter.importFile(file, { name: fName, url: options.url }))) {
                 Log.error(`Failed to load study ${study.name}.`, SCOPE)
                 return null
             }

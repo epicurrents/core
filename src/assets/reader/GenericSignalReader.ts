@@ -347,8 +347,8 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * @returns Promise containing the signal file part or null.
      */
     async _readPartFromFile (startFrom: number, dataLength: number, signal?: AbortSignal): Promise<SignalFilePart | null> {
-        if (!this._url.length) {
-            Log.error(`Could not load file part, there is no source URL to load from.`, SCOPE)
+        if (!this._file?.data && !this._url.length) {
+            Log.error(`Could not load file part, there is no source file or URL to load from.`, SCOPE)
             return null
         }
         if (!this._dataUnitSize) {
@@ -573,6 +573,23 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 e as Error
             )
             return null
+        }
+    }
+    /**
+     * Attach the local source `file` that reads are served from. Every subsequent part read slices
+     * the file directly instead of issuing a ranged request against {@link _url}, which is the only
+     * way to read a local recording without routing its bytes through the network stack.
+     *
+     * Attaching a file does not start a loading process; that remains the caller's decision. The
+     * part covers the whole recording, so the length fields mirror the reader's dimensions as they
+     * are known at attach time — data time when the true recording length has not been resolved yet.
+     */
+    protected _setSourceFile (file: File) {
+        this._file = {
+            data: file,
+            dataLength: this._totalDataLength,
+            length: this._totalRecordingLength || this._totalDataLength,
+            start: 0,
         }
     }
     /**

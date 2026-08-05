@@ -28,7 +28,7 @@ import {
     TypedNumberArray,
     TypedNumberArrayConstructor,
 } from './util'
-import { UrlAccessOptions } from './config'
+import { SignalSourceOptions, UrlAccessOptions } from './config'
 
 export type AnonymizationProperties = {
     /**
@@ -492,6 +492,28 @@ export interface SignalDataReader extends SignalProcessorCache {
      * @param callback - A method that takes the loading update as a parameter.
      */
     setUpdateCallback (callback: ((update: { [prop: string]: unknown }) => void) | null): void
+}
+/**
+ * A signal data reader that builds its cache from an external source: a local file, a URL, or both.
+ * This is the interface every file-format reader implements. `SignalDataReader` itself does not
+ * require a source, since a reader can also be fed from an existing cache (see `MontageProcessor`).
+ */
+export interface SignalStudyReader extends SignalDataReader {
+    /**
+     * Set up the study so that its signal data can be read. This initializes the signal data cache and
+     * can only be done once per reader instance; a reader whose cache is already initialized refuses
+     * the call.
+     *
+     * A source with a `file` is read by slicing that file, a source with only a `url` by requesting
+     * byte ranges from it. Passing both is the local-file case: the URL is an object URL over the
+     * same bytes, kept as the fallback while the file serves every read.
+     *
+     * Any format-specific setup a reader needs (parsed headers, decoder parameters) follows the
+     * source, so that the source stays the one argument every reader shares.
+     * @param source - Where to read the signal data from. At least one of `file` and `url` is required.
+     * @returns Success (true/false).
+     */
+    setupStudy (source: SignalSourceOptions, ...formatParams: unknown[]): Promise<boolean>
 }
 /**
  * SignalDataReader serves as an interface for file writing. After setting the required metadata and a signal data

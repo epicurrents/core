@@ -447,6 +447,11 @@ export type ConfigStudyLoader = UrlAccessOptions & {
     modality?: string
     name?: string
     studies?: { [key: string]: unknown }
+    /**
+     * Object URL already minted for a local file source. Given here, the study file uses it instead
+     * of minting a second URL over the same bytes, so the caller that created it can also revoke it.
+     */
+    url?: string
 }
 export type ResourceConfig = Record<string, unknown>
 /**
@@ -470,6 +475,16 @@ export type SettingsLine = {
 }
 export type SettingsValue = SettingsColor | boolean | number | string | undefined
 export type SettingsValueConstructor = BooleanConstructor | NumberConstructor | StringConstructor
+/**
+ * The source a signal reader takes its bytes from. At least one of `file` and `url` must be given;
+ * `file` takes precedence when both are, as a local file is always the cheaper read.
+ */
+export type SignalSourceOptions = UrlAccessOptions & {
+    /** The local source file, when the recording was opened from the file system. Reads slice it directly instead of requesting byte ranges from the URL. */
+    file?: File
+    /** Source URL of the data file. */
+    url?: string
+}
 /**
  * Options for accessing URL resources.
  */

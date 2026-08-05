@@ -60,6 +60,15 @@ export function detectTextEncoding (buffer: ArrayBuffer): TextEncodingInfo {
 }
 
 /**
+ * Read a local text `file` into the shape {@link fetchTextFile} returns, detecting the encoding from
+ * its BOM. The file is passed through as-is, so no copy of its contents is made.
+ */
+export async function readTextFile (file: File): Promise<{ file: File, encoding: TextEncodingInfo }> {
+    const head = await file.slice(0, Math.min(file.size, 4)).arrayBuffer()
+    return { file, encoding: detectTextEncoding(head) }
+}
+
+/**
  * Fetch a text file from a URL into an in-memory `File`. Uses a HEAD request to
  * size the file, then either fetches the whole thing in one shot (when smaller
  * than `options.chunkSize`) or pages through it with HTTP `Range:` requests.
