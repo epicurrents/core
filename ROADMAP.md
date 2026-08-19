@@ -29,3 +29,16 @@ Wiring it would let `unloadOnClose=true` reactivation skip the full walk, but it
 ## Retire per-package `globals.d.ts` after the Vite migration
 
 With the `window.__EPICURRENTS__` global now declared canonically in `application.ts` and inherited by every consumer, each package's `globals.d.ts` carries a single line — `declare let __webpack_public_path__`, a webpack build global. Once the toolchain moves from webpack to Vite family-wide, that last reason to keep the file disappears (Vite exposes the equivalent through `import.meta`), so `globals.d.ts` can be deleted from core and every sibling. Gated on the webpack → Vite migration, which is a builder-level toolchain change tracked outside this package.
+
+## Worker resolution without `import.meta.url`
+
+`RUNTIME.WORKERS` makes a worker override optional: a service takes the registered factory when there is one, and otherwise constructs a worker from a URL relative to its own module. `ServiceMemoryManager` and `MontageService` do this, and every reader and service in the family copies the idiom, so whatever core settles on is what the others follow.
+
+The fallback only works in ESM output. `import.meta` is absent from UMD, CJS and IIFE, so a bundler substitutes for it — and the substitution is not uniform: some polyfill `import.meta.url` to the executing script's URL, leaving the relative specifier resolvable, while others replace `import.meta` with an empty object, which turns the expression into `new URL('../../workers/memory-manager.worker', undefined)` and throws. A package cannot tell which it will get, so the fallback is a guarantee core cannot actually make.
+
+Two directions, and they differ in what they ask of consumers rather than in difficulty:
+
+- **Resolve against a configured base.** The application already knows where its assets live; deriving worker URLs from that instead of from the module's location keeps the fallback working wherever the base is set, and makes the failure a missing setting rather than a bundler artifact.
+- **Make registration the contract.** Drop the URL fallback and throw a named error naming the worker that has no factory. Every consumer then registers every worker, which is more setup, but the failure moves to launch with a message that says what is missing.
+
+Either way the `/* webpackChunkName */` comment on those constructions goes with it: it marked a build-time chunk reference for webpack, and means nothing to the bundlers that consume the package now. The same toolchain shift is what [Retire per-package `globals.d.ts` after the Vite migration](#retire-per-package-globalsdts-after-the-vite-migration) is gated on.
