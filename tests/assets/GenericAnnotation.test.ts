@@ -109,7 +109,8 @@ describe('GenericAnnotation', () => {
             expect(annotation.annotator).toBe('')
             expect(annotation.class).toBe('event')
             expect(annotation.codes).toEqual({})
-            expect(annotation.label).toBe('')
+            // No label was supplied, so the value stands in for it.
+            expect(annotation.label).toBe('value')
             expect(annotation.priority).toBe(0)
             expect(annotation.text).toBe('')
             expect(annotation.visible).toBe(true)
@@ -194,17 +195,26 @@ describe('GenericAnnotation', () => {
             expect(annotation.label).toBe('')
         })
 
-        it('should return string value when label is undefined', () => {
+        it('should render the value when no label was given', () => {
             const annotation = new TestAnnotation('test', 42, 'type')
-            // label defaults to '' which is not undefined, so it returns ''
-            expect(annotation.label).toBe('')
+            expect(annotation.label).toBe('42')
         })
 
         it('should join array values for label fallback', () => {
             const annotation = new TestAnnotation('test', ['a', 'b', 'c'], 'type')
-            // Force label to undefined
-            ;(annotation as any)._label = undefined
             expect(annotation.label).toBe('a, b, c')
+        })
+
+        it('should render a null value as empty rather than the word null', () => {
+            const annotation = new TestAnnotation('test', null, 'type')
+            expect(annotation.label).toBe('')
+        })
+
+        it('should keep an explicitly empty label distinct from an absent one', () => {
+            const blank = new TestAnnotation('test', 'value', 'type', { label: '' })
+            const absent = new TestAnnotation('test', 'value', 'type')
+            expect(blank.label).toBe('')
+            expect(absent.label).toBe('value')
         })
     })
 

@@ -123,6 +123,44 @@ describe('GenericBiosignalEvent', () => {
         })
     })
 
+    describe('labelFromTemplate', () => {
+        // An event's own `value` is its time span, so a template's value has to become the label
+        // here or it is lost by the time the event exists. Four modules build their events through
+        // this, so a regression takes the visible text off every one of them at once.
+        it('should prefer an explicit label', () => {
+            expect(GenericBiosignalEvent.labelFromTemplate(
+                { class: 'event', priority: 400, value: 'raw', label: 'Shown' } as never
+            )).toBe('Shown')
+        })
+
+        it('should fall back to the value when no label is given', () => {
+            expect(GenericBiosignalEvent.labelFromTemplate(
+                { class: 'event', priority: 400, value: 'Evaluate this part' } as never
+            )).toBe('Evaluate this part')
+        })
+
+        it('should join an array value', () => {
+            expect(GenericBiosignalEvent.labelFromTemplate(
+                { class: 'event', priority: 400, value: ['a', 'b'] } as never
+            )).toBe('a, b')
+        })
+
+        it('should render a null or absent value as empty', () => {
+            expect(GenericBiosignalEvent.labelFromTemplate(
+                { class: 'event', priority: 400, value: null } as never
+            )).toBe('')
+            expect(GenericBiosignalEvent.labelFromTemplate(
+                { class: 'event', priority: 400 } as never
+            )).toBe('')
+        })
+
+        it('should stringify a non-string value rather than dropping it', () => {
+            expect(GenericBiosignalEvent.labelFromTemplate(
+                { class: 'event', priority: 400, value: 42 } as never
+            )).toBe('42')
+        })
+    })
+
     describe('property setters', () => {
         it('should set background', () => {
             const event = new TestBiosignalEvent('Test', 0, 1, 'test')

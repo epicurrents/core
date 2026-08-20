@@ -8,6 +8,7 @@
 import GenericAnnotation from '#assets/annotation/GenericAnnotation'
 import { settingsColorToRgba } from '#util'
 import type {
+    AnnotationTemplate,
     AssetSerializeOptions,
     BiosignalAnnotationEvent,
     BiosignalAnnotationEventOptions,
@@ -76,6 +77,26 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
         COMMENT:    200,
         ACTIVATION: 300,
         EVENT:      400,
+    }
+
+    /**
+     * Resolve the text an event built from `template` should display.
+     *
+     * An event's `value` is its time span, not its content, so the fallback that {@link
+     * GenericAnnotation.label} applies to a plain annotation cannot work here — by the time the
+     * event exists, the template's own value is gone. Subclass `fromTemplate` implementations call
+     * this so a template carrying only a `value` still names itself on screen, which is what
+     * {@link AnnotationTemplate.value} promises.
+     * @param template - The template the event is being constructed from.
+     */
+    static labelFromTemplate (template: AnnotationTemplate): string {
+        if (template.label) {
+            return template.label
+        }
+        if (template.value === null || template.value === undefined) {
+            return ''
+        }
+        return Array.isArray(template.value) ? template.value.join(', ') : String(template.value)
     }
 
     protected _background = false

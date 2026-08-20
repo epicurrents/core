@@ -151,7 +151,12 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
     protected _annotator: string
     protected _class: Annotation['class']
     protected _codes: Record<string, number | string>
-    protected _label: string
+    /**
+     * Explicit label, or `undefined` when none was given and {@link label} should render the value
+     * instead. Left optional deliberately: defaulting it to `''` would make "no label supplied"
+     * indistinguishable from "deliberately blank", and the value fallback unreachable.
+     */
+    protected _label: string | undefined
     protected _locked: boolean
     protected _priority: number
     protected _text: string
@@ -172,7 +177,7 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         this._annotator = options?.annotator ?? ''
         this._class = options?.class ?? 'event'
         this._codes = options?.codes ?? {} as Record<string, number | string>
-        this._label = options?.label ?? ''
+        this._label = options?.label
         this._locked = options?.locked ?? false
         this._priority = options?.priority ?? 0
         this._text = options?.text ?? ''
@@ -200,10 +205,21 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         this._setPropertyValue('codes', value)
     }
 
-    get label () {
-        return this._label !== undefined
-                            ? this._label
-                            : (Array.isArray(this._value) ? this._value.join(', ') : String(this._value))
+    /**
+     * Visible name of this annotation. An annotation given no label renders its {@link value}
+     * instead, so one constructed from a value alone still has something to display; an explicitly
+     * empty label is a deliberate blank and is returned as such.
+     *
+     * A null value renders as the empty string rather than the word "null".
+     */
+    get label (): string {
+        if (this._label !== undefined) {
+            return this._label
+        }
+        if (this._value === null) {
+            return ''
+        }
+        return Array.isArray(this._value) ? this._value.join(', ') : String(this._value)
     }
     set label (value: string) {
         this._setPropertyValue('label', value)
