@@ -138,6 +138,15 @@ export type AnnotationTemplate = {
     /** Text label for the annotation to override the value in annotation listings. */
     label?: Annotation['label']
     /**
+     * Lock the annotation against modification (default false).
+     *
+     * @remarks
+     * For an annotation the application places itself rather than one the user made: a marker
+     * describing what the user is being asked to do is not theirs to move, resize or retitle.
+     * Locking is one-way, so an annotation constructed locked stays locked for its lifetime.
+     */
+    locked?: Annotation['locked']
+    /**
      * Unique identifier for matching educational annotations (for programmatically altering their visibility etc.).
      *
      * @remarks
