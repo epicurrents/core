@@ -131,6 +131,7 @@ const _settings = {
         maxLoadCacheSize: 1000*MB_BYTES,
         signalLoadingYieldMs: 50,
         useMemoryManager: false,
+        userSettingsBackend: '',
     },
     interface: null,
     modules: {},

@@ -65,6 +65,21 @@ export interface AppSettings {
          * Set to 0 to disable the yield (the previous parallel-overlap behaviour).
          */
         signalLoadingYieldMs: number
+        /**
+         * Path or URL of the host's user-settings backend, or an empty string (the default) to keep
+         * settings on the local device only.
+         *
+         * When set, the interface additionally loads the signed-in user's stored settings from this
+         * address when it starts and writes changed settings back to it, so a user's preferences
+         * follow them between browsers and machines instead of living only in this device's storage.
+         * The address is expected to answer `GET` with `{ "settings": { "<module>.<field>": value } }`
+         * and to accept the same shape on `PUT`; requests are sent with same-origin credentials, and
+         * any failure is logged and otherwise ignored — local storage remains the fallback.
+         *
+         * Only fields the owning module lists in `_userDefinable` are ever sent or applied, so a
+         * compromised or misconfigured backend cannot reach settings the user could not set anyway.
+         */
+        userSettingsBackend: string
     }
     interface: unknown
     /**
