@@ -27,12 +27,14 @@ Editions of the full viewer are assembled from these packages by the separate bu
 
 ```bash
 npm install
-npm run build        # build:umd (worker bundles) + build:tsc (dist/)
+npm run build        # build:workers (worker bundles) + build:tsc (dist/)
 npm test             # vitest unit suite
 npm run lint         # eslint on src/
 ```
 
-The two build outputs serve different consumers and must be regenerated together after any source change: `dist/` is the TSC ESM output imported by the main thread, and `umd/` holds the self-contained worker bundles. Rebuilding only one leaves the worker and main thread disagreeing about shared code — a mismatch the type system cannot see.
+The two build outputs serve different consumers and must be regenerated together after any source change: `dist/` is the ESM output imported by the main thread, and `umd/` holds the standalone worker bundles. Rebuilding only one leaves the worker and main thread disagreeing about shared code — a mismatch the type system cannot see.
+
+The package resolves its own workers, so `dist/` carries each one inlined and a consumer needs no worker registration and no asset base. See AGENTS.md → Worker resolution for the escape hatch when a content security policy forbids `blob:` workers.
 
 `tsconfig.base.json` is exported and extended by every sibling package; the TypeScript version is pinned family-wide (see AGENTS.md → Version compliance).
 
@@ -58,7 +60,7 @@ src/
   workers/             # base, montage, trend and memory-manager workers
 ```
 
-Subpath exports mirror this layout: `@epicurrents/core/dist/types`, `.../dist/util`, `.../runtime`, etc. Worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`) for `?raw` inlining.
+Subpath exports mirror this layout: `@epicurrents/core/dist/types`, `.../dist/util`, `.../runtime`, etc. The standalone worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`).
 
 ## Usage
 

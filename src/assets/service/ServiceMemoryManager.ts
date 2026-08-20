@@ -6,6 +6,7 @@
  */
 
 import GenericService from './GenericService'
+import InlineMemoryManagerWorker from '../../workers/memory-manager.worker.ts?worker&inline'
 import {
     type AllocateMemoryResponse,
     type AssetService,
@@ -50,14 +51,7 @@ export default class ServiceMemoryManager extends GenericService implements Memo
             Log.error(`Reference to main runtime was not found.`, SCOPE)
         }
         const overrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get('memory-manager')
-        const worker = overrideWorker ? overrideWorker() : new Worker(
-            new URL(
-                /* webpackChunkName: 'memory-manager.worker' */
-                `../../workers/memory-manager.worker`,
-                import.meta.url
-            ),
-            { type: 'module'}
-        )
+        const worker = overrideWorker ? overrideWorker() : new InlineMemoryManagerWorker()
         super(SCOPE, worker)
         try {
             //  This will fail if the browser doesn't have enough memory available to it.

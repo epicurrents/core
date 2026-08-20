@@ -194,6 +194,10 @@ export class Epicurrents implements EpicurrentsApp {
      */
     #memoryManager = null as null | ServiceMemoryManager
     /**
+     * Path that public assets are served from, as set by the consumer.
+     */
+    #publicPath = ''
+    /**
      * Application state.
      */
     #runtime: StateManager
@@ -228,10 +232,10 @@ export class Epicurrents implements EpicurrentsApp {
     }
 
     get publicPath () {
-        return __webpack_public_path__
+        return this.#publicPath
     }
     set publicPath (value: string) {
-        __webpack_public_path__ = value
+        this.#publicPath = value
     }
 
     get runtime () {

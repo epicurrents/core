@@ -17,13 +17,15 @@ This file is the in-depth technical reference for AI coding assistants: internal
 Both build outputs must be regenerated together after any change to shared code:
 
 ```bash
-npm run build:tsc    # updates dist/ (ESM, consumed by the main thread)
-npm run build:umd    # updates umd/ (self-contained worker bundles)
+npm run build:workers  # updates umd/ (standalone worker bundles)
+npm run build:tsc      # updates dist/ (ESM, consumed by the main thread)
 # or simply:
-npm run build        # build:umd + build:tsc
+npm run build          # build:workers + build:tsc
 ```
 
 Rebuilding only one leaves a stale mismatch between the worker bundle and the main-thread code — the same failure mode as a version drift.
+
+`build:tsc` is two steps: `build:lib` (Vite emits the ESM tree, preserving one output module per source module) and `build:types` (`tsc --emitDeclarationOnly`). The name is kept because the builder's cross-package `build:tsc-all` sweep calls it by name in every package; a package that drops the script is skipped silently, which is exactly the stale-output failure above.
 
 ---
 
@@ -235,16 +237,20 @@ A **trend** is a derived per-epoch signal computed from one or more montage chan
 
 ---
 
-## Worker bundle exports
+## Worker resolution
 
-Every package that ships its own worker (core, the readers, the services) exposes the **self-contained `umd/` worker bundles** through two `exports` keys:
+A service takes its worker from the factory registered under its name in `RUNTIME.WORKERS`, and constructs the package's own worker when no factory is registered. The default is resolved **in this package's build**, not the consumer's: `MontageService`, `ServiceMemoryManager` and `TrendService` import their worker through Vite's `?worker&inline`, so `dist/` carries the bundled worker as a source string and constructs it from a Blob.
+
+Nothing about that reaches the consumer's bundler, which is the point. Publishing an unresolved `new Worker(new URL('../../workers/x.worker', import.meta.url))` hands the decision to whichever bundler runs last, and they disagree: Rollup rewrites it to an emitted chunk, Rolldown substitutes an empty object for `import.meta` and the construct throws `Invalid URL` at runtime. **Do not add a worker construction that defers resolution to the consumer** — import it with `?worker&inline` like the existing three.
+
+The cost of inlining is that a worker is created from a `blob:` URL, which the consumer's content security policy must allow. Consumers that cannot grant `worker-src blob:` serve the standalone bundles instead and register a URL-based factory, which takes precedence. Those bundles are what the `umd/` output and its two `exports` keys are for:
 
 ```json
 "./workers/*": "./umd/*",
 "./umd/*": "./umd/*"
 ```
 
-The `umd/*.worker.js` files are the runnable, dependency-inlined bundles (webpack `build:umd`) suitable for `inlineWorker(src)` after a `?raw` import — e.g. `import montage from '@epicurrents/core/workers/montage.worker.js?raw'`. The `dist/workers/*.worker.js` files are TSC ESM with bare imports and are **not** runnable as a standalone worker; do not export or `?raw`-import those for inlining.
+`build:workers` and the inlined copy run the same bundler settings, so the two are the same code. The `dist/workers/*.worker.js` files are neither of these — they are the worker sources compiled as ordinary modules, with bare imports, and are **not** runnable as a standalone worker.
 
 When adding a new worker-bearing package, add the same two keys. The builder's worker-discovery step auto-discovers any `@epicurrents/*` package with a `umd/` directory, so no list needs updating there.
 

@@ -6,6 +6,7 @@
  */
 
 import GenericService from '#assets/service/GenericService'
+import InlineTrendWorker from '../../../workers/trend.worker.ts?worker&inline'
 import type {
     BiosignalDownsamplingMethod,
     BiosignalTrendDerivation,
@@ -35,16 +36,10 @@ export default class TrendService extends GenericService implements BiosignalTre
     protected _trendComputations = new Map<string, TrendComputationProps>()
 
     constructor (manager?: MemoryManager) {
-        // Fetch the trend worker from the runtime workers registry (registered by the
-        // interface app at start-up, the same mechanism as the montage worker).
         const getWorker = window.__EPICURRENTS__?.RUNTIME?.WORKERS.get('trend')
-        const worker = getWorker?.() ?? null
-        super(SCOPE, worker ?? undefined, false, manager)
-        if (this._worker) {
-            this._worker.addEventListener('message', this.handleMessage.bind(this))
-        } else {
-            Log.warn(`Trend worker not found in RUNTIME.WORKERS; TrendService will not compute.`, SCOPE)
-        }
+        const worker = getWorker ? getWorker() : new InlineTrendWorker()
+        super(SCOPE, worker, false, manager)
+        this._worker?.addEventListener('message', this.handleMessage.bind(this))
     }
 
     /**

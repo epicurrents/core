@@ -6,6 +6,7 @@
  */
 
 import BiosignalMutex from './BiosignalMutex'
+import InlineMontageWorker from '../../../workers/montage.worker.ts?worker&inline'
 import MontageWorkerSubstitute from './MontageWorkerSubstitute'
 import type {
     BiosignalChannelFilters,
@@ -72,14 +73,7 @@ export default class MontageService extends GenericService implements BiosignalM
         let worker: Worker | undefined
         if (manager && overrideWorker !== 'substitute') {
             const getOverrideWorker = window.__EPICURRENTS__.RUNTIME?.WORKERS.get(overrideWorker || 'montage')
-            worker = getOverrideWorker ? getOverrideWorker() : new Worker(
-                new URL(
-                    /* webpackChunkName: 'montage.worker' */
-                    `../../../workers/montage.worker`,
-                    import.meta.url
-                ),
-                { type: 'module'}
-            )
+            worker = getOverrideWorker ? getOverrideWorker() : new InlineMontageWorker()
         } else {
             worker = new MontageWorkerSubstitute()
         }

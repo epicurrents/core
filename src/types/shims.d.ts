@@ -7,6 +7,15 @@
 
 /* eslint-disable */
 
+/**
+ * Worker bundled and inlined by the build. The bundle is self-contained and carries its own copy of
+ * every dependency, so the constructed worker resolves nothing at runtime.
+ */
+declare module '*?worker&inline' {
+    const InlinedWorker: new (options?: { name?: string }) => Worker
+    export default InlinedWorker
+}
+
 declare module 'codecutils' {
     const CodecUtils: {
         extractTypedArray: Float32Array | Float64Array |

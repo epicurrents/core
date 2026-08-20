@@ -28,17 +28,14 @@ Wiring it would let `unloadOnClose=true` reactivation skip the full walk, but it
 
 ## Retire per-package `globals.d.ts` after the Vite migration
 
-With the `window.__EPICURRENTS__` global now declared canonically in `application.ts` and inherited by every consumer, each package's `globals.d.ts` carries a single line — `declare let __webpack_public_path__`, a webpack build global. Once the toolchain moves from webpack to Vite family-wide, that last reason to keep the file disappears (Vite exposes the equivalent through `import.meta`), so `globals.d.ts` can be deleted from core and every sibling. Gated on the webpack → Vite migration, which is a builder-level toolchain change tracked outside this package.
+With the `window.__EPICURRENTS__` global now declared canonically in `application.ts` and inherited by every consumer, each package's `globals.d.ts` carries a single line — `declare let __webpack_public_path__`, a webpack build global. Core's copy is gone with its webpack build; `EpicurrentsApp.publicPath` is a plain backing field, which is all the accessor ever did once nothing consumed the webpack chunk base.
 
-## Worker resolution without `import.meta.url`
+Each sibling drops the file as it migrates, so this closes with the package sweep above.
 
-`RUNTIME.WORKERS` makes a worker override optional: a service takes the registered factory when there is one, and otherwise constructs a worker from a URL relative to its own module. `ServiceMemoryManager` and `MontageService` do this, and every reader and service in the family copies the idiom, so whatever core settles on is what the others follow.
+## Carry the worker-resolution fix to the sibling packages
 
-The fallback only works in ESM output. `import.meta` is absent from UMD, CJS and IIFE, so a bundler substitutes for it — and the substitution is not uniform: some polyfill `import.meta.url` to the executing script's URL, leaving the relative specifier resolvable, while others replace `import.meta` with an empty object, which turns the expression into `new URL('../../workers/memory-manager.worker', undefined)` and throws. A package cannot tell which it will get, so the fallback is a guarantee core cannot actually make.
+Core resolves and inlines its own workers in its own build, so a consumer needs no registration and no asset base (see [Worker resolution](AGENTS.md#worker-resolution)). Nine sibling packages still publish the construction core moved away from — `new Worker(new URL('../workers/x.worker', import.meta.url))` in untransformed `tsc` output, left for whichever bundler runs last to resolve: `api-reader`, `csv-reader`, `dicom-reader`, `edf-reader`, `htm-reader`, `nic-reader`, `onnx-service`, `pyodide-service`, `wav-reader`.
 
-Two directions, and they differ in what they ask of consumers rather than in difficulty:
+They are not broken today — a consumer bundling them with Rolldown gets the specifier resolved into a data-URI worker, and one that registers a factory never reaches the fallback at all. What they lack is core's guarantee: the outcome depends on the consumer's bundler, and the failure mode when it goes wrong is `Invalid URL` with nothing pointing at the cause.
 
-- **Resolve against a configured base.** The application already knows where its assets live; deriving worker URLs from that instead of from the module's location keeps the fallback working wherever the base is set, and makes the failure a missing setting rather than a bundler artifact.
-- **Make registration the contract.** Drop the URL fallback and throw a named error naming the worker that has no factory. Every consumer then registers every worker, which is more setup, but the failure moves to launch with a message that says what is missing.
-
-Either way the `/* webpackChunkName */` comment on those constructions goes with it: it marked a build-time chunk reference for webpack, and means nothing to the bundlers that consume the package now. The same toolchain shift is what [Retire per-package `globals.d.ts` after the Vite migration](#retire-per-package-globalsdts-after-the-vite-migration) is gated on.
+Each package follows the same three steps core did: build with Vite, import the worker through `?worker&inline`, and keep the standalone `umd/` bundle as the escape hatch for a content security policy that forbids `blob:` workers. Doing so retires webpack from each in the same change.
