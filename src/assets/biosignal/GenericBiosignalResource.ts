@@ -150,6 +150,13 @@ export default abstract class GenericBiosignalResource extends GenericResource i
      */
     protected _exploredEnd = -1
     protected _interruptions: SignalInterruptionMap = new Map<number, number>()
+    /**
+     * True while the resource is being prepared for display without being made active — see the
+     * modality resource's `preload`. Setup written on the assumption "we are activating, therefore
+     * this resource is active" consults this flag where that assumption would otherwise turn into a
+     * refusal; `cacheSignals` is the one place that matters today.
+     */
+    protected _isPreloading = false
     protected _loaded = false
     protected _memoryManager: MemoryManager | null = null
     protected _montages: BiosignalMontage[] = []
@@ -794,7 +801,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async cacheSignals (..._ranges: [number, number][]) {
-        if (!this.isActive) {
+        // A preloading resource is treated as active here. Filling the cache is the whole point of
+        // preloading, and the guard exists to stop a background resource from competing with the
+        // one on screen — which, for a preload, is a cost the caller has chosen to pay.
+        if (!this.isActive && !this._isPreloading) {
             return false
         }
         // A cache spanning the whole recording has no window to position, so skip the round-trip.
