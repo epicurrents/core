@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { toPlainData } from '../../src/util/worker'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { inlineWorker, toPlainData } from '../../src/util/worker'
 
 /**
  * Minimal stand-in for a host framework's reactive wrapper: a `Proxy` whose `toString` tag still
@@ -78,5 +78,67 @@ describe('toPlainData', () => {
         expect((out.b as Record<string, unknown>).name).toBe('b')
         // The cycle is preserved as a cycle (same rebuilt node), not duplicated forever.
         expect(((out.b as Record<string, unknown>).a)).toBe(out)
+    })
+})
+
+/**
+ * jsdom implements neither `URL.createObjectURL` nor `Worker`, so both are stubbed. The stub counts
+ * object-URL creations, which is the property these tests are about: an object URL lives for the
+ * document's lifetime and nothing revokes these, so creating more than one per distinct worker
+ * source is a leak.
+ *
+ * The cache the tests exercise is module-level and outlives each test, so every test below uses a
+ * source string no other test uses. Sharing one would make the creation counts order-dependent.
+ */
+class StubWorker {
+    constructor (public url: string, public options?: WorkerOptions) {}
+}
+
+describe('inlineWorker', () => {
+    let createObjectURL: ReturnType<typeof vi.fn>
+    const originalCreateObjectURL = URL.createObjectURL
+
+    beforeEach(() => {
+        let issued = 0
+        createObjectURL = vi.fn(() => `blob:stub/${issued++}`)
+        URL.createObjectURL = createObjectURL as unknown as typeof URL.createObjectURL
+        vi.stubGlobal('Worker', StubWorker)
+    })
+
+    afterEach(() => {
+        URL.createObjectURL = originalCreateObjectURL
+        vi.unstubAllGlobals()
+    })
+
+    it('constructs the worker from the object URL it returns', () => {
+        const { create, url } = inlineWorker('Stub', 'self.onmessage = () => {}')
+        const worker = create() as unknown as StubWorker
+        expect(worker.url).toBe(url)
+    })
+
+    it('creates one object URL per distinct source, however many times it is called', () => {
+        const source = 'self.onmessage = () => { postMessage(1) }'
+        const first = inlineWorker('Stub', source)
+        const second = inlineWorker('Stub', source)
+        first.create()
+        second.create()
+        second.create()
+        expect(createObjectURL).toHaveBeenCalledTimes(1)
+        expect(second.url).toBe(first.url)
+    })
+
+    it('keeps separate object URLs for separate sources', () => {
+        const first = inlineWorker('StubA', 'self.onmessage = () => { postMessage("a") }')
+        const second = inlineWorker('StubB', 'self.onmessage = () => { postMessage("b") }')
+        expect(first.url).not.toBe(second.url)
+        expect(createObjectURL).toHaveBeenCalledTimes(2)
+    })
+
+    it('passes the requested worker type through to the constructor', () => {
+        const source = 'export default null'
+        const classic = inlineWorker('Stub', source).create() as unknown as StubWorker
+        const module = inlineWorker('Stub', source, 'module').create() as unknown as StubWorker
+        expect(classic.options).toEqual({ type: 'classic' })
+        expect(module.options).toEqual({ type: 'module' })
     })
 })

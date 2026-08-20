@@ -12,7 +12,32 @@ import { type WorkerResponse, type WorkerMessage } from '../types'
 const SCOPE = "util:worker"
 
 /**
+ * Object URLs by worker source. An object URL is a document-lifetime entry in the browser's blob
+ * store, so one per distinct worker bundle is the floor; creating one per call is a leak, and the
+ * usual call shape — a factory that reinvokes {@link inlineWorker} on every worker it hands out —
+ * makes that leak grow with use.
+ */
+const workerObjectUrls = new Map<string, string>()
+
+/** Put `code` in the blob store and return its object URL. `name` names the worker when it fails. */
+const createWorkerObjectUrl = (name: string, code: string) => {
+    let blob = new Blob()
+    try {
+        blob = new Blob([code], { type: 'application/javascript' })
+    } catch (e) {
+        Log.error(`Could not turn code string into blob, worker '${name}' creation failed.`, SCOPE)
+    }
+    return URL.createObjectURL(blob)
+}
+
+/**
  * Create a Worker from a code string. The source must be compiled JavaScript (not TypeScript)!
+ *
+ * The returned `url` is the one `create` constructs from, and both are stable for a given `code`:
+ * calling this again with the same source reuses the existing object URL instead of adding another.
+ * Nothing revokes them, which is deliberate — the source strings are module-level constants and the
+ * factories built on them stay callable for the document's lifetime, so there is no point at which
+ * revoking is safe.
  * @param name - Name of the worker (for logging).
  * @param code - Worker source code as string.
  * @param type - Type of worker to create, either 'classic' or 'module' (default 'classic').
@@ -23,15 +48,13 @@ export const inlineWorker = (
     code: string,
     type = 'classic' as 'classic' | 'module'
 ): { create: () => Worker, url: string } => {
-    let blob = new Blob()
-    try {
-        blob = new Blob([code], { type: 'application/javascript' })
-    } catch (e) {
-        Log.error(`Could not turn code string into blob, worker '${name}' creation failed.`, SCOPE)
+    const cached = workerObjectUrls.get(code)
+    const url = cached ?? createWorkerObjectUrl(name, code)
+    if (cached === undefined) {
+        workerObjectUrls.set(code, url)
     }
-    const url = URL.createObjectURL(blob)
     return {
-        create: () => new Worker(URL.createObjectURL(blob), { type }),
+        create: () => new Worker(url, { type }),
         url,
     }
 }
