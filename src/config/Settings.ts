@@ -157,20 +157,27 @@ const _settings = {
             if (handler === update.handler) {
                 if (field === update.field) {
                     Log.debug(`The given handler already existed for field ${field}.`, SCOPE)
-                } else if (field.startsWith(`${update.field}.`)) {
+                    return
+                }
+                if (field.startsWith(`${update.field}.`)) {
                     // Listeners of a parent field are notified on updates.
                     Log.debug(
                         `The given handler already existed for parent '${update.field}' of the field '${field}'.`,
                     SCOPE)
-                } else if (update.field.startsWith(`${field}.`)) {
+                    return
+                }
+                if (update.field.startsWith(`${field}.`)) {
                     // Replace the child field handler with the new, more general parent field handler.
                     Log.debug(
                         `The given handler already existed for child '${update.field}' of the field '${field}' ` +
                         `and was replaced.`,
                     SCOPE)
                     _propertyUpdateHandlers.splice(i, 1, newHandler)
+                    return
                 }
-                return
+                // Same handler, unrelated field: a component that redraws on any of several
+                // settings registers one method for each of them, and every one of those
+                // registrations has to stand on its own.
             }
         }
         _propertyUpdateHandlers.push(newHandler)
