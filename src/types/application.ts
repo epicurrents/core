@@ -950,7 +950,7 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * @param property - Property name in kebab-case.
      * @param value - The new value for the property.
      */
-    setModulePropertyValue (module: string, property: string, value: unknown): void
+    setModulePropertyValue (module: string, property: string, value: unknown, resource?: DataResource): void
     /**
      * Set a service to the given `name`. Null value will remove the service.
      * @param name - Name of the service.
