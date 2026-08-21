@@ -18,6 +18,25 @@ import { MediaDataset } from './dataset'
 import { StudyContextCollection } from './study'
 
 /**
+ * Metadata describing a settings write, forwarded into the dispatched change event.
+ *
+ * Kept separate from `PropertyChangeContext`, whose `callback` and `event` fields have no meaning
+ * for a settings field: a settings write has no backing property to hand to a mutator, and its
+ * event name is fixed by the tree it lands in.
+ */
+export type SettingsChangeContext = {
+    /**
+     * Whether a user made the change (`'user'`, the default when omitted) or it was applied
+     * programmatically (`'system'`).
+     *
+     * A listener that writes the change back out — to device storage, or to a settings backend
+     * shared across the user's machines — must ignore `'system'` writes. Applying a stored set
+     * marks every field it restores as system-originated for exactly that reason; treating those
+     * as edits would write the restored values straight back to where they came from.
+     */
+    source?: 'system' | 'user'
+}
+/**
  * Core settings, expandable with modules.
  */
 export interface AppSettings {
@@ -162,9 +181,10 @@ export interface AppSettings {
      * Set a new `value` the the given settings `field`.
      * @param field - Name of the settings field.
      * @param value - New value for the field.
+     * @param context - Optional metadata describing the write; see {@link SettingsChangeContext}.
      * @returns true if a field value was changed, false otherwise.
      */
-    setFieldValue (field: string, value: SettingsValue): boolean
+    setFieldValue (field: string, value: SettingsValue, context?: SettingsChangeContext): boolean
     /**
      * Unregister a module's settings from the main settings object.
      * @param name - Unique name of the module.

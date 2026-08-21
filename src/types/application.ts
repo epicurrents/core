@@ -11,6 +11,7 @@ import {
     ConfigSchema,
     ConfigStudyLoader,
     ResourceConfig,
+    SettingsChangeContext,
     SettingsValue,
 } from './config'
 import { ConnectorType, DatasourceConnector } from './connector'
@@ -571,7 +572,7 @@ export interface EpicurrentsApp {
      * setSettingsValue('modules.name.field.subfield', 'New value')
      * ```
      */
-    setSettingsValue (field: string, value: SettingsValue): void
+    setSettingsValue (field: string, value: SettingsValue, context?: SettingsChangeContext): void
     /**
      * Override a default worker with a method that returns a worker instance.
      * @param name - Name of the worker to override.
@@ -964,7 +965,7 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * @param value - The new value.
      * @returns true if a field value was changed, false otherwise.
      */
-    setSettingsValue (field: string, value: SettingsValue): boolean
+    setSettingsValue (field: string, value: SettingsValue, context?: SettingsChangeContext): boolean
     /**
      * Override a default worker with a method that returns a worker instance.
      * @param name - Name of the worker to override.

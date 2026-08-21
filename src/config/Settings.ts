@@ -11,8 +11,11 @@ import type {
     ClonableAppSettings,
     ClonableModuleSettings,
     PropertyChangeHandler,
+    SettingsChangeContext,
     SettingsValue,
 } from '#types'
+import { dispatchPropertyChange } from '#events/dispatch'
+import { ApplicationEvents, EventScopes } from '#events/EventTypes'
 import { MB_BYTES } from '#util/constants'
 import { hexToSettingsColor, rgbaToSettingsColor } from '#util/conversions'
 import { safeObjectFrom } from '#util/general'
@@ -257,7 +260,7 @@ const _settings = {
         }
         Log.debug(`Could not locate the requested ${field} handler.`, SCOPE)
     },
-    setFieldValue (field: string, value: SettingsValue) {
+    setFieldValue (field: string, value: SettingsValue, context?: SettingsChangeContext) {
         // Settings object should have the reference to object proto removed, but the user should be informed of
         // this attempt.
         if (field.includes('__proto__')) {
@@ -311,6 +314,19 @@ const _settings = {
                     local[f] = value
                     Log.debug(`Changed settings field '${field}' value.`, SCOPE)
                     _settings.onPropertyUpdate(field, value, old)
+                    // Broadcast on the shared event bus so a subscriber sees changes to this tree
+                    // on the same footing as those the interface settings tree emits. Reached
+                    // through `globalThis` rather than `window`: this module is bundled into the
+                    // montage worker, where a bare `window` is a ReferenceError rather than an
+                    // undefined the optional chain could absorb.
+                    const bus = (globalThis as { __EPICURRENTS__?: Window['__EPICURRENTS__'] }).__EPICURRENTS__?.EVENT_BUS
+                    if (bus) {
+                        dispatchPropertyChange(bus, EventScopes.APPLICATION, field, value, old, 'after', {
+                            event: ApplicationEvents.SETTING_CHANGED,
+                            origin: _settings,
+                            source: context?.source,
+                        })
+                    }
                     return true
                 }
                 return false

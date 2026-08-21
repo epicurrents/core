@@ -16,6 +16,7 @@ import type {
     AppSettings,
     BaseModuleSettings,
     ConfigDatasetLoader,
+    SettingsChangeContext,
     SettingsValue,
 } from '#types/config'
 import type {
@@ -425,12 +426,12 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchPayloadEvent('set-service', { name, service })
     }
 
-    setSettingsValue (field: string, value: SettingsValue) {
+    setSettingsValue (field: string, value: SettingsValue, context?: SettingsChangeContext) {
         if (typeof field !== 'string') {
             Log.error('Invalid setting field type, expected string.', SCOPE)
             return false
         }
-        return state.SETTINGS.setFieldValue(field, value)
+        return state.SETTINGS.setFieldValue(field, value, context)
     }
 
     setWorkerOverride (name: string, getWorker: (() => Worker)|null) {

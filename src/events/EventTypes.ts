@@ -13,6 +13,7 @@ import type {
     BiosignalAnnotationEvent,
     BiosignalMontage,
     DataResource,
+    SettingsValue,
     VideoAttachment,
 } from '#types'
 import type {
@@ -42,6 +43,11 @@ export enum ApplicationEvents {
     INITIALIZE = 'initialize',
     /** A new dataset is marked active. */
     SET_ACTIVE_DATASET = 'set-active-dataset',
+    /**
+     * A settings field changed value; the detail carries the dotted field path as `property`, the
+     * new and old values, and `source` naming whether a user or the system made the change.
+     */
+    SETTING_CHANGED = 'setting-changed',
 }
 /**
  * Events emitted by the application class.
@@ -53,6 +59,8 @@ export type ApplicationEvent = {
     [ApplicationEvents.INITIALIZE]: BroadcastStateEvent
     /** A new dataset is marked active. */
     [ApplicationEvents.SET_ACTIVE_DATASET]: EventWithPayload<BaseDataset>
+    /** A settings field changed value. */
+    [ApplicationEvents.SETTING_CHANGED]: PropertyChangeEvent<SettingsValue>
 }
 /**
  * Names of events emitted by all assets.
