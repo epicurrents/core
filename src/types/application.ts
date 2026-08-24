@@ -713,9 +713,15 @@ export type PropertyChangeContext = {
     callback?: (current: unknown) => unknown
 }
 /**
- * A handler for asset property change events.
+ * A handler for asset property change events. `T` is the type of the value the handler is registered for; the
+ * parameter sits on the alias rather than on the function so that a handler declaring concrete parameters
+ * satisfies it. A handler that ignores its arguments satisfies any `T`.
+ *
+ * The settings registries pin `T` to `SettingsValue`. `onPropertyChange` leaves it at the `unknown` default
+ * rather than deriving `this[P]` from the property name: a signature generic over `keyof this` stops two
+ * resource types relating structurally, which breaks every subclass that narrows an inherited static.
  */
-export type PropertyChangeHandler = <T>(newValue?: T, oldValue?: T) => unknown
+export type PropertyChangeHandler<T = unknown> = (newValue?: T, oldValue?: T) => unknown
 /**
  * A resource that serves as a collection for a set of interconnected resources.
  */

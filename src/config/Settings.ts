@@ -29,7 +29,7 @@ const _propertyUpdateHandlers = [] as {
     /** Name of the field to watch. Updates to this field and any of it's children trigger the hander. */
     field: string
     /** Handler to execute on field update. */
-    handler: PropertyChangeHandler
+    handler: PropertyChangeHandler<SettingsValue>
 }[]
 /**
  * Remove the properties that cannot be cloned to a worker and return the rest as an object.
@@ -142,7 +142,7 @@ const _settings = {
         onnx: false,
         pyodide: false,
     },
-    addPropertyUpdateHandler (field: string, handler: PropertyChangeHandler, caller?: string) {
+    addPropertyUpdateHandler (field: string, handler: PropertyChangeHandler<SettingsValue>, caller?: string) {
         if (typeof field !== 'string' || !field) {
             Log.error(`Invalid field supplied to addPropertyUpdateHandler.`, SCOPE)
             return
@@ -256,7 +256,7 @@ const _settings = {
             }
         }
     },
-    removePropertyUpdateHandler (field: string, handler: PropertyChangeHandler) {
+    removePropertyUpdateHandler (field: string, handler: PropertyChangeHandler<SettingsValue>) {
         for (let i=0; i<_propertyUpdateHandlers.length; i++) {
             const update = _propertyUpdateHandlers[i]
             if ((field === update.field || field.startsWith(`${update.field}.`)) && handler === update.handler) {
