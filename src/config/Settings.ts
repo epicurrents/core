@@ -125,9 +125,11 @@ const _settings = {
             // Cross-origin isolation is part of the test: a non-isolated document still exposes the
             // SharedArrayBuffer constructor but cannot hand a buffer to a worker, so reporting the
             // SAB path as active there routes callers into an allocation that can never arrive.
+            // Read off `globalThis`, which carries the flag in a worker too; this module is bundled
+            // into the montage worker, where a bare `window` is a ReferenceError.
             return this.useMemoryManager
                    && typeof SharedArrayBuffer !== 'undefined'
-                   && window.crossOriginIsolated
+                   && globalThis.crossOriginIsolated
         },
         logThreshold: 'WARN',
         maxDirectLoadSize: 10*MB_BYTES,
