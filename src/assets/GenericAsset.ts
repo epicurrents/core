@@ -122,8 +122,11 @@ export default abstract class GenericAsset implements BaseAsset {
         this._id = GenericAsset.CreateUniqueId()
         this._modality = modality
         this._name = name
-        // Dispatch asset created event.
-        setTimeout(() => this.dispatchEvent(AssetEvents.CREATE), 1)
+        // Dispatch asset created event. The guard exists practically only for tests: the timer can outlive
+        // the asset, and one constructed and destroyed inside the same millisecond arrives here after
+        // `destroy` has dropped the bus. It stays at the call site rather than inside `dispatchEvent`, so a
+        // real use-after-destroy dispatch still fails loudly and that method keeps its boolean return.
+        setTimeout(() => this._eventBus && this.dispatchEvent(AssetEvents.CREATE), 1)
     }
 
     get errorReason () {
