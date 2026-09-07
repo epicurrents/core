@@ -239,6 +239,7 @@ import type {
     SettingsValue,
     SettingsValueConstructor,
     SignalSourceOptions,
+    TrendEpochScaling,
     UrlAccessOptions,
 } from './config'
 export {
@@ -266,6 +267,7 @@ export {
     SettingsValue,
     SettingsValueConstructor,
     SignalSourceOptions,
+    TrendEpochScaling,
     UrlAccessOptions,
 }
 

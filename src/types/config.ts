@@ -313,19 +313,33 @@ export type CommonBiosignalSettings = {
     /////////////////////
     // Trend settings  //
     /////////////////////
-    /** Settings for the supported trend types. */
+    /**
+     * Settings for the supported trend types.
+     *
+     * Every type's `epochLength` is a fixed value in seconds, or `0` to derive one from the length
+     * of the recording through that type's {@link TrendEpochScaling} ladder. Zero is the sentinel
+     * rather than an absent key because a configuration layer that merges a partial tree cannot
+     * tell a key it was never given from one a deployment deliberately left at its default — so
+     * the "derive it" intent has to be a value, or a derivation would silently beat a deployment's
+     * explicit choice.
+     */
     trends?: {
         /**
          * Amplitude trend (e.g. aEEG). The math is generic; the EEG module configures NICU-standard
-         * defaults (2 Hz highpass, 15 Hz lowpass, 15 s epochs).
+         * defaults (2 Hz highpass, 15 Hz lowpass).
          */
         amplitude?: {
             /** High-pass filter cutoff in Hz applied to the derived signal before rectification. */
             bandHighpass: number
             /** Low-pass filter cutoff in Hz applied to the derived signal before rectification. */
             bandLowpass: number
-            /** Epoch length in seconds. Each epoch yields a single (min, max) amplitude pair. */
+            /**
+             * Epoch length in seconds, or `0` to derive one from {@link epochScaling}. Each epoch
+             * yields a single (min, max) amplitude pair.
+             */
             epochLength: number
+            /** Ladder deriving `epochLength` from the recording length, consulted only while `epochLength` is 0. */
+            epochScaling: TrendEpochScaling
             /** Method used to extract the per-epoch amplitude envelope. */
             envelopeMethod: 'minmax' | 'percentile5_95'
             /** Amplitude scale compression applied to the envelope before plotting. */
@@ -335,8 +349,10 @@ export type CommonBiosignalSettings = {
          *  (threshold value, show-fill / show-threshold toggles, markCrossing) live in
          *  `EegInterfaceSettings.trends.pdbsi` in the interface module. */
         pdbsi?: {
-            /** Epoch length in seconds (controls time resolution). */
+            /** Epoch length in seconds (controls time resolution), or `0` to derive one from {@link epochScaling}. */
             epochLength: number
+            /** Ladder deriving `epochLength` from the recording length, consulted only while `epochLength` is 0. */
+            epochScaling: TrendEpochScaling
             /** Frequency band `[hp, lp]` in Hz integrated per electrode. Defaults to delta = [1, 4]. */
             band: [number, number]
             /** Apply Common Average Reference before the FFT. */
@@ -347,8 +363,10 @@ export type CommonBiosignalSettings = {
          *  mode, displayMode, markCrossing) live in `EegInterfaceSettings.trends.ratio`
          *  in the interface module — those don't affect what the trend worker computes. */
         ratio?: {
-            /** Epoch length in seconds (controls time resolution). */
+            /** Epoch length in seconds (controls time resolution), or `0` to derive one from {@link epochScaling}. */
             epochLength: number
+            /** Ladder deriving `epochLength` from the recording length, consulted only while `epochLength` is 0. */
+            epochScaling: TrendEpochScaling
             /** Numerator band `[hp, lp]` in Hz. Defaults to TAR (theta = [4, 8]). */
             numeratorBand: [number, number]
             /** Denominator band `[hp, lp]` in Hz. Defaults to TAR (alpha = [8, 13]). */
@@ -358,8 +376,15 @@ export type CommonBiosignalSettings = {
         }
         /** Power spectrogram trend settings. */
         spectrogram?: {
-            /** Epoch length in seconds (controls time resolution). */
+            /** Epoch length in seconds (controls time resolution), or `0` to derive one from {@link epochScaling}. */
             epochLength: number
+            /**
+             * Ladder deriving `epochLength` from the recording length, consulted only while
+             * `epochLength` is 0. One second is a hard lower bound on any step or pinned value
+             * here, whatever the ladder says: the output carries one bin per Hz up to `maxFreqHz`,
+             * and a shorter epoch gives the FFT fewer raw bins than that to aggregate.
+             */
+            epochScaling: TrendEpochScaling
             /** Upper frequency limit in Hz (bins above this are discarded). */
             maxFreqHz: number
             /** Visualisation mode. `power` = brightness encodes power; `proportion` = column height encodes relative share. */
@@ -519,6 +544,43 @@ export type SignalSourceOptions = UrlAccessOptions & {
     file?: File
     /** Source URL of the data file. */
     url?: string
+}
+/**
+ * How a trend's epoch length is derived from the length of the recording.
+ *
+ * Two halves, because the question changes with scale. Up to a few hours the bands that matter are
+ * kinds of recording — an excerpt, a routine EEG, a sleep study — each read at its own scale, and
+ * {@link TrendEpochScaling.steps} names an epoch length per band directly. Past that there is no
+ * kind left to name and only one thing worth holding constant: a trend strip always draws the whole
+ * recording across the canvas, so beyond the steps the derivation targets a roughly fixed epoch
+ * *count* instead, which keeps the strip's horizontal resolution and its compute cost stable however
+ * long the recording runs.
+ *
+ * The two never need a boundary between them, because the larger of the two answers wins. The
+ * target-driven length only overtakes the longest step once the recording is long enough for it to,
+ * which is exactly where the steps have stopped saying anything useful.
+ */
+export type TrendEpochScaling = {
+    /**
+     * Fixed epoch lengths by recording duration, each applying from its own `fromDuration` up to
+     * the next entry's. Order does not matter — the ladder is sorted before it is read, because a
+     * deployment merging a step into it has no way to know the array is order-dependent. The
+     * shortest recording is covered by the entry with the lowest `fromDuration`, whatever it is.
+     */
+    steps: { epochLength: number, fromDuration: number }[]
+    /**
+     * Epochs the derivation aims to divide the recording into once it has outgrown {@link steps}.
+     * Set it to 0 to disable the target entirely and pin every long recording to the longest step,
+     * accepting that the epoch count then grows without bound.
+     */
+    targetEpochs: number
+    /**
+     * Granularity in seconds the target-driven length snaps down to, so that a derived length is a
+     * round number a reader can hold in their head rather than an artefact of the recording's exact
+     * duration. It is also the point below which the target is ignored, since a length that rounds
+     * down to zero is no length at all.
+     */
+    targetQuantum: number
 }
 /**
  * Options for accessing URL resources.

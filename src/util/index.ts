@@ -60,6 +60,7 @@ import {
     mapSignalsToSamplingRates,
     partsNotCached,
     resampleSignal,
+    resolveTrendEpochLength,
     shouldDisplayChannel,
     shouldFilterSignal,
 } from './signal'
@@ -127,6 +128,7 @@ export {
     partsNotCached,
     RelayLogMessage,
     resampleSignal,
+    resolveTrendEpochLength,
     returnFailure,
     returnSuccess,
     rgbaToSettingsColor,

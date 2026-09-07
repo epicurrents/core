@@ -16,7 +16,7 @@ import type {
     SetupChannel,
     AmplitudeEnvelopeElement,
 } from '#types/biosignal'
-import { CommonBiosignalSettings, type ConfigChannelLayout } from '../types/config'
+import { CommonBiosignalSettings, type ConfigChannelLayout, type TrendEpochScaling } from '../types/config'
 import { type SignalCachePart } from '#types/service'
 import { type TypedNumberArray, type TypedNumberArrayConstructor } from '#types/util'
 import { EPS as FLOAT16_EPS } from '@stdlib/constants-float16'
@@ -1625,6 +1625,61 @@ export const resampleSignal = (signal: Float32Array, targetLen: number) => {
     return Float32Array.from(
         (LTTB(data, targetLen) as unknown as Array<{ y: number }>).map((p) => p.y)
     )
+}
+
+/**
+ * Resolve the epoch length a trend should compute at, in seconds.
+ *
+ * A configured `epochLength` above zero is returned unchanged, whatever the recording length: that
+ * value came from a deployment's configuration or from the user's own settings panel, and a
+ * derivation that overrode it would leave no way to pin an epoch length at all. Zero is the request
+ * to derive one, and {@link TrendEpochScaling} answers it — the longer of the matching fixed step
+ * and the target-driven length, so the target takes over exactly when it starts asking for coarser
+ * epochs than the last step does.
+ *
+ * A recording of unknown length resolves to the longest step. The strip is coarse in that case,
+ * which is visible; resolving to the shortest step instead would be an unbounded per-epoch
+ * computation over a recording that might turn out to be a week long, which is not.
+ * @param recordingDuration - Total length of the recording in seconds.
+ * @param config - The trend's settings. A missing one, or a scaling with no steps, resolves to 0 — there is nothing to compute against and the caller should skip the trend.
+ * @returns Epoch length in seconds, or 0 when neither a configured value nor a usable scaling is available.
+ */
+export const resolveTrendEpochLength = (
+    recordingDuration: number,
+    config: { epochLength?: number, epochScaling?: TrendEpochScaling } | undefined | null
+): number => {
+    if (config?.epochLength && config.epochLength > 0) {
+        return config.epochLength
+    }
+    const scaling = config?.epochScaling
+    if (!scaling?.steps?.length) {
+        Log.warn(`Cannot derive a trend epoch length without a scaling ladder.`, SCOPE)
+        return 0
+    }
+    // Sorted rather than trusted: the ladder is configuration, and a deployment merging a step into
+    // it has no way to know the array is order-dependent.
+    const ascending = [...scaling.steps].sort((a, b) => a.fromDuration - b.fromDuration)
+    // The longest epoch any step names, not the last one's: nothing requires a ladder to lengthen
+    // as it goes, and the fallback below has to be the cheap end whatever order the steps are in.
+    const longestStep = Math.max(...ascending.map(step => step.epochLength))
+    if (!(recordingDuration > 0)) {
+        Log.warn(`Deriving a trend epoch length for a recording of unknown length.`, SCOPE)
+        return longestStep
+    }
+    let stepLength = ascending[0].epochLength
+    for (const step of ascending) {
+        if (recordingDuration < step.fromDuration) {
+            break
+        }
+        stepLength = step.epochLength
+    }
+    const quantum = scaling.targetQuantum
+    if (!(scaling.targetEpochs > 0) || !(quantum > 0)) {
+        return stepLength
+    }
+    // Snapped down, so the epoch count lands at or above the target rather than below it.
+    const targeted = Math.floor(recordingDuration/scaling.targetEpochs/quantum)*quantum
+    return Math.max(stepLength, targeted)
 }
 
 /**

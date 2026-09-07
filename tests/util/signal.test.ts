@@ -18,6 +18,7 @@ import {
     isContinuousSignal,
     partsNotCached,
     resampleSignal,
+    resolveTrendEpochLength,
     shouldDisplayChannel,
     shouldFilterSignal,
 } from '../../src/util/signal'
@@ -1442,6 +1443,107 @@ describe('Signal utilities', () => {
                     expect(min).toBeGreaterThanOrEqual(0)
                 }
             }
+        })
+    })
+    describe('resolveTrendEpochLength', () => {
+        /** The EEG module's shipped ladder, which is also the shape a deployment overrides. */
+        const scaling = () => ({
+            steps: [
+                { epochLength: 2,  fromDuration: 0 },
+                { epochLength: 5,  fromDuration: 45*60 },
+                { epochLength: 10, fromDuration: 90*60 },
+            ],
+            targetEpochs: 2000,
+            targetQuantum: 10,
+        })
+        // Expected functionality (happy paths).
+        it('should return a configured epoch length unchanged', () => {
+            expect(resolveTrendEpochLength(600, { epochLength: 5, epochScaling: scaling() })).toBe(5)
+        })
+        it('should let a configured epoch length win over a coarser derived one', () => {
+            // The override contract: a deployment or a user that pins a value keeps it on a
+            // week-long recording, where the derivation would otherwise ask for 300 s epochs.
+            expect(resolveTrendEpochLength(7*24*3600, { epochLength: 2, epochScaling: scaling() })).toBe(2)
+        })
+        it('should pick the step matching the length of the recording', () => {
+            const config = { epochLength: 0, epochScaling: scaling() }
+            expect(resolveTrendEpochLength(10*60, config)).toBe(2)
+            expect(resolveTrendEpochLength(30*60, config)).toBe(2)
+            expect(resolveTrendEpochLength(60*60, config)).toBe(5)
+            expect(resolveTrendEpochLength(2*3600, config)).toBe(10)
+        })
+        it('should treat a step threshold as inclusive', () => {
+            const config = { epochLength: 0, epochScaling: scaling() }
+            expect(resolveTrendEpochLength(0.5, config)).toBe(2)
+            expect(resolveTrendEpochLength(45*60, config)).toBe(5)
+            expect(resolveTrendEpochLength(90*60, config)).toBe(10)
+        })
+        it('should sort the steps before reading them', () => {
+            // Configuration is merged, not authored in one place, so array order is not a contract.
+            const shuffled = scaling()
+            shuffled.steps = [shuffled.steps[2], shuffled.steps[0], shuffled.steps[1]]
+            expect(resolveTrendEpochLength(60*60, { epochLength: 0, epochScaling: shuffled })).toBe(5)
+        })
+        it('should hold the epoch count near the target once the steps are outgrown', () => {
+            const config = { epochLength: 0, epochScaling: scaling() }
+            expect(resolveTrendEpochLength(12*3600, config)).toBe(20)
+            expect(resolveTrendEpochLength(24*3600, config)).toBe(40)
+            expect(resolveTrendEpochLength(7*24*3600, config)).toBe(300)
+        })
+        it('should snap a target-driven length down to the quantum', () => {
+            // Down rather than up, so the epoch count lands at or above the target rather than
+            // below it. A day targets 43.2 s, which has to come back as 40 and not 43.2 or 50.
+            const config = { epochLength: 0, epochScaling: scaling() }
+            expect(resolveTrendEpochLength(24*3600, config)).toBe(40)
+            expect(24*3600/resolveTrendEpochLength(24*3600, config)).toBeGreaterThanOrEqual(2000)
+        })
+        it('should honour a quantum other than ten seconds', () => {
+            const fine = scaling()
+            fine.targetQuantum = 1
+            expect(resolveTrendEpochLength(24*3600, { epochLength: 0, epochScaling: fine })).toBe(43)
+        })
+        it('should never let the target shorten an epoch below its step', () => {
+            // A five-hour recording targets 9 s, which snaps to nothing; the step still applies.
+            expect(resolveTrendEpochLength(5*3600, { epochLength: 0, epochScaling: scaling() })).toBe(10)
+        })
+        // Edge cases and error handling.
+        it('should pin long recordings to the longest step when the target is disabled', () => {
+            const disabled = scaling()
+            disabled.targetEpochs = 0
+            expect(resolveTrendEpochLength(7*24*3600, { epochLength: 0, epochScaling: disabled })).toBe(10)
+        })
+        it('should fall back to the longest step for a recording of unknown length', () => {
+            // Coarse and visible beats an unbounded computation over a recording that may be a week.
+            const config = { epochLength: 0, epochScaling: scaling() }
+            expect(resolveTrendEpochLength(0, config)).toBe(10)
+            expect(resolveTrendEpochLength(Number.NaN, config)).toBe(10)
+        })
+        it('should fall back to the longest step even when the ladder does not lengthen', () => {
+            // Nothing requires a ladder to grow with duration, and taking the last step by
+            // threshold would hand an unknown-length recording the shortest epoch of all — the
+            // unbounded computation the fallback exists to avoid.
+            const dip = scaling()
+            dip.steps = [
+                { epochLength: 2,  fromDuration: 0 },
+                { epochLength: 30, fromDuration: 45*60 },
+                { epochLength: 5,  fromDuration: 90*60 },
+            ]
+            expect(resolveTrendEpochLength(0, { epochLength: 0, epochScaling: dip })).toBe(30)
+            // The per-duration lookup still follows the ladder as written.
+            expect(resolveTrendEpochLength(2*3600, { epochLength: 0, epochScaling: dip })).toBe(5)
+        })
+        it('should resolve to zero when there is nothing to derive from', () => {
+            expect(resolveTrendEpochLength(3600, undefined)).toBe(0)
+            expect(resolveTrendEpochLength(3600, { epochLength: 0 })).toBe(0)
+            expect(resolveTrendEpochLength(3600, {
+                epochLength: 0,
+                epochScaling: { steps: [], targetEpochs: 2000, targetQuantum: 10 },
+            })).toBe(0)
+        })
+        it('should use the lowest step for a recording shorter than every threshold', () => {
+            const raised = scaling()
+            raised.steps = raised.steps.map(s => ({ ...s, fromDuration: s.fromDuration + 3600 }))
+            expect(resolveTrendEpochLength(60, { epochLength: 0, epochScaling: raised })).toBe(2)
         })
     })
 })
