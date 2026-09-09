@@ -152,7 +152,7 @@ export default class GenericStudyLoader implements StudyLoader {
         Object.assign(study, { name: dir.name }, options)
         if (study) {
             Log.debug(`Started loading a study from directory (${dir.name}).`, SCOPE)
-            for (let i=1; i<dir.files.length; i++) {
+            for (let i=0; i<dir.files.length; i++) {
                 const dirFile = dir.files[i]
                 // Try to load the file, according to extension.
                 const fileConfig = { name: dirFile.name }
