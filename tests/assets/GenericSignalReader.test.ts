@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { readFileSync } from 'node:fs'
 import { Log } from 'scoped-event-log'
 import GenericSignalReader from '../../src/assets/reader/GenericSignalReader'
 
@@ -43,6 +44,7 @@ vi.mock('../../src/assets/biosignal', () => ({
         outputSignalSamplingRates: [],
         insertSignals: vi.fn().mockResolvedValue(undefined),
         asCachePart: vi.fn().mockResolvedValue({ start: 0, end: 100, signals: [] }),
+        invalidateOutputSignals: vi.fn(),
         releaseBuffers: vi.fn(),
     })),
     BiosignalMutex: vi.fn().mockImplementation(() => ({
@@ -91,6 +93,16 @@ class TestSignalReader extends GenericSignalReader {
     // Expose the protected materialisation method so tests can pin its math.
     testMaterialiseDerivation(slot: any, sourceSignals: any) {
         return this._materialiseDerivation(slot, sourceSignals)
+    }
+    // Expose the protected polarity correction so tests can pin which signals it touches.
+    testApplyPolarityCorrection(signals: any) {
+        return this._applyPolarityCorrection(signals)
+    }
+    get testDataBlocks() { return this._dataBlocks }
+    set testDataBlocks(v: any) { this._dataBlocks = v }
+    set testUseRolling(v: boolean) { this._useRolling = v }
+    testFinaliseSignalPart(part: any) {
+        return this._finaliseSignalPart(part)
     }
 }
 
@@ -463,6 +475,213 @@ describe('GenericSignalReader', () => {
             }
             const out = reader.testMaterialiseDerivation(slot, [])
             expect(out.length).toBe(0)
+        })
+    })
+
+    describe('setSignalPolarityInverted', () => {
+        const makeReader = () => {
+            const reader = new TestSignalReader()
+            const header = {
+                signals: [{ label: 'Ch0' }, { label: 'Ch1' }] as any[],
+                setSignalPolarityInverted: vi.fn((inverted: boolean, ...indices: number[]) => {
+                    const marked = indices.length ? indices : header.signals.map((_, i) => i)
+                    for (const index of marked) {
+                        header.signals[index].invertPolarity = inverted
+                    }
+                }),
+            }
+            reader.testHeader = header
+            return { header, reader }
+        }
+
+        it('marks every signal in the header when no index is given', async () => {
+            const { header, reader } = makeReader()
+            expect(await reader.setSignalPolarityInverted(true)).toBe(true)
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([true, true])
+        })
+
+        it('marks only the given signals', async () => {
+            const { header, reader } = makeReader()
+            await reader.setSignalPolarityInverted(true, 1)
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([undefined, true])
+        })
+
+        it('marks a whole group of signals in one call, which costs one re-read', async () => {
+            const { header, reader } = makeReader()
+            const cacheSignals = vi.spyOn(reader, 'cacheSignals').mockResolvedValue(true)
+            await reader.setSignalPolarityInverted(true, 0, 1)
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([true, true])
+            // Marking them one at a time would drop and refill the cache once per signal.
+            expect(cacheSignals).toHaveBeenCalledTimes(1)
+        })
+
+        it('drops the cached samples, which were decoded under the previous setting', async () => {
+            const { reader } = makeReader()
+            const cache = reader.setupCache(10) as any
+            await cache.insertSignals({
+                start: 0,
+                end: 1,
+                signals: [{ data: new Float32Array([1, 2]), samplingRate: 2 }],
+            })
+            expect((await cache.asCachePart()).signals).toHaveLength(1)
+            await reader.setSignalPolarityInverted(true)
+            expect((await cache.asCachePart()).signals).toHaveLength(0)
+        })
+
+        it('marks rolling-window blocks for reload', async () => {
+            const { reader } = makeReader()
+            reader.testUseRolling = true
+            reader.testDataBlocks = [{ loaded: true }, { loaded: true }]
+            await reader.setSignalPolarityInverted(true)
+            expect(reader.testDataBlocks.map((b: any) => b.loaded)).toEqual([false, false])
+        })
+
+        it('re-reads a fully cached recording, which nothing else would', async () => {
+            const { reader } = makeReader()
+            reader.testUseRolling = false
+            const cacheSignals = vi.spyOn(reader, 'cacheSignals').mockResolvedValue(true)
+            await reader.setSignalPolarityInverted(true)
+            // Without this the cache stays empty after the invalidation and every channel reads
+            // as flat: the progressive pass runs once at load and no request re-triggers it.
+            expect(cacheSignals).toHaveBeenCalled()
+        })
+
+        it('fails when the reader has no header', async () => {
+            const reader = new TestSignalReader()
+            expect(await reader.setSignalPolarityInverted(true)).toBe(false)
+        })
+    })
+
+    describe('_finaliseSignalPart', () => {
+        const makeReader = (invertFlags: (boolean | undefined)[]) => {
+            const reader = new TestSignalReader()
+            reader.testHeader = {
+                signals: invertFlags.map((invertPolarity, i) => ({ label: `Ch${i}`, invertPolarity })),
+            }
+            return reader
+        }
+        const makePart = (...datas: number[][]) => ({
+            start: 0,
+            end: 1,
+            signals: datas.map(data => ({ data: new Float32Array(data), samplingRate: 100 })),
+        })
+
+        it('corrects a part decoded by a format that overrides the read', () => {
+            // The call sites apply the correction, not `_readSignalPart` itself: a format with its
+            // own decode overrides that method and never reaches logic placed inside it.
+            const reader = makeReader([true, false])
+            const part = makePart([1, -2], [3, 4])
+            reader.testFinaliseSignalPart(part)
+            expect(Array.from(part.signals[0].data)).toEqual([-1, 2])
+            expect(Array.from(part.signals[1].data)).toEqual([3, 4])
+        })
+
+        it('recomputes a derivation slot from the corrected sources', () => {
+            const reader = makeReader([true, false])
+            reader.setupCache(10, [{
+                active: [0],
+                operation: 'linear' as const,
+                reference: [[1]] as any,
+                sampleCount: 2,
+                samplingRate: 100,
+            }])
+            // The third slot holds the derivation the decode produced from uncorrected sources.
+            const part = makePart([3, 3], [4, 4], [-1, -1])
+            reader.testFinaliseSignalPart(part)
+            // Corrected active is -3, reference stays 4, so the derivation is -7 — neither the
+            // decode's -1 nor its negation.
+            expect(Array.from(part.signals[2].data)).toEqual([-7, -7])
+        })
+
+        it('does nothing without a header, rather than writing a derivation over a source', () => {
+            const reader = new TestSignalReader()
+            reader.setupCache(10, [{
+                active: [0],
+                operation: 'linear' as const,
+                reference: [[1]] as any,
+                sampleCount: 2,
+                samplingRate: 100,
+            }])
+            const part = makePart([3, 3], [4, 4])
+            reader.testFinaliseSignalPart(part)
+            expect(Array.from(part.signals[0].data)).toEqual([3, 3])
+            expect(Array.from(part.signals[1].data)).toEqual([4, 4])
+        })
+
+        it('leaves a part alone when no signal is marked', () => {
+            const reader = makeReader([false, undefined])
+            const part = makePart([1, 2], [3, 4])
+            reader.testFinaliseSignalPart(part)
+            expect(Array.from(part.signals[0].data)).toEqual([1, 2])
+            expect(Array.from(part.signals[1].data)).toEqual([3, 4])
+        })
+    })
+
+    describe('read-path discipline', () => {
+        it('finalises every part the read path produces', () => {
+            // Both halves of the contract are easy to get wrong in the same way: a new call site
+            // that reads a part and forgets to finalise it silently serves uncorrected samples,
+            // and nothing else in the suite would notice.
+            const source = readFileSync('src/assets/reader/GenericSignalReader.ts', 'utf8')
+            const reads = source.split('await this._readSignalPart(').length - 1
+            const finalises = source.split('this._finaliseSignalPart(').length - 1
+            expect(finalises, 'every awaited read must be followed by a finalise').toBe(reads)
+        })
+    })
+
+    describe('_applyPolarityCorrection', () => {
+        const makeReader = (invertFlags: (boolean | undefined)[]) => {
+            const reader = new TestSignalReader()
+            reader.testHeader = {
+                signals: invertFlags.map((invertPolarity, i) => ({
+                    label: `Ch${i}`,
+                    invertPolarity,
+                })),
+            }
+            return reader
+        }
+        const makeSignals = (...datas: number[][]) => datas.map(data => ({
+            data: new Float32Array(data),
+            samplingRate: 100,
+        }))
+
+        it('negates the samples of a signal marked as inverted', () => {
+            const reader = makeReader([true])
+            const signals = makeSignals([1, -2, 0, 3.5])
+            reader.testApplyPolarityCorrection(signals)
+            expect(Array.from(signals[0].data)).toEqual([-1, 2, -0, -3.5])
+        })
+
+        it('leaves signals that are not marked as inverted untouched', () => {
+            const reader = makeReader([false, undefined, true])
+            const signals = makeSignals([1, 2], [3, 4], [5, 6])
+            reader.testApplyPolarityCorrection(signals)
+            expect(Array.from(signals[0].data)).toEqual([1, 2])
+            expect(Array.from(signals[1].data)).toEqual([3, 4])
+            expect(Array.from(signals[2].data)).toEqual([-5, -6])
+        })
+
+        it('is its own inverse, so a double correction restores the samples', () => {
+            const reader = makeReader([true])
+            const signals = makeSignals([1, -2, 3])
+            reader.testApplyPolarityCorrection(signals)
+            reader.testApplyPolarityCorrection(signals)
+            expect(Array.from(signals[0].data)).toEqual([1, -2, 3])
+        })
+
+        it('does not touch signals past the end of the header, such as derivation slots', () => {
+            const reader = makeReader([true])
+            const signals = makeSignals([1, 2], [3, 4])
+            reader.testApplyPolarityCorrection(signals)
+            expect(Array.from(signals[0].data)).toEqual([-1, -2])
+            expect(Array.from(signals[1].data)).toEqual([3, 4])
+        })
+
+        it('does nothing when the reader has no header', () => {
+            const reader = new TestSignalReader()
+            const signals = makeSignals([1, 2])
+            expect(() => reader.testApplyPolarityCorrection(signals)).not.toThrow()
+            expect(Array.from(signals[0].data)).toEqual([1, 2])
         })
     })
 })

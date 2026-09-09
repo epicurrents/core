@@ -553,6 +553,14 @@ export interface BiosignalDataService extends AssetService {
      */
     setInterruptions (interruptions: SignalInterruptionMap, complete?: boolean): Promise<boolean>
     /**
+     * Mark signals in the source recording as stored with an inverted phase, negating their samples
+     * as they are read. Drops the cached samples, which were decoded under the previous setting.
+     * @param inverted - True to negate the signals' samples, false to use them as stored.
+     * @param indices - Indices of the signals to mark. Passing none marks every signal in the recording, so a caller spreading a computed list must check that the list is not empty.
+     * @returns Success of the operation.
+     */
+    setSignalPolarityInverted (inverted: boolean, ...indices: number[]): Promise<boolean>
+    /**
      * Prepare the worker with the given biosignal study.
      * @param header - BiosignalHeaderRecord for the study.
      * @param study - Study object to load.
@@ -701,11 +709,27 @@ export interface BiosignalHeaderRecord {
     * @return Sampling frequency in Hz or null if index is out of range.
     */
     getSignalSamplingFrequency (index: number): number | null
+    /**
+    * Mark signals as stored with an inverted phase, so that their samples are negated when read.
+    * Takes effect the next time signal data is read from the source, not on already cached data.
+    * @param inverted - True to negate the signals' samples on read, false to use them as stored.
+    * @param indices - Indices of the signals to mark. Passing none marks every signal in the recording, so a caller spreading a computed list must check that the list is not empty.
+    */
+    setSignalPolarityInverted (inverted: boolean, ...indices: number[]): void
 }
 /**
  * Signal properties expected to be present in a biosignal file header.
  */
 export type BiosignalHeaderSignal = {
+    /**
+     * Set to true when this signal is stored with an inverted phase, so that every sample is
+     * negated as it is read.
+     *
+     * This is a correction to the recorded data, not a rendering convention like the channel
+     * property `displayPolarity`: it is applied before the samples enter the signal cache, so
+     * montage derivations, measurements and analyses all see the corrected signal.
+     */
+    invertPolarity?: boolean
     /** Displayed label of this signal. */
     label: string
     /** Signal data modality (such as 'eeg'). */
@@ -934,6 +958,12 @@ export interface BiosignalMontage extends BaseAsset {
      */
     setupServiceWithInputMutex (inputProps: MutexExportProperties) : Promise<SetupMutexResponse>
     /**
+     * Discard the derived signals cached for this montage, so that the next request recomputes them
+     * from the source signals. Needed when the source data changes under the montage; a filter
+     * change does this on its own.
+     */
+    invalidateCache (): Promise<void>
+    /**
      * Set up a data service using a shared worker holding the cached signals.
      * @param port - The cache worker's message port.
      * @returns Promise that resolves with the property `success` of the setup process.
@@ -1028,6 +1058,11 @@ export interface BiosignalMontageService extends AssetService {
      * @return Promise that resolves as true if the message was handled, false if not.
      */
     handleMessage (message: unknown): Promise<MessageHandled>
+    /**
+     * Discard the derived signals cached for this montage, so that the next request recomputes them
+     * from the source signals. Used when the source data itself changes under the montage.
+     */
+    invalidateCache (): Promise<void>
     /**
      * Map montage channels in the web worker using the montage config.
      */
@@ -1526,6 +1561,20 @@ export interface BiosignalResource extends DataResource {
      */
     setDefaultSensitivity (value: number): void
     /**
+     * Indices of the source signals that are read with their samples negated, correcting a file
+     * exported with a reversed sign.
+     */
+    invertedSignals: Set<number>
+    /**
+     * Mark signals in this recording as stored with an inverted phase, correcting a source file
+     * that was exported with a reversed sign. The correction applies to the signal data itself,
+     * unlike the `displayPolarity` of a channel, which only decides which way the trace is drawn.
+     * @param inverted - True to negate the signals' samples, false to use them as stored.
+     * @param indices - Indices of the signals to mark. Passing none marks every signal in the recording, so a caller spreading a computed list must check that the list is not empty.
+     * @returns Success of the operation.
+     */
+    setSignalPolarityInverted (inverted: boolean, ...indices: number[]): Promise<boolean>
+    /**
      * Set high-pass filter for the given channel(s).
      * @param value - Filter frequency in Hz.
      * @param target - Channel index or type (default primary channel type).
@@ -1793,6 +1842,8 @@ export type MontageWorkerCommission = {
         /** Name of the montage, for validation. */
         montage?: string
     }
+    /** Discard the derived signals cached for this montage. */
+    'invalidate-cache': WorkerMessage['data']
     /** Map montage channels according to given configuration. */
     'map-channels': WorkerMessage['data'] & {
         /** Channel configuration. */

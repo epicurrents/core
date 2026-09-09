@@ -188,6 +188,58 @@ describe('GenericBiosignalHeader', () => {
         })
     })
 
+    describe('setSignalPolarityInverted', () => {
+        const makeHeader = () => new GenericBiosignalHeader(
+            'edf', '', '', 100, 1, 512, 2,
+            [makeSignal('Fp1', 256), makeSignal('Fp2', 256)],
+        )
+
+        it('should mark every signal when no index is given', () => {
+            const header = makeHeader()
+            header.setSignalPolarityInverted(true)
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([true, true])
+        })
+
+        it('should mark only the given signal', () => {
+            const header = makeHeader()
+            header.setSignalPolarityInverted(true, 1)
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([undefined, true])
+        })
+
+        it('should mark every given signal', () => {
+            const header = makeHeader()
+            header.setSignalPolarityInverted(true, 0, 1)
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([true, true])
+        })
+
+        it('should mark the signals in range when one index is out of it', () => {
+            const header = makeHeader()
+            header.setSignalPolarityInverted(true, 1, 5)
+            expect(Log.warn).toHaveBeenCalled()
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([undefined, true])
+        })
+
+        it('should clear the mark when set to false', () => {
+            const header = makeHeader()
+            header.setSignalPolarityInverted(true)
+            header.setSignalPolarityInverted(false, 0)
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([false, true])
+        })
+
+        it('should warn and change nothing when the index is out of range', () => {
+            const header = makeHeader()
+            header.setSignalPolarityInverted(true, 2)
+            expect(Log.warn).toHaveBeenCalled()
+            expect(header.signals.map(s => s.invertPolarity)).toEqual([undefined, undefined])
+        })
+
+        it('should carry the mark into the serializable representation', () => {
+            const header = makeHeader()
+            header.setSignalPolarityInverted(true, 0)
+            expect(header.serializable.signals[0].invertPolarity).toBe(true)
+        })
+    })
+
     describe('serializable', () => {
         it('should return serializable representation', () => {
             const header = new GenericBiosignalHeader(

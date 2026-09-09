@@ -252,6 +252,9 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             const startTime = this._dataUnitIndexToTime(startRecord)
             const endTime = this._dataUnitIndexToTime(nextRecord)
             const newSignals = await this._readSignalPart(startTime, endTime)
+            if (newSignals) {
+                this._finaliseSignalPart(newSignals)
+            }
             // Check that some signals were loaded and that the process has not been cancelled/cache released while
             // waiting for the signal data.
             if (newSignals?.signals.length && (!process || process.continue) && this._cache) {
@@ -424,6 +427,59 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         } as SignalFilePart
     }
     /**
+     * Apply the corrections that every signal part must carry, whichever reader decoded it.
+     *
+     * A format that needs its own decode overrides {@link _readSignalPart}, so anything placed
+     * inside that method reaches only the formats that do not override it. This runs at the call
+     * sites instead, where every part passes regardless of which class produced it.
+     *
+     * Derivation slots are recomputed rather than corrected, because a sign flip does not carry
+     * through a derivation: a `magnitude` derivation is invariant under it, and a `linear` one
+     * flips only when every input it reads did. Recomputing from the corrected sources is the same
+     * work the decode already did, and it is what makes the slots agree with them.
+     */
+    protected _finaliseSignalPart (part: SignalCachePart) {
+        if (!this._header) {
+            // Without the header there is no source count, and a derivation slot would be written
+            // over a source signal rather than after them.
+            return
+        }
+        this._applyPolarityCorrection(part.signals)
+        const sourceCount = this._header.signals.length
+        for (let i=0; i<this._derivationSlots.length; i++) {
+            const slot = this._derivationSlots[i]
+            const target = part.signals[sourceCount + i]
+            if (!target) {
+                continue
+            }
+            target.data = this._materialiseDerivation(slot, part.signals)
+        }
+    }
+
+    /**
+     * Negate the samples of every signal that the recording header marks as stored with an
+     * inverted phase.
+     *
+     * Correcting the freshly decoded samples is what keeps the rest of the application ignorant of
+     * the inversion: they are corrected before they enter the cache, so raw display, montage
+     * derivations, trends and measurements all read the corrected signal. `signals` is indexed in
+     * step with the header's signals, which holds at the one place this is called from.
+     */
+    protected _applyPolarityCorrection (signals: SignalCachePart['signals']) {
+        if (!this._header) {
+            return
+        }
+        for (let i=0; i<signals.length; i++) {
+            if (!this._header.signals[i]?.invertPolarity) {
+                continue
+            }
+            const data = signals[i].data
+            for (let j=0; j<data.length; j++) {
+                data[j] = -data[j]
+            }
+        }
+    }
+    /**
      * Read part of raw recording signals. This method should only be used for data formats that support data units.
      * @param start - Start time as seconds.
      * @param end - End time as seconds.
@@ -549,7 +605,9 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     samplingRate: isAnnotation ? 0 : sigSr,
                 })
             }
-            // Materialise setup-declared derivations from the freshly decoded source signals.
+            // Setup-declared derivations are appended here, and again in every format that
+            // overrides this method, but the values that survive are the ones
+            // `_finaliseSignalPart` recomputes once the polarity correction has been applied.
             // Each derivation contributes one extra cache slot after the source ones — the indices
             // line up with the slots `setupMutex` / `setupCache` allocated. Computed against raw
             // (unfiltered) samples so display filters apply downstream in the montage processor.
@@ -724,9 +782,28 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                         this._readAndCachePart(nextPart, proc),
                         yieldMs,
                     )
+                    const previousPart = nextPart
                     nextPart = await proc.inFlightRead
                     proc.inFlightRead = null
                     proc.end = nextPart*this._dataUnitDuration
+                    // This loop only ever reads forward, so a chunk that does not leave the index
+                    // beyond the one it started at has made no progress and never will: the next
+                    // pass reads the same chunk and lands here again. It happens when a reader's
+                    // recording length does not fall on its own data-unit grid, because the index
+                    // is derived by converting the cached end time back and that conversion floors
+                    // into the unit just read. Left alone it is not a hang — each pass writes the
+                    // cache, so the cost lands on readers of that cache instead, as views voided by
+                    // a write they raced. Stop, and say which reader to look at.
+                    if (nextPart >= 0 && nextPart <= previousPart) {
+                        Log.error(
+                            `Caching stalled at data unit ${previousPart} of ${this._dataUnitCount}: ` +
+                            `reading it left the position at ${nextPart}. The recording length ` +
+                            `(${this._totalRecordingLength}) likely does not land on the ` +
+                            `${this._dataUnitDuration} s data-unit grid.`,
+                            SCOPE
+                        )
+                        break
+                    }
                 }
                 // Done with this part (covered, cancelled, or the cache was released). Deregister
                 // it now that it can no longer claim coverage it is not going to deliver.
@@ -828,6 +905,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 if (!requestedSigs) {
                     return null
                 }
+                this._finaliseSignalPart(requestedSigs)
             } catch (e: unknown) {
                 Log.error(
                     `Loading signals for range [${range[0]}, ${range[1]}] failed: ${(e as Error).message}.`,
@@ -1261,6 +1339,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 Log.warn(`Block ${idx} read returned no signals.`, SCOPE)
                 return false
             }
+            this._finaliseSignalPart(newSignals)
             if (this.discontinuous) {
                 newSignals.start = this._recordingTimeToCacheTime(newSignals.start)
                 newSignals.end = this._recordingTimeToCacheTime(newSignals.end)
@@ -1650,6 +1729,41 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             out[i] = act - ref
         }
         return out
+    }
+
+    async setSignalPolarityInverted (inverted: boolean, ...indices: number[]) {
+        if (!this._header) {
+            Log.error(`Cannot set signal polarity before the recording header has been set up.`, SCOPE)
+            return false
+        }
+        this._header.setSignalPolarityInverted(inverted, ...indices)
+        // The cached samples were decoded under the previous setting, so they are dropped rather
+        // than negated where they lie. Negating in place would need a second implementation of the
+        // correction, and — because setup-declared derivations are materialised into the same
+        // cache — a re-materialisation of every derived slot: a `magnitude` derivation is invariant
+        // under a sign flip of its inputs, and a `linear` one only flips when every input it reads
+        // did. Dropping the cache keeps `_applyPolarityCorrection` the one place the correction
+        // happens. The re-read is bounded by the cache window, since a recording large enough for
+        // the cost to matter is served through the rolling window.
+        await this._cache?.invalidateOutputSignals()
+        if (this._useRolling) {
+            // Block residency is the rolling window's own record of what is loaded and outlives the
+            // invalidation above, so it has to be cleared for the window to fetch the blocks again.
+            // The next view request then slides the window and reloads what it covers.
+            for (const block of this._dataBlocks) {
+                block.loaded = false
+            }
+        } else {
+            // A fully cached recording has nothing that re-reads it: the progressive pass runs once
+            // at load, and `requestSignals` serves whatever the cache holds — which, after the
+            // invalidation above, is nothing, so every channel reads as flat. Start the pass again
+            // rather than awaiting it, since it reports progress the same way the initial load does
+            // and the view redraws as the corrected samples land.
+            this.cacheSignals().catch(() => {
+                Log.error(`Re-caching signals after a polarity change failed.`, SCOPE)
+            })
+        }
+        return true
     }
 
     setupCache (dataDuration = 0, derivationSlots: BiosignalCacheDerivationSlot[] = []) {

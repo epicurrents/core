@@ -150,6 +150,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
      */
     protected _exploredEnd = -1
     protected _interruptions: SignalInterruptionMap = new Map<number, number>()
+    /** Indices of the source signals that are read with their samples negated. */
+    protected _invertedSignals = new Set<number>()
     /**
      * True while the resource is being prepared for display without being made active — see the
      * modality resource's `preload`. Setup written on the assumption "we are activating, therefore
@@ -282,6 +284,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     get hasVideo () {
         return this._videos.length > 0
+    }
+
+    get invertedSignals () {
+        return this._invertedSignals
     }
 
     get interruptions (): SignalInterruption[] {
@@ -1325,6 +1331,32 @@ export default abstract class GenericBiosignalResource extends GenericResource i
 
     setDefaultSensitivity (value: number) {
         this._setPropertyValue('sensitivity', value)
+    }
+
+    async setSignalPolarityInverted (inverted: boolean, ...indices: number[]) {
+        if (!this._service) {
+            Log.error(`Cannot set signal polarity, the resource has no signal data service.`, SCOPE)
+            return false
+        }
+        if (!(await this._service.setSignalPolarityInverted(inverted, ...indices))) {
+            return false
+        }
+        const prevState = new Set(this._invertedSignals)
+        // Without indices the whole recording is marked; the channel count stands in for the
+        // source signal count, which only the reader's header knows.
+        const marked = indices.length ? indices : [...this._channels.keys()]
+        for (const index of marked) {
+            if (inverted) {
+                this._invertedSignals.add(index)
+            } else {
+                this._invertedSignals.delete(index)
+            }
+        }
+        // The montage derives from the source signals, so everything it has cached is stale even
+        // though nothing about the montage itself changed.
+        await this._activeMontage?.invalidateCache()
+        this.dispatchPropertyChangeEvent('invertedSignals', this._invertedSignals, prevState)
+        return true
     }
 
     async setHighpassFilter (value: number | null, target?: string | number, scope: string = 'recording') {

@@ -125,6 +125,19 @@ describe('MontageWorkerSubstitute', () => {
             )
         })
 
+        it('should handle invalidate-cache action', async () => {
+            const listener = vi.fn()
+            substitute.addEventListener('message', listener)
+            await substitute.postMessage({ action: 'invalidate-cache', rn: 1 } as any)
+            expect(Log.debug).toHaveBeenCalledWith(
+                expect.stringContaining('invalidate-cache'),
+                expect.any(String)
+            )
+            // An action added to the worker but not to this switch falls through to the base
+            // class, which reports it as unimplemented instead of failing outright.
+            expect(Log.error).not.toHaveBeenCalled()
+        })
+
         it('should handle shutdown action', async () => {
             const listener = vi.fn()
             substitute.addEventListener('message', listener)

@@ -184,6 +184,26 @@ export default abstract class GenericBiosignalService extends GenericService imp
         }
     }
 
+    async setSignalPolarityInverted (inverted: boolean, ...indices: number[]): Promise<boolean> {
+        if (!(await this._isStudyReady())) {
+            return false
+        }
+        const commission = this._commissionWorker(
+            'set-signal-polarity',
+            new Map<string, unknown>([
+                ['inverted', inverted],
+                ['indices', indices],
+            ])
+        )
+        try {
+            await commission.promise
+            return true
+        } catch (e: unknown) {
+            Log.error(`Setting signal polarity failed: ${(e as Error)?.message ?? e}.`, SCOPE)
+            return false
+        }
+    }
+
     async requestSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalRequest> {
         if (!(await this._isStudyReady())) {
             return { status: 'error', reason: 'The study is not ready.' }

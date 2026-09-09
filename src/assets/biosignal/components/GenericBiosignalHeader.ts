@@ -218,4 +218,20 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         }
         return this._signalProperties[index].sampleCount / this._dataUnitDuration
     }
+
+    setSignalPolarityInverted (inverted: boolean, ...indices: number[]) {
+        if (!indices.length) {
+            for (const signal of this._signalProperties) {
+                signal.invertPolarity = inverted
+            }
+            return
+        }
+        for (const index of indices) {
+            if (index < 0 || index >= this._signalProperties.length) {
+                Log.warn(`Signal index ${index} is out of range, cannot set signal polarity.`, SCOPE)
+                continue
+            }
+            this._signalProperties[index].invertPolarity = inverted
+        }
+    }
 }

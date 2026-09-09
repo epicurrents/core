@@ -28,6 +28,7 @@ export class MontageWorker extends BaseWorker {
         (message: WorkerMessage['data']) => Promise<boolean>
     >([
         ['get-signals', this.getSignals],
+        ['invalidate-cache', this.invalidateCache],
         ['map-channels', this.mapChannels],
         ['release-cache', this.releaseCache],
         ['release-signal-arrays', this.releaseSignalArrays],
@@ -134,6 +135,18 @@ export class MontageWorker extends BaseWorker {
         }
         this._montage?.mapChannels(data.config)
         Log.debug(`Channel mapping complete.`, SCOPE)
+        return this._success(msgData)
+    }
+    /**
+     * Discard the derived signals cached for this montage, so the next request recomputes them from
+     * the source signals. Needed when the source data changes under the montage; a filter change
+     * invalidates on its own as part of `set-filters`.
+     * @param msgData - Data property from the message to the worker.
+     * @returns True if action was successful, false otherwise.
+     */
+    async invalidateCache (msgData: WorkerMessage['data']) {
+        await this._montage?.invalidateOutputCache()
+        Log.debug(`Derived signal cache invalidated.`, SCOPE)
         return this._success(msgData)
     }
     /**

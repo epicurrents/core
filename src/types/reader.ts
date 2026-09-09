@@ -488,6 +488,15 @@ export interface SignalDataReader extends SignalProcessorCache {
      */
     readFileFromUrl (url?: string): Promise<boolean>
     /**
+     * Mark signals as stored with an inverted phase, so that their samples are negated as they are
+     * read. Cached samples were decoded under the previous setting and are dropped, so the caller
+     * must request the view again afterwards.
+     * @param inverted - True to negate the signals' samples, false to use them as stored.
+     * @param indices - Indices of the signals to mark. Passing none marks every signal in the recording, so a caller spreading a computed list must check that the list is not empty.
+     * @returns Success of the operation.
+     */
+    setSignalPolarityInverted (inverted: boolean, ...indices: number[]): Promise<boolean>
+    /**
      * Set the update callback to get loading updates.
      * @param callback - A method that takes the loading update as a parameter.
      */

@@ -264,6 +264,11 @@ export default class MontageService extends GenericService implements BiosignalM
         } as MontageWorkerCommission['set-interruptions'])
     }
 
+    async invalidateCache () {
+        const commission = this._commissionWorker('invalidate-cache')
+        await commission.promise
+    }
+
     async setFilters () {
         // TODO: Don't flood the worker with multiple requests for the same thing.
         // This can happen when changing filters on multiple channels at the same time.

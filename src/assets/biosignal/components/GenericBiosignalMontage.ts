@@ -558,6 +558,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         return this._service.setupMontageWithCache(cache)
     }
 
+    async invalidateCache () {
+        await this._service.invalidateCache()
+    }
+
     async setupServiceWithInputMutex (inputProps: MutexExportProperties) {
         return this._service.setupMontageWithInputMutex(inputProps)
     }

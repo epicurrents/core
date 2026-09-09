@@ -81,6 +81,11 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 Log.debug(`Channel mapping complete.`, SCOPE)
                 return this.returnSuccess(message)
             }
+            case 'invalidate-cache': {
+                await this._montage?.invalidateOutputCache()
+                Log.debug(`Derived signal cache invalidated.`, SCOPE)
+                return this.returnSuccess(message)
+            }
             case 'release-cache': {
                 await this._montage?.releaseCache()
                 Log.debug(`Cache released.`, SCOPE)
