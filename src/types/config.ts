@@ -536,12 +536,20 @@ export type SettingsLine = {
 export type SettingsValue = SettingsColor | boolean | number | string | undefined
 export type SettingsValueConstructor = BooleanConstructor | NumberConstructor | StringConstructor
 /**
- * The source a signal reader takes its bytes from. At least one of `file` and `url` must be given;
- * `file` takes precedence when both are, as a local file is always the cheaper read.
+ * The source a signal reader takes its bytes from. At least one of `file`, `url` and `files` must be given; `file`
+ * takes precedence over `url` when both are, as a local file is always the cheaper read.
  */
 export type SignalSourceOptions = UrlAccessOptions & {
-    /** The local source file, when the recording was opened from the file system. Reads slice it directly instead of requesting byte ranges from the URL. */
+    /**
+     * The local source file, when the recording was opened from the file system. Reads slice it directly instead of
+     * requesting byte ranges from the URL.
+     */
     file?: File
+    /**
+     * Every data file of the study for a format whose signal spans several of them. A reader of a single-file format
+     * ignores this and uses `file` / `url`; one that needs the whole set reads it from here.
+     */
+    files?: { file: File | null, name: string, url: string }[]
     /** Source URL of the data file. */
     url?: string
 }
