@@ -301,6 +301,23 @@ Because the action map and the switch are two separate places, **adding a new ac
 
 Inside a substitute case, replies use `this.returnSuccess(message)` / `this.returnFailure(message)`; out-of-band notifications (e.g. per-epoch `'trend-epoch'` messages from inside the processor) need the processor's `_postMessage` callback to be wired to `this.returnMessage.bind(this)` — see the processor constructor's second parameter.
 
+### 3b. Reader workers — the shared vocabulary
+
+A format's reader worker does not write its own dispatch. [src/workers/signal-reader.worker.ts](src/workers/signal-reader.worker.ts) `SignalReaderWorker<T extends GenericSignalReader>` registers every commission a reader answers alike — `cache-signals`, `get-signals`, `request-signals`, `set-interruptions`, `set-buffer-range`, `set-signal-polarity`, `setup-cache`, `release-signal-arrays`, `release-cache`, `reset-network`, `shutdown`, `update-settings` — against one reader instance, and each package adds `setup-worker`, where the formats genuinely differ:
+
+```ts
+class EdfWorker extends SignalReaderWorker<EdfReader> {
+    constructor () {
+        super(new EdfReader(SETTINGS))
+        this.extendActionMap([['setup-worker', this.setupWorker]])
+    }
+}
+```
+
+Two hooks cover the rest of the variation: `_signalResponseExtras(range)` adds fields to a `get-signals` reply (an EDF reports the annotations and interruptions it discovered while decoding), and any shared handler can be overridden — a reader whose timeline admits no gaps refuses `set-interruptions` rather than applying one.
+
+The reason this is a base class rather than a convention is that the failure it prevents is silent. A hand-written dispatch that omits a commission replies with nothing, and the service waits on a promise that can no longer settle; nothing logs, and the feature that needed it simply does nothing. `handleMessage` answering an unregistered action with a failure is what converts that into a visible error.
+
 ### 4. Subclass workers
 
 Subclasses (e.g. a Pyodide-backed montage worker in the `pyodide-service` package) inherit `_actionMap` and any new actions added via `extendActionMap([...])`. Actions added to a base worker are picked up automatically there — no per-subclass change required, provided the subclass doesn't shadow the action map or override `handleMessage`.
@@ -309,7 +326,7 @@ Subclasses (e.g. a Pyodide-backed montage worker in the `pyodide-service` packag
 
 1. Add the entry to the relevant commission type in [src/types/biosignal.ts](src/types/biosignal.ts).
 2. Add a handler method to the worker and register it in `_actionMap`.
-3. Add a matching `case` to the corresponding worker substitute's `postMessage`.
+3. Add a matching `case` to the corresponding worker substitute's `postMessage`. A reader's worker needs no change when the commission is one every reader answers alike — add it to `SignalReaderWorker` instead, and every reader package gains it.
 4. If the processor needs to push out-of-band notifications, route them through `this._postMessage(...)` rather than calling `postMessage` directly so the substitute can intercept them.
 5. Add the dispatching method on the service and wire the response actions in `handleMessage`.
 
