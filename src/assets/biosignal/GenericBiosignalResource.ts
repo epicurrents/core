@@ -539,6 +539,23 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     /**
+     * Relay property changes from the given source `channels` up to this resource's `channels`
+     * property, so that a listener watching the resource sees a raw-mode channel edit.
+     * {@link GenericBiosignalMontage} installs an equivalent relay on its own channels in its
+     * `channels` setter.
+     *
+     * Subclasses call this for the channels they push into `_channels`, passing only the channels
+     * they just created; relaying the same channel twice would double every event.
+     */
+    protected _relaySourceChannelChanges (channels: SourceChannel[]) {
+        for (const chan of channels) {
+            chan.addEventListener(/^property-change:/, () => {
+                this.dispatchPropertyChangeEvent('channels', this._channels, this._channels)
+            }, this._id)
+        }
+    }
+
+    /**
      * Resolve the materialised cache-slot sizing for each `SetupDerivation` declared on the
      * active setup. Each returned entry corresponds to one additional cache slot that the SAB
      * allocator must reserve alongside source channels.
