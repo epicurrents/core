@@ -14,6 +14,8 @@ This file is the in-depth technical reference for AI coding assistants: internal
 
 **Never pin a TypeScript version here that diverges from the family's canonical `^5.7.0`**, and never override `tsconfig.base.json` compiler options in a sibling package without a comment explaining why. A divergent TypeScript version produces structurally incompatible `.d.ts` files that **type-check cleanly but corrupt data at runtime** — the worker bundle and the main-thread code end up disagreeing about data layouts or API shapes with no compile-time signal.
 
+**`moduleResolution` is `bundler`**, so the compiler reads a dependency's `exports` map the way a consumer's bundler does. Import core through the subpaths it publishes — `@epicurrents/core/types`, `@epicurrents/core/util` — and never a file inside them such as `@epicurrents/core/dist/types/event`: `exports` names only the barrels, so a consumer cannot resolve the deeper path, and the older `node` resolution accepted it because it ignores `exports`. A type a sibling needs is re-exported from [src/types/index.ts](src/types/index.ts). The `./dist/*` subpaths stay in `exports` only so that code written against them keeps resolving.
+
 Both build outputs must be regenerated together after any change to shared code:
 
 ```bash
@@ -483,7 +485,7 @@ Raw mode awaits `requestSignals(viewRange)` and draws the result — no `signalC
 
 ## Network resilience
 
-All remote I/O in the family — HTTP range reads, header/size probes, remote config and runtime loads, connector queries — goes through one layer in [src/util/network/](src/util/network/), exported from `#util` (and `@epicurrents/core/dist/util` for worker bundles). Before it, a `fetch()` that resolved on a 4xx/5xx let an error body be decoded as signal bytes, and a worker fetch that threw without replying left its main-thread commission pending forever. The layer's contract is: a remote failure surfaces as a typed [`NetworkError`](src/util/network/errors.ts), never as corrupt data or a silent hang.
+All remote I/O in the family — HTTP range reads, header/size probes, remote config and runtime loads, connector queries — goes through one layer in [src/util/network/](src/util/network/), exported from `#util` (and `@epicurrents/core/util` for worker bundles). Before it, a `fetch()` that resolved on a 4xx/5xx let an error body be decoded as signal bytes, and a worker fetch that threw without replying left its main-thread commission pending forever. The layer's contract is: a remote failure surfaces as a typed [`NetworkError`](src/util/network/errors.ts), never as corrupt data or a silent hang.
 
 | Symbol | Role |
 |---|---|

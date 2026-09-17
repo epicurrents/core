@@ -62,7 +62,7 @@ src/
   workers/             # base, montage, trend and memory-manager workers
 ```
 
-Subpath exports mirror this layout: `@epicurrents/core/dist/types`, `.../dist/util`, `.../runtime`, etc. The standalone worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`).
+Subpath exports mirror this layout: `@epicurrents/core/types`, `@epicurrents/core/util`, `@epicurrents/core/runtime`, etc. Only these barrels are published; a file inside one, such as `dist/types/event`, is not reachable. The standalone worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`).
 
 ## Usage
 

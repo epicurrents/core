@@ -341,6 +341,23 @@ export {
 }
 
 /////////////////////////////////////////////////
+//                   EVENT                     //
+/////////////////////////////////////////////////
+
+import type {
+    BroadcastStateEvent,
+    EpicurrentsEventDetail,
+    EventWithPayload,
+    PropertyChangeEvent,
+} from './event'
+export {
+    BroadcastStateEvent,
+    EpicurrentsEventDetail,
+    EventWithPayload,
+    PropertyChangeEvent,
+}
+
+/////////////////////////////////////////////////
 //                   MEDIA                     //
 /////////////////////////////////////////////////
 
