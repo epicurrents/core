@@ -4,9 +4,11 @@
     "outDir": "./dist/",
     "rootDir": "./src",
     "baseUrl": "./",
+    // Order matters to the editor, not to resolution. Resolution takes the longest matching prefix, but an
+    // auto-import takes the first key that matches, and `#root/*` matches every file in the package.
     "paths": {
-      "#root/*": ["./*"],
-      "#*": ["src/*"]
+      "#*": ["src/*"],
+      "#root/*": ["./*"]
     },
     "typeRoots": [
       "./node_modules/@types"

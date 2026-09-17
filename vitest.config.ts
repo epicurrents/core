@@ -1,13 +1,9 @@
 import { defineConfig } from 'vitest/config'
-import { fileURLToPath } from 'node:url'
+import { ALIASES } from './vite.shared.mjs'
 
 export default defineConfig({
     resolve: {
-        alias: [
-        { find: '#runtime', replacement: fileURLToPath(new URL('src/runtime/index.ts', import.meta.url)) },
-            { find: '#root/', replacement: fileURLToPath(new URL('./', import.meta.url)) },
-            { find: '#', replacement: fileURLToPath(new URL('src/', import.meta.url)) },
-        ],
+        alias: ALIASES,
     },
     test: {
         environment: 'jsdom',

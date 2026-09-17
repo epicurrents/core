@@ -29,13 +29,13 @@
     "./dist/workers": "./dist/workers/index.js",
     "./umd/*": "./umd/*"
   },
-  "imports": {
-    "#runtime*": "./src/runtime/index.ts",
-    "#*": "./src/*"
+  "bin": {
+    "epicurrents-build-types": "scripts/build-types.mjs"
   },
   "files": [
     "dist/*",
     "umd/*.js",
+    "scripts/build-types.mjs",
     "LICENSE",
     "README.md",
     "tsconfig.base.json"
@@ -45,7 +45,7 @@
     "build:docs": "npx typedoc",
     "build:lib": "vite build",
     "build:tsc": "npm run build:lib && npm run build:types",
-    "build:types": "tsc --emitDeclarationOnly && tsconfig-replace-paths --project tsconfig.json",
+    "build:types": "node scripts/build-types.mjs",
     "build:workers": "node scripts/build-workers.mjs",
     "lint": "npm run lint:src",
     "lint:src": "eslint src",
@@ -81,7 +81,6 @@
     "@types/offscreencanvas": "^2019.7.0",
     "esbuild": "^0.28.2",
     "eslint": "^9.19.0",
-    "tsconfig-replace-paths": "^0.0.14",
     "typedoc": "^0.27.2",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.21.0",

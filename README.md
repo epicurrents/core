@@ -38,6 +38,8 @@ The package resolves its own workers, so `dist/` carries each one inlined and a 
 
 `tsconfig.base.json` is exported and extended by every sibling package; the TypeScript version is pinned family-wide (see AGENTS.md → Version compliance).
 
+The package also ships the `epicurrents-build-types` bin, which emits a package's declarations and rewrites its `#` path aliases into specifiers a consumer can resolve. Core's `build:types` runs it, and sibling packages call it from theirs (see AGENTS.md → Path aliases and the declaration build).
+
 ## Package structure
 
 ```

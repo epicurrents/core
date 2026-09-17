@@ -8,12 +8,7 @@
       "./node_modules/@types",
       "../../node_modules/@types"
     ],
-    "types": ["vitest/globals", "node"],
-    "paths": {
-      "#root/*": ["./*"],
-      "#runtime*": ["src/runtime/index.ts"],
-      "#*": ["src/*"]
-    }
+    "types": ["vitest/globals", "node"]
   },
   "include": [
     "src/**/*",

@@ -25,7 +25,17 @@ npm run build          # build:workers + build:tsc
 
 Rebuilding only one leaves a stale mismatch between the worker bundle and the main-thread code — the same failure mode as a version drift.
 
-`build:tsc` is two steps: `build:lib` (Vite emits the ESM tree, preserving one output module per source module) and `build:types` (`tsc --emitDeclarationOnly`). The name is kept because the builder's cross-package `build:tsc-all` sweep calls it by name in every package; a package that drops the script is skipped silently, which is exactly the stale-output failure above.
+`build:tsc` is two steps: `build:lib` (Vite emits the ESM tree, preserving one output module per source module) and `build:types` (declarations, through [scripts/build-types.mjs](scripts/build-types.mjs)). The name is kept because the builder's cross-package `build:tsc-all` sweep calls it by name in every package; a package that drops the script is skipped silently, which is exactly the stale-output failure above.
+
+### Path aliases and the declaration build
+
+Source imports go through the `#`-prefixed `paths` in `tsconfig.json`. Each tool resolves them from its own configuration, and there is deliberately no `imports` field in `package.json`: it is published, so it would advertise source paths a consumer does not receive, and a tool that consulted it would mask a missing alias instead of failing on it.
+
+- **`#*` is declared before `#root/*`.** Resolution takes the longest matching prefix whatever the order, but TypeScript's auto-import takes the first key that matches, and `#root/*` matches every file in the package — declared first, every suggested import reads `#root/src/types` instead of `#types`. `#root/*` stays for files outside `src/`, which `#*` cannot reach.
+- **Vite and Vitest** resolve through `ALIASES` in [vite.shared.mjs](vite.shared.mjs). They must be regular expressions — a string alias matches only the exact id or the id followed by `/`, so `'#'` never matches `#events/dispatch`. With no `imports` field to fall back on, such an alias fails loudly at resolution.
+- **Declarations** are emitted by `tsc` and rewritten by [scripts/build-types.mjs](scripts/build-types.mjs), published as the `epicurrents-build-types` bin so the whole family shares one implementation. It reads the project's tsconfig through the TypeScript API and rewrites each specifier matching a `paths` pattern: into `outDir` as a relative path with an explicit `/index` for directories, into a sibling package as a bare specifier through that package's `exports`, or not at all when the target is under `node_modules`. Anything else fails the build, because it names a file the package does not ship.
+
+A sibling package runs `epicurrents-build-types` from its own root with its own TypeScript. `--project <tsconfig>` selects the config and `--no-emit` skips `tsc`, for a package that has to add hand-written declarations to the emitted tree before the rewrite. The tool handles declarations only; JavaScript is expected from a bundler that has already resolved the aliases.
 
 ---
 

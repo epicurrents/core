@@ -39,3 +39,10 @@ Core resolves and inlines its own workers in its own build, so a consumer needs 
 They are not broken today — a consumer bundling them with Rolldown gets the specifier resolved into a data-URI worker, and one that registers a factory never reaches the fallback at all. What they lack is core's guarantee: the outcome depends on the consumer's bundler, and the failure mode when it goes wrong is `Invalid URL` with nothing pointing at the cause.
 
 Each package follows the same three steps core did: build with Vite, import the worker through `?worker&inline`, and keep the standalone `umd/` bundle as the escape hatch for a content security policy that forbids `blob:` workers. Doing so retires webpack from each in the same change.
+
+Every sibling migrating to Vite, with or without workers, also takes the declaration side of core's build (see [Path aliases and the declaration build](AGENTS.md#path-aliases-and-the-declaration-build)):
+
+- Replace `tsconfig-replace-paths` with `epicurrents-build-types` in `build:tsc`, and drop the dependency.
+- Declare `#*` before `#root/*` in `tsconfig.json`, so auto-import suggests `#types` rather than `#root/src/types`, and delete `tsconfig.paths.json`, which only `tsconfig-replace-paths` read. The interface takes the same reorder, with `#workspace/*` after both.
+- Remove the `imports` field from `package.json`. The four shapes it takes across the family all point at paths no consumer receives.
+- Resolve Vite and Vitest aliases through regular expressions, as core's `ALIASES` does. The string aliases in the siblings' `vitest.config.ts` files never match a `#head/sub` specifier, so their suites may be resolving through the `imports` field without anyone knowing — run the tests after removing it, not before.

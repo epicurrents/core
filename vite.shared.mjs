@@ -18,9 +18,12 @@ const pkg = require('./package.json')
 export const abs = (p) => fileURLToPath(new URL(p, import.meta.url))
 
 /**
- * Internal `#*` subpath imports, mirroring the `paths` in tsconfig.json. Vite cannot take these
- * from the package `imports` field alone: those map to extension-less source paths, which the
- * Node-ESM resolver rejects.
+ * Internal `#*` path aliases, mirroring the `paths` in tsconfig.json. The library build, the worker
+ * builds and the test suite all resolve through this one table; the package declares no `imports`
+ * field, so an alias missing here fails to resolve rather than falling through to another mapping.
+ *
+ * Regular expressions rather than strings: a string alias matches only the exact id or the id
+ * followed by `/`, so `'#'` would never match `#events/dispatch`.
  */
 export const ALIASES = [
     { find: /^#root\//, replacement: abs('./') + '/' },
