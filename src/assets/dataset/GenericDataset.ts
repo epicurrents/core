@@ -52,7 +52,13 @@ export default abstract class GenericDataset extends GenericResource implements 
             Log.warn(`Application instance not available in dataset constructor.`, SCOPE)
         } else if (this._fsConnectorIn?.mode.includes('r')) {
             // Add possible resources already present in the data source.
-            this._fsConnectorIn.listContents().then(async response => {
+            // A constructor cannot await, so the listing runs detached — which means it also has to
+            // carry its own rejection handler. `listContents` has no try/catch of its own, so an
+            // offline or unauthorised source produced an unhandled rejection out of a constructor.
+            this._fsConnectorIn.listContents().catch((e: unknown) => {
+                Log.error(`Could not list contents of input data source for dataset ${this._name}.`, SCOPE, e as Error)
+                return null
+            }).then(async response => {
                 if (!response) {
                     Log.warn(`Could not list contents of input data source for dataset ${this._name}.`, SCOPE)
                 } else if (response.files.length) {
@@ -82,7 +88,10 @@ export default abstract class GenericDataset extends GenericResource implements 
                 }
             })
         } else if (this._dbConnectorIn) {
-            this._dbConnectorIn.listContents().then(async response => {
+            this._dbConnectorIn.listContents().catch((e: unknown) => {
+                Log.error(`Could not list contents of input data source for dataset ${this._name}.`, SCOPE, e as Error)
+                return null
+            }).then(async response => {
                 if (Array.isArray(response)) {
                     for (const ctx of response) {
                         if (!ctx.name || !ctx.api || !ctx.modality) {
@@ -196,7 +205,10 @@ export default abstract class GenericDataset extends GenericResource implements 
     get sortedResources () {
         const mapped = new Map<string, DatasetResourceContext[]>()
         if (this._resourceSorting.scheme === 'alphabetical') {
-            const sorted = this._resources.sort((a, b) => {
+            // Sorted on a copy. `Array.prototype.sort` reorders in place, so reading this getter
+            // silently rearranged the stored resource list — and without the property-change event
+            // that every other mutation of it dispatches.
+            const sorted = [...this._resources].sort((a, b) => {
                 const aName = a.name || a.resource.name
                 const bName = b.name || b.resource.name
                 return aName.localeCompare(bName)

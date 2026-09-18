@@ -290,15 +290,25 @@ export default class GenericStudyLoader implements StudyLoader {
                 // (as they were dragged as separate files into the viewer).
                 for (let i=0; i<rootDir.files.length; i++) {
                     const curFile = rootDir.files[i]
-                    let study
                     if (curFile.file && !curFile.url) {
                         curFile.url = URL.createObjectURL(curFile.file)
                     }
-                    studies.push(study)
+                    // The study was declared and never assigned, so this branch pushed one
+                    // undefined per dropped file and loaded nothing at all.
+                    const study = curFile.file
+                                  ? await this.loadFromFile(curFile.file, options)
+                                  : curFile.url ? await this.loadFromUrl(curFile.url, options) : null
+                    if (study) {
+                        // Only add successfully loaded studies.
+                        studies.push(study)
+                    }
                 }
             } else {
                 // Add all files as parts of the same study.
-                const study = this.loadFromDirectory(rootDir, options)
+                // Awaited: without it `study` is a promise, which is always truthy, so the guard
+                // below admitted every call and the collection was filled with promises rather
+                // than studies. The sibling call further down awaits correctly.
+                const study = await this.loadFromDirectory(rootDir, options)
                 if (study) {
                     // Only add successfully loaded studies.
                     studies.push(study)
