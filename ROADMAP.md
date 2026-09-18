@@ -25,24 +25,3 @@ Wiring it would let `unloadOnClose=true` reactivation skip the full walk, but it
 ## Produce `partial` request results
 
 `SignalRequest` carries a `partial` status, but the reader never produces it — a mid-slide read returns `pending` until the full target lands (see [Rolling signal cache → The request protocol](AGENTS.md#the-request-protocol)). Producing `partial` (return the resident, view-anchored overlap immediately plus a `ready` promise for the rest) lets the plot draw the still-valid portion of an overlapping jump instead of showing a loading state for the whole slide. The type and the consumer contract are already in place, so this needs no consumer-side change.
-
-## Retire per-package `globals.d.ts` after the Vite migration
-
-With the `window.__EPICURRENTS__` global now declared canonically in `application.ts` and inherited by every consumer, each package's `globals.d.ts` carries a single line — `declare let __webpack_public_path__`, a webpack build global. Core's copy is gone with its webpack build; `EpicurrentsApp.publicPath` is a plain backing field, which is all the accessor ever did once nothing consumed the webpack chunk base.
-
-Each sibling drops the file as it migrates, so this closes with the package sweep above.
-
-## Carry the worker-resolution fix to the sibling packages
-
-Core resolves and inlines its own workers in its own build, so a consumer needs no registration and no asset base (see [Worker resolution](AGENTS.md#worker-resolution)). Nine sibling packages still publish the construction core moved away from — `new Worker(new URL('../workers/x.worker', import.meta.url))` in untransformed `tsc` output, left for whichever bundler runs last to resolve: `api-reader`, `csv-reader`, `dicom-reader`, `edf-reader`, `htm-reader`, `nic-reader`, `onnx-service`, `pyodide-service`, `wav-reader`.
-
-They are not broken today — a consumer bundling them with Rolldown gets the specifier resolved into a data-URI worker, and one that registers a factory never reaches the fallback at all. What they lack is core's guarantee: the outcome depends on the consumer's bundler, and the failure mode when it goes wrong is `Invalid URL` with nothing pointing at the cause.
-
-Each package follows the same three steps core did: build with Vite, import the worker through `?worker&inline`, and keep the standalone `umd/` bundle as the escape hatch for a content security policy that forbids `blob:` workers. Doing so retires webpack from each in the same change.
-
-Every sibling migrating to Vite, with or without workers, also takes the declaration side of core's build (see [Path aliases and the declaration build](AGENTS.md#path-aliases-and-the-declaration-build)):
-
-- Replace `tsconfig-replace-paths` with `epicurrents-build-types` in `build:tsc`, and drop the dependency.
-- Declare `#*` before `#root/*` in `tsconfig.json`, so auto-import suggests `#types` rather than `#root/src/types`, and delete `tsconfig.paths.json`, which only `tsconfig-replace-paths` read. The interface takes the same reorder, with `#workspace/*` after both.
-- Remove the `imports` field from `package.json`. The four shapes it takes across the family all point at paths no consumer receives.
-- Resolve Vite and Vitest aliases through regular expressions, as core's `ALIASES` does. The string aliases in the siblings' `vitest.config.ts` files never match a `#head/sub` specifier, so their suites may be resolving through the `imports` field without anyone knowing — run the tests after removing it, not before.
