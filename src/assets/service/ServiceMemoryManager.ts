@@ -151,21 +151,26 @@ export default class ServiceMemoryManager extends GenericService implements Memo
             Log.error(`Tried to allocate memory when no memory is available.`, SCOPE)
             return null
         }
-        // Correct amount to a 32-bit array size.
-        amount = amount + (4 - amount%4)
-        // Don't exceed maximum allowed buffer size.
-        if (amount > window.__EPICURRENTS__.RUNTIME?.SETTINGS.app.maxLoadCacheSize) {
-            Log.error(`Tried to allocate an array that exceeds maximum allowed buffer size.`, SCOPE)
-            return null
-        }
+        // Validated before rounding. Rounding first turned zero into four, so the documented
+        // "use the entire buffer" case below could never be reached; and since -4 % 4 is -0, it
+        // turned a request for a negative amount into zero, which then slipped past the guard and
+        // allocated the whole buffer.
         if (amount < 0) {
             Log.error(`Cannot allocate a buffer array with negative length.`, SCOPE)
             return null
         }
+        const maxCacheSize = window.__EPICURRENTS__.RUNTIME?.SETTINGS.app.maxLoadCacheSize
         // Zero means use the entire buffer.
         if (amount === 0) {
-            amount = window.__EPICURRENTS__.RUNTIME?.SETTINGS.app.maxLoadCacheSize
-                     - window.__EPICURRENTS__.RUNTIME?.SETTINGS.app.maxLoadCacheSize%4
+            amount = maxCacheSize - maxCacheSize%4
+        } else if (amount%4) {
+            // Correct amount to a 32-bit array size.
+            amount = amount + (4 - amount%4)
+        }
+        // Don't exceed maximum allowed buffer size.
+        if (amount > maxCacheSize) {
+            Log.error(`Tried to allocate an array that exceeds maximum allowed buffer size.`, SCOPE)
+            return null
         }
         // Do not assign memory twice for the same service.
         for (const existing of this._managed) {

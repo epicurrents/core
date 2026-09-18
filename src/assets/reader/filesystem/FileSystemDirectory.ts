@@ -61,7 +61,11 @@ export default class FileSystemDirectory implements FileSystemItem {
                 fsItem.name = root
             }
             const fileName = path.pop() as string
-            const newItem = new FileSystemFile(fileName, path.join('/'), fileName, file.webkitRelativePath)
+            // The File itself, not its name. A string here takes the constructor's URL branch, so
+            // every entry came out with no `file` and a `url` that was just the bare filename —
+            // and `webkitRelativePath`, passed as the URL, was dropped because that argument is
+            // only read on the File branch. Nothing in a folder selection could then be opened.
+            const newItem = new FileSystemFile(fileName, path.join('/'), file)
             // Traverse and create path if needed.
             let fsLevel = fsItem
             let fsPath = ''

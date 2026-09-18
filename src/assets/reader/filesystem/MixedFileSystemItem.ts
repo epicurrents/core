@@ -69,7 +69,9 @@ export default class MixedFileSystemItem implements FileSystemItem {
             if (!fsItem.name) {
                 fsItem.name = root
             }
-            const newItem = new MixedFileSystemItem(path.pop() as string, path.join('/'), 'file')
+            // The File is carried through. Constructing the entry without it left every file in a
+            // folder selection with neither a `file` to read nor a `url` to fetch.
+            const newItem = new MixedFileSystemItem(path.pop() as string, path.join('/'), 'file', file)
             // Traverse and create path if needed.
             let fsLevel = fsItem
             let fsPath = ''
