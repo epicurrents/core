@@ -621,8 +621,6 @@ export interface BiosignalHeaderRecord {
     dataUnitSize: number
     /** Is the data in this recording discontinuous. */
     discontinuous: boolean
-    /** Total recording duration including gaps. */
-    duration: number
     /** List of events for this recording. */
     events: AnnotationEventTemplate[]
     /** List of labels for this recording. */
@@ -1168,9 +1166,7 @@ export interface BiosignalTrendService {
      */
     computeTrend (name: string, range?: number[]): {
         cancel: () => void
-        onEpochReady: (
-            callback: (signal: number[], epochIndex: number, totalEpochs: number) => void
-        ) => void
+        onEpochReady: (callback: (epoch: BiosignalTrendEpoch) => void) => void
         result: Promise<unknown>
     }
 }
@@ -1352,11 +1348,6 @@ export interface BiosignalResource extends DataResource {
      * @param templates - Templates to use for the events.
      */
     addEventsFromTemplates (context: PropertyChangeContext | null, ...templates: AnnotationEventTemplate[]): void
-    /**
-     * Add new interruptions to the recording in the form of a data gap map.
-     * @param interruptions - Map of new interruptions to add `<start data time, duration>`.
-     */
-    addInterruptions (interruptions: SignalInterruptionMap): void
     /**
      * Register a {@link BiosignalTrend} on this recording.
      * Dispatches `property-change:trends`.
@@ -1723,6 +1714,33 @@ export type BiosignalTrendDerivation = {
     sourceFunction?: BiosignalTrendFunction
 }
 /** Function applied to channels in a biosignal trend derivation. */
+/**
+ * Qualifications describing how a trend epoch was produced, for a consumer deciding how much to
+ * trust its values.
+ *
+ * Every field is optional and new ones are added as further qualifications become available, so an
+ * absent field means "not qualified" rather than carrying a default. A consumer must therefore test
+ * for a field's presence before acting on it, and must not treat an unrecognised field as an error.
+ */
+export type BiosignalTrendEpochQuality = {
+    /**
+     * Fraction of the epoch's nominal span that was covered by cached samples, between 0 and 1.
+     * Below 1 where the epoch sits at the caching frontier or is clipped by the end of the
+     * recording, in which case its values were computed from less data than the epoch spans.
+     */
+    coverage?: number
+}
+/** One computed trend epoch together with the qualifications that apply to it. */
+export type BiosignalTrendEpoch = {
+    /** Absolute index of this epoch within the trend. */
+    epochIndex: number
+    /** Qualifications describing how the values were produced. */
+    quality: BiosignalTrendEpochQuality
+    /** Computed values for this epoch; the meaning depends on the trend type. */
+    signal: number[]
+    /** Total number of epochs in the computation this epoch belongs to. */
+    totalEpochs: number
+}
 export type BiosignalTrendFunction = 'average' | 'difference' | 'sum'
 /** Required properties for biosignal trend computation. */
 export type BiosignalTrendProperties = {

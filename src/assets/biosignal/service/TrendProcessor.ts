@@ -15,6 +15,8 @@ import { butterHighpass, FFT, SOSFilter } from '#util/dsp'
 import { Log } from 'scoped-event-log'
 import BiosignalMutex from './BiosignalMutex'
 import type {
+    BiosignalTrendEpoch,
+    BiosignalTrendEpochQuality,
     BiosignalTrendFunction,
     BiosignalTrendProperties,
     CommonBiosignalSettings,
@@ -145,7 +147,28 @@ export default class TrendProcessor {
         if (cacheDuration <= 0 || !allSignals.length) {
             return null
         }
-        const sr = allSignals[0].length / cacheDuration
+        // Restrict CAR to EEG-modality channels when modality metadata was provided.
+        // A single non-EEG channel (EKG, photic, status) can have voltages thousands of
+        // times larger than EEG and would otherwise dominate the mean — turning derived
+        // signals into essentially −CAR for every electrode and collapsing per-channel
+        // spectral asymmetry to nothing.
+        const hasModalityInfo = this._signalModalities.length === allSignals.length
+        const contributes = (index: number) => (
+            (!hasModalityInfo || this._signalModalities[index] === 'eeg') && allSignals[index].length > 0
+        )
+        // The rate is taken from the first channel that actually contributes rather than from
+        // channel zero, which is empty whenever the recording leads with an annotation or status
+        // channel — and an empty channel there yields a rate of zero and no average at all.
+        let sr = 0
+        for (let ci = 0; ci < allSignals.length; ci++) {
+            if (contributes(ci)) {
+                sr = allSignals[ci].length / cacheDuration
+                break
+            }
+        }
+        if (!sr) {
+            return null
+        }
         const startSample = Math.round((dataStart - cacheStart) * sr)
         const length = Math.min(
             Math.round((dataEnd - dataStart) * sr),
@@ -156,18 +179,25 @@ export default class TrendProcessor {
         }
         const view = out.subarray(0, length)
         view.fill(0)
-        // Restrict CAR to EEG-modality channels when modality metadata was provided.
-        // A single non-EEG channel (EKG, photic, status) can have voltages thousands of
-        // times larger than EEG and would otherwise dominate the mean — turning derived
-        // signals into essentially −CAR for every electrode and collapsing per-channel
-        // spectral asymmetry to nothing.
-        const hasModalityInfo = this._signalModalities.length === allSignals.length
         let channelCount = 0
         for (let ci = 0; ci < allSignals.length; ci++) {
-            if (hasModalityInfo && this._signalModalities[ci] !== 'eeg') {
+            if (!contributes(ci)) {
                 continue
             }
             const sig = allSignals[ci]
+            // Summing a channel of a different rate sample-for-sample averages values that drift
+            // progressively further apart in time — by the end of an epoch, seconds apart. Such a
+            // channel is left out rather than silently misaligned; resampling it is out of scope
+            // for an average reference.
+            const channelSr = sig.length / cacheDuration
+            if (Math.abs(channelSr - sr) > 1e-6) {
+                Log.warn(
+                    `Channel ${ci} is sampled at ${channelSr} Hz where the average reference is ` +
+                    `computed at ${sr} Hz; excluding it from the average.`,
+                    SCOPE
+                )
+                continue
+            }
             const s0 = Math.max(0, startSample)
             const s1 = Math.min(sig.length, startSample + length)
             if (s0 >= sig.length || s1 <= 0) {
@@ -518,14 +548,12 @@ export default class TrendProcessor {
                 return false
             }
             const epochIndex = firstEpoch + i
-            const signal = await this.computeTrendEpoch(name, epochIndex)
-            if (signal !== null) {
+            const epoch = await this.computeTrendEpoch(name, epochIndex)
+            if (epoch !== null) {
                 this._postMessage({
                     action: 'trend-epoch',
                     name,
-                    epochIndex,
-                    signal,
-                    totalEpochs,
+                    epoch: { ...epoch, totalEpochs },
                 })
                 // Yield only after actual computation work — gap epochs (null) are
                 // skipped cheaply and must not inflate the yield counter, otherwise
@@ -548,10 +576,34 @@ export default class TrendProcessor {
     }
 
     /**
+     * Compute a single epoch together with the qualifications that apply to it, or null when the
+     * epoch produced no values.
+     * @param name - Name of the trend registered with `setupTrend`.
+     * @param epochIndex - Absolute index of the epoch within the trend.
+     */
+    async computeTrendEpoch (name: string, epochIndex: number): Promise<BiosignalTrendEpoch | null> {
+        const quality: BiosignalTrendEpochQuality = {}
+        const signal = await this._computeTrendEpochValues(name, epochIndex, quality)
+        if (signal === null) {
+            return null
+        }
+        return { epochIndex, quality, signal, totalEpochs: 0 }
+    }
+
+    /**
      * Compute a single epoch and return its result array, or null on failure.
      * For `'amplitude'` trends: returns `[min, max]` in semi-log-compressed µV.
+     *
+     * `quality` is filled in as the epoch is computed; the caller reads it back to qualify the
+     * values. Passed in rather than returned so that the per-type result paths below stay a plain
+     * value, and so a new qualification can be recorded from wherever it becomes known without
+     * changing any of them.
      */
-    async computeTrendEpoch (name: string, epochIndex: number): Promise<number[] | null> {
+    protected async _computeTrendEpochValues (
+        name: string,
+        epochIndex: number,
+        quality: BiosignalTrendEpochQuality,
+    ): Promise<number[] | null> {
         if (!this._inputCache) {
             Log.error(`Cannot compute trend '${name}' epoch ${epochIndex}: no input cache.`, SCOPE)
             return null
@@ -675,10 +727,23 @@ export default class TrendProcessor {
         if (mutexCache && mutexCache.windowEpochSync(IOMutex.MUTEX_SCOPE.INPUT) !== epochAtEntry) {
             return null
         }
-        // Infer sampling rate from the source signal length (samples / epochLength).
-        // epochLength is the recording-time span; the data slice is the same duration
-        // for non-gap epochs so using epochLength here is correct.
-        const samplingRate = sourceSignal.length / epochLength
+        // Taken from the input channel rather than inferred from the slice length. `_combineChannels`
+        // clamps its read to the samples actually present, so a partially cached epoch at the
+        // caching frontier, or the final epoch clamped at the end of the recording, yields a short
+        // slice — and dividing that by the full epoch length gives a proportionally low rate. That
+        // rate is the design frequency for the aEEG band-pass below, so the epoch would be filtered
+        // in the wrong band and its result posted as though it were valid.
+        const sourceChannel = trendProps.derivation.sourceChannels[0]
+        const samplingRate = this._inputChannelSamplingRates[sourceChannel]
+                             ?? this._inputChannelSamplingRates[0]
+                             ?? sourceSignal.length/epochLength
+        // How much of the epoch's span the slice actually covered. `_combineChannels` clamps its
+        // read to the samples present, so an epoch at the caching frontier or one clipped by the
+        // end of the recording is computed from less data than it spans.
+        const expectedSamples = Math.round((endTime - startTime)*samplingRate)
+        quality.coverage = expectedSamples > 0
+                           ? Math.min(1, sourceSignal.length/expectedSamples)
+                           : 0
         // EDF signals are in volts; aEEG math is defined in µV.
         const derived = new Float32Array(sourceSignal.length)
         for (let i = 0; i < derived.length; i++) {

@@ -8,6 +8,7 @@
 
 import TrendProcessor from './TrendProcessor'
 import type {
+    BiosignalTrendEpoch,
     BiosignalDownsamplingMethod,
     BiosignalTrendDerivation,
     BiosignalTrendService,
@@ -23,7 +24,7 @@ const SCOPE = 'TrendWorkerSubstitute'
 type TrendComputationProps = {
     cancel: () => void
     name: string
-    onEpochReady: (signal: number[], epochIndex: number, totalEpochs: number) => void
+    onEpochReady: (epoch: BiosignalTrendEpoch) => void
     reject: (reason: string) => void
     resolve: (value: unknown) => void
 }
@@ -38,9 +39,8 @@ export default class TrendWorkerSubstitute implements BiosignalTrendService {
 
     protected _handleWorkerMessage (data: { action: string;[k: string]: unknown }) {
         if (data.action === 'trend-epoch') {
-            const { name, epochIndex, signal, totalEpochs } =
-                data as unknown as { name: string; epochIndex: number; signal: number[]; totalEpochs: number }
-            this._trendComputations.get(name)?.onEpochReady(signal, epochIndex, totalEpochs)
+            const { name, epoch } = data as unknown as { name: string; epoch: BiosignalTrendEpoch }
+            this._trendComputations.get(name)?.onEpochReady(epoch)
             return
         }
         if (data.action === 'trend-complete') {
@@ -85,9 +85,7 @@ export default class TrendWorkerSubstitute implements BiosignalTrendService {
         }, 0)
         return {
             cancel: props.cancel,
-            onEpochReady: (
-                callback: (signal: number[], epochIndex: number, totalEpochs: number) => void
-            ) => {
+            onEpochReady: (callback: (epoch: BiosignalTrendEpoch) => void) => {
                 props.onEpochReady = callback
             },
             result,

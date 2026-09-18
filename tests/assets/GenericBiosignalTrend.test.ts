@@ -6,6 +6,7 @@
  */
 
 import EventBus from '../../src/events/EventBus'
+import type { BiosignalTrendEpoch } from '../../src/types/biosignal'
 import GenericAsset from '../../src/assets/GenericAsset'
 import GenericBiosignalTrend from '../../src/assets/biosignal/components/GenericBiosignalTrend'
 
@@ -28,7 +29,7 @@ vi.mock('../../src/util', () => ({
     }),
 }))
 
-type EpochCallback = (signal: number[], epochIndex: number, totalEpochs: number) => void
+type EpochCallback = (epoch: BiosignalTrendEpoch) => void
 
 const createMockService = () => {
     let captured: EpochCallback | null = null
@@ -36,8 +37,8 @@ const createMockService = () => {
         cancel: vi.fn(),
         onEpochReady: vi.fn((cb: EpochCallback) => { captured = cb }),
         result: Promise.resolve(undefined),
-        deliver (signal: number[], epochIndex: number, totalEpochs: number) {
-            captured?.(signal, epochIndex, totalEpochs)
+        deliver (signal: number[], epochIndex: number, totalEpochs: number, quality = { coverage: 1 }) {
+            captured?.({ epochIndex, quality, signal, totalEpochs })
         },
     }
     return {
@@ -164,6 +165,32 @@ describe('GenericBiosignalTrend', () => {
             mockService._props.deliver([9, 9], 0, 1)
             await second
             expect(trend.signal).toEqual([9, 9])
+        })
+
+        it('should forward each epoch whole, qualifications included', async () => {
+            // The epoch is dispatched as it arrived rather than rebuilt from named fields, so a
+            // listener sees every qualification the processor recorded — including ones added to
+            // the quality object after this test was written.
+            const trend = new GenericBiosignalTrend(
+                'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15 }
+            )
+            const received: BiosignalTrendEpoch[] = []
+            vi.spyOn(trend as any, 'dispatchPayloadEvent').mockImplementation(
+                ((event: string, payload: BiosignalTrendEpoch) => {
+                    if (event === 'trend-epoch') {
+                        received.push(payload)
+                    }
+                    return true
+                }) as any
+            )
+            const compute = trend.computeTrend()
+            mockService._props.deliver([10, 20], 0, 2, { coverage: 1 })
+            mockService._props.deliver([12, 22], 1, 2, { coverage: 0.4 })
+            await compute
+            expect(received.map(epoch => epoch.epochIndex)).toEqual([0, 1])
+            expect(received[0].quality.coverage).toBe(1)
+            expect(received[1].quality.coverage).toBe(0.4)
+            expect(received[1].signal).toEqual([12, 22])
         })
 
         it('should pass a range through to the service when provided', async () => {

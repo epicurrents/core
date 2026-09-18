@@ -47,14 +47,36 @@ describe('GenericBiosignalHeader', () => {
             expect(header.dataDuration).toBe(120) // 60 * 2
         })
 
-        it('should calculate duration including interruptions', () => {
+        it('should derive maxSamplingRate from the signal properties', () => {
+            // The field was declared and never assigned, so the getter always answered 0 and
+            // consumers fell through to whatever their own fallback was — channel zero's rate,
+            // which is not the maximum whenever the rates differ.
+            const rated = (label: string, samplingRate: number) => (
+                { ...makeSignal(label, samplingRate * 60), samplingRate }
+            )
+            const header = new GenericBiosignalHeader(
+                'edf', '', '', 60, 1, 0, 3,
+                [rated('Ch1', 256), rated('Ch2', 1024), rated('Ch3', 512)],
+            )
+            expect(header.maxSamplingRate).toBe(1024)
+        })
+
+        it('should report a maxSamplingRate of zero when there are no signals', () => {
+            const header = new GenericBiosignalHeader('edf', '', '', 60, 1, 0, 0, [])
+            expect(header.maxSamplingRate).toBe(0)
+        })
+
+        it('should calculate totalDuration including interruptions', () => {
+            // The getter returned the product of unit count and unit duration, which is the
+            // gap-exclusive data duration that `dataDuration` already reports — while the interface
+            // declares totalDuration as the duration including gaps.
             const interruptions = new Map([[10, 5], [50, 3]]) as any
             const header = new GenericBiosignalHeader(
                 'edf', '', '', 100, 1, 0, 1, [makeSignal('Ch', 256)],
                 null, false, [], [], interruptions,
             )
             expect(header.dataDuration).toBe(100)
-            expect(header.duration).toBe(108) // 100 + 5 + 3
+            expect(header.totalDuration).toBe(108) // 100 + 5 + 3
         })
 
         it('should accept recording start time', () => {
@@ -85,11 +107,12 @@ describe('GenericBiosignalHeader', () => {
     })
 
     describe('totalDuration', () => {
-        it('should return dataUnitCount * dataUnitDuration', () => {
+        it('should equal dataDuration when there are no interruptions', () => {
             const header = new GenericBiosignalHeader(
                 'edf', '', '', 50, 2, 0, 1, [],
             )
             expect(header.totalDuration).toBe(100)
+            expect(header.totalDuration).toBe(header.dataDuration)
         })
     })
 

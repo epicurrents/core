@@ -8,6 +8,7 @@
 import GenericService from '#assets/service/GenericService'
 import InlineTrendWorker from '../../../workers/trend.worker.ts?worker&inline'
 import type {
+    BiosignalTrendEpoch,
     BiosignalDownsamplingMethod,
     BiosignalTrendDerivation,
     BiosignalTrendService,
@@ -27,7 +28,7 @@ const SCOPE = 'TrendService'
 type TrendComputationProps = {
     cancel: () => void
     name: string
-    onEpochReady: (signal: number[], epochIndex: number, totalEpochs: number) => void
+    onEpochReady: (epoch: BiosignalTrendEpoch) => void
     reject: (reason: string) => void
     resolve: (value: unknown) => void
 }
@@ -100,9 +101,7 @@ export default class TrendService extends GenericService implements BiosignalTre
         this._commissionWorker('compute-trend', args)
         return {
             cancel: props.cancel,
-            onEpochReady: (
-                cb: (signal: number[], epochIndex: number, totalEpochs: number) => void
-            ) => {
+            onEpochReady: (cb: (epoch: BiosignalTrendEpoch) => void) => {
                 props.onEpochReady = cb
             },
             result,
@@ -121,11 +120,7 @@ export default class TrendService extends GenericService implements BiosignalTre
         // Out-of-band trend messages — no commission rn to match.
         if (data.action === 'trend-epoch') {
             const trendName = data.name as string
-            this._trendComputations.get(trendName)?.onEpochReady(
-                data.signal as number[],
-                data.epochIndex as number,
-                data.totalEpochs as number
-            )
+            this._trendComputations.get(trendName)?.onEpochReady(data.epoch as BiosignalTrendEpoch)
             return true
         }
         if (data.action === 'trend-complete') {

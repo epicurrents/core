@@ -1157,16 +1157,21 @@ export const interpolateSignalValues = (
     for (let i=0; i<targetLen; i++) {
         const pos = start + i*srFactor
         if (Math.floor(pos) !== floor && signal.length > Math.floor(pos) + 1) {
-            // New interpolation bounds
+            // Move the interpolation bounds to the source interval this position falls in, then
+            // interpolate within it as usual. Emitting the lower bound raw instead discards the
+            // fractional part on every crossing, which is exact only when the rate ratio divides
+            // evenly and otherwise misplaces a sample by up to a full step.
             floor = Math.floor(pos)
-            interpolatedSig.push(signal[floor])
-            continue
         }
         if (signal[floor] === signal[floor + 1] || signal.length <= floor + 1) {
             // Both bounds are same or we're past the last datapoint
             interpolatedSig.push(signal[floor])
         } else {
-            interpolatedSig.push(interpolate(signal[floor], signal[floor + 1], pos%1))
+            // Taken relative to the active lower bound rather than as `pos % 1`: the two agree
+            // whenever the bounds track the position, and where they cannot (past the last full
+            // interval) the fraction is clamped instead of extrapolating beyond the pair.
+            const fraction = Math.min(1, Math.max(0, pos - floor))
+            interpolatedSig.push(interpolate(signal[floor], signal[floor + 1], fraction))
         }
     }
     return new Float32Array(interpolatedSig)

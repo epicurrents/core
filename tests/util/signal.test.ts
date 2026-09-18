@@ -1119,6 +1119,25 @@ describe('Signal utilities', () => {
             const result = interpolateSignalValues(new Float32Array([-1, 1, -1]), 4, 0, 2, 4)
             expect(Array.from(result)).toEqual([-1, 0, 1, 0])
         })
+
+        it('should interpolate when the rate ratio does not divide evenly', () => {
+            // Every case above uses a ratio of 1/2 or 1/4, where each target position lands either
+            // on a source sample or exactly between two, so moving to a new source interval and
+            // emitting its lower bound raw happens to give the right answer. At 7 Hz into 10 Hz the
+            // positions fall at 0, 0.7, 1.4, 2.1, 2.8, and the two samples that cross into a new
+            // interval are the ones the fraction is needed for.
+            const result = interpolateSignalValues(new Float32Array([0, 10, 20, 30]), 5, 0, 7, 10)
+            expect(Array.from(result)).toEqual([0, 7, 14, 21, 28])
+        })
+
+        it('should interpolate a rising ramp at every position for an arbitrary ratio', () => {
+            // A unit ramp resampled from 3 Hz to 10 Hz: each target value must equal its own
+            // position along the source, i.e. i * 0.3.
+            const result = interpolateSignalValues(new Float32Array([0, 1, 2, 3]), 8, 0, 3, 10)
+            for (let i = 0; i < result.length; i++) {
+                expect(result[i]).toBeCloseTo(i * 0.3, 5)
+            }
+        })
     })
 
     describe('shouldDisplayChannel', () => {

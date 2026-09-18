@@ -6,6 +6,7 @@
  */
 
 import type {
+    BiosignalTrendEpoch,
     BiosignalDownsamplingMethod,
     BiosignalTrend,
     BiosignalTrendDerivation,
@@ -170,11 +171,12 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
         // if a newer computation has replaced _cancelTrend, this one was superseded.
         const myCancel = compute.cancel
         this._cancelTrend = myCancel
-        compute.onEpochReady((signal: number[], epochIndex: number, totalEpochs: number) => {
+        compute.onEpochReady((epoch: BiosignalTrendEpoch) => {
             // Discard stale results from a computation that was cancelled and replaced.
             if (version !== this._computeVersion) {
                 return
             }
+            const { signal, epochIndex } = epoch
             // Direct element assignment instead of splice. splice() on a large sparse
             // array (common for spectrogram trends) runs in O(dictionary entries) in V8
             // dictionary mode, growing with every epoch. Direct assignment is O(1) per
@@ -183,11 +185,9 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
             for (let k = 0; k < signal.length; k++) {
                 this._signal[base + k] = signal[k]
             }
-            this.dispatchPayloadEvent('trend-epoch', {
-                signal: signal,
-                epochIndex: epochIndex,
-                totalEpochs: totalEpochs,
-            })
+            // Forwarded whole, so a listener sees every qualification the processor recorded —
+            // including ones added after this was written.
+            this.dispatchPayloadEvent('trend-epoch', epoch)
         })
         try {
             await compute.result

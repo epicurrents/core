@@ -365,6 +365,15 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
                     return null
                 }
             }
+        } else {
+            // A channel index narrows the request just as a name does. Leaving the include list
+            // empty here asks for every channel, so a caller reading `signals[0]` was handed
+            // channel zero's data under the index it requested.
+            if (channel < 0 || channel >= this._channels.length) {
+                Log.error(`Cannot get signal for channel index ${channel}, it is out of range.`, SCOPE)
+                return null
+            }
+            config.include = [channel]
         }
         return this.getAllSignals(range, config)
     }

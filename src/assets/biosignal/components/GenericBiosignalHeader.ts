@@ -67,6 +67,9 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
         this._recordingStartTime = recordingStartTime
         this._signalCount = signalCount
         this._signalProperties = signalProperties
+        this._maxSamplingRate = signalProperties.reduce(
+            (highest, signal) => Math.max(highest, signal.samplingRate || 0), 0
+        )
     }
 
     get dataDuration () {
@@ -83,10 +86,6 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
 
     get dataUnitSize () {
         return this._dataUnitSize
-    }
-
-    get duration () {
-        return this._duration
     }
 
     get events () {
@@ -156,7 +155,9 @@ export default class GenericBiosignalHeader implements BiosignalHeaderRecord {
     }
 
     get totalDuration () {
-        return this._dataUnitCount*this._dataUnitDuration
+        // Gap-inclusive, as the interface declares. The product of unit count and unit duration is
+        // the gap-exclusive data duration, which `dataDuration` already reports.
+        return this._duration
     }
 
     addEvents (...items: AnnotationEventTemplate[]) {

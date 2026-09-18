@@ -166,8 +166,12 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             end: cacheEnd,
             signals: [] as SignalPart[],
         } as SignalCachePart
-        // Only calculate averages once.
+        // Only calculate averages once. Keyed by source-sample index and scoped to the reference
+        // set the entries were computed from, so it can be shared across channels: keying it by a
+        // channel's own output position instead made two averaged channels share entries standing
+        // for different samples whenever their padding, rate or interruption adjustment differed.
         const avgMap = [] as number[]
+        let avgMapRefs = ''
         // Filter channels, if needed.
         const channels = (config?.include?.length || config?.exclude?.length)
                        ? [] as MontageChannel[] : this._channels
@@ -287,6 +291,11 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                     refs.push(ref)
                 }
             }
+            const refsKey = refs.map(ref => Array.isArray(ref) ? `${ref[0]}:${ref[1]}` : `${ref}`).join(',')
+            if (refsKey !== avgMapRefs) {
+                avgMap.length = 0
+                avgMapRefs = refsKey
+            }
             // Set up a signal array with length of the actual data.
             const data = new Float32Array(dataEnd - dataStart).fill(0)
             let j = 0
@@ -302,8 +311,8 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                 // its ~1 g gravity baseline — would otherwise ring down from the offset across the first seconds.
                 const sn = n < 0 ? 0 : (n >= activeLen ? activeLen - 1 : n)
                 // Check if the average for this particular datapoint has already been calculated.
-                if (chan.averaged && avgMap[j] !== undefined) {
-                    refAvg = avgMap[j]
+                if (chan.averaged && avgMap[sn] !== undefined) {
+                    refAvg = avgMap[sn]
                 } else {
                     if (refs.length > 1) {
                         // Calculate average reference and cache it.
@@ -313,7 +322,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                             refAvg += SIGNALS[refIndex][sn]*refWeight
                         }
                         refAvg /= refs.length
-                        avgMap[j] = refAvg
+                        avgMap[sn] = refAvg
                     } else if (!refs.length) {
                         refAvg = 0
                     } else {

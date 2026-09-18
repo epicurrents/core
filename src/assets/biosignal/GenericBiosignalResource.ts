@@ -196,8 +196,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         const TYPE_SETTINGS = window.__EPICURRENTS__.RUNTIME?.SETTINGS
                                     .modules[modality] as unknown as CommonBiosignalSettings
         super(name, modality, source)
-        // Set default filters.
-        this._filterChannelTypes ?? TYPE_SETTINGS?.filterChannelTypes
+        // Set default filters. Assigned rather than coalesced onto the existing value: the field
+        // initialises to an empty object, which is not nullish, so `??` never reached the module
+        // settings and the public `filterChannelTypes` getter always answered `{}`.
+        this._filterChannelTypes = TYPE_SETTINGS?.filterChannelTypes ?? this._filterChannelTypes
         this._filters.highpass = TYPE_SETTINGS?.defaultFilters?.highpass || 0
         this._filters.lowpass = TYPE_SETTINGS?.defaultFilters?.lowpass || 0
         this._filters.notch = TYPE_SETTINGS?.defaultFilters?.notch || 0
@@ -705,24 +707,6 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         Log.warn(`addEventsFromTemplates was not overridden in child class.`, SCOPE)
     }
 
-    addInterruptions (interruptions: SignalInterruptionMap) {
-        let anyChange = false
-        const prevState = this.interruptions
-        for (const intr of interruptions) {
-            if (this._interruptions.get(intr[0]) !== intr[1]) {
-                this._interruptions.set(intr[0], intr[1])
-                anyChange = true
-            }
-        }
-        if (anyChange) {
-            // Propagate new interruptions to montages.
-            for (const montage of this._montages) {
-                montage.setInterruptions(interruptions)
-            }
-            this.dispatchPropertyChangeEvent('interruptions', this.interruptions, prevState)
-        }
-    }
-
     addLabels (...items: AnnotationLabel[]): void
     addLabels (context: PropertyChangeContext | null, ...items: AnnotationLabel[]): void
     addLabels (contextOrFirst: PropertyChangeContext | AnnotationLabel | null, ...rest: AnnotationLabel[]): void {
@@ -1037,6 +1021,15 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                     return null
                 }
             }
+        } else {
+            // A channel index narrows the request just as a name does. Leaving the include list
+            // empty here asks for every channel, so a caller reading `signals[0]` was handed
+            // channel zero's data under the index it requested.
+            if (channel < 0 || channel >= this._channels.length) {
+                Log.error(`Cannot get signal for channel index ${channel}, it is out of range.`, SCOPE)
+                return null
+            }
+            config.include = [channel]
         }
         return this.getAllRawSignals(range, config)
     }
