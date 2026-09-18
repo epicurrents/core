@@ -311,11 +311,25 @@ const _settings = {
                 }
                 // Final field.
                 const local = settingsField.pop()
-                if (typeof value === 'string') {
-                    // Parse possible color code.
+                if (typeof value === 'string' && Array.isArray(local[f])) {
+                    // Parse possible color code. Attempted only where the field already holds an
+                    // array, which is how a settings colour is stored: `hexToSettingsColor`'s
+                    // pattern is unanchored, so it matches a `#` followed by hex digits anywhere in
+                    // a string, and a URL carrying a fragment like `#abc123` was converted to a
+                    // colour array, failed the type check below and was rejected with no diagnostic.
                     value = rgbaToSettingsColor(value) ||
                             hexToSettingsColor(value) ||
                             value
+                }
+                if (local[f] === null) {
+                    // A field declared nullable carries no constructor to compare against, and
+                    // reading one threw. The value is taken on trust, since the declared type is
+                    // the only thing that could say what belongs here.
+                    const old = local[f]
+                    local[f] = value
+                    Log.debug(`Changed settings field '${field}' value from null without a type check.`, SCOPE)
+                    _settings.onPropertyUpdate(field, value, old)
+                    return true
                 }
                 // Check constructors for type match (TODO: Should null be a valid settings value?).
                 if (local[f].constructor === value?.constructor) {
@@ -338,9 +352,27 @@ const _settings = {
                     }
                     return true
                 }
+                Log.warn(
+                    `Could not change settings field '${field}': expected a value of type ` +
+                    `${(local[f] as object).constructor.name}, received ${value?.constructor?.name ?? String(value)}.`,
+                    SCOPE
+                )
                 return false
             } else {
-                settingsField.push(settingsField[i][f as keyof typeof settingsField])
+                // Checked at every level, not only the last. An intermediate segment that does not
+                // exist was pushed as undefined and dereferenced on the next pass, so a path into
+                // an unregistered module — or a typo — threw out of `configure` and `init` instead
+                // of being reported. `getFieldValue` checks every level, which is the asymmetry
+                // that hid this.
+                const nextField = settingsField[i][f as keyof typeof settingsField]
+                if (nextField === undefined || nextField === null) {
+                    Log.warn(
+                        `Configuration field '${field}' is invalid: cannot find property ` +
+                        `'${fPath.slice(0, i + 1).join('.')}'.`,
+                    SCOPE)
+                    return false
+                }
+                settingsField.push(nextField)
             }
             i++
         }

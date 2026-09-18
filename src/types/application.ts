@@ -908,15 +908,18 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * @param loader - Loader to use for the dataset.
      * @param studyLoaders - Set of study loaders for the studies in the dataset.
      * @param config - Additional configuration (TODO: Config definitions).
-     * @returns Promise with the loaded dataset.
+     * @returns Promise with the loaded dataset, or null if it could not be loaded.
      * @emits `load-dataset` with the folder (in the `before` phase) or loaded dataset (in the `after` phase) as payload.
+     * @remarks
+     * Not implemented: the step that turns each loaded study into a resource needs a module to own
+     * it. Implementations refuse rather than returning an empty dataset. See ROADMAP.md.
      */
     loadDatasetFolder (
         folder: FileSystemItem,
         loader: DatasetLoader,
         studyLoaders: StudyLoader[],
         config?: unknown
-    ): Promise<MediaDataset>
+    ): Promise<MediaDataset | null>
     /**
      * Remove the connector with the given `name`.
      * @param name - Name of the connector to remove.

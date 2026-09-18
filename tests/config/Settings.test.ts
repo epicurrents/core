@@ -89,6 +89,41 @@ describe('Settings', () => {
             expect(result).toBe(false)
             expect(Log.warn).toHaveBeenCalled()
         })
+
+        it('should read back the parsed colour it accepted', () => {
+            // The case above asserts only that the call returned true, which holds whether or not
+            // the parsed value was stored.
+            SETTINGS.registerModule('colour-module', { color: [0, 0, 0, 1] } as any)
+            expect(SETTINGS.setFieldValue('colour-module.color', 'rgba(255,0,0,1)')).toBe(true)
+            expect(SETTINGS.getFieldValue('colour-module.color')).toEqual([1, 0, 0, 1])
+        })
+
+        it('should not read a colour out of a string field', () => {
+            // The hex pattern is unanchored, so it matches a '#' followed by hex digits anywhere in
+            // a string. A URL carrying such a fragment was converted to a colour array, failed the
+            // type check and was rejected — with no diagnostic, since that exit logged nothing.
+            SETTINGS.registerModule('url-module', { endpoint: '' } as any)
+            expect(SETTINGS.setFieldValue('url-module.endpoint', 'https://example.org/api#abc123')).toBe(true)
+            expect(SETTINGS.getFieldValue('url-module.endpoint')).toBe('https://example.org/api#abc123')
+        })
+
+        it('should refuse a path through a missing intermediate segment', () => {
+            // The undefined check ran only on the final segment; an intermediate one was pushed as
+            // undefined and dereferenced on the next pass, throwing out of configure() and init()
+            // rather than being reported.
+            expect(() => SETTINGS.setFieldValue('no-such-module.trace.margin.top', 10)).not.toThrow()
+            expect(SETTINGS.setFieldValue('no-such-module.trace.margin.top', 10)).toBe(false)
+            expect(() => SETTINGS.setFieldValue('app.nonExistent.deeper.still', 1)).not.toThrow()
+            expect(SETTINGS.setFieldValue('app.nonExistent.deeper.still', 1)).toBe(false)
+        })
+
+        it('should set a field whose current value is null rather than throwing', () => {
+            // Reading `.constructor` off the current value threw for any field declared nullable;
+            // the guard above it tested only for undefined, which null passes.
+            SETTINGS.registerModule('nullable-module', { maybe: null } as any)
+            expect(() => SETTINGS.setFieldValue('nullable-module.maybe', 'now set')).not.toThrow()
+            expect(SETTINGS.getFieldValue('nullable-module.maybe')).toBe('now set')
+        })
     })
 
     describe('addPropertyUpdateHandler', () => {

@@ -13,7 +13,6 @@ import type {
     StateManager
 } from '#types/application'
 import type {
-    AppSettings,
     BaseModuleSettings,
     ConfigDatasetLoader,
     SettingsChangeContext,
@@ -27,7 +26,7 @@ import type {
 import type { DatasetLoader, DatasetResourceContext, MediaDataset } from '#types/dataset'
 import type { FileSystemItem } from '#types/reader'
 import type { AssetService } from '#types/service'
-import type { StudyContext, StudyLoader } from '#types/study'
+import type { StudyLoader } from '#types/study'
 import { Log } from 'scoped-event-log'
 import SETTINGS from '#config/Settings'
 import GenericAsset from '#assets/GenericAsset'
@@ -198,14 +197,11 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             Log.debug(`No active dataset when adding resource, creating a new one.`, SCOPE)
             targetSet = new MixedMediaDataset(`Dataset ${state.APP.datasets.length + 1}`)
             this.addDataset(targetSet, true)
-        } else {
-            for (const existing of targetSet.resources) {
-                if (existing.resource.id === resourceContext.resource.id) {
-                    Log.warn(`Tried to add a resource that already exists in current dataset.`, SCOPE)
-                    return
-                }
-            }
         }
+        // One duplicate scan, the one that honours `setAsActive`. A second scan above it returned
+        // unconditionally on a match, so this one could only ever run against a dataset that had
+        // just been created and was therefore empty — and adding an already-present resource with
+        // `setAsActive` logged a warning and left it inactive, which is the opposite of the ask.
         for (const preEx of targetSet.resources) {
             if (preEx.resource.id === resourceContext.resource.id) {
                 Log.warn(
@@ -249,6 +245,12 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchEvent('initialize', 'before')
         // FIRST set logging threshold, so all possible messages are seen
         Log.setPrintThreshold(SETTINGS.app.logThreshold)
+        // Track it from here on. This is the field's only consumer in the package, and it was read
+        // exactly once — before the initial values below are applied — so configuring a threshold
+        // stored the value and never reached the logger.
+        SETTINGS.addPropertyUpdateHandler('app.logThreshold', () => {
+            Log.setPrintThreshold(SETTINGS.app.logThreshold)
+        }, 'runtime')
         // Apply possible initial values
         for (const config of Object.entries(initValues)) {
             if (config[0] === 'SETTINGS') {
@@ -262,21 +264,34 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         if (local) {
             // Go through available modules
             mod_loop:
-            for (const [mod, items] of Object.entries(JSON.parse(local))) {
-                const MODULE = SETTINGS[mod as keyof AppSettings] as BaseModuleSettings
+            for (const [mod, items] of Object.entries(JSON.parse(local) as Record<string, unknown>)) {
+                // Only `app` sits on the settings root; every module's settings live in the module
+                // registry. Reading a module name off the root yields undefined, and the
+                // `_userDefinable` check below then threw, aborting `init` before the application
+                // was ever marked initialised.
+                const MODULE = (
+                    mod === 'app' ? SETTINGS.app : SETTINGS.modules[mod]
+                ) as BaseModuleSettings | undefined
+                if (!MODULE?._userDefinable) {
+                    Log.warn(`Persisted settings name '${mod}', which defines no user-settable fields.`, SCOPE)
+                    continue mod_loop
+                }
                 field_loop:
-                for (const [field, value] of Object.entries(items as typeof MODULE)) {
-                    if (!MODULE._userDefinable) {
-                        continue mod_loop
-                    }
+                for (const [field, value] of Object.entries(items as Record<string, SettingsValue>)) {
                     // Check that setting can be modified
                     for (const [uField, uConst] of Object.entries(MODULE._userDefinable)) {
-                        if (uField === field && value.constructor === uConst) {
-                            Log.debug(`Applied local value ${value} to settings field ${mod}.${field}`, SCOPE)
+                        if (uField === field && value?.constructor === uConst) {
+                            // Actually apply it. The loop previously logged this line and moved on,
+                            // so persisted settings were read, validated and discarded.
+                            if (this.setSettingsValue(`${mod}.${field}`, value, { source: 'user' })) {
+                                Log.debug(`Applied local value ${value} to settings field ${mod}.${field}`, SCOPE)
+                            } else {
+                                Log.warn(`Could not apply local value to settings field ${mod}.${field}.`, SCOPE)
+                            }
                             continue field_loop
                         }
                     }
-                    Log.warn(`Setting ${mod}.${value} cannot be set by the user or the value type is incorrect.`, SCOPE)
+                    Log.warn(`Setting ${mod}.${field} cannot be set by the user or the value type is incorrect.`, SCOPE)
                 }
             }
         }
@@ -285,33 +300,23 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
     }
 
     async loadDatasetFolder (
-        folder: FileSystemItem,
-        loader: DatasetLoader,
-        studyLoaders: StudyLoader[],
-        config?: ConfigDatasetLoader
+        _folder: FileSystemItem,
+        _loader: DatasetLoader,
+        _studyLoaders: StudyLoader[],
+        _config?: ConfigDatasetLoader
     ) {
-        this.dispatchEvent('load-dataset', 'before')
-        const newSet = new MixedMediaDataset(config?.name || folder.name)
-        let studyContext = null as StudyContext | null
-        loader.loadDataset(folder, async (study) => {
-            for (const loader of studyLoaders) {
-                if (loader.isSupportedModality(study.modality)) {
-                    if (study.files.length === 1) {
-                        if (study.files[0].file) {
-                            if (!studyContext) {
-                                studyContext = await loader.loadFromFile(study.files[0].file)
-                            } else {
-                                await loader.loadFromFile(study.files[0].file, undefined, studyContext)
-                            }
-                            newSet.resources.push()
-                        }
-                    }
-                }
-            }
-        })
-        this.addDataset(newSet)
-        this.dispatchPayloadEvent('load-dataset', newSet, 'after')
-        return newSet
+        // Unfinished, and refuses rather than returning something that looks like a result. The
+        // previous body loaded each study and then called `resources.push()` with no arguments, so
+        // every call resolved a named but empty dataset; it also never awaited the loader, so the
+        // dataset was added and announced before any of that had run. What is missing is the step
+        // that turns a loaded `StudyContext` into a `DataResource`, which needs a module to own it
+        // — a design decision, not an oversight to patch over. Tracked in ROADMAP.md.
+        Log.error(
+            `Loading a dataset from a folder is not implemented; ` +
+            `load the studies individually and add them with addResource.`,
+            SCOPE
+        )
+        return null
     }
 
     removeConnector (name: string) {
@@ -337,8 +342,15 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
     }
 
     setActiveDataset (dataset: MediaDataset | null) {
-        this.dispatchPayloadEvent('set-active-dataset', dataset, 'before')
         const prevActive = state.APP.activeDataset
+        if (prevActive && prevActive === dataset) {
+            // Re-selecting the dataset that is already active ran the teardown below and then
+            // re-activated the dataset, leaving it active with every one of its resources
+            // deactivated — so a UI that re-selects the open dataset tore down the open recording.
+            Log.debug(`Dataset '${dataset.name}' is already active.`, SCOPE)
+            return
+        }
+        this.dispatchPayloadEvent('set-active-dataset', dataset, 'before')
         if (prevActive) {
             // Cascade deactivation to the outgoing dataset's active resources so
             // each runs its own deactivation teardown. The resource layer is

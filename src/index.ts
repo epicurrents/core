@@ -247,11 +247,13 @@ export class Epicurrents implements EpicurrentsApp {
     }
 
     addResource (resource: DataResource, modality?: string) {
-        if (!resource.modality) {
+        // The override is consulted first. Refusing on the resource's own modality before reading
+        // it meant the documented `modality` argument could not do the one thing it exists for.
+        const finalModality = modality || resource.modality
+        if (!finalModality) {
             Log.error(`Cannot add a resource without a modality.`, SCOPE)
             return
         }
-        const finalModality = modality || resource.modality
         if (!this.#runtime.MODULES.get(finalModality)) {
             Log.error(
                 `Cannot add resource with modality '${finalModality}'; the corresponding module has not been loaded.`,
@@ -302,8 +304,12 @@ export class Epicurrents implements EpicurrentsApp {
                 Log.warn(`Cross origin isolation is not enabled! Some features of the app are not available!`, 'index')
                 // Clear the flag as well as the manager. Callers branch on the setting rather than
                 // on the manager reference, so leaving it set sends them down a shared-memory path
-                // with nothing behind it instead of onto the main-thread fallback.
-                SETTINGS.app.useMemoryManager = false
+                // with nothing behind it instead of onto the main-thread fallback. Routed through
+                // the runtime rather than written onto the settings tree: a bare assignment does
+                // not run the registered property-update handlers, so anything already listening
+                // on this field — a worker holding the earlier value among them — never learns the
+                // shared-memory path it was told to take has just been withdrawn.
+                this.#runtime.setSettingsValue('app.useMemoryManager', false, { source: 'system' })
                 // TODO: Shared worker cache.
             } else {
                 this.#memoryManager = new ServiceMemoryManager(SETTINGS.app.maxLoadCacheSize)
@@ -311,7 +317,7 @@ export class Epicurrents implements EpicurrentsApp {
                     // Shared array buffer allocation failed, possibly due to insufficient memory.
                     Log.warn(`Memory manager initiation failed, defaulting to basic mode.`, 'index')
                     this.#memoryManager = null
-                    SETTINGS.app.useMemoryManager = false
+                    this.#runtime.setSettingsValue('app.useMemoryManager', false, { source: 'system' })
                 }
             }
         }
@@ -323,6 +329,10 @@ export class Epicurrents implements EpicurrentsApp {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
             return false
         }
+        // Publish the interface on the runtime. `RuntimeState.INTERFACE` is the documented handle
+        // for reaching it through the shared global, and nothing assigned it, so it read as null
+        // after every successful launch.
+        this.#runtime.INTERFACE = this.#interface
         this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZE, 'application', 'after')
         return true
     }
@@ -334,8 +344,11 @@ export class Epicurrents implements EpicurrentsApp {
     ) {
         const context = this.#runtime.APP.studyImporters.get(loader)
         // Dataset option is only used here. (TODO: Remove other non-clonable options too?)
-        const { dataset } = options
-        delete options.dataset
+        // Destructured out rather than deleted from the caller's object: a caller that builds one
+        // options object and loads twice lost its dataset target on the second call, and the
+        // resource landed in the active dataset instead.
+        const { dataset, ...loaderOptions } = options
+        options = loaderOptions
         if (!context) {
             Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
             // Add an error resource in place of the resource that failed to load.
