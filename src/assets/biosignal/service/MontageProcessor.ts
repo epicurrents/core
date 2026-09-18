@@ -775,12 +775,20 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         const inputOnly = !this._settings.precacheMontages
         this._mutex = new BiosignalMutex({ coupledProps: input, inputOnly })
         if (!inputOnly) {
-            await this._mutex.initSignalBuffers(
+            const initialised = await this._mutex.initSignalBuffers(
                 cacheProps,
                 dataDuration,
                 input.buffer,
                 bufferStart
             )
+            if (!initialised) {
+                // The output buffers are absent, so reporting readiness would have every later
+                // derivation write into views that were never bound. Discard the shell too, so a
+                // retry is not refused by the already-initialised guard.
+                Log.error(`Cannot set up montage cache, mutex buffer initialisation failed.`, SCOPE)
+                this._mutex = null
+                return null
+            }
         }
         this._isMutexReady = true
         Log.debug(`Mutex cache setup complete.`, SCOPE)

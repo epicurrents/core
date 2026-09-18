@@ -833,14 +833,14 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         // layout is preserved and only the buffer-backed views are rebuilt.
         if (this._outputData?.buffer && !overwrite) {
             Log.error(`Attempted to initialize signal buffers that had already been initialized!`, SCOPE)
-            return
+            return false
         }
         // Save master buffer lock position.
         Log.debug(`Setting master buffer lock position for BiosignalMutex.`, SCOPE)
         this._bufferLock = new Int32Array(buffer).subarray(BiosignalMutex.MASTER_LOCK_POS, 1)
         if (!this._awaitBufferLock()) {
             Log.error(`Cannot initialize mutex buffers, master buffer did not become available.`, SCOPE)
-            return
+            return false
         }
         // Initialize the buffer. On the overwrite path the IOMutex re-binds its
         // lock + meta views to the new buffer; data array views need a separate
@@ -900,6 +900,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             }
         })
         Log.debug(`Mutex initialization complete.`, SCOPE)
+        return true
     }
 
     /**

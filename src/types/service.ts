@@ -383,13 +383,14 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      * @param dataLength - length of the signal data in seconds.
      * @param buffer - Data buffer.
      * @param bufferStart - 32-bit starting index of this mutex withing the buffer (optional, defaults to zero).
+     * @returns True if the buffers were initialized, false if they could not be.
      */
     initSignalBuffers(
         cacheProps: SignalCachePart,
         dataLength: number,
         buffer: SharedArrayBuffer,
         bufferStart?: number
-    ): void | Promise<void>
+    ): boolean | Promise<boolean>
     /**
      * Insert new signal data to the existing buffer.
      * This will overwrite possible overlapping signal data.

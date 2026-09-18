@@ -176,6 +176,33 @@ describe('BiosignalMutex', () => {
         })
     })
 
+    describe('initSignalBuffers outcome', () => {
+        // The method returned nothing on both of its bail-out paths, so callers read `undefined`
+        // as success: the reader set `_isMutexReady` and handed the service coupling properties
+        // for a mutex whose buffers were never bound, and every later read served from it.
+        const cachePart = { start: 0, end: 1, signals: [{ data: new Float32Array(0), samplingRate: 256 }] }
+
+        it('reports failure when the buffers are already initialized', async () => {
+            const mutex = new BiosignalMutex()
+            Object.defineProperty(mutex, '_outputData', {
+                value: { buffer: new ArrayBuffer(8), arrays: [], fields: [] },
+                writable: true,
+            })
+            await expect(
+                mutex.initSignalBuffers(cachePart, 1, new ArrayBuffer(1024) as SharedArrayBuffer, 0)
+            ).resolves.toBe(false)
+        })
+
+        it('reports failure when the master buffer lock does not come free', async () => {
+            const mutex = new BiosignalMutex()
+            vi.spyOn(mutex as unknown as { _awaitBufferLock: () => boolean }, '_awaitBufferLock')
+                .mockReturnValue(false)
+            await expect(
+                mutex.initSignalBuffers(cachePart, 1, new ArrayBuffer(1024) as SharedArrayBuffer, 0)
+            ).resolves.toBe(false)
+        })
+    })
+
     describe('destroy', () => {
         it('should release buffers', () => {
             const mutex = new BiosignalMutex()

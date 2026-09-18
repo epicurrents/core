@@ -67,11 +67,22 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
 
     /** Authorization header to include in requests. */
     protected _authHeader?: string
-    protected _awaitData = null as null | {
+    /**
+     * Callers waiting for the caching loop to cover a range they asked for, one entry per in-flight
+     * read.
+     *
+     * A list rather than a single slot: `getSignals` can be in flight more than once at a time, and
+     * with one slot the later call overwrote the earlier one's resolver. The earlier call could then
+     * only settle by its own timeout, and on doing so it cleared whatever the slot then held — the
+     * later call's timeout — leaving that one with neither a resolver anything could reach nor a
+     * timeout to fall back on. Its commission never settled.
+     */
+    protected _awaitData = [] as {
         range: number[],
         resolve: () => void,
+        timedOut: boolean,
         timeout: unknown,
-    }
+    }[]
     /** Ongoing cache process. */
     protected _cacheProcesses = [] as SignalCacheProcess[]
     /** Number of data units to load as a chunk. */
@@ -289,12 +300,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                         success: true,
                     })
                 }
-                if (this._awaitData) {
-                    if (this._awaitData.range[0] >= progressStart && this._awaitData.range[1] <= progressEnd) {
-                        Log.debug(`Awaited data loaded, resolving.`, SCOPE)
-                        this._awaitData.resolve()
-                    }
-                }
+                this._notifyDataWaiters(progressStart, progressEnd)
                 // Now, there's a chance the signal cache already contained a part of the signal, so adjust next record
                 // accordingly.
                 if (
@@ -944,20 +950,32 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 SCOPE
             )
             // Set up a promise to wait for an active data loading process to load the missing data.
-            const dataUpdatePromise = new Promise<void>((resolve) => {
-                this._awaitData = {
-                    range: range,
-                    resolve: resolve,
-                    timeout: setTimeout(resolve, GenericSignalReader.AWAIT_DATA_TIMEOUT),
-                }
-            })
-            await dataUpdatePromise
-            if (this._awaitData?.timeout) {
-                clearTimeout(this._awaitData.timeout as number)
-            } else {
-                Log.debug(`Timeout reached when waiting for missing signals.`, SCOPE)
+            // The entry is held locally as well as in the list, so the cleanup below touches only
+            // this call's own waiter however many others come and go while it waits.
+            const waiter = {
+                range: range,
+                resolve: () => {},
+                timedOut: false,
+                timeout: undefined as unknown,
             }
-            this._awaitData = null
+            const dataUpdatePromise = new Promise<void>((resolve) => {
+                waiter.resolve = resolve
+                waiter.timeout = setTimeout(() => {
+                    waiter.timedOut = true
+                    resolve()
+                }, GenericSignalReader.AWAIT_DATA_TIMEOUT)
+            })
+            this._awaitData.push(waiter)
+            await dataUpdatePromise
+            if (waiter.timedOut) {
+                Log.debug(`Timeout reached when waiting for missing signals.`, SCOPE)
+            } else {
+                clearTimeout(waiter.timeout as number)
+            }
+            const waiterIdx = this._awaitData.indexOf(waiter)
+            if (waiterIdx > -1) {
+                this._awaitData.splice(waiterIdx, 1)
+            }
         }
         requestedSigs = await this._cache.asCachePart()
         // Filter channels, if needed.
@@ -1371,11 +1389,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     success: true,
                 })
             }
-            if (this._awaitData) {
-                if (this._awaitData.range[0] >= progressStart && this._awaitData.range[1] <= progressEnd) {
-                    this._awaitData.resolve()
-                }
-            }
+            this._notifyDataWaiters(progressStart, progressEnd)
             // Mark as loaded. The actual samples live in the SAB-backed mutex; the `loaded`
             // flag just tracks "this block has data in the current window" to avoid redundant
             // re-loads on subsequent `_slideToBlock` calls that don't change the window.
@@ -1388,6 +1402,29 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             }
             Log.error(`Failed to load block ${idx}: ${(e as Error).message}.`, SCOPE, e as Error)
             return false
+        }
+    }
+
+    /**
+     * Resolve every waiting read whose requested range the caching loop has now covered, and drop
+     * it from the list. Each waiter also removes its own entry once it resumes, so an entry settled
+     * here is merely gone sooner; removing it immediately keeps a long-lived loop from re-resolving
+     * an already-settled promise on every progress report.
+     * @param progressStart - Start of the newly covered range, in cache time.
+     * @param progressEnd - End of the newly covered range, in cache time.
+     */
+    protected _notifyDataWaiters (progressStart: number, progressEnd: number) {
+        if (!this._awaitData.length) {
+            return
+        }
+        for (let i=this._awaitData.length-1; i>=0; i--) {
+            const waiter = this._awaitData[i]
+            if (waiter.range[0] >= progressStart && waiter.range[1] <= progressEnd) {
+                Log.debug(`Awaited data loaded, resolving.`, SCOPE)
+                this._awaitData.splice(i, 1)
+                clearTimeout(waiter.timeout as number)
+                waiter.resolve()
+            }
         }
     }
 
@@ -1829,7 +1866,17 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         // field, and callers use the returned coupling props (and commission `cacheSignals`)
         // immediately — racing them against a half-initialised mutex produces reads of unseeded
         // fields.
-        await this._mutex.initSignalBuffers(cacheProps, dataLength, buffer, bufferStart)
+        if (!await this._mutex.initSignalBuffers(cacheProps, dataLength, buffer, bufferStart)) {
+            // Initialisation bails out when the master buffer lock does not come free within its
+            // timeout — the memory manager holding it through a rearrange is enough. Reporting
+            // readiness anyway hands the service coupling properties for a mutex with no buffers
+            // behind them, and every later read serves from it. The shell is discarded as well as
+            // the flag left down, so a retry is not short-circuited by the already-initialised
+            // guard at the top of this method and handed back the same unusable properties.
+            Log.error(`Cannot set up signal cache, mutex buffer initialisation failed.`, SCOPE)
+            this._mutex = null
+            return null
+        }
         // Mutex is fully set up.
         this._isMutexReady = true
         return this._mutex.propertiesForCoupling
