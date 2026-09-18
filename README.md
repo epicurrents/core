@@ -50,6 +50,8 @@ src/
     connector/         # REST API and WebDAV data-source connectors
     dataset/           # dataset containers for resources opened together
     document/          # document (non-signal) resource base
+    error/             # placeholder resource for a study that failed to load
+    media/             # biosignal audio playback and synthesis methods
     reader/            # signal reader/writer/processor bases, rolling-cache op queue
     service/           # web-worker service base, memory manager, worker substitutes
     study/             # study loaders, importers and exporters
@@ -58,11 +60,12 @@ src/
   events/              # EventBus and application events
   runtime/             # RuntimeStateManager
   types/               # all shared TypeScript interfaces
-  util/                # constants, conversions, signal maths, network/ (resilientFetch)
-  workers/             # base, montage, trend and memory-manager workers
+  util/                # constants, conversions, signal maths, filters and FFT (dsp),
+                       # network/ (resilientFetch)
+  workers/             # base, montage, trend, signal-reader and memory-manager workers
 ```
 
-Subpath exports mirror this layout: `@epicurrents/core/types`, `@epicurrents/core/util`, `@epicurrents/core/runtime`, etc. Only these barrels are published; a file inside one, such as `dist/types/event`, is not reachable. The standalone worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`).
+Subpath exports mirror this layout: `@epicurrents/core/assets`, `/config`, `/events`, `/runtime`, `/types`, `/util` and `/workers`. Only these barrels are published; a file inside one, such as `dist/types/event`, is not reachable. The standalone worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`).
 
 ## Usage
 
@@ -70,7 +73,9 @@ Subpath exports mirror this layout: `@epicurrents/core/types`, `@epicurrents/cor
 import { Epicurrents } from '@epicurrents/core'
 
 const app = new Epicurrents()
-// Sets window.__EPICURRENTS__ = { APP, EVENT_BUS, RUNTIME }.
+// Sets window.__EPICURRENTS__ = { APP, EVENT_BUS, RUNTIME, SETUP }.
+// SETUP is the host's static bootstrap configuration, written before launch and read, never
+// mutated, by the viewer; the runtime state manager holds the live configuration.
 
 // Optionally override default settings before launching.
 app.configure({ 'app.useMemoryManager': false })
@@ -81,7 +86,8 @@ app.registerService('pyodide', pyodideService)
 app.registerStudyImporter('edf', 'EDF', 'file', edfLoader)
 app.registerInterface(MyInterfaceModule)
 
-// Launch: instantiates the interface, sets up the memory manager when SharedArrayBuffer is available.
+// Launch: sets up the memory manager when app.useMemoryManager is on and SharedArrayBuffer is
+// available in a cross-origin-isolated page, then instantiates the interface.
 await app.launch()
 
 // Open a recording through a registered importer.
@@ -95,15 +101,17 @@ if (resource) {
 Key `Epicurrents` methods beyond the flow above:
 
 - `addResource(resource, modality?)` — add an already-constructed resource to the active dataset.
-- `setWorkerOverride(name, getWorker)` — inject a deployment-specific or test-double worker factory.
+- `setActiveDataset(dataset)` — make a dataset the active one, or clear it with `null`.
+- `registerStudyExporter(name, label, mode, loader)` — the export-side counterpart of `registerStudyImporter`.
+- `setWorkerOverride(name, getWorker)` — inject a deployment-specific or test-double worker factory; `getWorkerOverride(name)` returns an instance from the registered factory, or `null` when none is registered.
 - `notifySessionRestored()` — host applications call this after a re-login; it resets the network circuit breakers on the main thread and in every registered service's worker so latched fetch paths resume.
-- `setSettingsValue(field, value)` / `SETTINGS` — runtime settings access; user-overridable fields persist to `localStorage`.
+- `setSettingsValue(field, value)` / `SETTINGS` — runtime settings access. Persisted user overrides are *read* at startup: `init()` picks up a `settings` entry from `localStorage` and applies the values whose fields a module declares user-definable. Writing that entry is the host application's job; nothing in this package stores it.
 
 The event bus (`app.eventBus`, also `window.__EPICURRENTS__.EVENT_BUS`) carries scoped `property-change:*` and payload events for reactive consumers; see AGENTS.md → Event bus dispatch semantics for the contract.
 
 ## Testing
 
-Vitest suites live in `tests/`, mirroring `src/`. The SAB-dependent suites (mutex, memory rearrange, montage locked read) run against real `SharedArrayBuffer` instances. Run a single file with `npx vitest run tests/<path>`.
+Vitest suites live in [tests/](tests/), mirroring [src/](src/). Four of them run against real `SharedArrayBuffer` instances: [BiosignalMutex.test.ts](tests/assets/BiosignalMutex.test.ts), [memory-rearrange.test.ts](tests/assets/memory-rearrange.test.ts), [window-epoch.test.ts](tests/assets/window-epoch.test.ts), and [montage-validated-read.test.ts](tests/assets/montage-validated-read.test.ts), which covers the optimistic epoch-validated read the montage derives from live window views with, taking no lock. Run a single file with `npx vitest run tests/<path>`.
 
 ## Contributing
 

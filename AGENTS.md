@@ -31,10 +31,11 @@ Rebuilding only one leaves a stale mismatch between the worker bundle and the ma
 
 ### Path aliases and the declaration build
 
-Source imports go through the `#`-prefixed `paths` in `tsconfig.json`. Each tool resolves them from its own configuration, and there is deliberately no `imports` field in `package.json`: it is published, so it would advertise source paths a consumer does not receive, and a tool that consulted it would mask a missing alias instead of failing on it.
+Source imports go through the `#`-prefixed `paths` in [tsconfig.json](tsconfig.json). Each tool resolves them from its own configuration, and there is deliberately no `imports` field in `package.json`: it is published, so it would advertise source paths a consumer does not receive, and a tool that consulted it would mask a missing alias instead of failing on it.
 
 - **`#*` is declared before `#root/*`.** Resolution takes the longest matching prefix whatever the order, but TypeScript's auto-import takes the first key that matches, and `#root/*` matches every file in the package — declared first, every suggested import reads `#root/src/types` instead of `#types`. `#root/*` stays for files outside `src/`, which `#*` cannot reach.
 - **Vite and Vitest** resolve through `ALIASES` in [vite.shared.mjs](vite.shared.mjs). They must be regular expressions — a string alias matches only the exact id or the id followed by `/`, so `'#'` never matches `#events/dispatch`. With no `imports` field to fall back on, such an alias fails loudly at resolution.
+- **The two tables are not the same shape, and the mismatch has a sharp edge.** [tsconfig.json](tsconfig.json) maps `#*` to `src/*` for *any* name; `ALIASES` matches a fixed alternation of directory names (`assets|config|errors|events|onnx|pyodide|runtime|types|util|workers`), two of which (`onnx`, `pyodide`) name no directory under `src/`. So a new top-level directory under `src/` type-checks and auto-imports cleanly, then fails to resolve in both the build and the test run until its name is added to the alternation. Add the directory and the alternation entry together.
 - **Declarations** are emitted by `tsc` and rewritten by [scripts/build-types.mjs](scripts/build-types.mjs), published as the `epicurrents-build-types` bin so the whole family shares one implementation. It reads the project's tsconfig through the TypeScript API and rewrites each specifier matching a `paths` pattern: into `outDir` as a relative path with an explicit `/index` for directories, into a sibling package as a bare specifier through that package's `exports`, or not at all when the target is under `node_modules`. Anything else fails the build, because it names a file the package does not ship.
 
 A sibling package runs `epicurrents-build-types` from its own root with its own TypeScript. `--project <tsconfig>` selects the config and `--no-emit` skips `tsc`, for a package that has to add hand-written declarations to the emitted tree before the rewrite. The tool handles declarations only; JavaScript is expected from a bundler that has already resolved the aliases.
@@ -52,7 +53,7 @@ A sibling package runs `epicurrents-build-types` from its own root with its own 
 | Application | `Epicurrents` (class), `EpicurrentsApp` (interface) | Entry point. Holds runtime, event bus, interface, memory manager. |
 | Runtime state | `RuntimeStateManager` / `StateManager` interface | Central reactive store: `APP`, `MODULES`, `SERVICES`, `SETTINGS`, `WORKERS`, `INTERFACE` maps. |
 | Asset | `BaseAsset` interface | Root type of everything — has `id`, `name`, `modality`, `state`, event API. |
-| Resource | `DataResource` interface | Loadable asset with lifecycle (`added → loading → loaded → ready → destroyed`). |
+| Resource | `DataResource` interface | Loadable asset with lifecycle (`added → loading → loaded → ready → destroyed`). The full `AssetState` union also has `error`, which carries an `errorReason` the setter clears on the way out. |
 | Module | `ResourceModule` / `RuntimeResourceModule` | Pluggable modality support registered with `registerModule(name, module)`. |
 | Service | `GenericService` / `AssetService` | Web-worker interface. Manages commission/promise pairs for off-thread work. |
 | Study loader | `GenericStudyLoader` / `StudyLoader` | Knows how to read a file format and produce `StudyContext` + `DataResource`. |
@@ -64,8 +65,10 @@ A sibling package runs `epicurrents-build-types` from its own root with its own 
 
 The `Epicurrents` constructor sets:
 ```ts
-window.__EPICURRENTS__ = { APP, EVENT_BUS, RUNTIME }
+window.__EPICURRENTS__ = { APP, EVENT_BUS, RUNTIME, SETUP }
 ```
+
+`APP`, `EVENT_BUS` and `RUNTIME` are `null` until the constructor assigns them. `SETUP` is the host→viewer bootstrap handoff — a `Readonly<ApplicationConfig>` written once before launch by whoever bootstraps the viewer, and an empty object until then, so a consumer can read `SETUP.<field>` without guarding. It is static setup, not runtime state; the live, mutable configuration is the runtime state manager's.
 
 ### Source layout
 
@@ -73,22 +76,30 @@ window.__EPICURRENTS__ = { APP, EVENT_BUS, RUNTIME }
 src/
   assets/
     biosignal/           # GenericBiosignalResource, GenericBiosignalService,
-                         # BiosignalCache, BiosignalMutex, MontageService, etc.
+                         # BiosignalCache, BiosignalMutex, SharedWorkerCache,
+                         # MontageService, TrendService, components/ (montages, trends), etc.
     connector/           # DatabaseAPIConnector, WebDAVConnector
     dataset/             # GenericDataset, MixedMediaDataset
     document/            # GenericDocumentResource
+    error/               # ErrorResource
+    media/               # BiosignalAudio + synthesizers/ (audio rendering)
     reader/              # GenericSignalReader/Writer/Processor, LocalFileReader,
-                         # filesystem/ (FileSystemDirectory, FileSystemFile)
+                         # SignalReaderOpQueue, filesystem/ (FileSystemDirectory,
+                         # FileSystemFile, MixedFileSystemItem)
     service/             # GenericService, ServiceMemoryManager, ServiceWorkerSubstitute
-    study/               # GenericStudyLoader, StudyCollection, StudyLoadProtocol
+    study/               # GenericStudyLoader, GenericStudyImporter, GenericStudyExporter,
+                         # StudyCollection, StudyLoadProtocol
     annotation/          # GenericAnnotation, ResourceLabel
   config/                # Settings singleton
+  errors/                # worker error-message constants; nothing imports them
   events/                # EventBus, ApplicationEvents enum
   runtime/               # RuntimeStateManager, module stubs
   types/                 # All TypeScript interfaces (application.ts is the main one)
-  util/                  # constants, conversions, signal maths, worker helpers,
+  util/                  # constants, conversions, signal maths, dsp (filters + FFT),
+                         # text, worker helpers,
                          # network/ (resilientFetch + per-origin circuit breaker)
-  workers/               # base.worker, montage.worker, trend.worker, memory-manager.worker
+  workers/               # base.worker, montage.worker, trend.worker,
+                         # signal-reader.worker, memory-manager.worker
 ```
 
 ### App lifecycle
@@ -98,7 +109,7 @@ src/
 3. Call `registerService(name, service)` for optional services (Pyodide, ONNX…).
 4. Call `registerStudyImporter(name, label, mode, loader)`.
 5. Call `registerInterface(InterfaceConstructor)`.
-6. Call `launch()` — creates interface, sets up memory manager if `useSAB` is true.
+6. Call `launch()` — sets up the memory manager when `SETTINGS.app.useMemoryManager` is true, then constructs the interface and awaits its readiness. The manager is created first, so the interface sees the final answer: a setup that finds no cross-origin isolation, no `SharedArrayBuffer`, or no allocatable buffer clears `app.useMemoryManager` through the runtime (so registered property-update handlers run) and continues on the main-thread path.
 7. Call `loadStudy(loaderName, source, options)` to open a recording.
 
 ---
@@ -107,11 +118,13 @@ src/
 
 ### RuntimeStateManager
 
-Extends `GenericAsset`. Wraps a module-level `state` singleton object — not a reactive UI store. All mutations go through named methods (`addDataset`, `setActiveResource`, `setModule`, …) that dispatch `before`/`after` scoped events via the `EventBus`. The `SETTINGS` singleton supports both programmatic and `localStorage`-persisted user-overridable fields. `WORKERS` is a `Map<name, () => Worker | null>` used to inject test doubles or deployment-specific workers.
+Extends `GenericAsset`. Wraps a module-level `state` singleton object — not a reactive UI store. All mutations go through named methods (`addDataset`, `setActiveResource`, `setModule`, …) that dispatch `before`/`after` scoped events via the `EventBus`. `WORKERS` is a `Map<string, (() => Worker) | null>` — the value is a factory or `null`, not a factory returning `null` — used to inject test doubles or deployment-specific workers.
 
-### Signal data flow — two paths
+The `SETTINGS` singleton takes programmatic changes through `setSettingsValue`, and `init()` additionally reads a `settings` entry from `localStorage` and applies the fields a module declares in `_userDefinable` (with `source: 'user'`), warning on a module name or field that is not user-settable. **Nothing in the package writes to `localStorage`** — persisting a user's overrides is the host application's job.
 
-Signal data travels along two distinct paths depending on whether `SharedArrayBuffer` is available:
+### Signal data flow — three paths
+
+Signal data travels along three distinct paths depending on whether `SharedArrayBuffer` is available and where the cache lives:
 
 **Path A — Memory manager (SAB / cross-origin isolated)**
 ```
@@ -125,13 +138,24 @@ MontageProcessor.getSignals() → derived signals → sent back to main thread
 **Path B — No memory manager (JS heap)**
 ```
 format worker → BiosignalCache (SignalCachePart, main thread JS heap)
-  ↓  (cache reference passed to montage worker)
-MontageWorker.setInputCache → MontageProcessor reads from shared worker / simple cache
+  ↓  ('setup-cache' hands the cache object to MontageWorkerSubstitute by reference)
+MontageProcessor (main thread) reads from the plain cache
+  ↓
+MontageProcessor.getSignals() → derived signals → returned on the main thread
+```
+
+**Path C — Shared-worker cache**
+```
+cache-holding worker → MessagePort transferred with the 'setup-input-cache' commission
+  ↓
+MontageWorker.setInputCache → MontageProcessor wraps the port in a SharedWorkerCache
   ↓
 MontageProcessor.getSignals() → derived signals → sent back to main thread
 ```
 
-`GenericBiosignalResource` holds both: `_mutexProps` (SAB path, `MutexExportProperties`) and `_cacheProps` (`BiosignalCache`). The `dataCache` getter returns `_mutexProps || _cacheProps`.
+`SharedWorkerCache` ([src/assets/biosignal/service/SharedWorkerCache.ts](src/assets/biosignal/service/SharedWorkerCache.ts)) is a `SignalDataCache` implemented as a `GenericService` over the port: every read (`inputSignals`, `inputRangeStart`, `inputRangeEnd`) is itself a worker commission, so this path is asynchronous where the SAB path reads in place. `MontageService.setupMontageWithSharedWorker(port)` is the main-thread entry.
+
+`GenericBiosignalResource` holds both handles: `_mutexProps` (SAB path, `MutexExportProperties`) and `_cacheProps` (`SignalDataCache | null`). The `dataCache` getter returns `_mutexProps || _cacheProps`.
 
 ### BiosignalCache
 
@@ -150,22 +174,60 @@ Setting `activeMontage` stops prior montage signal caching, updates filters, and
 
 ### MontageService + MontageWorker
 
-`MontageService` (main thread) owns the `MontageWorker` (or `MontageWorkerSubstitute` for non-SAB mode). Commission pattern:
-1. `_commissionWorker(action, params)` → generates UUID → posts message → returns `{ promise }`
-2. Worker processes, replies with same UUID
-3. `handleMessage` matches UUID → resolves/rejects promise
+`MontageService` (main thread) owns the `MontageWorker` (or `MontageWorkerSubstitute`). Commission pattern:
+1. `_commissionWorker(action, props?, callbacks?, options?)` → takes the next `rn` from `_requestNumber` → posts the message → returns `{ promise, rn, reject, resolve }`
+2. Worker processes, replies with the same `rn`
+3. `handleMessage` matches `rn` → resolves/rejects the promise
 
-Worker actions map: `get-signals`, `map-channels`, `set-filters`, `set-interruptions`, `setup-worker`, `setup-input-mutex`, `setup-input-cache`, `release-cache`, `release-signal-arrays`.
+Which worker the service constructs is decided by the constructor's `manager` argument and the `overrideWorker` name: with a memory manager and an `overrideWorker` other than the reserved `'substitute'`, it takes the factory registered in `RUNTIME.WORKERS` under `overrideWorker || 'montage'` and falls back to the inlined `MontageWorker`. With no manager, or with `overrideWorker === 'substitute'`, it constructs a `MontageWorkerSubstitute`.
+
+Worker action map ([src/workers/montage.worker.ts](src/workers/montage.worker.ts)): `get-signals`, `invalidate-cache`, `map-channels`, `release-cache`, `release-signal-arrays`, `set-buffer-range`, `set-interruptions`, `set-filters`, `setup-input-cache`, `setup-input-mutex`, `setup-worker`, `update-settings`.
 
 `setupWorker` initialises a `MontageProcessor` in the worker with the channel config and module settings. `get-signals` → `MontageProcessor.getSignals(range, config)` → derived `Float32Array[]` → transferred back.
 
 ### MontageProcessor
 
-Lives entirely inside the montage worker (not transferred). Holds the actual signal math — channel derivation (active channels minus reference channels), filter application (highpass/lowpass/notch), downsampling. Reads raw signals from the cache/mutex. Key method: `getSignals(range, config)`.
+Holds the actual signal math — channel derivation (active channels minus reference channels), filter application (highpass/lowpass/notch), downsampling. Reads raw signals from the cache/mutex. Key method: `getSignals(range, config)`.
+
+It normally runs inside the montage worker, but it is a public export ([src/assets/biosignal/service/MontageProcessor.ts](src/assets/biosignal/service/MontageProcessor.ts), re-exported from the package root) and `MontageWorkerSubstitute` constructs one on the main thread, handing it `returnMessage` as its outbound channel because there is no `postMessage` global that routes to the service there. Anything written into the processor therefore has to work in both settings.
 
 ### Property change events
 
 Every setter on `GenericBiosignalResource` (and all assets) calls `_setPropertyValue(name, value)` which dispatches a `property-change:<name>` scoped event. Consumers subscribe to these events to trigger reactivity/redraws without direct coupling to the resource implementation.
+
+---
+
+## Other public subsystems
+
+### Audio — [src/assets/media/](src/assets/media/)
+
+`BiosignalAudio` turns signal data into playable audio: it extends `GenericAsset`, implements `AudioRecording`, and owns the `AudioContext`, buffer, compressor and playback state (position, gain, loop, playback rate, start/end callbacks).
+
+The rendering itself is pluggable. An `AudioSynthesizer` is one method — `synthesize(signals, sampleRate, opts)` returning an `AudioBuffer` — and three ship: `direct` (normalised playback of the samples with an optional EQ chain), `spectral-tone` (resynthesise the dominant spectral peaks of a window as a steady audible tone) and `stethoscope` (map a sub-audible signal onto an audible carrier). The registry in [src/assets/media/synthesizers/registry.ts](src/assets/media/synthesizers/registry.ts) is the extension point: `registerSynthesizer(method, synthesizer)` adds or replaces one, `getSynthesizer` / `listSynthesizers` read it back, and a project registers its own method without touching core. `renderGraph` / `renderOffline` wrap `OfflineAudioContext` for rendering faster than real time and off the UI thread; sound-generating methods render at `AUDIBLE_SAMPLE_RATE` (44 100 Hz) because biosignal rates fall below the `OfflineAudioContext` minimum.
+
+All nine symbols are exported from the package root and from `@epicurrents/core/assets`. Tests: [tests/assets/BiosignalAudio.test.ts](tests/assets/BiosignalAudio.test.ts) and [tests/assets/audioSynthesis.test.ts](tests/assets/audioSynthesis.test.ts).
+
+### DSP — [src/util/dsp.ts](src/util/dsp.ts)
+
+The package's own digital-signal-processing layer, with no third-party dependency: a radix-2 `FFT` with pre-computed twiddle factors and caller-provided buffers, an `SOSFilter` (including a zero-phase `filtfilt`), and four Butterworth designers — `butterBandpass`, `butterBandstop`, `butterHighpass`, `butterLowpass`. All six symbols are exported from `#util`, and so from `@epicurrents/core/util`, which is how the worker bundles reach them.
+
+Two conventions to know before calling a designer. `order` is the number of prototype poles, matching `scipy.signal.butter`, so a filter specified as two biquad sections is `order: 4` here. And `butterBandpass(order, hp, lp, fs)` takes both thresholds and produces one 2×order-pole filter rather than a sequential high-pass and low-pass pair. The designs match scipy exactly; `SOSFilter.filtfilt` approximates `scipy.signal.sosfiltfilt` closely, with edge samples not bit-exact because the steady-state initial conditions are a closed-form per-section approximation rather than scipy's companion-matrix solve.
+
+### ErrorResource
+
+A `GenericResource` that constructs straight into `state = 'error'` and carries a `reason` string, for the case where loading failed before a real resource could exist. `loadStudy` uses it on every failure branch — unknown importer, no study returned, no resource from the study — adding it to the target dataset in place of what could not be loaded before returning `null`. The failure therefore stays visible in the resource list, with `getMainProperties` surfacing the reason, rather than existing only as the caller's discarded return value.
+
+### Study importers and exporters
+
+`GenericStudyImporter` (`FileFormatImporter`) reads a format into a `StudyContext`; its `_fetchArrayBuffer` helper is the shared importer read path (see [Network resilience](#network-resilience)). `GenericStudyExporter` (`FileFormatExporter`) is the transcoding counterpart, holding a `format`, a `description` and a source study.
+
+Both are abstract and are subclassed in the reader packages. An exporter reaches a loader in two ways: as the optional constructor argument to `GenericStudyLoader`, or through `StudyLoader.registerStudyExporter(exporter)` afterwards. The application-level `Epicurrents.registerStudyExporter(name, label, mode, loader)` is the separate registration that makes a whole loader available for export, mirroring `registerStudyImporter`.
+
+### Smaller public exports
+
+- `GenericBiosignalCascadeMontage` — a montage that stacks N time-shifted slices of *one* source channel as N rows, each covering a fixed `pageLength`, so a long stretch of a single signal can be scanned at a glance. Modality wrappers override `_createChannel` to wrap each row in their own `MontageChannel` class; the slice math and page-step logic stay in the base.
+- `ResourceCollection` — an abstract `GenericResource` that *is* a collection of other resources (`_resources`, a default index, a date), for a resource whose content is several resources opened as one.
+- `MixedFileSystemItem` — the concrete `FileSystemItem` for a local or remote file or directory, and the type `loadFromDirectory` takes. Its static `UrlsToFsItem(...urls)` is how `loadStudy` turns an array of URLs into one.
 
 ---
 
@@ -179,14 +241,16 @@ The event bus is exposed as `window.__EPICURRENTS__.EVENT_BUS`. It starts as `nu
 1. Calls all matching scoped subscribers registered via `addScopedEventListener` directly.
 2. Creates a `CustomEvent` and calls `this.dispatchEvent(e)` — the standard `EventTarget` method — which reaches any listener registered with plain `addEventListener`.
 
-Step 2 happens for **both** phases when the `CustomEvent` is not cancelable (the default). This means plain `addEventListener` receives 'before' and 'after' events alike. Filter by `(e as CustomEvent).detail?.phase === 'before'` if you only want the final value.
+Step 2 happens for **both** phases when the `CustomEvent` is not cancelable (the default). This means plain `addEventListener` receives 'before' and 'after' events alike. The 'before' event carries the *anticipated* value (a listener may still prevent the change); the 'after' event carries the committed one. Filter by `(e as CustomEvent).detail?.phase === 'after'` if you only want the final value.
 
 ### `detail` shape by dispatch type
 
 | Dispatch method | `detail` fields |
 |---|---|
-| `dispatchPropertyChangeEvent(prop, newValue, oldValue)` | `{ property, newValue, oldValue, phase, scope, origin }` |
+| `dispatchPropertyChangeEvent(prop, newValue, oldValue, phase?, context?)` | `{ property, newValue, oldValue, source, phase, scope, origin }` |
 | `dispatchPayloadEvent(event, payload)` | `{ payload, phase, scope, origin }` |
+
+`detail.source` is `'system'` or `'user'`, taken from the dispatching call's `PropertyChangeContext`; an absent value means user-initiated. A consumer that must not echo its own edits back — or that wants to react only to changes a person made — branches on it rather than inferring intent from the value.
 
 ### Useful events for biosignal consumers
 
@@ -195,7 +259,7 @@ Step 2 happens for **both** phases when the `CustomEvent` is not cancelable (the
 | `property-change:activeResources` | `GenericDataset` | `DataResource[]` — the new active set | Recording opened/switched |
 | `property-change:displayViewStart` | `GenericBiosignalResource` | `number` — seconds from recording start | View scrolled |
 | `property-change:viewStart` | `GenericBiosignalResource` | `number` | View position committed (after scroll inertia) |
-| `property-change:events` | `GenericBiosignalResource` | `BiosignalEvent[]` | Annotation created/moved/deleted |
+| `property-change:events` | `GenericBiosignalResource` | `BiosignalAnnotationEvent[]` | Annotation created/moved/deleted |
 | `add-dataset` | `RuntimeStateManager` | dataset object (payload) | New dataset loaded |
 | `set-active-resource` | `RuntimeStateManager` | `DataResource \| null` (payload) | Active resource changed |
 
@@ -216,33 +280,37 @@ const resource = runtime?.APP?.activeDataset?.activeResources?.[0] ?? null
 
 ### Architecture
 
-A **trend** is a derived per-epoch signal computed from one or more montage channels. The first concrete trend type is **`'amplitude'`** (aEEG — amplitude-integrated EEG), but the infrastructure is generic; further types cover frequency spectrogram, band ratios and brain symmetry.
+A **trend** is a derived per-epoch signal computed from one or more montage channels. Four types are dispatched today: `'amplitude'` (aEEG — amplitude-integrated EEG), `'spectrogram'` (per-Hz band power), `'ratio'` (normalised band-power ratio on `[−1, +1]`) and `'pdbsi'` (pairwise-derived brain symmetry index). The infrastructure around them is generic, so a fifth type needs a union member, a branch in the processor and — where its output is not a scalar — a documented layout.
+
+Trend work is its own layer, separate from the montage one: [TrendProcessor](src/assets/biosignal/service/TrendProcessor.ts), [TrendService](src/assets/biosignal/service/TrendService.ts), [TrendWorkerSubstitute](src/assets/biosignal/service/TrendWorkerSubstitute.ts) and [src/workers/trend.worker.ts](src/workers/trend.worker.ts). The montage processor and service hold no trend code: the trend worker couples to the reader's output SAB as an input-only reader, so computation is independent of which display montage is active.
 
 | Layer | Class / Symbol | Role |
 |---|---|---|
 | Type union | `BiosignalTrendType` (`'amplitude' \| 'pdbsi' \| 'ratio' \| 'spectrogram'`) in [src/types/biosignal.ts](src/types/biosignal.ts) | Extend this union per new trend type |
-| Base asset | `GenericBiosignalTrend` (concrete, not abstract) in [src/assets/biosignal/components/GenericBiosignalTrend.ts](src/assets/biosignal/components/GenericBiosignalTrend.ts) | Owns `signal[]`, `derivation`, `epochLength`, `samplingRate`; calls `service.setupTrend()` in constructor; `computeTrend(range?)` streams epoch results into `_signal` and emits `'trend-epoch'` / `'trend-complete'` / `'trend-error'` |
+| Base asset | `GenericBiosignalTrend` (concrete, not abstract) in [src/assets/biosignal/components/GenericBiosignalTrend.ts](src/assets/biosignal/components/GenericBiosignalTrend.ts) | Owns `signal[]`, `derivation`, `epochLength`, `samplingRate`; registers itself through `_registerWithService()` (see below); `computeTrend(range?)` writes each epoch into `_signal` at its absolute index and emits `'trend-epoch'` / `'trend-complete'` / `'trend-error'` |
 | Concrete trend | per-modality wrapper class, owned by the modality module package | Fixes the trend `type` and supplies modality-specific defaults (e.g. a 2 / 15 Hz band-pass for aEEG). Epoch length is not one of them — it is resolved per recording, see below |
-| Math | `computeAmplitudeIntegratedEpoch` / `compressAmplitudeValue` in [src/util/signal.ts](src/util/signal.ts) | Pure functions: band-pass → rectify → envelope (min/max or 5/95 percentile) → semi-log compress |
-| Per-epoch compute | `computeTrendEpoch(name, epochIndex)` on the processor ([src/assets/biosignal/service/TrendProcessor.ts](src/assets/biosignal/service/TrendProcessor.ts), [src/assets/biosignal/service/MontageProcessor.ts](src/assets/biosignal/service/MontageProcessor.ts)) | Reads montage signals, builds derived `(source − reference)` array, dispatches by `derivation.type` |
+| Math | `computeAmplitudeIntegratedEpoch` / `compressAmplitudeValue` in [src/util/signal.ts](src/util/signal.ts) | Amplitude only, as pure functions: band-pass → rectify → envelope (min/max or 5/95 percentile) → semi-log compress. The frequency-domain types are implemented inside the processor, against the cached FFT and filter resources it keeps per trend |
+| Per-epoch compute | `computeTrendEpoch(name, epochIndex)` on [TrendProcessor](src/assets/biosignal/service/TrendProcessor.ts), returning a `BiosignalTrendEpoch \| null` | Reads the input signals, builds the derived `(source − reference)` array in µV, dispatches by `derivation.type` — amplitude through the shared math function, spectrogram / ratio / pdbsi through the processor's own `_compute*` methods |
 | Loop + cancellation | `computeTrend(name, range?)` + the processor's `_cancelledTrends` set | Loops epochs, `postMessage` per epoch (`'trend-epoch'`), supports cooperative cancel |
-| Worker actions | `'setup-trend'`, `'compute-trend'`, `'cancel-trend-computation'` in `TrendWorkerCommission` ([src/types/biosignal.ts](src/types/biosignal.ts)) | All keyed by trend `name` — multiple trends can coexist on one montage |
-| Service | `computeTrend(name, range?)` / `setupTrend(...)` on [src/assets/biosignal/service/TrendService.ts](src/assets/biosignal/service/TrendService.ts) and [src/assets/biosignal/service/MontageService.ts](src/assets/biosignal/service/MontageService.ts) | Tracks per-trend computation in `_trendComputations: Map<string, ...>`; routes `'trend-epoch'` / `'trend-complete'` / `'trend-cancelled'` messages back to the right trend |
+| Worker actions | `'setup-trend'`, `'compute-trend'`, `'cancel-trend-computation'`, `'set-interruptions'`, `'setup-worker'`, `'set-buffer-range'`, `'update-settings'`, `'shutdown'` in `TrendWorkerCommission` ([src/types/biosignal.ts](src/types/biosignal.ts)) | The trend-specific ones are keyed by trend `name`, so multiple trends can coexist on one processor |
+| Service | `BiosignalTrendService` — `computeTrend(name, range?)` / `setupTrend(...)` / `setupWorker(...)` / `setupWithCache(...)`, implemented by [TrendService](src/assets/biosignal/service/TrendService.ts) (worker) and [TrendWorkerSubstitute](src/assets/biosignal/service/TrendWorkerSubstitute.ts) (in-process) | Tracks per-trend computation in `_trendComputations: Map<string, ...>`; routes `'trend-epoch'` / `'trend-complete'` / `'trend-cancelled'` messages back to the right trend |
 | Registry | `GenericBiosignalMontage._trends` + `addTrend` / `getTrend` / `removeTrend` / `removeAllTrends` | Dispatches `property-change:trends` |
 | Settings | `CommonBiosignalSettings.trends.<type>` (math knobs) | Per-modality derivation and display defaults live in the modality module's own settings |
 | Epoch length | `resolveTrendEpochLength(recordingDuration, config)` in [src/util/signal.ts](src/util/signal.ts) | A `trends.<type>.epochLength` above zero is used as given; zero derives one from the recording length through that type's `epochScaling` ladder (`TrendEpochScaling`). Zero is the sentinel because settings are merged, so an absent key and a deliberate default are indistinguishable — a derivation keyed on absence would silently beat a deployment's explicit value |
 
 **Important design choices**:
-- Trend math is generic in core; the per-modality wrapper class only fixes the trend `type` and supplies defaults. To add a new trend type (e.g. brain symmetry index), extend the `BiosignalTrendType` union, add a `compute*` math function in [src/util/signal.ts](src/util/signal.ts), dispatch on the new type inside the processor's `computeTrendEpoch`, and (optionally) create a per-modality wrapper class.
-- The signal layout is implicit: amplitude trends produce interleaved `[min0, max0, min1, max1, …]` per epoch, so a renderer reads `signal.length / 2` epochs. Future trend types should document their layout in the wrapper class.
-- The service abstraction (`BiosignalMontageService.computeTrend`) is what enables a future "compute on the backend" mode — swap the worker implementation, keep the same interface. Today's worker computes everything in JS via Fili.js; nothing else needs to change to offload to a backend service.
+- Trend math is generic in core; the per-modality wrapper class only fixes the trend `type` and supplies defaults.
+- **Registration is conditional, and a subclass that resolves its derivation late owns it.** The `GenericBiosignalTrend` constructor calls `_registerWithService()` only when it was given a service *and* `derivation.sourceChannels` is non-empty. A trend with no service is externally loaded and takes its data through `loadSignal()`; a subclass that resolves its channels after construction must call `_registerWithService()` itself once the derivation is complete, or `setupTrend` never reaches the worker and every later `computeTrend` fails on an unregistered name.
+- The signal layout is implicit and differs per type: amplitude produces interleaved `[min0, max0, min1, max1, …]`, so a renderer reads `signal.length / 2` epochs; spectrogram produces one power value per output bin per epoch (bin count = `maxFreqHz`); ratio and pdbsi produce a single scalar per epoch. A new type documents its layout in the wrapper class.
+- Each epoch arrives as one `BiosignalTrendEpoch` — `{ epochIndex, signal, totalEpochs, quality }` — passed whole to the `onEpochReady` callback and forwarded verbatim as the `'trend-epoch'` payload, so a consumer sees every qualification the processor recorded. `quality.coverage` is the fraction of the epoch's nominal span that was actually cached: below 1 at the caching frontier or at the end of the recording, where the values were computed from less data than the epoch spans.
+- The `BiosignalTrendService` abstraction is what enables a future "compute on the backend" mode — swap the implementation, keep the same interface. Today's computation runs in JS on the in-house DSP layer in [src/util/dsp.ts](src/util/dsp.ts); nothing else needs to change to offload to a backend service.
 - Trend setup and compute are driven by the consuming modality module, not by core. A module typically registers the trend once signal caching is complete (and again when the active montage changes) and gates the expensive compute behind an explicit opt-in, so that a montage switch does not silently re-run a full-recording computation.
 
 ### Adding a new trend type
 
 1. **Type union**: add the new literal to `BiosignalTrendType` in [src/types/biosignal.ts](src/types/biosignal.ts).
-2. **Math**: add `compute<Whatever>Epoch(signal, samplingRate, options)` to [src/util/signal.ts](src/util/signal.ts). Return a `number[]` representing one epoch's output samples — interleave coordinates if your trend has multi-dimensional output (mirroring the amplitude trend's `[min, max]`).
-3. **Dispatch**: extend the processor's `computeTrendEpoch` with a branch for the new `derivation.type`.
+2. **Math**: a pure time-domain function belongs in [src/util/signal.ts](src/util/signal.ts), the way `computeAmplitudeIntegratedEpoch` does. One that needs per-trend state — an FFT plan, a window, a pre-filter, a scratch buffer — belongs in [TrendProcessor](src/assets/biosignal/service/TrendProcessor.ts) beside the existing spectrogram, ratio and pdbsi implementations, which allocate those resources once in `setupTrend` and reuse them across epochs. Either way, return a `number[]` of one epoch's output samples, interleaving coordinates for multi-dimensional output (mirroring the amplitude trend's `[min, max]`).
+3. **Dispatch**: extend the processor's `_computeTrendEpochValues` with a branch for the new `derivation.type`.
 4. **Wrapper class** (optional but recommended): per-modality, in that modality's own package, fixing the type and supplying module-specific defaults (epoch length, output sample rate, derivation).
 5. **Settings**: extend `CommonBiosignalSettings.trends` if the new type needs math knobs, or leave modality-specific defaults to the module's own settings.
 6. **Renderer**: the consuming interface package adds a draw method and dispatches on `trend.derivation.type`.
@@ -307,9 +375,13 @@ protected _actionMap = new Map<
 
 ### 3. The substitute — switch statement ([src/assets/biosignal/service/MontageWorkerSubstitute.ts](src/assets/biosignal/service/MontageWorkerSubstitute.ts))
 
-When `useMemoryManager === false` (no SAB), the service uses `MontageWorkerSubstitute` instead of a real Worker. The substitute is a plain class that the service `.postMessage(...)`s commissions to, and it sends replies back via `.returnMessage(...)`. The dispatch is a hand-written `switch (action) { case 'foo': ... }` over the same action names.
+`MontageService` uses `MontageWorkerSubstitute` in place of a real Worker when it is constructed without a memory manager, or with the reserved override name `'substitute'`. The substitute is a plain class that the service `.postMessage(...)`s commissions to, and it sends replies back via `.returnMessage(...)`. The dispatch is a hand-written `switch (action) { case 'foo': ... }` over the same action names, and it constructs its own `MontageProcessor` on the main thread.
 
-Because the action map and the switch are two separate places, **adding a new action to the union and the worker is not enough — you must also add a case to the substitute switch**. The compiler does not catch the omission; the failure mode is `Action 'X' is not implemented` at runtime, as happened with the initial aEEG landing.
+Because the action map and the switch are two separate places, **adding a new action to the union and the worker is not enough — you must also add a case to the substitute switch**. The compiler does not catch the omission; the failure is a runtime reply, and which message you get says which half is missing. An unhandled action in the substitute falls through the switch's `default` to `ServiceWorkerSubstitute.postMessage`, which answers `Action '<name>' is not implemented.`; an action missing from a real worker's `_actionMap` is answered by `handleMessage` in [src/workers/base.worker.ts](src/workers/base.worker.ts) with `Action '<name>' is not supported by this worker.`
+
+Both halves answer in the same shape: `{ rn, action, success, error }` for a failure and `{ rn, action, success, ...results }` for a success, with the cause always under `error`. The substitute must not spread the inbound commission into its reply — that returns the request's own payload alongside the response, so a consumer reading a field off the reply can be handed the request's value for it. `ServiceWorkerSubstitute.returnSuccess` / `returnFailure` are the only places this shape is built on the substitute side; a substitute that calls `returnMessage` directly is responsible for matching it.
+
+There are three substitutes, and only two of them are switch-dispatched: [ServiceWorkerSubstitute](src/assets/service/ServiceWorkerSubstitute.ts) is the base every substitute extends, and `MontageWorkerSubstitute` extends it. [TrendWorkerSubstitute](src/assets/biosignal/service/TrendWorkerSubstitute.ts) is the exception — it implements `BiosignalTrendService` directly and drives a main-thread `TrendProcessor` through ordinary method calls, with no commission switch to keep in sync. `TrendService` has no substitute branch of its own: its `setupWithCache` logs that `TrendWorkerSubstitute` is the no-SAB path and returns `{ success: false }`, so the *caller* chooses between the two implementations.
 
 Inside a substitute case, replies use `this.returnSuccess(message)` / `this.returnFailure(message)`; out-of-band notifications (e.g. per-epoch `'trend-epoch'` messages from inside the processor) need the processor's `_postMessage` callback to be wired to `this.returnMessage.bind(this)` — see the processor constructor's second parameter.
 
@@ -338,7 +410,7 @@ Subclasses (e.g. a Pyodide-backed montage worker in the `pyodide-service` packag
 
 1. Add the entry to the relevant commission type in [src/types/biosignal.ts](src/types/biosignal.ts).
 2. Add a handler method to the worker and register it in `_actionMap`.
-3. Add a matching `case` to the corresponding worker substitute's `postMessage`. A reader's worker needs no change when the commission is one every reader answers alike — add it to `SignalReaderWorker` instead, and every reader package gains it.
+3. Add a matching `case` to the corresponding worker substitute's `postMessage`. A reader's worker needs no change when the commission is one every reader answers alike — add it to `SignalReaderWorker` instead, and every reader package gains it. A trend commission has no case to add: `TrendWorkerSubstitute` implements the service interface rather than the worker protocol, so give it the matching method instead.
 4. If the processor needs to push out-of-band notifications, route them through `this._postMessage(...)` rather than calling `postMessage` directly so the substitute can intercept them.
 5. Add the dispatching method on the service and wire the response actions in `handleMessage`.
 
@@ -360,7 +432,7 @@ Switching between recordings and switching back produces permanently empty signa
 
 3. **Stale `cache-signals` progress response** — a progress message buffered as a macro task can arrive after `releaseBuffers()` resets `signalCacheStatus = [0,0]`, restoring a non-zero `signalCacheStatus[1]`. `cacheSignals()` guards on `!_signalCacheStatus[1]`, so the stale value silently skips caching.
 
-Root cause 1 is fixed in this package: `releaseSignalArrays()` on [src/assets/reader/GenericSignalReader.ts](src/assets/reader/GenericSignalReader.ts) sets `proc.continue = false` on all processes and clears `_cacheProcesses`, and `releaseCache()` calls it first. Root causes 2 and 3 are obligations on the consuming module — see below.
+Root cause 1 is fixed in this package: `releaseSignalArrays()` on [src/assets/reader/GenericSignalReader.ts](src/assets/reader/GenericSignalReader.ts) sets `proc.continue = false` on all processes and clears `_cacheProcesses`, and `releaseCache()` — defined once on the base [GenericDataProcessor](src/assets/reader/GenericDataProcessor.ts) and not overridden down the reader hierarchy — calls it first. Root causes 2 and 3 are obligations on the consuming module — see below.
 
 ### What a consuming module must do
 
@@ -397,7 +469,7 @@ The cache lifecycle has three levels, with `releaseSignalArrays` as the Level 1 
 - `IOMutex.releaseOutputBufferViews()` — Level 1 op on the util side: null views + buffer ref, keep layout.
 - `BiosignalMutex.initSignalBuffers(..., overwrite=false)` — when `overwrite=true`, skips the `setDataArrays` walk and calls `rebuildDataArrayViews` instead.
 - `BiosignalMutex.releaseSignalArrays()` — Level 1 on the consumer mutex.
-- `GenericDataProcessor.releaseSignalArrays()` / `GenericSignalReader.releaseSignalArrays()` — Level 1 on the reader. The `cacheProcesses.continue = false` + `cacheProcesses.length = 0` cancellation lives here (not inside `releaseCache`); `releaseCache` calls Level 1 first.
+- `GenericDataProcessor.releaseSignalArrays()` / `GenericSignalReader.releaseSignalArrays()` — Level 1 on the reader. The `cacheProcesses.continue = false` + `cacheProcesses.length = 0` cancellation lives in the reader's override, not inside `releaseCache`; `releaseCache` is the base processor's Level 2 and calls Level 1 first.
 - `GenericService.releaseSignalArrays()` + matching `release-signal-arrays` worker commission (format workers, montage worker, montage worker substitute).
 - `BiosignalMontage.releaseSignalArrays()` + `GenericBiosignalResource.releaseSignalArrays()` — Level 1 at the resource API surface.
 
@@ -538,28 +610,28 @@ TypeError: z.debug is not a function
   at insertSignals
 ```
 
-with no obvious source-level cause is almost always a duplicate `scoped-event-log` getting bundled into the worker. The duplicate is `util/asymmetric-io-mutex/node_modules/scoped-event-log/` in the workspace — an older v2 copy that npm installs when `asymmetric-io-mutex` declares `scoped-event-log: ^2.0.1` while the workspace ships v3. With v2 nested under the mutex package, a bundler that walks `node_modules` from the importing file finds the v2 copy first, while the rest of the page uses v3 from the workspace root. Two `Log` shapes coexist, and the v2 one doesn't have `static debug` (it's an instance-style API).
+with no obvious source-level cause is almost always a duplicate `scoped-event-log` getting bundled into the worker. The duplicate is `util/asymmetric-io-mutex/node_modules/scoped-event-log/` in the workspace — a v2 copy npm installs whenever the mutex package's declared range admits one while the workspace ships v3. With v2 nested under the mutex package, a bundler that walks `node_modules` from the importing file finds the v2 copy first, while the rest of the page uses v3 from the workspace root. Two `Log` shapes coexist, and the v2 one doesn't have `static debug` (it's an instance-style API).
 
-The fix is two-part — both halves are needed, because either alone lets the nested copy come back on the next `npm install`:
+Two things keep the nested copy away, and the second is what an `npm install` can undo:
 
-1. Make `util/asymmetric-io-mutex/package.json` declare `scoped-event-log: ^3.0.0` so npm's resolver stops creating the nested v2.
-2. Delete the existing nested copy if present and rebuild:
+1. `util/asymmetric-io-mutex/package.json` declares `scoped-event-log: ^3.2.0`, which is what stops npm's resolver from creating the nested v2. Check this first — a range that admits v2 is the root cause, and deleting the directory only postpones it.
+2. Delete an existing nested copy and rebuild:
    ```bash
    rm -rf util/asymmetric-io-mutex/node_modules/scoped-event-log
    find . -name .vite -type d -exec rm -rf {} +
    cd util/asymmetric-io-mutex && npm run build
    ```
 
-Verify there is exactly one copy (run from the workspace root):
+Verify there is exactly one copy (run from the workspace root). The workspace root's entry is a symlink, so a bare `-type d` silently hides it and the check looks like it found a missing copy rather than a healthy tree:
 
 ```bash
-find . -name scoped-event-log -type d
+find . -name scoped-event-log \( -type d -o -type l \)
 # Should print only:
 #   ./util/scoped-event-log
 #   ./node_modules/scoped-event-log   (symlink to the above)
 ```
 
-If a third path under `util/asymmetric-io-mutex/node_modules/scoped-event-log` reappears, the version bump in step 1 was reverted or `npm install` was run against a lockfile that still references v2.
+If a third path under `util/asymmetric-io-mutex/node_modules/scoped-event-log` appears, the declared range was widened or `npm install` was run against a lockfile that still references v2.
 
 ---
 
