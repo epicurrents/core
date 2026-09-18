@@ -38,11 +38,25 @@ export default class ServiceWorkerSubstitute implements WorkerSubstitute {
         this.returnFailure(message, `Action '${action}' is not implemented.`)
     }
 
-    returnFailure (message: WorkerMessage['data'], reason?: string) {
+    /**
+     * Report a failed commission, in the shape a real worker uses.
+     *
+     * The reply carries only the correlation fields and the outcome. Spreading the inbound message
+     * into it instead echoed the whole request back — a `run` reply returned its `samples`, a
+     * `setup-cache` reply its cache — and a consumer reading a field off the response could be
+     * handed the request's value for it.
+     *
+     * The cause goes in `error`, as `BaseWorker._failure` sends it. Under any other name the
+     * services that read `data.error` — most of them — report an empty cause on this path only.
+     * @param message - Data part of the commission being answered.
+     * @param error - Cause of the failure.
+     */
+    returnFailure (message: WorkerMessage['data'], error?: string) {
         this.returnMessage({
-            ...message,
-            reason,
+            rn: message.rn,
+            action: message.action,
             success: false,
+            error: error || `Commission property validation failed for action '${message.action}'.`,
         })
     }
 
@@ -58,11 +72,18 @@ export default class ServiceWorkerSubstitute implements WorkerSubstitute {
         }
     }
 
+    /**
+     * Report a successful commission, in the shape a real worker uses. See {@link returnFailure}
+     * for why the inbound message is not echoed back.
+     * @param message - Data part of the commission being answered.
+     * @param results - Values to return to the caller, if any.
+     */
     returnSuccess (message: WorkerMessage['data'], results?: Record<string, unknown>) {
         this.returnMessage({
-            ...message,
-            ...results,
+            rn: message.rn,
+            action: message.action,
             success: true,
+            ...results,
         })
     }
 

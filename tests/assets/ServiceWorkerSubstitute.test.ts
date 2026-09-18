@@ -108,18 +108,34 @@ describe('ServiceWorkerSubstitute', () => {
     })
 
     describe('returnFailure', () => {
-        it('should return message with success false and reason', () => {
+        it('should report the cause under the same key a real worker uses', () => {
+            // `BaseWorker._failure` sends it as `error`; sent as anything else, the services that
+            // read `data.error` — most of them — report an empty cause on this path only.
             const sub = new ServiceWorkerSubstitute()
             const handler = vi.fn()
             sub.onmessage = handler
-            sub.returnFailure({ action: 'fail' } as any, 'Something went wrong')
+            sub.returnFailure({ action: 'fail', rn: 7 } as any, 'Something went wrong')
             expect(handler).toHaveBeenCalledWith({
-                data: expect.objectContaining({
+                data: {
                     action: 'fail',
+                    rn: 7,
                     success: false,
-                    reason: 'Something went wrong',
-                }),
+                    error: 'Something went wrong',
+                },
             })
+        })
+
+        it('should not echo the commission back in its reply', () => {
+            // Spreading the inbound message returned the whole request: a `run` reply carried its
+            // `samples`, a `setup-cache` reply its cache. A consumer reading a field off the
+            // response could then be handed the request's value for it.
+            const sub = new ServiceWorkerSubstitute()
+            const handler = vi.fn()
+            sub.onmessage = handler
+            sub.returnFailure({ action: 'run', rn: 8, samples: [1, 2, 3] } as any, 'nope')
+            const reply = handler.mock.calls[0][0].data
+            expect(reply.samples).toBeUndefined()
+            expect(Object.keys(reply).sort()).toEqual(['action', 'error', 'rn', 'success'])
         })
     })
 
