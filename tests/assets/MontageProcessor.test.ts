@@ -196,6 +196,22 @@ describe('MontageProcessor', () => {
         })
     })
 
+    describe('setupCacheWithInput', () => {
+        // The substitute branches on this return value to answer the setup-cache commission, so a
+        // method that reported nothing left the montage service failing every setup and never
+        // becoming ready — on the one path, the JS-heap fallback, where the substitute is used.
+        it('should report success when the cache is set up', () => {
+            const proc = new MontageProcessor(mockSettings)
+            expect(proc.setupCacheWithInput({} as any, 100, 100)).toBe(true)
+        })
+
+        it('should report failure when a cache is already set up', () => {
+            const proc = new MontageProcessor(mockSettings)
+            proc.setupCacheWithInput({} as any, 100, 100)
+            expect(proc.setupCacheWithInput({} as any, 100, 100)).toBe(false)
+        })
+    })
+
     describe('destroy', () => {
         it('should clean up processor', async () => {
             const proc = new MontageProcessor(mockSettings)

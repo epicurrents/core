@@ -167,8 +167,9 @@ export default abstract class GenericDataProcessor implements DataProcessorCache
         return null
     }
 
-    setupCacheWithInput (..._params: unknown[]): void {
+    setupCacheWithInput (..._params: unknown[]): boolean {
         Log.error(`setupCacheWithInput must be overridden in the child class.`, SCOPE)
+        return false
     }
 
     async setupMutex (

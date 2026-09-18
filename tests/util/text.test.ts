@@ -22,7 +22,7 @@ vi.mock('scoped-event-log', () => ({
 }))
 
 const UTF8_INFO: TextEncodingInfo = { label: 'utf-8', constructor: Uint8Array }
-const UTF16_INFO: TextEncodingInfo = { label: 'utf-16', constructor: Uint16Array }
+const UTF16_INFO: TextEncodingInfo = { label: 'utf-16le', constructor: Uint16Array }
 
 describe('detectTextEncoding', () => {
     it('returns utf-8 when no BOM is present', () => {
@@ -33,16 +33,27 @@ describe('detectTextEncoding', () => {
     })
 
     it('detects UTF-16 big-endian BOM', () => {
+        // The endianness has to be in the label. Plain 'utf-16' means little-endian to TextDecoder,
+        // so a big-endian source labelled that way decodes every character byte-swapped.
         const buffer = new Uint8Array([0xFE, 0xFF, 0x00, 0x41]).buffer
         const info = detectTextEncoding(buffer)
-        expect(info.label).toBe('utf-16')
+        expect(info.label).toBe('utf-16be')
         expect(info.constructor).toBe(Uint16Array)
+        expect(new TextDecoder(info.label).decode(new Uint8Array([0x00, 0x41, 0x00, 0x42]))).toBe('AB')
     })
 
     it('detects UTF-16 little-endian BOM', () => {
         const buffer = new Uint8Array([0xFF, 0xFE, 0x41, 0x00]).buffer
         const info = detectTextEncoding(buffer)
-        expect(info.label).toBe('utf-16')
+        expect(info.label).toBe('utf-16le')
+        expect(new TextDecoder(info.label).decode(new Uint8Array([0x41, 0x00, 0x42, 0x00]))).toBe('AB')
+    })
+
+    it('detects UTF-16 little-endian when the first character has a zero low byte', () => {
+        // Only the UTF-32 mark continues with two zero bytes. Rejecting a single zero third byte
+        // classified most of the non-Latin range as UTF-8.
+        const buffer = new Uint8Array([0xFF, 0xFE, 0x00, 0x4E]).buffer
+        expect(detectTextEncoding(buffer).label).toBe('utf-16le')
     })
 
     it('does NOT misclassify UTF-32 LE BOM as UTF-16', () => {
@@ -96,7 +107,10 @@ describe('readTextPart', () => {
     })
 
     it('issues a Range request against a URL source', async () => {
-        const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('hello') })
+        const fetchSpy = vi.fn().mockResolvedValue({
+            ok: true,
+            arrayBuffer: () => Promise.resolve(new TextEncoder().encode('hello').buffer),
+        })
         ;(global as any).fetch = fetchSpy
         const result = await readTextPart('https://example.com/data.csv', 0, 5, UTF8_INFO)
         expect(result).toBe('hello')
@@ -104,8 +118,39 @@ describe('readTextPart', () => {
         expect((init.headers as Headers).get('range')).toBe('bytes=0-4')
     })
 
+    it('decodes a URL source with the detected encoding', async () => {
+        // Response.text() decodes by the response's own charset and defaults to UTF-8, so the
+        // encoding the caller detected was discarded and a UTF-16 source came back as mojibake
+        // over HTTP while decoding correctly from a File.
+        const utf16Bytes = new Uint8Array([0x68, 0x00, 0x65, 0x00, 0x6C, 0x00, 0x6C, 0x00, 0x6F, 0x00])
+        const fetchSpy = vi.fn().mockResolvedValue({
+            ok: true,
+            arrayBuffer: () => Promise.resolve(utf16Bytes.buffer),
+            text: () => Promise.resolve('WRONG'),
+        })
+        ;(global as any).fetch = fetchSpy
+        const result = await readTextPart('https://example.com/data.csv', 0, 10, UTF16_INFO)
+        expect(result).toBe('hello')
+    })
+
+    it('returns null for an encoding the platform cannot decode', async () => {
+        // No TextDecoder can be constructed for UTF-32, and constructing one threw out of a
+        // function documented to return null on failure.
+        const fetchSpy = vi.fn().mockResolvedValue({
+            ok: true,
+            arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+        })
+        ;(global as any).fetch = fetchSpy
+        const utf32: TextEncodingInfo = { label: 'utf-32', constructor: Uint32Array }
+        await expect(readTextPart('https://example.com/data.csv', 0, 8, utf32)).resolves.toBeNull()
+        expect(fetchSpy).not.toHaveBeenCalled()
+    })
+
     it('forwards an auth header on URL reads', async () => {
-        const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('') })
+        const fetchSpy = vi.fn().mockResolvedValue({
+            ok: true,
+            arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+        })
         ;(global as any).fetch = fetchSpy
         await readTextPart('https://x', 0, 4, UTF8_INFO, { authHeader: 'Bearer abc' })
         const [, init] = fetchSpy.mock.calls[0]

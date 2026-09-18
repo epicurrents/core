@@ -118,11 +118,16 @@ export default class GenericBiosignalSetup implements BiosignalSetup {
             if (!config.derivations) {
                 return props
             }
-            // Match against the setup channels.
+            // Match against the setup channels. `matchedSigs` holds record-signal indices, which
+            // cannot index `_channels`: that list is ordered by the setup's own channels, and each
+            // entry carries the record signal it matched in its `index`. Indexing one with the
+            // other coincides only when the config happens to match record signals 0..n in order,
+            // and otherwise returns a different channel's signal under the requested name — or
+            // reads past the end of the list.
             if (tpl.name) {
-                for (const i of matchedSigs) {
-                    if (tpl.name === this._channels[i].name) {
-                        return tpl.weight ? [i, tpl.weight] : i
+                for (const chan of this._channels) {
+                    if (tpl.name === chan.name && matchedSigs.includes(chan.index)) {
+                        return tpl.weight ? [chan.index, tpl.weight] : chan.index
                     }
                 }
                 // Failing that, try matching against the config channels.

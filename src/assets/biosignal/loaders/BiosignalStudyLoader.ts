@@ -30,8 +30,12 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
 
     async useStudy (study: StudyContext, config?: ConfigStudyContext) {
         const nextIdx = await super.useStudy(study)
-        for (let i=0; i<study.files.length; i++) {
-            const studyFile = study.files[i]
+        // Iterated over a snapshot of the list. Each converted video appends a `media` entry
+        // carrying the same URL and removes the original, leaving the length unchanged; walking the
+        // live list therefore arrives at the entry just appended, matches it on that same URL and
+        // converts it again, without end and creating a video element every pass.
+        const originalFiles = [...study.files]
+        for (const studyFile of originalFiles) {
             // Go through additional file types.
             const urlEnd = studyFile.url.split('/').pop()
             const fName = config?.name || urlEnd || ''
@@ -63,7 +67,7 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
                 const startDif = 0
                 const group = 0
                 // Figuring out video duration requires creating a video element and preloading the metadata.
-                const loadVideoMeta = (study: StudyContext) => new Promise<number[]>((resolve, reject) => {
+                const loadVideoMeta = (url: string) => new Promise<number[]>((resolve, reject) => {
                     try {
                         const video = document.createElement('video')
                         video.preload = 'metadata'
@@ -73,14 +77,14 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
                             resolve(meta)
                         }
                         video.onerror = () => {
-                            reject()
+                            reject(new Error(`Could not load video metadata from ${url}.`))
                         }
-                        video.src = study.files[i].url
+                        video.src = url
                     } catch (e) {
-                        reject()
+                        reject(e instanceof Error ? e : new Error(`Could not create a video element for ${url}.`))
                     }
                 })
-                const [ duration ] = await loadVideoMeta(study) || [ 0 ]
+                const [ duration ] = await loadVideoMeta(studyFile.url) || [ 0 ]
                 const meta = study.meta as { videos?: VideoAttachment[] }
                 if (meta.videos === undefined) {
                     meta.videos = []
@@ -91,11 +95,14 @@ export default class BiosignalStudyLoader extends GenericStudyLoader {
                     endTime: startDif + duration,
                     startTime: startDif,
                     syncPoints: [],
-                    url: study.files[i].url
+                    url: studyFile.url
                 } as VideoAttachment)
-                study.files.splice(i, 1)
-                // Prevent skipping over the next file.
-                i--
+                // Remove the entry this was converted from, wherever it now sits: the appends above
+                // leave its index unchanged, but a preceding conversion's removal does not.
+                const fileIdx = study.files.indexOf(studyFile)
+                if (fileIdx > -1) {
+                    study.files.splice(fileIdx, 1)
+                }
             }
         }
         return nextIdx

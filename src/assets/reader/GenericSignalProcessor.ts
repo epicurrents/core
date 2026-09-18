@@ -508,6 +508,7 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         _interruptions = [] as SignalInterruption[]
     ) {
         Log.error(`setupCacheWithInput must be overridden in the child class.`, SCOPE)
+        return false
     }
 
     async setupMutexWithInput (

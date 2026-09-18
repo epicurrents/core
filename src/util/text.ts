@@ -20,7 +20,16 @@ const SCOPE = 'util/text'
 /**
  * The character-byte-size encodings the BOM sniffer recognises.
  */
-export type TextEncodingLabel = 'utf-8' | 'utf-16' | 'utf-32'
+/**
+ * Encoding labels as `TextDecoder` understands them, with one exception: `utf-32` is not a label
+ * the encoding standard registers and no `TextDecoder` can be constructed for it. It is reported so
+ * a caller can tell a UTF-32 source apart from an undecodable one, and the readers in this module
+ * fail cleanly rather than throwing when they meet it.
+ *
+ * Note that `utf-16` on its own means little-endian to `TextDecoder`, so the endianness is always
+ * stated here: labelling a big-endian source `utf-16` decodes every character byte-swapped.
+ */
+export type TextEncodingLabel = 'utf-8' | 'utf-16le' | 'utf-16be' | 'utf-32'
 
 /**
  * Result of {@link detectTextEncoding}: the encoding label suitable for
@@ -42,13 +51,8 @@ export type TextEncodingInfo = {
  */
 export function detectTextEncoding (buffer: ArrayBuffer): TextEncodingInfo {
     const firstBytes = new Uint8Array(buffer.slice(0, 4))
-    if (
-        // UTF-16 big endian and little endian.
-        (firstBytes[0] === 0xFE && firstBytes[1] === 0xFF) ||
-        (firstBytes[0] === 0xFF && firstBytes[1] === 0xFE && firstBytes[2] !== 0x00)
-    ) {
-        return { label: 'utf-16', constructor: Uint16Array }
-    }
+    // UTF-32 is checked first: its little-endian mark starts with the UTF-16 little-endian one, so
+    // the two are told apart only by the pair of zero bytes that follows.
     if (
         // UTF-32 big endian and little endian.
         (firstBytes[0] === 0x00 && firstBytes[1] === 0x00 && firstBytes[2] === 0xFE && firstBytes[3] === 0xFF) ||
@@ -56,7 +60,33 @@ export function detectTextEncoding (buffer: ArrayBuffer): TextEncodingInfo {
     ) {
         return { label: 'utf-32', constructor: Uint32Array }
     }
+    if (firstBytes[0] === 0xFE && firstBytes[1] === 0xFF) {
+        return { label: 'utf-16be', constructor: Uint16Array }
+    }
+    if (firstBytes[0] === 0xFF && firstBytes[1] === 0xFE) {
+        // The UTF-32 little-endian mark was already ruled out above, so a zero third byte here is
+        // simply a character whose low byte is zero. Rejecting those classified every little-endian
+        // file starting with such a character — most of the non-Latin range — as UTF-8.
+        return { label: 'utf-16le', constructor: Uint16Array }
+    }
     return { label: 'utf-8', constructor: Uint8Array }
+}
+
+/**
+ * Construct a `TextDecoder` for a detected encoding, or null when the platform has no decoder for
+ * it. Only `utf-32` lands in the null case: the encoding standard registers no label for it, so
+ * constructing one throws a `RangeError` rather than failing the way the readers here report every
+ * other problem.
+ * @param encoding - Encoding as returned by {@link detectTextEncoding}.
+ * @returns A decoder, or null if the encoding is not decodable by the platform.
+ */
+function textDecoderFor (encoding: TextEncodingInfo): TextDecoder | null {
+    try {
+        return new TextDecoder(encoding.label)
+    } catch (e: unknown) {
+        Log.error(`Text encoding '${encoding.label}' is not supported by this platform.`, SCOPE, e as Error)
+        return null
+    }
 }
 
 /**
@@ -157,7 +187,7 @@ export async function fetchTextFile (
                 // First chunk includes the BOM; sniff it before constructing
                 // the decoder for progress callbacks.
                 encoding = detectTextEncoding(await blob.arrayBuffer())
-                decoder = new TextDecoder(encoding.label)
+                decoder = textDecoderFor(encoding)
             }
             nextPos = Math.min(nextPos + chunkSize, fileSize)
             if (options?.callbackOnProgress && decoder) {
@@ -225,7 +255,10 @@ export async function readTextPart (
         )
         length -= length % charSize
     }
-    const decoder = new TextDecoder(encoding.label)
+    const decoder = textDecoderFor(encoding)
+    if (!decoder) {
+        return null
+    }
     if (typeof source === 'string') {
         const headers = new Headers()
         headers.set('range', `bytes=${start}-${start + length - 1}`)
@@ -237,7 +270,10 @@ export async function readTextPart (
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`)
             }
-            return await response.text()
+            // Decoded with the detected encoding rather than through `Response.text()`, which
+            // applies the response's own charset and defaults to UTF-8 — so the same bytes that
+            // decode correctly from a File came back as mojibake when read over HTTP.
+            return decoder.decode(await response.arrayBuffer())
         } catch (e) {
             Log.error(`Error reading text part from URL '${source}':`, SCOPE, e as Error)
             return null

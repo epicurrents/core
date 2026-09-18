@@ -159,10 +159,11 @@ export interface DataProcessorCache {
     /**
      * Set up a simple data cache as the data source for this montage.
      * @param params - Implementation specific parameters for setting up the cache.
+     * @returns True if the cache was set up, false if it could not be.
      * @remarks
      * This method must have an appropriate implementation in the child class.
      */
-    setupCacheWithInput (...params: unknown[]): void
+    setupCacheWithInput (...params: unknown[]): boolean
     /**
      * Initialize a new shared array mutex using the given `buffer`.
      *
@@ -608,13 +609,14 @@ export interface SignalProcessorCache extends Modify<DataProcessorCache, {
      * @param dataDuration - Duration of actual signal data in seconds.
      * @param recordingDuration - Total duration of the recording (including gaps) in seconds.
      * @param interruptions - Possible interruptions in the recording.
+     * @returns True if the cache was set up, false if it could not be.
      */
     setupCacheWithInput (
         cache: SignalDataCache,
         dataDuration: number,
         recordingDuration: number,
         interruptions?: SignalInterruption[],
-    ): void
+    ): boolean
     /**
      * Set up an input mutex as the source for signal data loading. This will create a new mutex for storing processed
      * signal data and can only be done once.

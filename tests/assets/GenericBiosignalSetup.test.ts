@@ -143,6 +143,55 @@ describe('GenericBiosignalSetup', () => {
             expect(setup.derivations[0]).toHaveProperty('reference')
         })
 
+        it('should resolve derivation channels to the right record signal when the orders differ', () => {
+            // The setup-channel list is ordered by the config, the record signals by the file. When
+            // the two disagree, looking a name up in the setup list with a record-signal index
+            // returns a different channel, and the derivation is then computed from the wrong
+            // signals — under the requested label, with no error anywhere. Here Fp1 is record
+            // signal 1 and Fp2 is record signal 0, so a correct lookup must invert the order.
+            const signals = [makeChannel('Fp2'), makeChannel('Fp1')]
+            const config = {
+                channels: [
+                    { name: 'Fp1', label: 'Fp1' },
+                    { name: 'Fp2', label: 'Fp2' },
+                ],
+                derivations: [
+                    {
+                        name: 'Fp1-Fp2',
+                        label: 'Fp1-Fp2',
+                        active: { name: 'Fp1' },
+                        reference: [{ name: 'Fp2' }],
+                    },
+                ],
+            } as any
+            const setup = new GenericBiosignalSetup('Test', signals, config)
+            expect(setup.derivations[0].active).toBe(1)
+            expect(setup.derivations[0].reference).toEqual([0])
+        })
+
+        it('should not read past the setup channels when a record signal is not in the config', () => {
+            // A config naming fewer channels than the file holds leaves record-signal indices
+            // beyond the end of the setup list, so indexing one with the other throws.
+            const signals = [makeChannel('ECG'), makeChannel('Fp1'), makeChannel('Fp2')]
+            const config = {
+                channels: [
+                    { name: 'Fp1', label: 'Fp1' },
+                    { name: 'Fp2', label: 'Fp2' },
+                ],
+                derivations: [
+                    {
+                        name: 'Fp1-Fp2',
+                        label: 'Fp1-Fp2',
+                        active: { name: 'Fp1' },
+                        reference: [{ name: 'Fp2' }],
+                    },
+                ],
+            } as any
+            const setup = new GenericBiosignalSetup('Test', signals, config)
+            expect(setup.derivations[0].active).toBe(1)
+            expect(setup.derivations[0].reference).toEqual([2])
+        })
+
         it('should default derivation operation to linear when omitted', () => {
             const signals = [makeChannel('Fp1'), makeChannel('Fp2')]
             const config = {

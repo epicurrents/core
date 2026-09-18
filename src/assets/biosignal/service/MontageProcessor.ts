@@ -695,7 +695,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
     ) {
         if (this._cache) {
             Log.error(`Montage cache is already set up.`, SCOPE)
-            return
+            return false
         }
         Log.debug(`Setting up basic cache.`, SCOPE)
         this._totalDataLength = dataDuration
@@ -712,6 +712,7 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
         }
         this._fallbackCache = new BiosignalCache(dataDuration, cache)
         Log.debug(`Basic cache setup complete.`, SCOPE)
+        return true
     }
 
     /**
