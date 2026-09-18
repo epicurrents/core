@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { inlineWorker, toPlainData } from '../../src/util/worker'
+import { inlineWorker, toPlainData, validateCommissionProps } from '../../src/util/worker'
 
 /**
  * Minimal stand-in for a host framework's reactive wrapper: a `Proxy` whose `toString` tag still
@@ -140,5 +140,68 @@ describe('inlineWorker', () => {
         const module = inlineWorker('Stub', source, 'module').create() as unknown as StubWorker
         expect(classic.options).toEqual({ type: 'classic' })
         expect(module.options).toEqual({ type: 'module' })
+    })
+})
+
+describe('validateCommissionProps', () => {
+    /** Collects the responses the validator posts in place of the worker's `postMessage`. */
+    const collector = () => {
+        const sent: Record<string, unknown>[] = []
+        return { sent, send: (message: unknown) => { sent.push(message as Record<string, unknown>) } }
+    }
+
+    it('accepts a commission carrying every required property', () => {
+        const { send } = collector()
+        const data = { action: 'get-signals', rn: 1, range: [0, 10], name: 'x' }
+        expect(validateCommissionProps(data, { range: ['Number', 'Number'], name: 'String' }, true, send))
+            .toBe(data)
+    })
+
+    it('reports a short tuple instead of throwing out of the message handler', () => {
+        // The failure message read `.length` off the very item it had just found to be absent, so
+        // the validator threw. A throw posts no response at all, which leaves the service's
+        // commission promise pending for the rest of the session — the opposite of what this
+        // validation exists to do.
+        const { sent, send } = collector()
+        expect(validateCommissionProps({ action: 'get-signals', rn: 2, range: [0] }, {
+            range: ['Number', 'Number'],
+        }, true, send)).toBe(false)
+        expect(sent).toHaveLength(1)
+        expect(sent[0].success).toBe(false)
+        expect(sent[0].rn).toBe(2)
+        expect(String(sent[0].error)).toContain('expected 2, received 1')
+    })
+
+    it('accepts an absent optional tuple item without dereferencing it', () => {
+        const { send } = collector()
+        const data = { action: 'get-signals', rn: 3, range: [0] }
+        expect(validateCommissionProps(data, { range: ['Number', 'Number?'] }, true, send)).toBe(data)
+    })
+
+    it('does not strip the optional marker from the caller’s spec', () => {
+        // The spec is typically a constant declared at module level in the worker, so writing the
+        // stripped type back made every property optional from the second commission onwards.
+        const spec = { range: ['Number', 'Number?'], name: 'String?' } as Record<string, string | string[]>
+        const { send } = collector()
+        validateCommissionProps({ action: 'a', rn: 4, range: [0, 1], name: 'n' }, spec, true, send)
+        expect(spec.range).toEqual(['Number', 'Number?'])
+        expect(spec.name).toBe('String?')
+        // A later commission missing the optional property must still be accepted.
+        const second = { action: 'a', rn: 5, range: [0] }
+        expect(validateCommissionProps(second, spec, true, send)).toBe(second)
+    })
+
+    it('rejects a wrong item type with the expected type named', () => {
+        const { sent, send } = collector()
+        expect(validateCommissionProps({ action: 'a', rn: 6, range: [0, 'x'] }, {
+            range: ['Number', 'Number'],
+        }, true, send)).toBe(false)
+        expect(String(sent[0].error)).toContain('expected Number, received String')
+    })
+
+    it('rejects a commission sent before setup is complete', () => {
+        const { sent, send } = collector()
+        expect(validateCommissionProps({ action: 'a', rn: 7 }, {}, false, send)).toBe(false)
+        expect(String(sent[0].error)).toContain('before required setup was complete')
     })
 })

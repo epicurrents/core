@@ -139,6 +139,44 @@ describe('CircuitBreaker', () => {
         expect(b.canRequest()).toBe(true)          // 2000 ms elapsed → half-open
     })
 
+    it('closes when the probe reaches the origin and gets a non-tripping failure', () => {
+        // A 404 or other 4xx proves the origin answered, so the probe passed. Returning without
+        // releasing the slot left the breaker half-open with its one probe permanently reserved,
+        // and only the half-open branch of canRequest hands that slot back — so every later
+        // request to a healthy origin was refused for the life of the breaker.
+        const b = make()
+        b.onFailure('unavailable')
+        b.onFailure('unavailable')
+        time += 1_000
+        expect(b.canRequest()).toBe(true)          // reserves the probe
+        b.onFailure(null)                          // probe got a 404
+        expect(b.state).toBe('closed')
+        expect(b.canRequest()).toBe(true)
+        // Still usable much later, rather than wedged.
+        time += 1_000_000
+        expect(b.canRequest()).toBe(true)
+    })
+
+    it('releases an abandoned probe without deciding the origin is healthy', () => {
+        const b = make()
+        b.onFailure('unavailable')
+        b.onFailure('unavailable')
+        time += 1_000
+        expect(b.canRequest()).toBe(true)          // reserves the probe
+        b.releaseProbe()                           // caller aborted before any answer
+        // State is unchanged — an abandoned request is no evidence either way — but the slot is
+        // free, so the next caller may probe.
+        expect(b.state).toBe('half-open')
+        expect(b.canRequest()).toBe(true)
+    })
+
+    it('leaves a closed breaker alone when a probe slot is released', () => {
+        const b = make()
+        b.releaseProbe()
+        expect(b.state).toBe('closed')
+        expect(b.canRequest()).toBe(true)
+    })
+
     it('fires onTransition only on actual state changes', () => {
         const spy = vi.fn()
         const b = make(spy)

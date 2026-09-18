@@ -6,8 +6,11 @@
  */
 
 import { type BufferRangeMove } from 'asymmetric-io-mutex'
+import { Log } from 'scoped-event-log'
 import { type WorkerMessage } from '#types/service'
 import { validateCommissionProps } from '#util'
+
+const SCOPE = 'BaseWorker'
 
 export abstract class BaseWorker {
     /** 
@@ -104,7 +107,17 @@ export abstract class BaseWorker {
         if (!handler) {
             return this._failure(message.data, `Action '${action}' is not supported by this worker.`)
         }
-        return handler(message.data)
+        try {
+            return await handler(message.data)
+        } catch (e: unknown) {
+            // Every commission must be answered. A handler that throws posts nothing, so the
+            // service's promise for it stays pending for the life of the session — and any waiters
+            // registered against the same action are never notified either, which wedges the
+            // service rather than failing it. Report the failure instead.
+            const reason = e instanceof Error ? e.message : String(e)
+            Log.error(`Action '${action}' threw in the worker: ${reason}`, SCOPE, e as Error)
+            return this._failure(message.data, `Action '${action}' failed in the worker: ${reason}`)
+        }
     }
     /**
      * Extend the action map with provided actions and associated handlers.

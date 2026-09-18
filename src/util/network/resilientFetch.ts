@@ -87,6 +87,23 @@ function anySignal (signals: (AbortSignal | undefined)[]): AbortSignal | undefin
     return controller.signal
 }
 
+/**
+ * Wait out a retry backoff, converting a caller abort into the typed error this module promises and
+ * releasing any half-open probe slot the abandoned attempt was holding. `abortableDelay` rejects
+ * with a bare `DOMException`, which would otherwise escape a function documented to throw only
+ * {@link NetworkError} and leave the breaker none the wiser.
+ */
+async function awaitBackoff (
+    ms: number, origin: string, signal?: AbortSignal, breaker?: CircuitBreaker
+): Promise<void> {
+    try {
+        await abortableDelay(ms, signal)
+    } catch (error) {
+        breaker?.releaseProbe()
+        throw new NetworkError('aborted', `Request to ${origin} aborted by caller.`, { origin, cause: error })
+    }
+}
+
 /** Sleep for `ms`, rejecting early if `signal` fires. */
 function abortableDelay (ms: number, signal?: AbortSignal): Promise<void> {
     if (ms <= 0) {
@@ -160,13 +177,17 @@ export async function resilientFetch (
                 clearTimeout(timer)
             }
             if (callerSignal?.aborted) {
+                // An abandoned request says nothing about the origin, but if this was the half-open
+                // probe it is holding the one slot the breaker hands out; release it so the next
+                // caller can probe rather than meeting a circuit that never reopens.
+                breaker?.releaseProbe()
                 throw new NetworkError('aborted', `Request to ${origin} aborted by caller.`, { origin, cause: error })
             }
             // Our deadline, or a network/CORS failure — both retryable, both a candidate breaker trip.
             lastKind = timeoutController?.signal.aborted ? 'timeout' : 'transient'
             breaker?.onFailure('unavailable')
             if (attempt < maxAttempts) {
-                await abortableDelay(backoffMs(attempt, backoff), callerSignal)
+                await awaitBackoff(backoffMs(attempt, backoff), origin, callerSignal, breaker)
                 continue
             }
             throw new NetworkError(lastKind, `Request to ${origin} failed (${lastKind}).`, { origin, cause: error })
@@ -183,7 +204,7 @@ export async function resilientFetch (
         breaker?.onFailure(outcome.breakerTrip)
         lastKind = outcome.kind as FetchFailureKind
         if (outcome.retryable && attempt < maxAttempts) {
-            await abortableDelay(backoffMs(attempt, backoff), callerSignal)
+            await awaitBackoff(backoffMs(attempt, backoff), origin, callerSignal, breaker)
             continue
         }
         throw new NetworkError(lastKind, `Request to ${origin} failed (${outcome.status}).`, {

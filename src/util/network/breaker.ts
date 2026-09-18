@@ -101,6 +101,18 @@ export class CircuitBreaker {
         return false
     }
 
+    /**
+     * Release the half-open probe slot without recording a verdict, for a request that was
+     * abandoned before the origin answered — a caller abort, typically. The origin is neither
+     * proven healthy nor proven unhealthy, so the state and cooldown are left as they were and the
+     * next caller gets to probe. Without this the abandoned probe holds the slot permanently.
+     */
+    releaseProbe () {
+        if (this._state === 'half-open') {
+            this._probing = false
+        }
+    }
+
     /** Record a successful request: close the breaker and reset the cooldown. */
     onSuccess () {
         this._consecutive = 0
@@ -121,6 +133,14 @@ export class CircuitBreaker {
             return
         }
         if (trip !== 'unavailable') {
+            if (this._state === 'half-open') {
+                // The probe reached the origin and got an answer; it simply was not the answer the
+                // caller wanted. For a reachability probe that is a pass, so the circuit closes.
+                // Returning here instead would leave the probe slot taken, and only the half-open
+                // branch of `canRequest` ever hands it back — so every later request to a
+                // demonstrably healthy origin would be refused for the life of the breaker.
+                this.onSuccess()
+            }
             return
         }
         if (this._state === 'half-open') {

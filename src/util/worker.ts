@@ -259,40 +259,48 @@ export const validateCommissionProps = <T extends WorkerMessage['data']>(
             }
             return validationFailure(`Received commission '${data.action}' without the required '${prop[0]}' property.`)
         }
-        // Check if property can optionally be undefined and remove that.
-        if (!Array.isArray(prop[1]) && prop[1].endsWith('?')) {
-            prop[1] = prop[1].slice(0, -1)
-        }
+        // The optional marker is read, never written back: `requiredProps` is typically a constant
+        // declared at module level in the worker, so stripping the marker in place would leave every
+        // property optional from the second commission onwards.
+        const expectedType = Array.isArray(prop[1])
+                             ? prop[1]
+                             : prop[1].endsWith('?') ? prop[1].slice(0, -1) : prop[1]
         const dataProp = data[prop[0]] as object // May not be object, but we only use the constructor property.
-        if (Array.isArray(prop[1])) {
+        if (Array.isArray(expectedType)) {
             if (!Array.isArray(dataProp)) {
                 return validationFailure(`Property '${prop[0]}' for commission '${data.action}' is not an array.`)
             }
-            for (let i=0; i<prop[1].length; i++) {
+            for (let i=0; i<expectedType.length; i++) {
                 const dataItem = dataProp[i]
-                if ((dataItem === undefined || dataItem === null) && !prop[1][i].endsWith('?')) {
+                const itemOptional = expectedType[i].endsWith('?')
+                const itemType = itemOptional ? expectedType[i].slice(0, -1) : expectedType[i]
+                if (dataItem === undefined || dataItem === null) {
+                    if (itemOptional) {
+                        // Absent but permitted, so there is no type to check against.
+                        continue
+                    }
+                    // The count is the array's, not the missing item's: reading a property off the
+                    // value just found to be absent throws out of the worker's message handler,
+                    // which posts no reply at all and leaves the caller's commission unsettled —
+                    // the exact outcome this validation exists to produce cleanly.
                     return validationFailure(
                         `Property '${prop[0]}' for commission '${data.action}' ` +
                         `does not have the correct number of items: ` +
-                        `expected ${prop[1].length}, received ${dataItem.length}.`
+                        `expected ${expectedType.length}, received ${dataProp.length}.`
                     )
                 }
-                if (prop[1][i].endsWith('?')) {
-                    // Remove the question mark for matching the actual type.
-                    prop[1][i] = prop[1][i].slice(0, -1)
-                }
-                if (dataItem.constructor.name !== prop[1][i]) {
+                if (dataItem.constructor.name !== itemType) {
                     return validationFailure(
                         `Property '${prop[0]}' for commission '${data.action}' item type at index ${i} is wrong: ` +
-                        `expected ${prop[1][i]}, received ${dataItem.constructor.name}.`
+                        `expected ${itemType}, received ${dataItem.constructor.name}.`
                     )
                 }
             }
         } else {
-            if (dataProp.constructor.name !== prop[1]) {
+            if (dataProp.constructor.name !== expectedType) {
                 return validationFailure(
                     `Property '${prop[0]}' for commission '${data.action}' has a wrong type: ` +
-                    `expected ${prop[1]}, received ${dataProp.constructor.name}.`
+                    `expected ${expectedType}, received ${dataProp.constructor.name}.`
                 )
             }
         }
