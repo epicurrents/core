@@ -239,7 +239,12 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             // Calculate signal indices (relative to the retrieved data part) for interruptions.
             const intrIndices = [] as number[][]
             for (const intr of interruptions) {
-                const intrStart = Math.round(intr.start*chan.samplingRate) - filterStart
+                // `intr.start` is absolute cache time, but `filterStart` is an index into the
+                // window, derived from `relStart = cacheStart - inputRangeStart`. The interruption
+                // has to be moved into the same window-relative space before the two are combined,
+                // or every gap is displaced by the window offset once the rolling cache has slid
+                // away from the start of the recording.
+                const intrStart = Math.round((intr.start - inputRangeStart)*chan.samplingRate) - filterStart
                 const intrLen = Math.round(intr.duration*chan.samplingRate)
                 if (intrStart >= filterRange) {
                     break
@@ -254,11 +259,13 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                     // padding range.
                     if (startPos >= 0 && startPos < filterLen) {
                         dataStart += Math.min(endPos, filterLen) - startPos
-                    } else if (intr.start < start) {
+                    } else if (this._cacheTimeToRecordingTime(intr.start) < start) {
                         // If an interruption crosses or is adjacent to the requested range start, we cannot determine
                         // its position by cache coordinates; we need to compare the actual interruption and range
-                        // start times.
-                        const relStart = Math.max(intr.start - start, -padding)
+                        // start times. Both sides are in recording time here: `start` is a recording-time bound,
+                        // while `intr.start` comes from the cache and has to be converted to match it.
+                        const intrStartRecTime = this._cacheTimeToRecordingTime(intr.start)
+                        const relStart = Math.max(intrStartRecTime - start, -padding)
                         const maxDur = Math.min(intr.duration, padding)
                         if (relStart <= 0 && maxDur >= -relStart) {
                             dataStart += Math.round(-relStart*chan.samplingRate)
@@ -337,20 +344,30 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
             if (!config?.skipFilters && shouldFilterSignal(chan, this._filters, this._settings)) {
                 // Add possible interruptions.
                 // @ts-ignore Prepare for TypeScript 5.7+.
-                let interrupted = data as Float32Array<ArrayBufferLike>
-                let lastGapEnd = 0
+                const continuous = data as Float32Array<ArrayBufferLike>
+                // Zero-filled gaps are spliced into the gap-free signal so the filter sees the
+                // interruptions the recording actually has, and so the indices in `intrIndices`
+                // address the same samples on the way back out below.
+                //
+                // Each part is taken from the source exactly once. Accumulating the parts across
+                // iterations and re-concatenating the whole list per interruption duplicates every
+                // earlier part, and slicing the growing array at indices derived from the original
+                // one reads from the wrong offset once the first gap has shifted everything after it.
                 const sigParts = [] as Float32Array[]
+                let readPos = 0
+                let writePos = 0
                 for (const intr of intrIndices) {
-                    if (lastGapEnd < intr[0]) {
-                        sigParts.push(interrupted.slice(lastGapEnd, intr[0]))
+                    const leadLength = intr[0] - writePos
+                    if (leadLength > 0) {
+                        sigParts.push(continuous.slice(readPos, readPos + leadLength))
+                        readPos += leadLength
+                        writePos += leadLength
                     }
-                    const intrSig = new Float32Array(intr[1] - intr[0])
-                    intrSig.fill(0.0)
-                    sigParts.push(intrSig)
-                    sigParts.push(interrupted.slice(intr[0]))
-                    interrupted = concatTypedNumberArrays(...sigParts)
-                    lastGapEnd = intr[1]
+                    sigParts.push(new Float32Array(intr[1] - intr[0]))
+                    writePos = intr[1]
                 }
+                sigParts.push(continuous.slice(readPos))
+                const interrupted = concatTypedNumberArrays(...sigParts)
                 sigProps.data = filterSignal(
                     interrupted,
                     chan.samplingRate,
