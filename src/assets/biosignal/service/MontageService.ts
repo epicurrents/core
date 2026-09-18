@@ -371,7 +371,11 @@ export default class MontageService extends GenericService implements BiosignalM
             new Map<string, unknown>([
                 ['montage', this._montage.name],
                 ['config', this._montage.config],
-                ['input', inputPort],
+                // `port`, as `MontageWorkerCommission['setup-input-cache']` declares and the
+                // worker's validation requires. Sent under any other name the property is simply
+                // absent, validation refuses the commission, and the shared-worker cache path
+                // fails every time it is used.
+                ['port', inputPort],
                 ['dataDuration', this._montage.recording.dataDuration],
                 ['recordingDuration', this._montage.recording.totalDuration],
                 ['setupChannels', this._montage.setup.channels],
