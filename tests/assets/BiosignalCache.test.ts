@@ -163,19 +163,30 @@ describe('BiosignalCache', () => {
     })
 
     describe('releaseBuffers', () => {
-        it('should reset cache state', () => {
+        it('should clear the cached signals', () => {
             const cache = new BiosignalCache(100)
             cache.releaseBuffers()
-            expect(cache.outputRangeEnd).toBe(0)
             expect(cache.asCachePart().signals).toEqual([])
+            expect(cache.asCachePart().start).toBe(0)
+            expect(cache.asCachePart().end).toBe(0)
+        })
+
+        it('should preserve the configured output range', () => {
+            // `outputRangeEnd` is the cache's configured extent, which nothing restores once
+            // cleared. The sibling implementation of this interface, BiosignalMutex, likewise
+            // leaves its range alone and clears only the per-channel validity markers.
+            const cache = new BiosignalCache(100)
+            cache.releaseBuffers()
+            expect(cache.outputRangeEnd).toBe(100)
         })
     })
 
     describe('invalidateOutputSignals', () => {
-        it('should release buffers', () => {
+        it('should release buffers without collapsing the output range', () => {
             const cache = new BiosignalCache(100)
             cache.invalidateOutputSignals()
-            expect(cache.outputRangeEnd).toBe(0)
+            expect(cache.asCachePart().signals).toEqual([])
+            expect(cache.outputRangeEnd).toBe(100)
         })
     })
 

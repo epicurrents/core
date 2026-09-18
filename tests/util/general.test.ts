@@ -68,6 +68,20 @@ describe('General utilities', () => {
         it('should return true for equal arrays', () => {
             expect(deepEqual([1, 2, 3] as any, [1, 2, 3] as any)).toBe(true)
         })
+        it('should compare array elements by position, not by membership', () => {
+            // Asking whether the other array merely contains the element makes any permutation
+            // compare as equal, which matters wherever order carries meaning — channel lists,
+            // montage derivations, settings colour components.
+            expect(deepEqual([1, 2] as any, [2, 1] as any)).toBe(false)
+            expect(deepEqual([1, 2, 3] as any, [3, 2, 1] as any)).toBe(false)
+            expect(deepEqual([0, 1, 0] as any, [0, 0, 1] as any)).toBe(false)
+        })
+        it('should compare arrays of objects by value', () => {
+            // `includes` is reference identity, so equal-by-value objects compared as unequal.
+            expect(deepEqual([{ a: 1 }] as any, [{ a: 1 }] as any)).toBe(true)
+            expect(deepEqual([{ a: 1 }, { b: 2 }] as any, [{ a: 1 }, { b: 2 }] as any)).toBe(true)
+            expect(deepEqual([{ a: 1 }] as any, [{ a: 2 }] as any)).toBe(false)
+        })
         it('should return true for equal nested objects', () => {
             expect(deepEqual(
                 { a: { b: { c: 1 } } },

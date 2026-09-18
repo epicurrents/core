@@ -222,8 +222,11 @@ function zpk2sos (zpk: ZPK): Biquad[] {
         polePairs.push([[realPoles[i], 0], [realPoles[realPoles.length - 1 - i], 0]])
     }
     if (realPoles.length % 2 === 1) {
+        // An unpaired real pole becomes a first-order section, padded with a pole at the origin so
+        // the pair machinery below yields `a2 = 0`. Duplicating the pole instead would square the
+        // section and raise the filter's order.
         const m = Math.floor(realPoles.length / 2)
-        polePairs.push([[realPoles[m], 0], [realPoles[m], 0]])
+        polePairs.push([[realPoles[m], 0], [0, 0]])
     }
     // Sort sections: farthest from unit circle first, closest last.
     polePairs.sort((a, b) => Math.abs(cabs(b[0]) - 1) - Math.abs(cabs(a[0]) - 1))
@@ -248,8 +251,11 @@ function zpk2sos (zpk: ZPK): Biquad[] {
         zeroPairs.push([[realZeros[i], 0], [realZeros[realZeros.length - 1 - i], 0]])
     }
     if (realZeros.length % 2 === 1) {
+        // Padded with a zero at the origin, for the reason given above. A Butterworth design always
+        // has as many zeros as poles, so this z⁻¹ cancels against the denominator's and the section
+        // introduces no delay of its own.
         const m = Math.floor(realZeros.length / 2)
-        zeroPairs.push([[realZeros[m], 0], [realZeros[m], 0]])
+        zeroPairs.push([[realZeros[m], 0], [0, 0]])
     }
 
     // ── Match each pole pair with the nearest zero pair ───────────────────────

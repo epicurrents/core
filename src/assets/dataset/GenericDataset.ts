@@ -292,13 +292,15 @@ export default abstract class GenericDataset extends GenericResource implements 
     }
 
     removeResource (resource: DataResource | string | number) {
+        // The index must be sought in `_resources` itself. Mapping over the filtered list yields the
+        // position within that list, which is zero for any match, so every removal took out the
+        // first resource in the dataset rather than the one asked for.
+        const targetId = typeof resource === 'string' ? resource : typeof resource === 'number' ? '' : resource.id
         const resourceIdx = typeof resource === 'number'
                             ? resource
-                            : typeof resource === 'string'
-                              ? this._resources.filter(r => r.resource.id === resource).map((_r, idx) => idx)[0]
-                              : this._resources.filter(r => r.resource.id === resource.id).map((_r, idx) => idx)[0]
-        if (resourceIdx === undefined) {
-            Log.error(`Could not remove given resource from dataset: ther resource was not found.`, SCOPE)
+                            : this._resources.findIndex(r => r.resource.id === targetId)
+        if (resourceIdx < 0 || resourceIdx >= this._resources.length) {
+            Log.error(`Could not remove given resource from dataset: the resource was not found.`, SCOPE)
             return null
         }
         this.dispatchPayloadEvent('remove-resource', this._resources[resourceIdx], 'before')

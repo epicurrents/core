@@ -131,8 +131,18 @@ describe('Unit conversion utilities', () => {
         it('should format hours, minutes, and seconds', () => {
             expect(secondsToTimeString(3725)).toBe('1 h 2 min')
         })
+        it('should format days and hours', () => {
+            expect(secondsToTimeString(90000)).toBe('1 d 1 h')
+            expect(secondsToTimeString(266707)).toBe('3 d 2 h')
+        })
+        it('should omit a unit that is zero rather than emitting a stray separator', () => {
+            expect(secondsToTimeString(86400)).toBe('1 d')
+            expect(secondsToTimeString(3600)).toBe('1 h')
+            expect(secondsToTimeString(60)).toBe('1 min')
+        })
         it('should return components when requested', () => {
             expect(secondsToTimeString(3725, true)).toEqual([0, 1, 2, 5])
+            expect(secondsToTimeString(266707, true)).toEqual([3, 2, 5, 7])
         })
     })
 

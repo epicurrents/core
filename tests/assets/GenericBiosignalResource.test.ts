@@ -699,4 +699,43 @@ describe('GenericBiosignalResource', () => {
             expect(resource.state).toBe('destroyed')
         })
     })
+
+    describe('getAbsoluteTimeAt', () => {
+        // The day number was assembled from getDay() — the day of the week — plus fixed 30-day
+        // months and 365-day years, so it counted backwards across a Sunday and misplaced every
+        // month and year boundary.
+        const resourceStartingAt = (start: Date) => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            resource.startTime = start
+            return resource
+        }
+
+        it('should count days from the recording start', () => {
+            // A Saturday, so the following day is a Sunday and getDay() wraps 6 → 0.
+            const resource = resourceStartingAt(new Date(2026, 0, 3, 22, 0, 0))
+            expect(resource.getAbsoluteTimeAt(0).day).toBe(1)
+            expect(resource.getAbsoluteTimeAt(2 * 3600).day).toBe(2)
+            expect(resource.getAbsoluteTimeAt(26 * 3600).day).toBe(3)
+        })
+
+        it('should count days across a month boundary', () => {
+            const resource = resourceStartingAt(new Date(2026, 0, 31, 23, 0, 0))
+            expect(resource.getAbsoluteTimeAt(0).day).toBe(1)
+            expect(resource.getAbsoluteTimeAt(2 * 3600).day).toBe(2)
+        })
+
+        it('should count days across a year boundary', () => {
+            const resource = resourceStartingAt(new Date(2026, 11, 31, 23, 0, 0))
+            expect(resource.getAbsoluteTimeAt(0).day).toBe(1)
+            expect(resource.getAbsoluteTimeAt(2 * 3600).day).toBe(2)
+        })
+
+        it('should report the wall-clock time at the requested position', () => {
+            const resource = resourceStartingAt(new Date(2026, 0, 3, 22, 30, 15))
+            const at = resource.getAbsoluteTimeAt(3600)
+            expect(at.hour).toBe(23)
+            expect(at.minute).toBe(30)
+            expect(at.second).toBe(15)
+        })
+    })
 })

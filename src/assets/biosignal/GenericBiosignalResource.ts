@@ -893,18 +893,21 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             }
         }
         // Calculate the absolute date and time at given time position.
-        const startDay = this.startTime.getFullYear()*365
-                         + this.startTime.getMonth()*30
-                         + this.startTime.getDay()
         const posDate = new Date(
                             this.startTime.getTime()
                             + time*1000
                         )
-        const posDay = posDate.getFullYear()*365
-                       + posDate.getMonth()*30
-                       + posDate.getDay()
+        // The day number is the difference between the two calendar dates. Deriving it from
+        // component arithmetic instead requires getDate() — the day of the month — where getDay()
+        // returns the day of the week, so any recording crossing a Sunday counts backwards; and
+        // fixed 30-day months and 365-day years misplace every boundary they do not divide evenly.
+        // Rounding absorbs the 23- and 25-hour days that daylight saving transitions produce.
+        const startMidnight = new Date(
+            this.startTime.getFullYear(), this.startTime.getMonth(), this.startTime.getDate()
+        )
+        const posMidnight = new Date(posDate.getFullYear(), posDate.getMonth(), posDate.getDate())
         // Add 1 to day to start from day 1.
-        const day = posDay - startDay + 1
+        const day = Math.round((posMidnight.getTime() - startMidnight.getTime())/86400000) + 1
         const hour = posDate.getHours()
         const minute = posDate.getMinutes()
         const second = posDate.getSeconds()

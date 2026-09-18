@@ -213,7 +213,10 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
                 // Don't add empty events.
                 continue
             }
-            const eventRec = Math.round(event.start/this._dataUnitSize)
+            // Keyed by the data unit the event falls in. The divisor must be the unit's duration in
+            // seconds, not its size in bytes: dividing a time by a byte count collapses the events
+            // of an entire recording into one bucket.
+            const eventRec = Math.floor(event.start/this._dataUnitDuration)
             const recordEvents = eventMap.get(eventRec)
             if (!recordEvents) {
                 eventMap.set(eventRec, [event])
@@ -221,35 +224,33 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
                 recordEvents.push(event)
             }
         }
-        new_loop:
+        /** Are two events the same occurrence, so that re-decoding a unit must not store it twice. */
+        const isSameEvent = (a: AnnotationEventTemplate, b: AnnotationEventTemplate) => (
+            a.start === b.start &&
+            a.duration === b.duration &&
+            a.class === b.class &&
+            a.label === b.label &&
+            a.priority === b.priority &&
+            a.type === b.type &&
+            (
+                (!a.codes && !b.codes) ||
+                (!!a.codes && !!b.codes && Object.entries(a.codes).every(([key, val]) => b.codes?.[key] === val))
+            )
+        )
+        // Events already held for a unit are kept and only genuinely new ones are appended. The
+        // caching loop calls this once per decoded part, so replacing a unit's array would discard
+        // everything discovered before the part that happens to be decoded last.
         for (const [newKey, newEvents] of eventMap) {
-            for (const [exsistingKey, existingEvent] of Object.entries(this._events)) {
-                if (newKey === parseFloat(exsistingKey)) {
-                    // This record has already been processed, don't duplicate.
-                    continue new_loop
-                } else  {
-                    for (const newEvent of newEvents) {
-                        if (
-                            newEvent.start === existingEvent.start &&
-                            newEvent.duration === existingEvent.duration &&
-                            newEvent.class === existingEvent.class &&
-                            newEvent.label === existingEvent.label &&
-                            newEvent.priority === existingEvent.priority &&
-                            newEvent.type === existingEvent.type &&
-                            (
-                                (!newEvent.codes && !existingEvent.codes) ||
-                                (newEvent.codes && Object.entries(newEvent.codes).every(
-                                    ([key, val]) => existingEvent.codes?.[key] === val
-                                ))
-                            )
-                        ) {
-                            // This event is identical to an existing one, don't duplicate.
-                            continue new_loop
-                        }
-                    }
+            const existingEvents = this._events.get(newKey)
+            if (!existingEvents) {
+                this._events.set(newKey, newEvents)
+                continue
+            }
+            for (const newEvent of newEvents) {
+                if (!existingEvents.some(existing => isSameEvent(existing, newEvent))) {
+                    existingEvents.push(newEvent)
                 }
             }
-            this._events.set(newKey, newEvents)
         }
     }
 

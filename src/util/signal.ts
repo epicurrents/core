@@ -800,13 +800,23 @@ export const filterSignal = (
         }
     }
     if (nf) {
-        // Q = 10 → bandwidth = nf/10 Hz centred on nf.
-        const half = nf / 20
-        const lo = Math.max(0.1, nf - half)
-        const hi = Math.min(fs / 2 - 0.1, nf + half)
-        signal = _cachedFilter(`bs:${fs}:${lo}:${hi}`,
-            () => new SOSFilter(butterBandstop(6, lo, hi, fs))
-        ).filtfilt(signal)
+        // A notch at or above Nyquist has no representable stopband. Designing one anyway prewarps
+        // past π/2, which yields NaN poles that the section builder drops, leaving an empty cascade
+        // that passes the signal through unchanged while the caller believes it was filtered.
+        if (nf >= fs/2) {
+            Log.warn(
+                `Notch filter at ${nf} Hz is at or above the Nyquist frequency of ${fs/2} Hz and was not applied.`,
+                SCOPE
+            )
+        } else {
+            // Q = 10 → bandwidth = nf/10 Hz centred on nf.
+            const half = nf / 20
+            const lo = Math.max(0.1, nf - half)
+            const hi = Math.min(fs / 2 - 0.1, nf + half)
+            signal = _cachedFilter(`bs:${fs}:${lo}:${hi}`,
+                () => new SOSFilter(butterBandstop(6, lo, hi, fs))
+            ).filtfilt(signal)
+        }
     }
     return new Float32Array(signal)
 }
@@ -825,9 +835,14 @@ export const floatsAreEqual = (float1: number, float2: number, bits: 16 | 32 | 6
     const sigEps = bits === 16 ? FLOAT16_EPS
                  : bits === 32 ? FLOAT32_EPS
                  : FLOAT64_EPS
-    const exp1 = Math.max(1, 10**Math.floor(Math.log10(float1)))
-    const exp2 = Math.max(1, 10**Math.floor(Math.log10(float2)))
-    return Math.abs(float1/exp1 - float2/exp2) < sigEps
+    // Both values are scaled by the same exponent, taken from the larger magnitude, so the
+    // comparison is of significands at a common scale. Scaling each by its own exponent would make
+    // any two values with equal significands compare as equal regardless of magnitude.
+    // The magnitude is taken as an absolute value because log10 of a negative number is NaN, and
+    // every comparison against NaN is false.
+    const magnitude = Math.max(Math.abs(float1), Math.abs(float2))
+    const exp = Math.max(1, 10**Math.floor(Math.log10(magnitude)))
+    return Math.abs(float1/exp - float2/exp) < sigEps
 }
 
 /**
@@ -934,12 +949,15 @@ export const getChannelFilters = (
     settings: CommonBiosignalSettings
 ): BiosignalFilters => {
     const applyDefaults = settings.filterChannelTypes?.[channel.modality]
+    // Nullish coalescing, not `||`: a channel filter of zero means the filter is switched off for
+    // this channel, and only null means "take the recording default". Treating zero as unset
+    // reapplies the default to a channel the user has explicitly unfiltered.
     const highpass = channel.highpassFilter
-                     || (applyDefaults?.includes('highpass') ? defaultFilters.highpass : 0) || 0
+                     ?? (applyDefaults?.includes('highpass') ? defaultFilters.highpass : 0) ?? 0
     const lowpass = channel.lowpassFilter
-                    || (applyDefaults?.includes('lowpass') ? defaultFilters.lowpass : 0) || 0
+                    ?? (applyDefaults?.includes('lowpass') ? defaultFilters.lowpass : 0) ?? 0
     const notch = channel.notchFilter
-                  || (applyDefaults?.includes('notch') ? defaultFilters.notch : 0) || 0
+                  ?? (applyDefaults?.includes('notch') ? defaultFilters.notch : 0) ?? 0
     return {
         bandreject: [],
         highpass: highpass,
@@ -1049,14 +1067,15 @@ export const getIncludedChannels = <T extends Array<unknown>>(
 ): T => {
     // Filter channels, if needed.
     const included = [] as unknown as T
-    // Prioritize include -> only process those channels.
+    // An include list is authoritative: it names the whole result, and exclude is not consulted.
+    // Only when there is no include list does exclude decide. Testing `!config.exclude?.includes(i)`
+    // as an alternative to the include test admits every channel whenever exclude is absent, which
+    // makes an include-only config a no-op.
     for (let i=0; i<channels.length; i++) {
-        if (
-            (!config.include && !config.exclude) ||
-            // Prioritize includes.
-            config.include?.includes(i) ||
-            !config.exclude?.includes(i)
-        ) {
+        const isIncluded = config.include
+                           ? config.include.includes(i)
+                           : !config.exclude?.includes(i)
+        if (isIncluded) {
             included.push(channels[i])
         }
     }

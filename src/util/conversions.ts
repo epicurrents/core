@@ -244,8 +244,9 @@ export const roundTo = (value: number, precision: number) => {
  * @param secs - Number of seconds to convert.
  * @param components - Only return the components as an array of numbers `[days, hrs, mins, secs]` (default false).
  * @returns
- * * `{d} d {h} hr {m} min {s} s` if time is 24 hours or more
- * * `{h} hr {m} min {s} s` if time is 1 hour or more
+ * Only the two most significant units are rendered, and a unit that is zero is omitted:
+ * * `{d} d {h} h` if time is 24 hours or more
+ * * `{h} h {m} min` if time is 1 hour or more
  * * `{m} min {s} s` if time is 60 seconds or more
  * * `{s} seconds` if time is less than 60 seconds
  */
@@ -263,12 +264,13 @@ export const secondsToTimeString = (secs: number, components: boolean = false) =
     const sPart = secs >= 1 ? `${Math.floor(secs).toString()} s` : ''
     const mPart = mins ? `${mins} min` : ''
     const hPart = hours ? `${hours} h` : ''
-    if (days) {
-        `${days} d ${hPart}`
-    } else if (hours) {
-        return `${hPart.trim()} ${mPart}`
-    }
-    return `${mPart.trim()} ${sPart}`
+    const dPart = days ? `${days} d` : ''
+    const parts = days
+                  ? [dPart, hPart]
+                  : hours
+                    ? [hPart, mPart]
+                    : [mPart, sPart]
+    return parts.filter(part => part.length).join(' ')
 }
 
 /**

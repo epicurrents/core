@@ -97,7 +97,9 @@ export default class BiosignalCache extends GenericAsset implements SignalDataCa
     }
 
     releaseBuffers() {
-        this._dataDuration = 0
+        // `_dataDuration` is the cache's configured extent, set once at construction, and
+        // `outputRangeEnd` reports it. Clearing it here would leave the cache permanently claiming
+        // an end of zero after the first filter change, and every derivation from it empty.
         this._signalCache.start = 0
         this._signalCache.end = 0
         this._signalCache.signals.length = 0

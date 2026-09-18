@@ -309,4 +309,23 @@ describe('GenericBiosignalChannel', () => {
             expect(result1).toEqual(result2)
         })
     })
+
+    describe('triggerPosition', () => {
+        it('should read back the position, not the trigger value', () => {
+            // The getter returned _triggerValue, so the position read back as the unrelated
+            // amplitude threshold and any round trip through it silently changed the window offset.
+            const ch = new TestChannel('Ch', 'Ch', 'eeg', false, 256, 'µV', true)
+            expect(ch.triggerPosition).toBe(0.5)
+            ch.triggerPosition = 0.25
+            expect(ch.triggerPosition).toBe(0.25)
+            expect(ch.triggerValue).toBe(0)
+        })
+
+        it('should not change the trigger value when the position is set', () => {
+            const ch = new TestChannel('Ch', 'Ch', 'eeg', false, 256, 'µV', true)
+            ch.triggerPosition = 0.75
+            expect(ch.triggerPosition).toBe(0.75)
+            expect(ch.triggerValue).toBe(0)
+        })
+    })
 })

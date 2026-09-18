@@ -315,7 +315,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     }
 
     get triggerPosition () {
-        return this._triggerValue
+        return this._triggerPosition
     }
     set triggerPosition (value: number) {
         this._setPropertyValue('triggerPosition', value)

@@ -317,6 +317,53 @@ describe('GenericDataset', () => {
             const result = dataset.removeResource('nonexistent')
             expect(result).toBeNull()
         })
+
+        it('should remove the named resource rather than the first one', () => {
+            // Seeking the index in the filtered list instead of in the stored one yields zero for
+            // any match, so every removal took the first resource. A dataset holding a single
+            // resource cannot tell the two apart, which is what the cases above hold.
+            mockApp.runtime = { APP: { datasets: [] } }
+            const dataset = new TestDataset('Test')
+            const makeResource = (id: string) => ({
+                id,
+                name: id,
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
+                unload: vi.fn(),
+            })
+            const first = makeResource('res-1')
+            const second = makeResource('res-2')
+            const third = makeResource('res-3')
+            dataset.addResource({ resource: first } as any)
+            dataset.addResource({ resource: second } as any)
+            dataset.addResource({ resource: third } as any)
+
+            const removed = dataset.removeResource('res-2')
+            expect(removed!.resource.id).toBe('res-2')
+            expect(dataset.resources.map(r => r.resource.id)).toEqual(['res-1', 'res-3'])
+            // The resource that was left alone must not have been unloaded.
+            expect(first.unload).not.toHaveBeenCalled()
+            expect(second.unload).toHaveBeenCalled()
+        })
+
+        it('should remove the referenced resource rather than the first one', () => {
+            mockApp.runtime = { APP: { datasets: [] } }
+            const dataset = new TestDataset('Test')
+            const makeResource = (id: string) => ({
+                id,
+                name: id,
+                onPropertyChange: vi.fn(),
+                removeAllEventListeners: vi.fn(),
+                unload: vi.fn(),
+            })
+            const first = makeResource('res-1')
+            const last = makeResource('res-2')
+            dataset.addResource({ resource: first } as any)
+            dataset.addResource({ resource: last } as any)
+
+            expect(dataset.removeResource(last as any)!.resource.id).toBe('res-2')
+            expect(dataset.resources.map(r => r.resource.id)).toEqual(['res-1'])
+        })
     })
 
     describe('getResourcesByModality', () => {

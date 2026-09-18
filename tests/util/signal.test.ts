@@ -801,30 +801,64 @@ describe('Signal utilities', () => {
             // Reset any test state if needed
         })
 
-        it('should handle basic lowpass filtering', () => {
-            const signal = new Float32Array(t.map(t => (
-                Math.sin(2 * Math.PI * 10 * t) + // 10 Hz component.
-                0.5 * Math.sin(2 * Math.PI * 100 * t) // 100 Hz noise.
-            )))
-            const lp = 1
-            const filtered = filterSignal(signal, sampleRate, lp, 0, 0)
-            expect(filtered.length).toBe(signal.length)
-            // Verify high frequency attenuation.
-            const maxAmplitude = Math.max(...filtered.map(Math.abs))
-            expect(maxAmplitude).toBeLessThan(1.75)
+        // The signature is (signal, fs, hp, lp, nf). Amplitude expectations below are scipy's
+        // |H(f)|² for the same Butterworth design — squared because filtfilt runs the filter in
+        // both directions. The measurement window skips the first and last 150 samples, since the
+        // two implementations agree to ~1e-4 in the interior but use different edge padding.
+        const EDGE = 150
+        /** Amplitude of the `freq` Hz component, measured over the interior of `signal`. */
+        const componentAmplitude = (signal: Float32Array, freq: number) => {
+            const interior = signal.slice(EDGE, signal.length - EDGE)
+            let re = 0, im = 0
+            for (let i = 0; i < interior.length; i++) {
+                const phase = 2 * Math.PI * freq * i / sampleRate
+                re += interior[i] * Math.cos(phase)
+                im += interior[i] * Math.sin(phase)
+            }
+            return 2 * Math.sqrt(re*re + im*im) / interior.length
+        }
+        /** 10 Hz at unit amplitude plus 100 Hz at half amplitude. */
+        const twoToneSignal = () => new Float32Array(t.map(t => (
+            Math.sin(2 * Math.PI * 10 * t) + 0.5 * Math.sin(2 * Math.PI * 100 * t)
+        )))
+
+        it('should pass the low component and reject the high one when lowpass filtering', () => {
+            const filtered = filterSignal(twoToneSignal(), sampleRate, 0, 30, 0)
+            expect(filtered.length).toBe(sampleRate * duration)
+            // |H(10)|² = 0.99985, |H(100)|² = 5.13e-5 for butter(4, 30, fs=1000).
+            expect(componentAmplitude(filtered, 10)).toBeCloseTo(1 * 0.99985, 2)
+            expect(componentAmplitude(filtered, 100)).toBeLessThan(0.5 * 5.2e-5 * 4)
         })
 
-        it('should handle basic highpass filtering', () => {
-            const signal = new Float32Array(t.map(t => (
-                Math.sin(2 * Math.PI * 10 * t) + // 10 Hz component.
-                0.5 * Math.sin(2 * Math.PI * 100 * t) // 100 Hz noise.
+        it('should pass the high component and reject the low one when highpass filtering', () => {
+            const filtered = filterSignal(twoToneSignal(), sampleRate, 30, 0, 0)
+            expect(filtered.length).toBe(sampleRate * duration)
+            // |H(10)|² = 1.49e-4, |H(100)|² = 0.99995 for butter(4, 30, fs=1000).
+            expect(componentAmplitude(filtered, 100)).toBeCloseTo(0.5 * 0.99995, 2)
+            expect(componentAmplitude(filtered, 10)).toBeLessThan(1 * 1.5e-4 * 4)
+        })
+
+        it('should not apply a notch at or above the Nyquist frequency', () => {
+            // Such a design prewarps past π/2 and yields an empty cascade, which passes the signal
+            // through unchanged — the caller must not be told it was filtered.
+            const signal = twoToneSignal()
+            expect(Array.from(filterSignal(signal, sampleRate, 0, 0, sampleRate/2)))
+                .toEqual(Array.from(signal))
+            expect(Array.from(filterSignal(signal, sampleRate, 0, 0, sampleRate)))
+                .toEqual(Array.from(signal))
+        })
+
+        it('should apply a notch below Nyquist rather than silently passing the signal through', () => {
+            // Five seconds rather than one: a Q=10 notch is only 5 Hz wide, so its impulse response
+            // settles over roughly 1/bandwidth = 0.2 s at each end, and a one-second signal is
+            // almost entirely edge transient.
+            const longT = Array.from({ length: sampleRate * 5 }, (_, i) => i / sampleRate)
+            const withMains = new Float32Array(longT.map(t => (
+                Math.sin(2 * Math.PI * 10 * t) + Math.sin(2 * Math.PI * 50 * t)
             )))
-            const hp = 500
-            const filtered = filterSignal(signal, sampleRate, 0, hp, 0)
-            expect(filtered.length).toBe(signal.length)
-            // Verify high frequency attenuation.
-            const maxAmplitude = Math.max(...filtered.map(Math.abs))
-            expect(maxAmplitude).toBeLessThan(1.5)
+            const filtered = filterSignal(withMains, sampleRate, 0, 0, 50)
+            expect(componentAmplitude(filtered, 50)).toBeLessThan(0.01)
+            expect(componentAmplitude(filtered, 10)).toBeCloseTo(1, 1)
         })
 
         it('should handle basic band-reject filtering', () => {
@@ -843,43 +877,34 @@ describe('Signal utilities', () => {
 
         it('should preserve signal length', () => {
             const signal = new Float32Array(t.map(t => Math.sin(2 * Math.PI * 10 * t)))
-            const b = 0.5
-            const a = 1
-            const filtered = filterSignal(signal, b, a, 0, 0)
-            expect(filtered.length).toBe(signal.length)
+            expect(filterSignal(signal, sampleRate, 0, 30, 0).length).toBe(signal.length)
         })
 
         it('should handle empty signal', () => {
-            const emptySignal = new Float32Array([])
-            const b = 1
-            const a = 1
-            const filtered = filterSignal(emptySignal, b, a, 0, 0)
-            expect(filtered.length).toEqual(0)
+            expect(filterSignal(new Float32Array([]), sampleRate, 0, 30, 0).length).toEqual(0)
         })
 
-        it('should return the original signal when using invalid coefficients', () => {
+        it('should return the original signal when every filter is disabled', () => {
             const signal = new Float32Array([1, 2, 3])
-            expect(filterSignal(signal, 0, 1, 2, 3)).toEqual(signal)
-            expect(filterSignal(signal, 5, 2, 1, 0)).toEqual(signal)
+            expect(Array.from(filterSignal(signal, sampleRate, 0, 0, 0))).toEqual([1, 2, 3])
         })
 
-        it('should preserve DC component', () => {
+        it('should preserve a DC component through a lowpass', () => {
             const dc = 2.5
             const signal = new Float32Array(t.map(() => dc))
-            const b = 0.2
-            const a = 1
-            const filtered = filterSignal(signal, b, a, 0, 0)
-            const mean = filtered.reduce((sum, val) => sum + val, 0) / filtered.length
-            expect(mean).toBeCloseTo(dc, 2)
+            const filtered = filterSignal(signal, sampleRate, 0, 30, 0)
+            const interior = filtered.slice(EDGE, filtered.length - EDGE)
+            const mean = interior.reduce((sum, val) => sum + val, 0) / interior.length
+            expect(mean).toBeCloseTo(dc, 3)
         })
 
-        it('should handle impulse response correctly', () => {
-            const impulse = new Float32Array([1.0, ...new Array(99).fill(0)])
-            const b = 1
-            const a = 1
-            const filtered = filterSignal(impulse, b, a, 0, 0)
-            expect(filtered[0]).toBe(1.0)
-            expect(filtered.slice(1).every(x => Math.abs(x) < 1e-10)).toBe(true)
+        it('should remove a DC component through a highpass', () => {
+            const signal = new Float32Array(t.map(t => 2.5 + Math.sin(2 * Math.PI * 40 * t)))
+            const filtered = filterSignal(signal, sampleRate, 5, 0, 0)
+            const interior = filtered.slice(EDGE, filtered.length - EDGE)
+            const mean = interior.reduce((sum, val) => sum + val, 0) / interior.length
+            expect(mean).toBeCloseTo(0, 2)
+            expect(componentAmplitude(filtered, 40)).toBeCloseTo(1, 1)
         })
     })
 
@@ -901,6 +926,24 @@ describe('Signal utilities', () => {
             expect(floatsAreEqual(0, 0)).toBe(true)
             expect(floatsAreEqual(0, -0)).toBe(true)
             expect(floatsAreEqual(null as any, null as any)).toBe(true)
+        })
+
+        it('should compare negative values as readily as positive ones', () => {
+            // Scaling by log10 of the raw value yields NaN for a negative, and every comparison
+            // against NaN is false — so half of any signal compared as unequal to itself.
+            expect(floatsAreEqual(-(0.1 + 0.2), -0.3)).toBe(true)
+            expect(floatsAreEqual(-1.0, -1.0)).toBe(true)
+            expect(floatsAreEqual(-1_000_000.1 - 0.2, -1_000_000.3)).toBe(true)
+            expect(floatsAreEqual(-1.0, -2.0)).toBe(false)
+            expect(floatsAreEqual(-1.0, 1.0)).toBe(false)
+        })
+
+        it('should not call values of different magnitude equal', () => {
+            // Scaling each value by its own exponent compares significands only, which makes any
+            // two values sharing a significand equal regardless of how far apart they are.
+            expect(floatsAreEqual(1000, 100)).toBe(false)
+            expect(floatsAreEqual(1.5, 15)).toBe(false)
+            expect(floatsAreEqual(-1000, -100)).toBe(false)
         })
     })
 
@@ -1006,6 +1049,38 @@ describe('Signal utilities', () => {
                 lowpass: 100,
                 notch: 60
             })
+        })
+
+        it('should treat a channel filter of zero as disabled, not as unset', () => {
+            // BiosignalChannel documents null as "use the recording default" and zero as "this
+            // filter is off". Reading the channel value with `||` collapses the two, so a channel
+            // the user explicitly unfiltered gets the recording default applied instead.
+            const unfiltered: BiosignalChannel = {
+                ...baseChannel,
+                name: 'EEG1',
+                modality: 'eeg',
+                highpassFilter: 0,
+                lowpassFilter: 0,
+                notchFilter: 0,
+            }
+            expect(getChannelFilters(unfiltered, defaultFilters, baseSettings)).toEqual({
+                bandreject: [],
+                highpass: 0,
+                lowpass: 0,
+                notch: 0,
+            })
+        })
+
+        it('should fall back to the recording default when a channel filter is null', () => {
+            const inheriting: BiosignalChannel = {
+                ...baseChannel,
+                name: 'EEG1',
+                modality: 'eeg',
+                highpassFilter: null,
+                lowpassFilter: null,
+                notchFilter: null,
+            }
+            expect(getChannelFilters(inheriting, defaultFilters, baseSettings)).toEqual(defaultFilters)
         })
     })
 
@@ -1195,6 +1270,20 @@ describe('Signal utilities', () => {
             const channels = ['a', 'b', 'c', 'd']
             const result = getIncludedChannels(channels, { exclude: [1, 3] })
             expect(result).toEqual(['a', 'c'])
+        })
+
+        it('should honour an include list given on its own', () => {
+            // The include test must stand alone. Falling back to "not excluded" when exclude is
+            // absent admits every channel, which silently turns an include-only config into a
+            // no-op — and the paired include/exclude case above cannot see that, because its
+            // expected result is the same either way.
+            const channels = ['a', 'b', 'c', 'd']
+            expect(getIncludedChannels(channels, { include: [0] })).toEqual(['a'])
+            expect(getIncludedChannels(channels, { include: [1, 3] })).toEqual(['b', 'd'])
+        })
+
+        it('should return no channels for an empty include list', () => {
+            expect(getIncludedChannels(['a', 'b'], { include: [] })).toEqual([])
         })
     })
 

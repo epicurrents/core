@@ -1059,7 +1059,10 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             return
         }
         await this.executeWithLock(IOMutex.MUTEX_SCOPE.OUTPUT, BiosignalMutex.OPERATION_MODE.WRITE, () => {
-            for (let i=0; i<(this._outputData?.fields || []).length; i++) {
+            // Iterated over the signal arrays, one per channel. `fields` is the three-entry
+            // per-signal field descriptor, so using its length invalidates only the first three
+            // channels and indexes out of bounds on a montage with fewer than three.
+            for (let i=0; i<(this._outputData?.arrays || []).length; i++) {
                 if (channels && channels.indexOf(i) === -1) {
                     continue
                 }

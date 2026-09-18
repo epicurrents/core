@@ -45,12 +45,11 @@ export const deepEqual = <T extends { [key: string]: any }>(obj1: T, obj2: T): b
         if (obj1.length !== obj2.length) {
             return false
         }
+        // Compared element by element at the same index. Asking whether the other array merely
+        // contains the element would make [1, 2] and [2, 1] equal, and would compare objects by
+        // reference rather than by value.
         for (let i = 0; i < obj1.length; i++) {
-            if (!Array.isArray(obj1[i])) {
-                if (!obj2.includes(obj1[i])) {
-                    return false
-                }
-            } else if (!deepEqual(obj1[i], obj2[i])) {
+            if (!deepEqual(obj1[i], obj2[i])) {
                 return false
             }
         }

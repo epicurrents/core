@@ -63,15 +63,17 @@ export const NMS = (detections: DetectionRange[], iouTh = 0.5): DetectionRange[]
         return [detections[0]]
     }
     const keepers = [] as DetectionRange[]
-    // Sort by confidence
-    detections.sort((a, b) => a.confidence - b.confidence)
+    // Sorted by descending confidence, so that taking from the front takes the best remaining
+    // detection and the overlapping ones pruned below are always the weaker ones. A copy, because
+    // the loop consumes the list and the caller's array is not ours to empty.
+    const remaining = [...detections].sort((a, b) => b.confidence - a.confidence)
     // Start off by adding the highest confidence range.
-    while (detections.length) {
-        const nextBest = detections.splice(0, 1)[0]
+    while (remaining.length) {
+        const nextBest = remaining.splice(0, 1)[0]
         keepers.push(nextBest)
-        for (let i=0; i<detections.length; i++) {
-            if (IoU(detections[i].range, nextBest.range) > iouTh) {
-                detections.splice(i, 1)
+        for (let i=0; i<remaining.length; i++) {
+            if (IoU(remaining[i].range, nextBest.range) > iouTh) {
+                remaining.splice(i, 1)
                 i--
             }
         }

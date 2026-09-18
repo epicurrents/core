@@ -94,6 +94,40 @@ describe('GenericSignalProcessor', () => {
             proc.addNewEvents(event as any)
             expect(proc.getEvents().length).toBe(1)
         })
+
+        it('should keep events from earlier calls when a later call adds more', () => {
+            // Progressive caching calls this once per decoded part. Replacing a unit's stored array
+            // rather than appending to it leaves only the events of the part decoded last, which is
+            // invisible whenever every event happens to land in the same bucket.
+            const proc = new TestSignalProcessor()
+            proc.testTotalRecordingLength = 1000
+            proc.testDataUnitDuration = 10
+            proc.addNewEvents(
+                { start: 1, duration: 1, class: 'a', label: 'E1', priority: 0, type: 't' } as any,
+                { start: 2, duration: 1, class: 'a', label: 'E2', priority: 0, type: 't' } as any,
+            )
+            proc.addNewEvents(
+                { start: 3, duration: 1, class: 'a', label: 'E3', priority: 0, type: 't' } as any,
+            )
+            proc.addNewEvents(
+                { start: 500, duration: 1, class: 'a', label: 'E4', priority: 0, type: 't' } as any,
+            )
+            expect(proc.getEvents().map(e => e.label).sort()).toEqual(['E1', 'E2', 'E3', 'E4'])
+        })
+
+        it('should group events by data unit duration rather than by unit byte size', () => {
+            // The key was computed as start (seconds) / dataUnitSize (bytes), which for a realistic
+            // unit size puts every event of a recording into bucket 0.
+            const proc = new TestSignalProcessor()
+            proc.testTotalRecordingLength = 1000
+            proc.testDataUnitDuration = 10
+            proc.addNewEvents(
+                { start: 5, duration: 1, class: 'a', label: 'unit0', priority: 0, type: 't' } as any,
+                { start: 15, duration: 1, class: 'a', label: 'unit1', priority: 0, type: 't' } as any,
+                { start: 25, duration: 1, class: 'a', label: 'unit2', priority: 0, type: 't' } as any,
+            )
+            expect([...proc.testEvents.keys()].sort((a, b) => a - b)).toEqual([0, 1, 2])
+        })
     })
 
     describe('addNewInterruptions', () => {

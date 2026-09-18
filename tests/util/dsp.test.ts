@@ -324,6 +324,96 @@ describe('Butterworth filter design', () => {
         })
     })
 
+    describe('magnitude response against scipy.signal.butter', () => {
+        // The module documents itself as matching scipy's designs, so the expectations below are
+        // scipy's own |H(f)|, not this implementation's output. Section count cannot stand in for
+        // them: an unpaired real pole emitted as a squared second-order section keeps the count
+        // right while raising the order, which is how odd orders shipped with a DC gain of 4.
+        const REFERENCE_FS = 100
+        const PROBE_HZ = [0, 1, 5, 10, 20, 40, 49.9]
+        const CUTOFF_HZ = 10
+        const BAND_HZ: [number, number] = [5, 15]
+        const cases: { name: string, sos: Biquad[], mags: number[] }[] = [
+            {
+                name: 'lowpass order 1',
+                sos: butterLowpass(1, CUTOFF_HZ, REFERENCE_FS),
+                mags: [1, 0.995355, 0.898892, 0.707107, 0.408248, 0.104989, 0.001021],
+            },
+            {
+                name: 'lowpass order 2',
+                sos: butterLowpass(2, CUTOFF_HZ, REFERENCE_FS),
+                mags: [1, 0.999956, 0.972911, 0.707107, 0.196116, 0.011145, 0.000001],
+            },
+            {
+                name: 'lowpass order 3',
+                sos: butterLowpass(3, CUTOFF_HZ, REFERENCE_FS),
+                mags: [1, 1, 0.993359, 0.707107, 0.089087, 0.001177, 0],
+            },
+            {
+                name: 'lowpass order 4',
+                sos: butterLowpass(4, CUTOFF_HZ, REFERENCE_FS),
+                mags: [1, 1, 0.998410, 0.707107, 0.039968, 0.000124, 0],
+            },
+            {
+                name: 'lowpass order 5',
+                sos: butterLowpass(5, CUTOFF_HZ, REFERENCE_FS),
+                mags: [1, 1, 0.999621, 0.707107, 0.017886, 0.000013, 0],
+            },
+            {
+                name: 'lowpass order 6',
+                sos: butterLowpass(6, CUTOFF_HZ, REFERENCE_FS),
+                mags: [1, 1, 0.999910, 0.707107, 0.008000, 0.000001, 0],
+            },
+            {
+                name: 'highpass order 1',
+                sos: butterHighpass(1, CUTOFF_HZ, REFERENCE_FS),
+                mags: [0, 0.096271, 0.438171, 0.707107, 0.912871, 0.994473, 0.999999],
+            },
+            {
+                name: 'highpass order 3',
+                sos: butterHighpass(3, CUTOFF_HZ, REFERENCE_FS),
+                mags: [0, 0.000905, 0.115058, 0.707107, 0.996024, 0.999999, 1],
+            },
+            {
+                name: 'highpass order 5',
+                sos: butterHighpass(5, CUTOFF_HZ, REFERENCE_FS),
+                mags: [0, 0.000008, 0.027512, 0.707107, 0.999840, 1, 1],
+            },
+            {
+                name: 'bandpass order 3',
+                sos: butterBandpass(3, BAND_HZ[0], BAND_HZ[1], REFERENCE_FS),
+                mags: [0, 0.002653, 0.707107, 0.999946, 0.182586, 0.001524, 0],
+            },
+            {
+                name: 'bandpass order 5',
+                sos: butterBandpass(5, BAND_HZ[0], BAND_HZ[1], REFERENCE_FS),
+                mags: [0, 0.000051, 0.707107, 1, 0.060338, 0.000020, 0],
+            },
+            {
+                name: 'bandstop order 3',
+                sos: butterBandstop(3, BAND_HZ[0], BAND_HZ[1], REFERENCE_FS),
+                mags: [1, 0.999996, 0.707107, 0.010359, 0.983190, 0.999999, 1],
+            },
+        ]
+        for (const { name, sos, mags } of cases) {
+            it(`${name} matches scipy at every probe frequency`, () => {
+                for (let i = 0; i < PROBE_HZ.length; i++) {
+                    expect(sosGain(sos, PROBE_HZ[i], REFERENCE_FS)).toBeCloseTo(mags[i], 5)
+                }
+            })
+        }
+
+        it('odd-order designs keep unity passband gain', () => {
+            // The squared-section defect showed up here first: order 3 gave 4.0777 at DC.
+            for (const order of [1, 3, 5, 7]) {
+                expect(sosGain(butterLowpass(order, CUTOFF_HZ, REFERENCE_FS), 0, REFERENCE_FS))
+                    .toBeCloseTo(1, 6)
+                expect(sosGain(butterHighpass(order, CUTOFF_HZ, REFERENCE_FS), REFERENCE_FS/2, REFERENCE_FS))
+                    .toBeCloseTo(1, 6)
+            }
+        })
+    })
+
     describe('edge cases', () => {
         it('very low cutoff LP still has valid gain at DC', () => {
             const lp = butterLowpass(4, 0.5, FS)
