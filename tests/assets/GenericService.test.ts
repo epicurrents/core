@@ -85,6 +85,9 @@ class TestService extends GenericService {
     public getCommissionForMessage(message: any) {
         return this._getCommissionForMessage(message)
     }
+    public commissionCount(action: string) {
+        return ((this as any)._commissions.get(action)?.size ?? 0) as number
+    }
 }
 
 describe('GenericService', () => {
@@ -337,6 +340,80 @@ describe('GenericService', () => {
             expect((service as any)._waiters.size).toBe(0)
             expect((service as any)._actionWatchers).toHaveLength(0)
             expect(service.state).toBe('destroyed')
+        })
+    })
+    describe('commission lifecycle', () => {
+        const makeService = () => {
+            const worker = { postMessage: vi.fn(), addEventListener: vi.fn(), terminate: vi.fn() }
+            return { service: new TestService('Test', worker as any), worker }
+        }
+
+        it('resolves a commission when its response arrives', async () => {
+            const { service } = makeService()
+            const commission = service.commissionWorker('do-thing')
+            void service.handleWorkerCommission({
+                data: { action: 'do-thing', rn: commission.rn, success: true, result: 42 },
+            })
+            await expect(commission.promise).resolves.toBe(42)
+        })
+
+        it('drops a settled commission from the map', async () => {
+            // Nothing else removed them, so the map kept a resolve/reject closure pair for every
+            // commission the service had ever sent — one or more per view scroll — for as long as
+            // the service lived.
+            const { service } = makeService()
+            const commission = service.commissionWorker('do-thing')
+            expect(service.commissionCount('do-thing')).toBe(1)
+            void service.handleWorkerCommission({
+                data: { action: 'do-thing', rn: commission.rn, success: true, result: 1 },
+            })
+            await commission.promise
+            expect(service.commissionCount('do-thing')).toBe(0)
+        })
+
+        it('does not accumulate entries across many commissions', async () => {
+            const { service } = makeService()
+            for (let i = 0; i < 25; i++) {
+                const commission = service.commissionWorker('do-thing')
+                void service.handleWorkerCommission({
+                    data: { action: 'do-thing', rn: commission.rn, success: true, result: i },
+                })
+                await commission.promise
+            }
+            expect(service.commissionCount('do-thing')).toBe(0)
+        })
+
+        it('leaves an unrelated request number untouched', async () => {
+            const { service } = makeService()
+            const first = service.commissionWorker('do-thing')
+            const second = service.commissionWorker('do-thing')
+            void service.handleWorkerCommission({
+                data: { action: 'do-thing', rn: second.rn, success: true, result: 'second' },
+            })
+            await expect(second.promise).resolves.toBe('second')
+            expect(service.commissionCount('do-thing')).toBe(1)
+            void service.handleWorkerCommission({
+                data: { action: 'do-thing', rn: first.rn, success: true, result: 'first' },
+            })
+            await expect(first.promise).resolves.toBe('first')
+            expect(service.commissionCount('do-thing')).toBe(0)
+        })
+
+        it('settles superseded commissions instead of dropping them silently', async () => {
+            // Their messages are already with the worker, and its replies arrive under request
+            // numbers that no longer map to anything, so a caller still awaiting one of these
+            // promises would have waited for the life of the service.
+            const { service } = makeService()
+            const superseded = service.commissionWorker('do-thing')
+            const replacement = service.commissionWorker('do-thing', undefined, undefined, {
+                overwriteRequest: true,
+            })
+            await expect(superseded.promise).rejects.toBeDefined()
+            expect(service.commissionCount('do-thing')).toBe(1)
+            void service.handleWorkerCommission({
+                data: { action: 'do-thing', rn: replacement.rn, success: true, result: 'ok' },
+            })
+            await expect(replacement.promise).resolves.toBe('ok')
         })
     })
 })

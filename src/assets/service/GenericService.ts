@@ -188,7 +188,13 @@ export default abstract class GenericService extends GenericAsset implements Ass
             new Map<number, CommissionPromise>()
         ) as CommissionMap
         if (options?.overwriteRequest) {
-            // Remove references to any previous requests
+            // Settle the superseded requests before dropping them. Their messages are already with
+            // the worker and its replies will arrive under request numbers that no longer map to
+            // anything, so a caller still awaiting one of these promises would wait for the life of
+            // the service. Rejecting is what the awaiting code is written to handle.
+            for (const superseded of commMap.values()) {
+                superseded.reject?.(`Request superseded by a newer '${action}' commission.`)
+            }
             commMap.clear()
         }
         commMap.set(requestNum, {
@@ -250,6 +256,18 @@ export default abstract class GenericService extends GenericAsset implements Ass
     }
 
     /**
+     * Drop a settled commission's entry.
+     *
+     * Nothing else removes them, so without this the map keeps a resolve/reject closure pair for
+     * every commission the service ever sent — one or more per view scroll — for as long as the
+     * service lives.
+     * @param message - The response that settled the commission.
+     */
+    protected _releaseCommission (message: WorkerResponse) {
+        this._commissions.get(message?.data?.action)?.delete(message.data.rn || 0)
+    }
+
+    /**
      * Handle a response message from the worker. Will check if a matching commission can be found and either
      * resolves or rejects it based on the value of the success property in the message. This method expects that:
      * - The message has an `action` property.
@@ -281,6 +299,10 @@ export default abstract class GenericService extends GenericAsset implements Ass
         }
         const commission = this._getCommissionForMessage(message)
         if (commission) {
+            // Every branch below settles the commission, so the entry has served its purpose. The
+            // two-stage `request-signals` protocol, which does need its entry to outlive the first
+            // reply, is answered by the biosignal service before reaching here.
+            this._releaseCommission(message)
             if (data.action === 'setup-worker') {
                 const prevState = this.isReady
                 this._isWorkerSetup = data.success

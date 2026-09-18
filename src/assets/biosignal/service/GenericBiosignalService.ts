@@ -330,6 +330,10 @@ export default abstract class GenericBiosignalService extends GenericService imp
             } else {
                 commission?.resolve(terminal)
             }
+            // The request is finished either way, so its commission entry can go. This is the one
+            // action whose entry has to outlive its first reply, which is why it is released here
+            // rather than with the rest in `_handleWorkerCommission`.
+            this._releaseCommission(message)
             return true
         }
         // Other responses must have a matching commission.

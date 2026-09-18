@@ -873,6 +873,12 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         // needed downstream.
         await Promise.all(this._cacheProcesses.map(p => p.inFlightRead ?? Promise.resolve()))
         this._cacheProcesses.length = 0
+        // The same guarantee for the rolling-window path, which runs through the op queue and has
+        // no cache process to await. `supersedeAll` fires the in-flight op's abort signal and
+        // returns immediately; the signal only reaches that op's fetch, so a load already past it
+        // and inside `insertSignals` carries on writing. Releasing the views underneath it lands
+        // that write on whatever occupies the region next.
+        await this._opQueue.whenIdle()
         await super.releaseSignalArrays()
     }
 

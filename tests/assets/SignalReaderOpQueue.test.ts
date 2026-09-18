@@ -122,6 +122,54 @@ describe('SignalReaderOpQueue', () => {
         expect(log).not.toContain('start:b')
         expect(log).not.toContain('start:c')
     })
+    test('whenIdle waits for an in-flight op to finish, not merely to be aborted', async () => {
+        // supersedeAll fires the abort signal and returns at once, while the op's body carries on
+        // from wherever it had reached. A caller about to release the backing buffer has to wait
+        // for the body, or a write already past its abort check lands after the buffer is gone.
+        const queue = new SignalReaderOpQueue()
+        const log: string[] = []
+        const a = makeOp('a', 'view', log)
+        queue.enqueue(a.op)
+        await until(() => log.includes('start:a'))
+
+        queue.supersedeAll()
+        let idle = false
+        const drained = queue.whenIdle().then(() => { idle = true })
+        // The op is aborted but still running, so the drain must not have resolved.
+        await new Promise(resolve => setTimeout(resolve, 10))
+        expect(log).not.toContain('end:a:aborted')
+        expect(idle).toBe(false)
+
+        a.release()
+        await drained
+        expect(idle).toBe(true)
+        expect(log).toContain('end:a:aborted')
+        expect(queue.pending).toBe(0)
+    })
+
+    test('whenIdle resolves immediately on an idle queue', async () => {
+        const queue = new SignalReaderOpQueue()
+        await expect(queue.whenIdle()).resolves.toBeUndefined()
+    })
+
+    test('whenIdle waits out ops enqueued behind the one in flight', async () => {
+        const queue = new SignalReaderOpQueue()
+        const log: string[] = []
+        const a = makeOp('a', 'view', log)
+        const b = makeOp('b', 'other', log)
+        queue.enqueue(a.op)
+        queue.enqueue(b.op)
+        await until(() => log.includes('start:a'))
+        let idle = false
+        const drained = queue.whenIdle().then(() => { idle = true })
+        a.release()
+        await until(() => log.includes('start:b'))
+        expect(idle).toBe(false)
+        b.release()
+        await drained
+        expect(queue.pending).toBe(0)
+    })
+
     test('a throwing op does not stop the pump', async () => {
         const queue = new SignalReaderOpQueue()
         const log: string[] = []

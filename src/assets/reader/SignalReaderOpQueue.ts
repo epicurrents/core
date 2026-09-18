@@ -44,6 +44,8 @@ export default class SignalReaderOpQueue {
 
     /** The op currently being executed, with its abort controller. */
     protected _current: { op: ReaderOp, controller: AbortController } | null = null
+    /** The running pump, or null while the queue is idle. */
+    protected _pumpPromise: Promise<void> | null = null
     /** Ops waiting to be executed, in FIFO order. */
     protected _queue: ReaderOp[] = []
     /** True while the pump loop is draining the queue. */
@@ -82,7 +84,26 @@ export default class SignalReaderOpQueue {
     /** Append an operation and start the pump if it is idle. */
     enqueue (op: ReaderOp): void {
         this._queue.push(op)
-        void this._pump()
+        if (this._pumpPromise) {
+            return
+        }
+        this._pumpPromise = this._pump().finally(() => {
+            this._pumpPromise = null
+        })
+    }
+
+    /**
+     * Wait until no operation is queued or in flight.
+     *
+     * Aborting an op does not end it: {@link supersedeAll} fires the abort signal and returns at
+     * once, while the op's body carries on from wherever it had reached. A caller about to take the
+     * backing buffer away has to wait for that body to finish, or a write already past its abort
+     * check lands after the buffer is gone.
+     */
+    async whenIdle (): Promise<void> {
+        while (this._pumpPromise) {
+            await this._pumpPromise
+        }
     }
 
     /**
