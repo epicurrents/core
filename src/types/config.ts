@@ -132,6 +132,22 @@ export interface AppSettings {
      */
     addPropertyUpdateHandler (field: string, handler: PropertyChangeHandler<SettingsValue>, caller?: string): void
     /**
+     * Apply a settings `snapshot` taken with {@link AppSettings._CLONABLE} to this settings object.
+     *
+     * Intended for a worker, which keeps its own copy of the settings tree and receives the main
+     * thread's state as a structured clone. Fields are assigned individually rather than by
+     * replacing `app` and each module wholesale, so accessor properties and `_`-prefixed fields —
+     * neither of which a snapshot carries — survive the write. A module the snapshot names and this
+     * object does not know is registered.
+     *
+     * Applying a snapshot replicates state rather than editing it, so no property update handlers
+     * run and nothing is dispatched on the event bus.
+     *
+     * @param snapshot - Settings snapshot, as produced by `_CLONABLE`.
+     * @returns True if the snapshot was applied, false if it was not a settings snapshot.
+     */
+    applySnapshot (snapshot: ClonableAppSettings): boolean
+    /**
      * Get the value stored at the given settings `field`.
      * @param field - Name of the settings field.
      * @param depth - Optional settings field depth. Positive values function as an index to the "field array"

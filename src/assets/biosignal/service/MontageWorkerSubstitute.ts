@@ -248,10 +248,6 @@ export default class MontageWorkerSubstitute extends ServiceWorkerSubstitute {
                 Log.debug(`Worker decommissioned.`, SCOPE)
                 return this.returnSuccess(message)
             }
-            case 'update-settings': {
-                // No need to update settings.
-                return this.returnSuccess(message)
-            }
             default: {
                 super.postMessage(message)
             }

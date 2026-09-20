@@ -64,6 +64,57 @@ const clonableSettings = () => {
     return outSettings as ClonableAppSettings
 }
 /**
+ * Assign the fields of a settings `source` onto `target`, skipping what a snapshot cannot carry.
+ *
+ * A field prefixed with an underscore is private to the settings tree and never appears in a
+ * snapshot. An accessor with no setter derives its value from the scope it is read in — `app.isSabUsed`
+ * tests the worker's own `crossOriginIsolated` — so the value the main thread computed must not be
+ * written over it, and assigning to it would throw. Replacing the parent object instead of its
+ * fields would drop both kinds, which is what makes this field-by-field rather than an `Object.assign`.
+ */
+const assignSnapshotFields = (target: Record<string, unknown>, source: Record<string, unknown>) => {
+    for (const [field, value] of Object.entries(source)) {
+        if (field.startsWith('_')) {
+            continue
+        }
+        const descriptor = Object.getOwnPropertyDescriptor(target, field)
+        if (descriptor && !descriptor.writable && !descriptor.set) {
+            continue
+        }
+        target[field] = value
+    }
+}
+/**
+ * Notify every listener that settings `field` changed, from the one place both of `setFieldValue`'s
+ * write paths reach.
+ *
+ * The property update handlers and the event bus have to fire together, because a subscriber to one
+ * cannot observe that the other ran. They were separate, and the nullable-field path called only the
+ * handlers — so a worker, which learns about settings through the bus, never heard about a change to
+ * a field whose previous value was `null`.
+ *
+ * The bus carries this tree's changes on the same footing as those the interface settings tree
+ * emits. It is reached through `globalThis` rather than `window`: this module is bundled into the
+ * montage worker, where a bare `window` is a ReferenceError rather than an undefined the optional
+ * chain could absorb.
+ */
+const notifyFieldChange = (
+    field: string,
+    newValue: SettingsValue,
+    oldValue: SettingsValue,
+    context?: SettingsChangeContext,
+) => {
+    _settings.onPropertyUpdate(field, newValue, oldValue)
+    const bus = (globalThis as { __EPICURRENTS__?: Window['__EPICURRENTS__'] }).__EPICURRENTS__?.EVENT_BUS
+    if (bus) {
+        dispatchPropertyChange(bus, EventScopes.APPLICATION, field, newValue, oldValue, 'after', {
+            event: ApplicationEvents.SETTING_CHANGED,
+            origin: _settings,
+            source: context?.source,
+        })
+    }
+}
+/**
  * Handler for a proxied settings object. Will proxy all object
  * properties unless the property name starts with an underscore.
  */
@@ -184,6 +235,27 @@ const _settings = {
         }
         _propertyUpdateHandlers.push(newHandler)
         Log.debug(`Added a handler for ${field}.`, SCOPE)
+    },
+    applySnapshot (snapshot: ClonableAppSettings) {
+        if (!snapshot || typeof snapshot !== 'object') {
+            Log.error(`Invalid settings snapshot passed to applySnapshot.`, SCOPE)
+            return false
+        }
+        if (snapshot.app) {
+            assignSnapshotFields(_settings.app as unknown as Record<string, unknown>, snapshot.app)
+        }
+        for (const [name, moduleSettings] of Object.entries(snapshot.modules || {})) {
+            const local = _modules.get(name)
+            if (local) {
+                assignSnapshotFields(local as unknown as Record<string, unknown>, moduleSettings)
+            } else {
+                // The usual case in a worker: modules register themselves through the main thread's
+                // runtime, so the worker meets a module for the first time in the snapshot.
+                _settings.registerModule(name, moduleSettings)
+            }
+        }
+        Log.debug(`Applied a settings snapshot.`, SCOPE)
+        return true
     },
     getFieldValue (field: string, depth?: number) {
         // Traverse field's "path" to target property
@@ -328,7 +400,7 @@ const _settings = {
                     const old = local[f]
                     local[f] = value
                     Log.debug(`Changed settings field '${field}' value from null without a type check.`, SCOPE)
-                    _settings.onPropertyUpdate(field, value, old)
+                    notifyFieldChange(field, value, old, context)
                     return true
                 }
                 // Check constructors for type match (TODO: Should null be a valid settings value?).
@@ -336,20 +408,7 @@ const _settings = {
                     const old = local[f]
                     local[f] = value
                     Log.debug(`Changed settings field '${field}' value.`, SCOPE)
-                    _settings.onPropertyUpdate(field, value, old)
-                    // Broadcast on the shared event bus so a subscriber sees changes to this tree
-                    // on the same footing as those the interface settings tree emits. Reached
-                    // through `globalThis` rather than `window`: this module is bundled into the
-                    // montage worker, where a bare `window` is a ReferenceError rather than an
-                    // undefined the optional chain could absorb.
-                    const bus = (globalThis as { __EPICURRENTS__?: Window['__EPICURRENTS__'] }).__EPICURRENTS__?.EVENT_BUS
-                    if (bus) {
-                        dispatchPropertyChange(bus, EventScopes.APPLICATION, field, value, old, 'after', {
-                            event: ApplicationEvents.SETTING_CHANGED,
-                            origin: _settings,
-                            source: context?.source,
-                        })
-                    }
+                    notifyFieldChange(field, value, old, context)
                     return true
                 }
                 Log.warn(

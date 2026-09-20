@@ -5,6 +5,7 @@
  * @license    Apache-2.0
  */
 
+import { afterEach } from 'vitest'
 import { Log } from 'scoped-event-log'
 
 // Mock dependencies
@@ -221,6 +222,128 @@ describe('Settings', () => {
             SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler, 'test')
             SETTINGS.onPropertyUpdate('app.useMemoryManager', true, false)
             expect(handler).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('change notification', () => {
+        /**
+         * A worker learns about settings through the bus, and the interface through the same event
+         * on its own scope, so a write that updates the value without dispatching is invisible to
+         * both while every property update handler still fires. The two notifications have to stay
+         * together, which is why this asserts on each write path rather than on one.
+         */
+        const withBus = () => {
+            const dispatchScopedEvent = vi.fn().mockReturnValue(true)
+            vi.stubGlobal('__EPICURRENTS__', { EVENT_BUS: { dispatchScopedEvent } })
+            return dispatchScopedEvent
+        }
+
+        afterEach(() => {
+            vi.unstubAllGlobals()
+        })
+
+        it('should dispatch when a typed field changes', () => {
+            const dispatch = withBus()
+            const original = SETTINGS.getFieldValue('app.dataChunkSize')
+            SETTINGS.setFieldValue('app.dataChunkSize', 4321)
+            expect(dispatch).toHaveBeenCalledTimes(1)
+            expect(dispatch.mock.calls[0][0]).toBe('setting-changed')
+            SETTINGS.setFieldValue('app.dataChunkSize', original)
+        })
+
+        it('should dispatch when a field changes from null', () => {
+            // A nullable field has no constructor to type-check against and takes its value on
+            // trust, which used to mean it took a different route out of `setFieldValue` — one that
+            // ran the handlers and dispatched nothing.
+            SETTINGS.registerModule('test-module', { nullable: null } as any)
+            const dispatch = withBus()
+            expect(SETTINGS.setFieldValue('test-module.nullable', 'set')).toBe(true)
+            expect(dispatch).toHaveBeenCalledTimes(1)
+            expect(dispatch.mock.calls[0][0]).toBe('setting-changed')
+        })
+
+        it('should run property update handlers on both write paths', () => {
+            withBus()
+            SETTINGS.registerModule('test-module', { nullable: null, typed: 1 } as any)
+            const handler = vi.fn()
+            SETTINGS.addPropertyUpdateHandler('test-module', handler)
+            SETTINGS.setFieldValue('test-module.nullable', 'set')
+            SETTINGS.setFieldValue('test-module.typed', 2)
+            expect(handler).toHaveBeenCalledTimes(2)
+        })
+
+        it('should not dispatch when the write is rejected', () => {
+            const dispatch = withBus()
+            expect(SETTINGS.setFieldValue('app.dataChunkSize', 'not a number' as any)).toBe(false)
+            expect(dispatch).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('applySnapshot', () => {
+        it('should assign app fields from the snapshot', () => {
+            const original = SETTINGS.getFieldValue('app.dataChunkSize')
+            const applied = SETTINGS.applySnapshot({
+                app: { dataChunkSize: 12345 },
+                modules: {},
+            } as any)
+            expect(applied).toBe(true)
+            expect(SETTINGS.getFieldValue('app.dataChunkSize')).toBe(12345)
+            SETTINGS.setFieldValue('app.dataChunkSize', original)
+        })
+
+        it('should not write over an accessor that has no setter', () => {
+            // `isSabUsed` is computed from the scope it is read in, so a worker must keep evaluating
+            // its own rather than adopt what the main thread evaluated. Assigning to it would throw.
+            const before = SETTINGS.app.isSabUsed
+            expect(() => SETTINGS.applySnapshot({
+                app: { isSabUsed: !before },
+                modules: {},
+            } as any)).not.toThrow()
+            expect(SETTINGS.app.isSabUsed).toBe(before)
+        })
+
+        it('should ignore fields a snapshot never carries', () => {
+            SETTINGS.applySnapshot({
+                app: { _userDefinable: { injected: String } },
+                modules: {},
+            } as any)
+            expect((SETTINGS.app as any)._userDefinable.injected).toBeUndefined()
+        })
+
+        it('should register a module the snapshot names and this object does not know', () => {
+            expect(SETTINGS.modules['test-module']).toBeUndefined()
+            SETTINGS.applySnapshot({
+                app: {},
+                modules: { 'test-module': { testProp: 42 } },
+            } as any)
+            expect(SETTINGS.getFieldValue('test-module.testProp')).toBe(42)
+        })
+
+        it('should update a module it already knows without replacing it', () => {
+            SETTINGS.registerModule('test-module', { testProp: 42, untouched: 'keep' } as any)
+            SETTINGS.applySnapshot({
+                app: {},
+                modules: { 'test-module': { testProp: 7 } },
+            } as any)
+            expect(SETTINGS.getFieldValue('test-module.testProp')).toBe(7)
+            expect(SETTINGS.getFieldValue('test-module.untouched')).toBe('keep')
+        })
+
+        it('should not run property update handlers', () => {
+            // A snapshot replicates the main thread's state rather than editing this copy, so a
+            // handler firing here would report a local change that did not happen.
+            const handler = vi.fn()
+            SETTINGS.addPropertyUpdateHandler('app.dataChunkSize', handler)
+            const original = SETTINGS.getFieldValue('app.dataChunkSize')
+            SETTINGS.applySnapshot({ app: { dataChunkSize: 999 }, modules: {} } as any)
+            expect(handler).not.toHaveBeenCalled()
+            SETTINGS.setFieldValue('app.dataChunkSize', original)
+        })
+
+        it('should refuse anything that is not a snapshot', () => {
+            expect(SETTINGS.applySnapshot(null as any)).toBe(false)
+            expect(SETTINGS.applySnapshot('settings' as any)).toBe(false)
+            expect(Log.error).toHaveBeenCalled()
         })
     })
 

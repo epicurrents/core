@@ -72,6 +72,26 @@ describe('ServiceWorkerSubstitute', () => {
                 }),
             )
         })
+
+        it('should answer update-settings without calling it unimplemented', () => {
+            // A service relays a settings snapshot to its worker on every change, and a substitute
+            // is a worker as far as the service is concerned. Eight substitutes in the family
+            // implement no case for it, so without the base answering here every settings change
+            // would produce a warning and a failed commission from each of them.
+            const sub = new ServiceWorkerSubstitute()
+            const handler = vi.fn()
+            sub.onmessage = handler
+            sub.postMessage({ action: 'update-settings', settings: { app: {}, modules: {} } } as any)
+            expect(Log.warn).not.toHaveBeenCalled()
+            expect(handler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        action: 'update-settings',
+                        success: true,
+                    }),
+                }),
+            )
+        })
     })
 
     describe('returnMessage', () => {

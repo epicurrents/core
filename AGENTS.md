@@ -406,6 +406,18 @@ The reason this is a base class rather than a convention is that the failure it 
 
 Subclasses (e.g. a Pyodide-backed montage worker in the `pyodide-service` package) inherit `_actionMap` and any new actions added via `extendActionMap([...])`. Actions added to a base worker are picked up automatically there — no per-subclass change required, provided the subclass doesn't shadow the action map or override `handleMessage`.
 
+### Settings reach a worker as a snapshot
+
+A worker keeps its own copy of the settings tree; `setup-worker` seeds it with `SETTINGS._CLONABLE` and the `update-settings` commission replaces it whenever a field changes. The payload is always the whole snapshot, plus `changed`, the dotted paths behind it, for a worker that wants to react selectively.
+
+`GenericService` opens the relay for every dedicated worker it is constructed with, by subscribing to `ApplicationEvents.SETTING_CHANGED` on `EventScopes.APPLICATION` — the event every successful `setFieldValue` dispatches. Changes arriving in one tick are coalesced into a single message. **A worker declares no interest in particular fields.** An earlier design had it ask the service to watch a list of them, which put the same field names in two places and let a field added to one go silently unrelayed; there is nothing to register now.
+
+Apply the snapshot with `SETTINGS.applySnapshot(data.settings)` rather than assigning its properties over the worker's own. It writes field by field, so accessors survive — `app.isSabUsed` has to keep testing the worker's cross-origin isolation rather than adopt what the main thread evaluated — and it registers a module the worker has not seen, which is the normal case since modules register through the main thread's runtime. A worker that only needs one namespace can read `data.settings.modules[namespace]` out of the message instead, as the montage and trend workers do.
+
+A substitute needs no case of its own: it runs on the main thread and reads the very settings module the application writes to, so `ServiceWorkerSubstitute` answers the action for every substitute that does not override it.
+
+The snapshot is what makes the relay safe to miss. A worker attached after a change, or one still setting up, is corrected by the next message; a stream of individual field writes would leave it stale with nothing able to detect the drift. `syncSettings` in [src/util/worker.ts](src/util/worker.ts) builds the per-field message and is deprecated — no worker accepts that shape.
+
 ### Adding a new commission — checklist
 
 1. Add the entry to the relevant commission type in [src/types/biosignal.ts](src/types/biosignal.ts).

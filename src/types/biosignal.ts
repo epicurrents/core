@@ -1935,6 +1935,8 @@ export type MontageWorkerCommission = {
     }
     /** Update global settings. */
     'update-settings': WorkerMessage['data'] & {
+        /** Dotted paths of the fields the snapshot is the result of, for selective reaction. */
+        changed?: string[]
         settings: AppSettings
     }
 }
@@ -2011,6 +2013,8 @@ export type TrendWorkerCommission = {
     'shutdown': WorkerMessage['data']
     /** Relay updated global settings to the processor (same mechanism as the montage worker). */
     'update-settings': WorkerMessage['data'] & {
+        /** Dotted paths of the fields the snapshot is the result of, for selective reaction. */
+        changed?: string[]
         settings: AppSettings
     }
 }

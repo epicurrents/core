@@ -174,9 +174,22 @@ export class TrendWorker extends BaseWorker {
             return this._failure(msgData)
         }
         if (this._namespace && this._processor) {
-            this._processor.settings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
+            // Only update settings after initial setup.
+            const moduleSettings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
+            if (moduleSettings) {
+                this._processor.settings = moduleSettings
+                Log.debug(`TrendWorker: settings updated.`, SCOPE)
+            } else {
+                // Keeping settings that have gone stale beats replacing them with nothing. Every
+                // change now posts a whole snapshot to every worker, so one taken while this
+                // worker's module was not registered would otherwise blank the processor's
+                // settings over a change that had nothing to do with it.
+                Log.warn(
+                    `Settings snapshot carried no '${this._namespace}' module; kept the previous settings.`,
+                    SCOPE
+                )
+            }
         }
-        Log.debug(`TrendWorker: settings updated.`, SCOPE)
         return this._success(msgData)
     }
 

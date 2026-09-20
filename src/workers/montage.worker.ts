@@ -371,9 +371,21 @@ export class MontageWorker extends BaseWorker {
         }
         if (this._namespace && this._montage) {
             // Only update settings after initial setup.
-            this._montage.settings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
+            const moduleSettings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
+            if (moduleSettings) {
+                this._montage.settings = moduleSettings
+                Log.debug(`Settings updated in worker.`, SCOPE)
+            } else {
+                // Keeping settings that have gone stale beats replacing them with nothing. Every
+                // change now posts a whole snapshot to every worker, so one taken while this
+                // worker's module was not registered would otherwise blank the montage's
+                // settings over a change that had nothing to do with it.
+                Log.warn(
+                    `Settings snapshot carried no '${this._namespace}' module; kept the previous settings.`,
+                    SCOPE
+                )
+            }
         }
-        Log.debug(`Settings updated in worker.`, SCOPE)
         return this._success(msgData)
     }
 }

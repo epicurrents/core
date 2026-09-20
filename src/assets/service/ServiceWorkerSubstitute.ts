@@ -34,6 +34,14 @@ export default class ServiceWorkerSubstitute implements WorkerSubstitute {
             return
         }
         const action = message.action
+        if (action === 'update-settings') {
+            // Every substitute runs on the main thread and reads the very settings module the
+            // application writes to, so a settings snapshot describes state it already has. Handled
+            // here rather than in each substitute: a service relays a snapshot to its worker on
+            // every settings change, and the eight substitutes that implement no case of their own
+            // would answer each one with a failure and a warning.
+            return this.returnSuccess(message)
+        }
         Log.warn(`'${action}' is not implemented in service worker substitute.`, SCOPE)
         this.returnFailure(message, `Action '${action}' is not implemented.`)
     }

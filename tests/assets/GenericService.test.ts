@@ -342,6 +342,104 @@ describe('GenericService', () => {
             expect(service.state).toBe('destroyed')
         })
     })
+    describe('settings relay', () => {
+        const SNAPSHOT = { app: { dataChunkSize: 1 }, modules: {} }
+
+        const makeRelayService = () => {
+            const worker = { postMessage: vi.fn(), addEventListener: vi.fn(), terminate: vi.fn() }
+            const unsubscribe = vi.fn()
+            mockEventBus.addScopedEventListener.mockReturnValue(unsubscribe)
+            const service = new TestService('Test', worker as any)
+            const [event, callback, , scope] = mockEventBus.addScopedEventListener.mock.calls.at(-1) ?? []
+            ;(global.window as any).__EPICURRENTS__.RUNTIME = { SETTINGS: { _CLONABLE: SNAPSHOT } }
+            return { callback, event, scope, service, unsubscribe, worker }
+        }
+
+        const change = (callback: any, property: string) => callback({ detail: { property } })
+
+        it('should subscribe to the application-scoped settings event', () => {
+            const { event, scope } = makeRelayService()
+            expect(event).toBe('setting-changed')
+            expect(scope).toBe('application')
+        })
+
+        it('should post the whole snapshot with the field that changed', async () => {
+            const { callback, worker } = makeRelayService()
+            change(callback, 'app.dataChunkSize')
+            await Promise.resolve()
+            expect(worker.postMessage).toHaveBeenCalledWith({
+                action: 'update-settings',
+                changed: ['app.dataChunkSize'],
+                settings: SNAPSHOT,
+            })
+        })
+
+        it('should coalesce the changes of one tick into a single message', async () => {
+            const { callback, worker } = makeRelayService()
+            change(callback, 'app.dataChunkSize')
+            change(callback, 'app.useMemoryManager')
+            change(callback, 'eeg.filterPaddingSeconds')
+            await Promise.resolve()
+            expect(worker.postMessage).toHaveBeenCalledTimes(1)
+            expect(worker.postMessage.mock.calls[0][0].changed).toEqual([
+                'app.dataChunkSize',
+                'app.useMemoryManager',
+                'eeg.filterPaddingSeconds',
+            ])
+        })
+
+        it('should post again for a change that arrives in a later tick', async () => {
+            const { callback, worker } = makeRelayService()
+            change(callback, 'app.dataChunkSize')
+            await Promise.resolve()
+            change(callback, 'app.useMemoryManager')
+            await Promise.resolve()
+            expect(worker.postMessage).toHaveBeenCalledTimes(2)
+            expect(worker.postMessage.mock.calls[1][0].changed).toEqual(['app.useMemoryManager'])
+        })
+
+        it('should not post when the application holds no settings', async () => {
+            const { callback, worker } = makeRelayService()
+            ;(global.window as any).__EPICURRENTS__.RUNTIME = null
+            change(callback, 'app.dataChunkSize')
+            await Promise.resolve()
+            expect(worker.postMessage).not.toHaveBeenCalled()
+        })
+
+        it('should stop relaying once the worker is shut down', async () => {
+            // `destroy` is not the only teardown: `shutdown` terminates the worker and nulls it, so
+            // a subscription that outlives it keeps waking the service for every settings change
+            // the rest of the session makes.
+            const { service, unsubscribe } = makeRelayService()
+            ;(global.window as any).__EPICURRENTS__.RUNTIME = {
+                SETTINGS: { _CLONABLE: SNAPSHOT, removeAllPropertyUpdateHandlersFor: vi.fn() },
+            }
+            ;(service as any)._worker = null
+            await service.shutdown()
+            expect(unsubscribe).toHaveBeenCalled()
+        })
+
+        it('should stop relaying once the service is destroyed', async () => {
+            const { service, unsubscribe } = makeRelayService()
+            ;(global.window as any).__EPICURRENTS__.RUNTIME = {
+                SETTINGS: { _CLONABLE: SNAPSHOT, removeAllPropertyUpdateHandlersFor: vi.fn() },
+            }
+            ;(service as any)._worker = null
+            await service.destroy()
+            expect(unsubscribe).toHaveBeenCalled()
+            expect((service as any)._settingsRelayUnsubscribe).toBeNull()
+        })
+
+        it('should not relay for a shared worker port', () => {
+            mockEventBus.addScopedEventListener.mockClear()
+            new TestService('Test', { postMessage: vi.fn() } as any, true)
+            const settingsCalls = mockEventBus.addScopedEventListener.mock.calls.filter(
+                (call: unknown[]) => call[0] === 'setting-changed'
+            )
+            expect(settingsCalls).toHaveLength(0)
+        })
+    })
+
     describe('commission lifecycle', () => {
         const makeService = () => {
             const worker = { postMessage: vi.fn(), addEventListener: vi.fn(), terminate: vi.fn() }

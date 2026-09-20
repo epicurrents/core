@@ -19,7 +19,11 @@ import type {
     WorkerMessage,
     WorkerResponse,
 } from '#types/service'
+import type { PropertyChangeEvent } from '#types/event'
+import type { ScopedEventUnsubscriber } from 'scoped-event-bus/dist/types'
+import type { SettingsValue } from '#types/config'
 import { Log } from 'scoped-event-log'
+import { ApplicationEvents, EventScopes } from '#events/EventTypes'
 import GenericAsset from '#assets/GenericAsset'
 import { NUMERIC_ERROR_VALUE } from '#util/constants'
 import { getOrSetValue, nullPromise, safeObjectFrom } from '#util/general'
@@ -47,6 +51,12 @@ export default abstract class GenericService extends GenericAsset implements Ass
     protected _port: MessagePort | null = null
     protected _manager: MemoryManager | null
     protected _memoryRange: { start: number, end: number } | null = null
+    /** Field paths changed since the settings snapshot queued for this tick was scheduled. */
+    protected _settingsChanged = [] as string[]
+    /** Is a settings snapshot already queued for the end of this tick. */
+    protected _settingsRelayQueued = false
+    /** Unsubscriber for the settings relay, or null when the service is not relaying. */
+    protected _settingsRelayUnsubscribe = null as ScopedEventUnsubscriber | null
     /**
      * In-flight `unload()` promise. Concurrent callers share this same promise instead of each
      * commissioning their own `release-cache` and `manager.release()` — without this guard, a
@@ -90,6 +100,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 this._worker.onmessageerror = () => {
                     this._rejectAllCommissions('Worker message could not be deserialised.')
                 }
+                this._watchSettings()
             }
         }
     }
@@ -398,21 +409,60 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 )
             }
             return true
-        } else if (data.action === 'update-settings') {
-            const fields =  data.fields as string[] | undefined
-            for (const field of (fields || [])) {
-                // Watch changes in SETTINGS and relay changes to worker.
-                window.__EPICURRENTS__.RUNTIME?.SETTINGS.addPropertyUpdateHandler(field, () => {
-                    this._worker?.postMessage({
-                        action: 'update-settings',
-                        field: field,
-                        value: window.__EPICURRENTS__?.RUNTIME?.SETTINGS.getFieldValue(field)
-                    })
-                }, this._name)
-            }
-            return true
         }
         return false
+    }
+
+    /**
+     * Post the current settings snapshot to the worker, coalescing every change that arrived in the
+     * same tick into one message.
+     *
+     * The message carries the whole snapshot rather than the field that changed and its new value.
+     * A snapshot is convergent: a worker that misses an update — one attached after a change, or one
+     * still setting up — is corrected by the next message, where a stream of individual writes would
+     * leave it silently stale with nothing able to detect the drift. It is also the same payload
+     * `setup-worker` already sends, so a worker needs one way of reading settings rather than two.
+     *
+     * `changed` carries the field paths the snapshot is the result of, for a worker that reacts
+     * selectively; one that simply replaces its copy can ignore it.
+     */
+    protected _relaySettings () {
+        if (this._settingsRelayQueued) {
+            return
+        }
+        this._settingsRelayQueued = true
+        queueMicrotask(() => {
+            this._settingsRelayQueued = false
+            const changed = this._settingsChanged.splice(0)
+            const settings = window.__EPICURRENTS__?.RUNTIME?.SETTINGS._CLONABLE
+            if (!this._worker || !settings) {
+                return
+            }
+            this._worker.postMessage({ action: 'update-settings', changed, settings })
+        })
+    }
+
+    /**
+     * Start relaying settings changes to this service's worker.
+     *
+     * Subscribes to the application-scoped settings event, which every successful `setFieldValue`
+     * dispatches. A worker declares no interest in particular fields: the previous design had it ask
+     * for a list, which meant the same field names had to be maintained in the worker and in whatever
+     * read them, and a field added to one list and not the other went silently unrelayed.
+     */
+    protected _watchSettings () {
+        if (this._settingsRelayUnsubscribe) {
+            return
+        }
+        this._settingsRelayUnsubscribe = this._eventBus.addScopedEventListener(
+            ApplicationEvents.SETTING_CHANGED,
+            (event) => {
+                this._settingsChanged.push((event as PropertyChangeEvent<SettingsValue>).detail.property)
+                this._relaySettings()
+            },
+            this.id,
+            EventScopes.APPLICATION,
+        )
     }
 
     /**
@@ -498,6 +548,9 @@ export default abstract class GenericService extends GenericAsset implements Ass
 
     async destroy () {
         await this.shutdown()
+        this._settingsRelayUnsubscribe?.()
+        this._settingsRelayUnsubscribe = null
+        this._settingsChanged.length = 0
         this._commissions.clear()
         this._waiters.clear()
         this._actionWatchers.length = 0
@@ -648,6 +701,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
     }
 
     async shutdown () {
+        // Before the runtime guard: a service that cannot reach the runtime still has a live bus
+        // subscription, and the worker it relays to is on its way out either way.
+        this._settingsRelayUnsubscribe?.()
+        this._settingsRelayUnsubscribe = null
+        this._settingsChanged.length = 0
         if (!window.__EPICURRENTS__?.RUNTIME) {
             Log.error(`Reference to application runtime was not found.`, SCOPE)
             return Promise.reject()

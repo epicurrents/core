@@ -4,11 +4,15 @@ General design directions and work deferred from previous implementations. Nothi
 
 **This is not an issue tracker.** Bugs, feature requests and other discrete work items belong in the GitHub issue tracker. This file holds only broad design intent that is not yet actionable as an issue, and it will likely be retired in favour of the external tracker once that practice is established.
 
-## Unreleased fixes awaiting a version bump
+## Unreleased work awaiting a version bump — the next release is 2.1.0
 
-Core sits at 2.0.0 with fixes committed on top of it. The audit of the sibling packages keeps turning up small core-side defects, so the bump is deliberately deferred until that sweep finishes and they can ship as one release rather than a string of patch versions. Anything landed here since 2.0.0 belongs in that release's notes.
+Core sits at 2.0.0 with fixes committed on top of it. The audit of the sibling packages keeps turning up small core-side defects, so the bump is deliberately deferred until that sweep finishes and they can ship as one release rather than a string of versions. Anything landed since 2.0.0 belongs in that release's notes.
+
+**The release is a minor rather than a patch.** Most of what has landed is a fix, but repairing the settings relay added `AppSettings.applySnapshot`, and that interface is published through `@epicurrents/core/types`. An addition to the public surface is a minor under semver whatever the change around it was for, so the number is 2.1.0 and a package that calls the new method must ask for `^2.1.0` — `^2.0.0` admits a core that does not have it. Today only `api-reader` does.
 
 A sibling that needs a fix from this list before the release can rely on the workspace symlink, which resolves core from the checkout rather than the registry — but its declared range still has to name a version that exists, so nothing published may depend on an unreleased fix.
+
+The version in `package.json` stays at 2.0.0 until the sweep finishes. Bumping it early would make every sibling's range look satisfiable against a release that does not exist yet.
 
 ## `safeObjectFrom` returns `any`, and it is load-bearing
 
@@ -52,6 +56,13 @@ A cleaner design shares the map:
 - Removes the second switch entirely; a substitute becomes a thin wrapper routing incoming `postMessage` to `handleMessage` and forwarding `_postMessage` to `returnMessage`.
 
 Deferred: a bigger refactor than v1 trends warranted; revisit once trends are stable.
+
+## Retire `syncSettings` at the next major
+
+[src/util/worker.ts](src/util/worker.ts) exports `syncSettings`, which builds the per-field `{ field, value }` settings message. No worker accepts that shape — settings reach a worker as a whole snapshot (see [Settings reach a worker as a snapshot](AGENTS.md#settings-reach-a-worker-as-a-snapshot)) — and nothing in the family calls it.
+
+It stays exported because it is part of `@epicurrents/core/util`, and dropping a published export is a major-version change rather than something to fold into a patch. Remove it, and the `fields` handshake it implies, when 3.0 opens.
+
 
 ## Cheap mutex rebind on reactivation
 

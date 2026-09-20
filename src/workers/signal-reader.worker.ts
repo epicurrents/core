@@ -23,7 +23,7 @@
 import GenericSignalReader from '#assets/reader/GenericSignalReader'
 import SETTINGS from '#config/Settings'
 import type { BiosignalCacheDerivationSlot } from '#types/biosignal'
-import type { ConfigChannelFilter } from '#types/config'
+import type { ClonableAppSettings, ConfigChannelFilter } from '#types/config'
 import type { SignalRequest, WorkerMessage } from '#types/service'
 import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-event-log'
@@ -320,14 +320,20 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
 
     /**
      * Apply an application settings snapshot to this worker's own copy.
+     *
+     * Delegates to `applySnapshot` rather than assigning the snapshot's top-level properties over
+     * this worker's: replacing `app` wholesale drops the accessors declared on it, so `isSabUsed`
+     * would stop testing this worker's own cross-origin isolation and return whatever the main
+     * thread evaluated it to.
+     *
      * @param msgData - Data property from the message to the worker.
      */
     async updateSettings (msgData: WorkerMessage['data']) {
         const data = validateCommissionProps(msgData, { settings: 'Object' })
         if (!data) {
-            return false
+            return this._failure(msgData)
         }
-        Object.assign(SETTINGS, data.settings)
+        SETTINGS.applySnapshot(data.settings as ClonableAppSettings)
         return this._success(msgData)
     }
 }

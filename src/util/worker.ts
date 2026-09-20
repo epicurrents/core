@@ -110,12 +110,13 @@ export const returnFailure = (
 /**
  * Synchronize the given settings with main application.
  *
- * @deprecated This function is not used by any worker and has never been wired into the settings
- * update pathway. Workers receive settings via the `update-settings` commission action — the main
- * thread sends a full `AppSettings._CLONABLE` snapshot and the worker reads
- * `data.settings.modules[namespace]`. Do **not** call this function; use `_CLONABLE` transfer
- * instead. See `TrendService.setupWorker` and `MontageService.setupWorker` for the canonical
- * pattern.
+ * @deprecated Superseded by the settings relay in `GenericService`, and never wired into any
+ * pathway itself. A service subscribes to `ApplicationEvents.SETTING_CHANGED` and posts an
+ * `update-settings` commission carrying a full `AppSettings._CLONABLE` snapshot; the worker applies
+ * it with `SETTINGS.applySnapshot` or reads `data.settings.modules[namespace]` out of it. The
+ * per-field `{ field, value }` message this function builds is not a shape any worker accepts. It
+ * remains exported only because removing it from the published surface needs a major version; do not
+ * call it.
  *
  * @param settings - Map of settings to keep in sync.
  * @param message - The message from loader to check for updated settings or the worker's postMessage method (when setting up).
