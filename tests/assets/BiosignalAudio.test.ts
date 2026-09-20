@@ -200,6 +200,85 @@ describe('BiosignalAudio', () => {
         })
     })
 
+    describe('playback resource lifetimes', () => {
+        /**
+         * A minimal Web Audio stand-in. `createBufferSource` hands back the same node every time so
+         * a test can count the listeners attached to one source across several calls.
+         */
+        const installAudioContext = () => {
+            const source = {
+                buffer: null as unknown,
+                loop: false,
+                playbackRate: { value: 1 },
+                addEventListener: vi.fn(),
+                connect: vi.fn(),
+                disconnect: vi.fn(),
+                start: vi.fn(),
+                stop: vi.fn(),
+            }
+            const node = { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } }
+            const context = {
+                state: 'running',
+                currentTime: 0,
+                destination: {},
+                close: vi.fn().mockResolvedValue(undefined),
+                createBufferSource: vi.fn(() => source),
+                createDynamicsCompressor: vi.fn(() => node),
+                resume: vi.fn(),
+                suspend: vi.fn(),
+            }
+            const contexts: Array<typeof context> = []
+            ;(globalThis as any).AudioContext = vi.fn(function () {
+                contexts.push(context)
+                return context
+            })
+            ;(globalThis as any).GainNode = vi.fn(function () { return node })
+            return { context, contexts, source }
+        }
+
+        const endedListeners = (source: { addEventListener: ReturnType<typeof vi.fn> }) =>
+            source.addEventListener.mock.calls.filter(call => call[0] === 'ended').length
+
+        const primedAudio = () => {
+            const audio = new BiosignalAudio('Test')
+            ;(audio as any)._buffer = { duration: 1, numberOfChannels: 1 }
+            return audio
+        }
+
+        it('attaches exactly one ended listener per source', async () => {
+            const { source } = installAudioContext()
+            const audio = primedAudio()
+            await audio.loadBuffer()
+            expect(endedListeners(source)).toBe(1)
+        })
+
+        it('does not attach another listener when playback is resumed after a pause', async () => {
+            const { context, source } = installAudioContext()
+            const audio = primedAudio()
+            await audio.play()
+            audio.pause()
+            context.state = 'suspended'
+            await audio.play()
+            // A listener per resume would fire every end-of-playback callback once per resume the
+            // user performed, which for a chained-window caller launches concurrent next windows.
+            expect(endedListeners(source)).toBe(1)
+        })
+
+        it('closes the audio context when playback stops', () => {
+            const { context } = installAudioContext()
+            const audio = primedAudio()
+            ;(audio as any)._audio = context
+            ;(audio as any)._source = { stop: vi.fn(), disconnect: vi.fn() }
+            ;(audio as any)._volume = { disconnect: vi.fn() }
+            ;(audio as any)._compressor = { disconnect: vi.fn() }
+            ;(audio as any)._hasStarted = true
+            audio.stop()
+            // Browsers cap live contexts per page; a chain of bounded windows otherwise reaches
+            // the cap and playback stops with nothing to explain it.
+            expect(context.close).toHaveBeenCalled()
+        })
+    })
+
     describe('destroy', () => {
         it('should clean up all audio resources', () => {
             const audio = new BiosignalAudio('Test')

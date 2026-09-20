@@ -152,6 +152,16 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._source.buffer = this._buffer
         this._source.loop = this._loop
         this._source.playbackRate.value = this._playbackRate
+        // Attached here rather than in `play()` so a source carries exactly one listener. `pause()`
+        // suspends the context without dropping the source, so a paused-and-resumed playback would
+        // otherwise accumulate a listener per resume and fire every end-of-playback callback that
+        // many times.
+        this._source.addEventListener('ended', () => {
+            this.stop()
+            for (const cb of this._playEndedCallbacks) {
+                cb()
+            }
+        })
         this._previousGain = 1.0
     }
 
@@ -187,12 +197,6 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
             // For typescript.
             return
         }
-        this._source.addEventListener('ended', () => {
-            this.stop()
-            for (const cb of this._playEndedCallbacks) {
-                cb()
-            }
-        })
         if (!this._volume) {
             this._volume = new GainNode(this._audio)
             this._compressor = this._audio.createDynamicsCompressor()
@@ -299,10 +303,15 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
             this._compressor.disconnect(this._audio.destination)
             this._volume.disconnect(this._compressor)
             this._source.disconnect(this._volume)
+            const context = this._audio
             this._compressor = null
             this._volume = null
             this._source = null
             this._audio = null
+            // `loadBuffer` constructs a fresh context on the next play, so this one is finished
+            // with. Browsers cap the number of live contexts per page, and a caller that chains
+            // bounded windows reaches that cap in a few minutes if each window leaves one behind.
+            context.close().catch(() => {})
         }
         this._position = 0
         this._startTime = 0
