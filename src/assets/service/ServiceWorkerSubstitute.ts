@@ -29,7 +29,10 @@ export default class ServiceWorkerSubstitute implements WorkerSubstitute {
         return false
     }
 
-    postMessage (message: WorkerMessage['data']) {
+    // The return type is the one `WorkerSubstitute` declares rather than this implementation's
+    // own: a substitute that answers a commission asynchronously overrides this method, and an
+    // inferred `void` here makes every such override a type error.
+    postMessage (message: WorkerMessage['data']): void | Promise<void> {
         if (!message?.action) {
             return
         }
