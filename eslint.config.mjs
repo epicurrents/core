@@ -38,15 +38,10 @@ export default tseslint.config(
       "@stylistic/array-bracket-spacing": ["warn", "never"],
       "@stylistic/ts/block-spacing": ["warn", "always"],
       "@stylistic/ts/brace-style": ["warn", "1tbs", { "allowSingleLine": true }],
-      "@stylistic/ts/comma-dangle": ["warn", {
-        "arrays": "never",
-        "objects": "always-multiline",
-        "imports": "always-multiline",
-        "exports": "always-multiline",
-        "functions": "never",
-        "importAttributes": "never",
-        "dynamicImports": "never"
-      }],
+      // Trailing commas are genuinely mixed here, in both directions and in every context: some
+      // six hundred sites disagree with whichever setting is chosen. No formatter runs over this
+      // code, so the rule would only ever be noise.
+      "@stylistic/ts/comma-dangle": "off",
       "@stylistic/ts/function-call-spacing": ["warn", "never"],
       "@stylistic/implicit-arrow-linebreak": ["warn", "beside"],
       "@stylistic/keyword-spacing": ["warn", { "before": true, "after": true }],
@@ -64,7 +59,9 @@ export default tseslint.config(
       "@stylistic/no-whitespace-before-property": ["warn"],
       "@stylistic/ts/object-curly-spacing": ["warn", "always"],
       "@stylistic/one-var-declaration-per-line": ["warn"],
-      "@stylistic/padded-blocks": ["warn", "never"],
+      // A blank line after a class's opening brace is a convention the packages follow
+      // deliberately, so the block padding this rule forbids is the house style.
+      "@stylistic/padded-blocks": "off",
       "@stylistic/quotes": ["warn", "single", { "allowTemplateLiterals": true, "avoidEscape": true }],
       "@stylistic/ts/semi": ["warn", "never"],
       "@stylistic/ts/space-before-blocks": ["warn", "always"],
