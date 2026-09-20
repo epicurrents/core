@@ -4,6 +4,20 @@ General design directions and work deferred from previous implementations. Nothi
 
 **This is not an issue tracker.** Bugs, feature requests and other discrete work items belong in the GitHub issue tracker. This file holds only broad design intent that is not yet actionable as an issue, and it will likely be retired in favour of the external tracker once that practice is established.
 
+## Unreleased fixes awaiting a version bump
+
+Core sits at 2.0.0 with fixes committed on top of it. The audit of the sibling packages keeps turning up small core-side defects, so the bump is deliberately deferred until that sweep finishes and they can ship as one release rather than a string of patch versions. Anything landed here since 2.0.0 belongs in that release's notes.
+
+A sibling that needs a fix from this list before the release can rely on the workspace symlink, which resolves core from the checkout rather than the registry — but its declared range still has to name a version that exists, so nothing published may depend on an unreleased fix.
+
+## `safeObjectFrom` returns `any`, and it is load-bearing
+
+`safeObjectFrom` is `Object.assign(Object.create(null), template)`, which TypeScript infers as `any`. That propagates: every module's runtime export is built through it, so each one lands in its package as an unsafe assignment, and the type of what went in is lost on the way out.
+
+Giving it the obvious signature — `<T extends object>(template: T): T` — type-checks core cleanly and then fails `edf-reader`, which is the interesting part. `EdfEncoder.createHeader` and `setHeader` return `this.#edfHeader || safeObjectFrom({})` while declaring `BiosignalHeaderRecord`; `EdfHeader` is a different shape, and the empty object has none of the record's fields. A caller on the locked path reads `undefined` off a header it was promised. There is a third site in `EdfImporter`.
+
+So the `any` is not merely untidy, it is what hides those returns from the compiler. Fixing the signature means first deciding what those two methods should return when locked — `null`, a throw, or a properly shaped empty record — which is a change to `edf-reader`'s API and belongs with that package's audit rather than a core patch.
+
 ## Load a dataset from a folder
 
 `StateManager.loadDatasetFolder` is declared but not implemented: it refuses with an error rather than returning a dataset. The step it is missing is the one that turns each loaded `StudyContext` into a `DataResource` — every module knows how to do that for its own modality, and nothing yet decides which module owns a given study at this level.
