@@ -329,10 +329,6 @@ export class Epicurrents implements EpicurrentsApp {
             Log.error(`Creating the interface instance was not successful.`, SCOPE)
             return false
         }
-        // Publish the interface on the runtime. `RuntimeState.INTERFACE` is the documented handle
-        // for reaching it through the shared global, and nothing assigned it, so it read as null
-        // after every successful launch.
-        this.#runtime.INTERFACE = this.#interface
         this.#eventBus.dispatchScopedEvent(ApplicationEvents.INITIALIZE, 'application', 'after')
         return true
     }

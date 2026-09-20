@@ -51,7 +51,7 @@ A sibling package runs `epicurrents-build-types` from its own root with its own 
 | Concept | Class / Interface | Role |
 |---|---|---|
 | Application | `Epicurrents` (class), `EpicurrentsApp` (interface) | Entry point. Holds runtime, event bus, interface, memory manager. |
-| Runtime state | `RuntimeStateManager` / `StateManager` interface | Central reactive store: `APP`, `MODULES`, `SERVICES`, `SETTINGS`, `WORKERS`, `INTERFACE` maps. |
+| Runtime state | `RuntimeStateManager` / `StateManager` interface | Central reactive store: `APP`, `MODULES`, `SERVICES`, `SETTINGS`, `WORKERS`, `INTERFACE`. `INTERFACE` belongs to the interface, which assigns it; core does not. |
 | Asset | `BaseAsset` interface | Root type of everything — has `id`, `name`, `modality`, `state`, event API. |
 | Resource | `DataResource` interface | Loadable asset with lifecycle (`added → loading → loaded → ready → destroyed`). The full `AssetState` union also has `error`, which carries an `errorReason` the setter clears on the way out. |
 | Module | `ResourceModule` / `RuntimeResourceModule` | Pluggable modality support registered with `registerModule(name, module)`. |

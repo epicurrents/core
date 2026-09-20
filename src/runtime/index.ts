@@ -105,6 +105,10 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         return state.APP
     }
 
+    /**
+     * Runtime state belonging to the interface. It currently has no defined shape, and should not be mutated from
+     * outside the interface module.
+     */
     get INTERFACE () {
         return state.INTERFACE
     }
