@@ -22,6 +22,16 @@ export abstract class BaseWorker {
     protected _namespace = ''
     constructor () {
     }
+    /**
+     * Close the context this worker runs in, after the commission that asked for it has been
+     * answered.
+     *
+     * A worker on its own thread closes itself. An implementation running on the main thread has no
+     * thread to close and overrides this with a no-op — closing there would be `window.close`.
+     */
+    protected _close () {
+        close()
+    }
     /** 
      * Return a failure response to the service.
      * @param data - Data part of the received message.
@@ -29,7 +39,7 @@ export abstract class BaseWorker {
      */
     protected _failure (data: WorkerMessage['data'], error?: string|string[]) {
         const errorMsg = error ||  `Commission property validation failed for action '${data.action}'.`
-        postMessage({
+        this._postMessage({
             rn: data.rn,
             action: data.action,
             success: false,
@@ -38,18 +48,53 @@ export abstract class BaseWorker {
         return false
     }
     /**
+     * Deliver a reply to whoever commissioned this worker.
+     *
+     * Every reply this class and its subclasses produce goes through here — the success and failure
+     * responses, the validation failures raised by {@link _validate}, and any staged reply a handler
+     * posts itself. A worker on its own thread posts it across the thread boundary; an
+     * implementation running on the main thread overrides this to hand the reply straight to its
+     * caller. A handler that reaches for the global `postMessage` instead is unusable in the second
+     * case, and unusable silently: on the main thread the reply goes to the window and the
+     * commission it was answering never settles.
+     * @param reply - Response message to deliver.
+     */
+    protected _postMessage (reply: WorkerMessage['data']) {
+        postMessage(reply)
+    }
+    /**
      * Return a success response to the service.
      * @param data - Data part of the received message.
      * @param results - Optional results to add to the response message.
      */
     protected _success (data: WorkerMessage['data'], results?: { [prop: string]: unknown }) {
-        postMessage({
+        this._postMessage({
             rn: data.rn,
             action: data.action,
             success: true,
             ...results
         })
         return true
+    }
+    /**
+     * Validate the properties a commission must carry, answering the commission itself if they are
+     * missing or of the wrong type.
+     *
+     * Wraps {@link validateCommissionProps} so the validation failure is delivered through this
+     * worker's own transport. Calling the utility directly leaves it on its default, the global
+     * `postMessage`, which is the right destination on a worker thread and no destination at all on
+     * the main one.
+     * @param data - Data part of the received message.
+     * @param requiredProps - Property names mapped to their expected types.
+     * @param requiredSetup - Has the setup this commission requires been completed (default true).
+     * @returns The message data when valid, false when not.
+     */
+    protected _validate <T extends WorkerMessage['data']> (
+        data: T,
+        requiredProps: { [name: string]: string | string[] },
+        requiredSetup = true,
+    ): false | T {
+        return validateCommissionProps(data, requiredProps, requiredSetup, this._postMessage.bind(this))
     }
     /**
      * Target for the 'set-buffer-range' commission — the holder of buffer-backed views that can
@@ -70,7 +115,7 @@ export abstract class BaseWorker {
      * @returns True if the reposition succeeded, false otherwise.
      */
     async setBufferRange (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as WorkerMessage['data'] & { range?: number[], moves?: BufferRangeMove[] },
             {
                 range: 'Array?',
@@ -105,6 +150,9 @@ export abstract class BaseWorker {
         const action = message.data.action
         const handler = this._actionMap.get(action)?.bind(this)
         if (!handler) {
+            // The reply settles the commission, but only the caller sees it, and a caller that
+            // posted without waiting for one sees nothing at all.
+            Log.warn(`Action '${action}' is not supported by this worker.`, SCOPE)
             return this._failure(message.data, `Action '${action}' is not supported by this worker.`)
         }
         try {

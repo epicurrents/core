@@ -19,7 +19,6 @@ import type {
 import type { AppSettings } from '#types/config'
 import type { WorkerMessage } from '#types/service'
 import TrendProcessor from '#assets/biosignal/service/TrendProcessor'
-import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-event-log'
 import { BaseWorker } from './base.worker'
 
@@ -48,7 +47,7 @@ export class TrendWorker extends BaseWorker {
     }
 
     async cancelTrendComputation (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as TrendWorkerCommission['cancel-trend-computation'],
             { name: 'String' },
             this._processor !== null
@@ -62,7 +61,7 @@ export class TrendWorker extends BaseWorker {
     }
 
     async computeTrend (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as TrendWorkerCommission['compute-trend'],
             { name: 'String', range: 'Array?' },
             this._processor !== null
@@ -80,7 +79,7 @@ export class TrendWorker extends BaseWorker {
     }
 
     async setupTrend (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as TrendWorkerCommission['setup-trend'],
             {
                 derivation: 'Object',
@@ -108,7 +107,7 @@ export class TrendWorker extends BaseWorker {
     }
 
     async setupWorker (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as TrendWorkerCommission['setup-worker'],
             {
                 dataDuration:      'Number',
@@ -133,7 +132,7 @@ export class TrendWorker extends BaseWorker {
             return this._failure(msgData)
         }
         this._namespace = namespace
-        this._processor = new TrendProcessor(settings, (msg) => postMessage(msg))
+        this._processor = new TrendProcessor(settings, (msg) => this._postMessage(msg as WorkerMessage['data']))
         const ok = await this._processor.setupWithInputMutex(
             data.input as TrendWorkerCommission['setup-worker']['input'],
             data.dataDuration as number,
@@ -149,7 +148,7 @@ export class TrendWorker extends BaseWorker {
     }
 
     async setInterruptions (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as TrendWorkerCommission['set-interruptions'],
             { interruptions: 'Array' },
             this._processor !== null
@@ -166,7 +165,7 @@ export class TrendWorker extends BaseWorker {
     }
 
     async updateSettings (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as TrendWorkerCommission['update-settings'],
             { settings: 'Object' }
         )

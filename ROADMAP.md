@@ -8,7 +8,7 @@ General design directions and work deferred from previous implementations. Nothi
 
 Core sits at 2.0.0 with fixes committed on top of it. The audit of the sibling packages keeps turning up small core-side defects, so the bump is deliberately deferred until that sweep finishes and they can ship as one release rather than a string of versions. Anything landed since 2.0.0 belongs in that release's notes.
 
-**The release is a minor rather than a patch.** Most of what has landed is a fix, but repairing the settings relay added `AppSettings.applySnapshot`, and that interface is published through `@epicurrents/core/types`. An addition to the public surface is a minor under semver whatever the change around it was for, so the number is 2.1.0 and a package that calls the new method must ask for `^2.1.0` — `^2.0.0` admits a core that does not have it. Today only `api-reader` does.
+**The release is a minor rather than a patch.** Most of what has landed is a fix, but repairing the settings relay added `AppSettings.applySnapshot` and closing the substitute vocabulary gap added `SignalReaderWorkerSubstitute`, both published surface. An addition to it is a minor under semver whatever the change around it was for, so the number is 2.1.0 and a package that reaches for either must ask for `^2.1.0` — `^2.0.0` admits a core that has neither. `api-reader` calls the method and `csv-reader` extends the class, and both currently declare `^2.0.0` because naming an unpublished version would be worse. Correcting the two is part of cutting the release, not of the sweep.
 
 A sibling that needs a fix from this list before the release can rely on the workspace symlink, which resolves core from the checkout rather than the registry — but its declared range still has to name a version that exists, so nothing published may depend on an unreleased fix.
 
@@ -45,17 +45,21 @@ The remainder is mostly `handleMessage` dispatch in worker `onmessage` handlers,
 
 The same configuration still has to reach the sibling packages, which currently have no working lint at all.
 
-## Shared action map between worker and substitute
+## The montage worker and its substitute answer different commissions
 
-Every off-thread processor's commissions are dispatched in two hand-maintained places — the real worker's `_actionMap` and the substitute's `switch` (see [Worker commission design](AGENTS.md#worker-commission-design--three-places-to-keep-in-sync)). Adding an action to one and forgetting the other is a standing source of `Action 'X' is not implemented` runtime failures the compiler does not catch.
+Reader workers and their substitutes now share one dispatch (see [Reader substitutes run the worker's own handlers](AGENTS.md#3c-reader-substitutes-run-the-workers-own-handlers)). The montage pair is what remains on two hand-maintained lists, and the lists have already diverged — in both directions, which is worth reading twice.
 
-A cleaner design shares the map:
+`MontageWorker` answers `data`, `get-signals`, `invalidate-cache`, `map-channels`, `release-cache`, `release-signal-arrays`, `set-buffer-range`, `set-filters`, `set-interruptions`, `setup-input-cache`, `setup-input-mutex`, `setup-worker` and `update-settings`. `MontageWorkerSubstitute` answers `decommission`, `get-signals`, `invalidate-cache`, `map-channels`, `release-cache`, `release-signal-arrays`, `set-filters`, `set-interruptions`, `setup-cache`, `setup-worker` and `shutdown`.
 
-- Move `_actionMap` into a base class shared by the worker and its substitute.
-- Each handler reads from `data` and writes back through an injected `reply` callback (`postMessage` in the worker, `returnMessage` in the substitute).
-- Removes the second switch entirely; a substitute becomes a thin wrapper routing incoming `postMessage` to `handleMessage` and forwarding `_postMessage` to `returnMessage`.
+**`shutdown` is on the substitute and not on the worker**, and `MontageService` inherits `GenericService.shutdown`, which commissions it and awaits the reply before terminating the worker and clearing the state that belongs to it. A failed commission rejects, so tearing down a montage throws on the worker path — the ordinary, cross-origin-isolated one — while working on the substitute path. `setup-cache` against `setup-input-cache` is the same question asked the other way: one of the two names is what the service actually posts, and the other is dead.
 
-Deferred: a bigger refactor than v1 trends warranted; revisit once trends are stable.
+The fix is the one the readers took. `MontageProcessor` is to the montage worker what a reader is to a reader worker, so the same shape applies: the handlers move to a class the worker extends, and the substitute runs them with `_postMessage` and `_close` redirected. Settle the vocabulary against what `MontageService` posts before moving anything, since two of the names above cannot both be right.
+
+## Reader packages still on a hand-written substitute
+
+`SignalReaderWorkerSubstitute` closes the vocabulary gap for any reader substitute that extends it; `csv-reader` does. The rest still implement a subset by hand — `wav-reader` and `nic-reader` answer five of the thirteen commissions, `natus-reader` eight, `edf-reader` and `dicom-reader` ten — so on an origin without cross-origin isolation a study in those formats cannot be released or shut down.
+
+Each conversion is small: extend the new base, delete the switch, keep `setup-worker`. Fold it into each package as the audit sweep opens it, and note that it needs a core that has the base, so a package published before core 2.1.0 cannot declare it.
 
 ## Retire `syncSettings` at the next major
 

@@ -16,7 +16,6 @@ import type {
 import type { CommonBiosignalSettings } from '#types/config'
 import type { WorkerMessage } from '#types/service'
 import MontageProcessor from '#assets/biosignal/service/MontageProcessor'
-import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-event-log'
 import { BaseWorker } from './base.worker'
 
@@ -86,7 +85,7 @@ export class MontageWorker extends BaseWorker {
                 this._failure(msgData, 'Superseded by newer get-signals request.')
                 return
             }
-            const data = validateCommissionProps(
+            const data = this._validate(
                 msgData as MontageWorkerCommission['get-signals'],
                 {
                     range: ['Number', 'Number'],
@@ -123,7 +122,7 @@ export class MontageWorker extends BaseWorker {
      * @returns True if action was successful, false otherwise.
      */
     async mapChannels (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MontageWorkerCommission['map-channels'],
             {
                 config: 'Object'
@@ -176,7 +175,7 @@ export class MontageWorker extends BaseWorker {
      * @returns True if action was successful, false otherwise.
      */
     async setFilters (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MontageWorkerCommission['set-filters'],
             {
                 filters: 'String',
@@ -244,7 +243,7 @@ export class MontageWorker extends BaseWorker {
      * @returns True if action was successful, false otherwise.
      */
     async setInputCache (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MontageWorkerCommission['setup-input-cache'],
             {
                 dataDuration: 'Number',
@@ -274,7 +273,7 @@ export class MontageWorker extends BaseWorker {
      * @returns True if action was successful, false otherwise.
      */
     async setupInputMutex (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MontageWorkerCommission['setup-input-mutex'],
             {
                 bufferStart: 'Number',
@@ -307,7 +306,7 @@ export class MontageWorker extends BaseWorker {
      * @returns True if action was successful, false otherwise.
      */
     async setInterruptions (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MontageWorkerCommission['set-interruptions'],
             {
                 interruptions: 'Array'
@@ -331,7 +330,7 @@ export class MontageWorker extends BaseWorker {
      * @returns True if action was successful, false otherwise.
      */
     async setupWorker (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MontageWorkerCommission['setup-worker'],
             {
                 config: 'Object',
@@ -350,7 +349,7 @@ export class MontageWorker extends BaseWorker {
         // to the parent thread, but binding it here makes the wiring symmetric with the substitute
         // (which has to inject `returnMessage`) and avoids any future surprises if the processor
         // is constructed in an unusual context.
-        this._montage = new MontageProcessor(settings, (msg) => postMessage(msg))
+        this._montage = new MontageProcessor(settings, (msg) => this._postMessage(msg as WorkerMessage['data']))
         this._montage.setupChannels(data.montage, data.config, data.setupChannels)
         this._name = data.montage
         Log.debug(`Worker setup complete.`, SCOPE)
@@ -362,7 +361,7 @@ export class MontageWorker extends BaseWorker {
      * @returns True if action was successful, false otherwise.
      */
     async updateSettings (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MontageWorkerCommission['update-settings'],
             { settings: 'Object' }
         )

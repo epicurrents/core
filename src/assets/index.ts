@@ -59,6 +59,7 @@ import {
     GenericService,
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
+    SignalReaderWorkerSubstitute,
 } from './service'
 import {
     FileSystemDirectory,
@@ -121,6 +122,7 @@ export {
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,
+    SignalReaderWorkerSubstitute,
     TrendProcessor,
     TrendService,
     TrendWorkerSubstitute,

@@ -25,7 +25,6 @@ import SETTINGS from '#config/Settings'
 import type { BiosignalCacheDerivationSlot } from '#types/biosignal'
 import type { ClonableAppSettings, ConfigChannelFilter } from '#types/config'
 import type { SignalRequest, WorkerMessage } from '#types/service'
-import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-event-log'
 import { BaseWorker } from './base.worker'
 
@@ -102,7 +101,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
         if (!this._reader.cacheReady) {
             return this._failure(msgData, `Cannot return signals if signal cache is not yet initialized.`)
         }
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as WorkerMessage['data'] & { config?: ConfigChannelFilter, range: number[] },
             {
                 config: 'Object?',
@@ -159,7 +158,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
         if (!this._reader.cacheReady) {
             return this._failure(msgData, `Cannot return signals if signal cache is not yet initialized.`)
         }
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as WorkerMessage['data'] & {
                 config?: ConfigChannelFilter
                 range: number[]
@@ -176,7 +175,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
         }
         const postStage = (result: SignalRequest, final: boolean) => {
             const part = 'part' in result ? result.part : null
-            postMessage({
+            this._postMessage({
                 rn: msgData.rn,
                 action: msgData.action,
                 success: true,
@@ -220,7 +219,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
      * @param msgData - Data property from the message to the worker.
      */
     async setInterruptions (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as WorkerMessage['data'] & {
                 complete?: boolean
                 interruptions: [number, number][]
@@ -248,7 +247,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
      * @param msgData - Data property from the message to the worker.
      */
     async setSignalPolarity (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as WorkerMessage['data'] & {
                 indices: number[]
                 inverted: boolean
@@ -279,7 +278,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
     async setupCache (msgData: WorkerMessage['data']) {
         const derivationSlots = (msgData.derivationSlots as BiosignalCacheDerivationSlot[]) || []
         if (msgData.useMemoryManager) {
-            const data = validateCommissionProps(
+            const data = this._validate(
                 msgData as WorkerMessage['data'] & {
                     buffer: SharedArrayBuffer
                     range: { start: number }
@@ -314,7 +313,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
     async shutdown (msgData: WorkerMessage['data']) {
         await this._reader.destroy()
         const result = this._success(msgData)
-        close()
+        this._close()
         return result
     }
 
@@ -329,7 +328,7 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
      * @param msgData - Data property from the message to the worker.
      */
     async updateSettings (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(msgData, { settings: 'Object' })
+        const data = this._validate(msgData, { settings: 'Object' })
         if (!data) {
             return this._failure(msgData)
         }

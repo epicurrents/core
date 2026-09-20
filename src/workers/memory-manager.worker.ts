@@ -7,7 +7,6 @@
 
 import { type MemoryManagerWorkerCommission, type WorkerMessage } from '#types/service'
 import { Log } from 'scoped-event-log'
-import { validateCommissionProps } from '../util'
 import { BaseWorker } from './base.worker'
 
 const SCOPE = 'MemoryManagerWorker'
@@ -99,7 +98,7 @@ export class MemoryManagerWorker extends BaseWorker {
         return true
     }
     async releaseAndRearrange (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MemoryManagerWorkerCommission['release-and-rearrange'],
             {
                 rearrange: 'Array',
@@ -116,7 +115,7 @@ export class MemoryManagerWorker extends BaseWorker {
         }
     }
     async setBuffer (msgData: WorkerMessage['data']) {
-        const data = validateCommissionProps(
+        const data = this._validate(
             msgData as MemoryManagerWorkerCommission['set-buffer'],
             {
                 buffer: 'SharedArrayBuffer',

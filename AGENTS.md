@@ -371,7 +371,7 @@ protected _actionMap = new Map<
 ])
 ```
 
-[src/workers/base.worker.ts](src/workers/base.worker.ts) `handleMessage` looks up the action in `_actionMap` and calls the handler. Each handler calls `validateCommissionProps(...)` to type-narrow the payload, does work, and returns via `this._success(...)` / `this._failure(...)` — both wrap `postMessage` with the original `rn` correlation ID.
+[src/workers/base.worker.ts](src/workers/base.worker.ts) `handleMessage` looks up the action in `_actionMap` and calls the handler. Each handler calls `this._validate(...)` to type-narrow the payload, does work, and returns via `this._success(...)` / `this._failure(...)`. All three deliver through `this._postMessage`, which carries the original `rn` correlation ID and is the single point a substitute redirects to run these handlers on the main thread.
 
 ### 3. The substitute — switch statement ([src/assets/biosignal/service/MontageWorkerSubstitute.ts](src/assets/biosignal/service/MontageWorkerSubstitute.ts))
 
@@ -381,7 +381,7 @@ Because the action map and the switch are two separate places, **adding a new ac
 
 Both halves answer in the same shape: `{ rn, action, success, error }` for a failure and `{ rn, action, success, ...results }` for a success, with the cause always under `error`. The substitute must not spread the inbound commission into its reply — that returns the request's own payload alongside the response, so a consumer reading a field off the reply can be handed the request's value for it. `ServiceWorkerSubstitute.returnSuccess` / `returnFailure` are the only places this shape is built on the substitute side; a substitute that calls `returnMessage` directly is responsible for matching it.
 
-There are three substitutes, and only two of them are switch-dispatched: [ServiceWorkerSubstitute](src/assets/service/ServiceWorkerSubstitute.ts) is the base every substitute extends, and `MontageWorkerSubstitute` extends it. [TrendWorkerSubstitute](src/assets/biosignal/service/TrendWorkerSubstitute.ts) is the exception — it implements `BiosignalTrendService` directly and drives a main-thread `TrendProcessor` through ordinary method calls, with no commission switch to keep in sync. `TrendService` has no substitute branch of its own: its `setupWithCache` logs that `TrendWorkerSubstitute` is the no-SAB path and returns `{ success: false }`, so the *caller* chooses between the two implementations.
+`MontageWorkerSubstitute` is the one substitute still dispatched this way, and it is the one this warning is about. [ServiceWorkerSubstitute](src/assets/service/ServiceWorkerSubstitute.ts) is the base every substitute extends; reader substitutes extend [SignalReaderWorkerSubstitute](src/assets/service/SignalReaderWorkerSubstitute.ts) instead and have no switch (see 3b). [TrendWorkerSubstitute](src/assets/biosignal/service/TrendWorkerSubstitute.ts) is outside the scheme entirely — it implements `BiosignalTrendService` directly and drives a main-thread `TrendProcessor` through ordinary method calls, with no commissions at all. `TrendService` has no substitute branch of its own: its `setupWithCache` logs that `TrendWorkerSubstitute` is the no-SAB path and returns `{ success: false }`, so the *caller* chooses between the two implementations.
 
 Inside a substitute case, replies use `this.returnSuccess(message)` / `this.returnFailure(message)`; out-of-band notifications (e.g. per-epoch `'trend-epoch'` messages from inside the processor) need the processor's `_postMessage` callback to be wired to `this.returnMessage.bind(this)` — see the processor constructor's second parameter.
 
@@ -402,6 +402,25 @@ Two hooks cover the rest of the variation: `_signalResponseExtras(range)` adds f
 
 The reason this is a base class rather than a convention is that the failure it prevents is silent. A hand-written dispatch that omits a commission replies with nothing, and the service waits on a promise that can no longer settle; nothing logs, and the feature that needed it simply does nothing. `handleMessage` answering an unregistered action with a failure is what converts that into a visible error.
 
+### 3c. Reader substitutes run the worker's own handlers
+
+A reader's main-thread substitute extends [SignalReaderWorkerSubstitute](src/assets/service/SignalReaderWorkerSubstitute.ts), which holds a `SignalReaderWorker` over the same reader and hands it every commission. There is no second implementation of the vocabulary to keep aligned, and the package's substitute reads like its worker:
+
+```ts
+class EdfWorkerSubstitute extends SignalReaderWorkerSubstitute<EdfReader> {
+    constructor () {
+        super(new EdfReader(window.__EPICURRENTS__.RUNTIME!.SETTINGS))
+        this.extendActionMap([['setup-worker', this.setupWorker]])
+    }
+}
+```
+
+What makes that possible is that `BaseWorker` routes every reply through `_postMessage` and closes its thread through `_close`, so redirecting those two runs the same handlers on the main thread. **A handler must not reach for the global `postMessage` or `close`**, and must validate through `this._validate` rather than calling `validateCommissionProps` directly: the utility's default reply target is that same global, which on the main thread is `window.postMessage`, so a validation failure would go to the window and the commission it refused would never settle. Nothing about that is visible — the reply is sent, to the wrong place.
+
+Three commissions mean something different on the main thread and are overridden there. `setup-cache` answers with the cache object itself, which a worker cannot do because it would cross the thread boundary as a clone with no link to the memory it stands for, and refuses a `useMemoryManager` request outright, a substitute existing precisely because there is no `SharedArrayBuffer` to manage. `update-settings` acknowledges a snapshot without applying it, the substitute reading the very settings module the snapshot was taken from. `shutdown` tears the reader down but closes nothing, the service terminating the substitute after the reply.
+
+The stakes are worth stating, because a partial substitute looks like a working fallback and is not one. An unanswered commission is reported as a failure, a failed commission rejects, and `GenericService.shutdown` and `unload` each await one before tearing anything down — so a missing handler does not degrade a study, it makes the study impossible to close, on exactly the origins that cannot use a worker.
+
 ### 4. Subclass workers
 
 Subclasses (e.g. a Pyodide-backed montage worker in the `pyodide-service` package) inherit `_actionMap` and any new actions added via `extendActionMap([...])`. Actions added to a base worker are picked up automatically there — no per-subclass change required, provided the subclass doesn't shadow the action map or override `handleMessage`.
@@ -414,7 +433,7 @@ A worker keeps its own copy of the settings tree; `setup-worker` seeds it with `
 
 Apply the snapshot with `SETTINGS.applySnapshot(data.settings)` rather than assigning its properties over the worker's own. It writes field by field, so accessors survive — `app.isSabUsed` has to keep testing the worker's cross-origin isolation rather than adopt what the main thread evaluated — and it registers a module the worker has not seen, which is the normal case since modules register through the main thread's runtime. A worker that only needs one namespace can read `data.settings.modules[namespace]` out of the message instead, as the montage and trend workers do.
 
-A substitute needs no case of its own: it runs on the main thread and reads the very settings module the application writes to, so `ServiceWorkerSubstitute` answers the action for every substitute that does not override it.
+A substitute needs no case of its own: it runs on the main thread and reads the very settings module the application writes to, so `ServiceWorkerSubstitute` answers the action for every substitute that does not override it, and `SignalReaderWorkerSubstitute` overrides it to the same effect.
 
 The snapshot is what makes the relay safe to miss. A worker attached after a change, or one still setting up, is corrected by the next message; a stream of individual field writes would leave it stale with nothing able to detect the drift. `syncSettings` in [src/util/worker.ts](src/util/worker.ts) builds the per-field message and is deprecated — no worker accepts that shape.
 
