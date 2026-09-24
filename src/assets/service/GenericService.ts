@@ -610,9 +610,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
 
     /**
      * Reset the network circuit breakers after re-authentication: the main-thread registry, and the
-     * worker's own registry via a fire-and-forget message (no reply is expected, so a worker without
-     * a reader simply ignores the unknown action and none can hang on it). Called from the app's
-     * session-restored notification.
+     * worker's own registry via a fire-and-forget message. No reply is expected, and none can be
+     * read: the message carries no request number, so nothing correlates it to a commission. Every
+     * worker answers the action — `BaseWorker.resetNetwork` clears nothing where the worker fetches
+     * nothing — so that an unanswered action stays a real signal rather than routine noise from the
+     * workers this does not concern. Called from the app's session-restored notification.
      * @param origin - Restrict to a single origin, or omit to reset every breaker.
      */
     resetNetwork (origin?: string) {

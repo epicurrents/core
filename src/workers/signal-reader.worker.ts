@@ -200,18 +200,6 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
     }
 
     /**
-     * Clear this worker's network breakers so the next load is attempted afresh.
-     *
-     * Fire-and-forget from the service after re-authentication: it carries no request number and
-     * waits for no reply, so none is posted. Readers that fetch through the resilient client
-     * override this; the default is a no-op that keeps the commission from reading as unsupported.
-     * @param _msgData - Data property from the message to the worker.
-     */
-    async resetNetwork (_msgData: WorkerMessage['data']) {
-        return true
-    }
-
-    /**
      * Replace the reader's interruption table from external metadata.
      *
      * With `complete` the table is trusted to cover the whole recording, which lifts the

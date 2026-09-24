@@ -181,7 +181,7 @@ Setting `activeMontage` stops prior montage signal caching, updates filters, and
 
 Which worker the service constructs is decided by the constructor's `manager` argument and the `overrideWorker` name: with a memory manager and an `overrideWorker` other than the reserved `'substitute'`, it takes the factory registered in `RUNTIME.WORKERS` under `overrideWorker || 'montage'` and falls back to the inlined `MontageWorker`. With no manager, or with `overrideWorker === 'substitute'`, it constructs a `MontageWorkerSubstitute`.
 
-Worker action map ([src/workers/montage.worker.ts](src/workers/montage.worker.ts)): `get-signals`, `invalidate-cache`, `map-channels`, `release-cache`, `release-signal-arrays`, `set-buffer-range`, `set-interruptions`, `set-filters`, `setup-input-cache`, `setup-input-mutex`, `setup-worker`, `update-settings`.
+Worker action map ([src/workers/montage.worker.ts](src/workers/montage.worker.ts)): `get-signals`, `invalidate-cache`, `map-channels`, `release-cache`, `release-signal-arrays`, `reset-network`, `set-buffer-range`, `set-interruptions`, `set-filters`, `setup-cache`, `setup-input-cache`, `setup-input-mutex`, `setup-worker`, `shutdown`, `update-settings`. The substitute answers the same fifteen, four of them differently — see [Worker commission design](#worker-commission-design).
 
 `setupWorker` initialises a `MontageProcessor` in the worker with the channel config and module settings. `get-signals` → `MontageProcessor.getSignals(range, config)` → derived `Float32Array[]` → transferred back.
 
@@ -189,7 +189,7 @@ Worker action map ([src/workers/montage.worker.ts](src/workers/montage.worker.ts
 
 Holds the actual signal math — channel derivation (active channels minus reference channels), filter application (highpass/lowpass/notch), downsampling. Reads raw signals from the cache/mutex. Key method: `getSignals(range, config)`.
 
-It normally runs inside the montage worker, but it is a public export ([src/assets/biosignal/service/MontageProcessor.ts](src/assets/biosignal/service/MontageProcessor.ts), re-exported from the package root) and `MontageWorkerSubstitute` constructs one on the main thread, handing it `returnMessage` as its outbound channel because there is no `postMessage` global that routes to the service there. Anything written into the processor therefore has to work in both settings.
+It normally runs inside the montage worker, but it is a public export ([src/assets/biosignal/service/MontageProcessor.ts](src/assets/biosignal/service/MontageProcessor.ts), re-exported from the package root) and `MontageWorkerSubstitute` runs one on the main thread. Anything written into the processor therefore has to work in both settings. Its outbound channel is the worker's own `_postMessage`, which the substitute redirects, so a notification the processor pushes reaches the service on either side.
 
 ### Property change events
 
@@ -337,9 +337,9 @@ When adding a new worker-bearing package, add the same two keys. The builder's w
 
 ---
 
-## Worker commission design — three places to keep in sync
+## Worker commission design
 
-Each off-thread processor (montage, trend, format readers) reaches the worker through a **commission** — a typed message with a string `action` plus action-specific payload fields. The shape is one piece of code and the dispatch lives in three places that must stay aligned.
+Each off-thread processor (montage, trend, format readers) reaches the worker through a **commission** — a typed message with a string `action` plus action-specific payload fields. A commission is declared in a type union and answered by one class, which runs on a worker thread or on the main thread depending on what the environment supports. The trend worker is the exception and is described at the end of this section.
 
 ### 1. The type union (single source of truth)
 
@@ -358,7 +358,7 @@ export type MontageWorkerCommissionAction = keyof MontageWorkerCommission
 
 A commission added here gets type-checked everywhere it's posted from. **Always add here first.**
 
-### 2. The real worker — action map ([src/workers/montage.worker.ts](src/workers/montage.worker.ts))
+### 2. The worker — action map ([src/workers/montage.worker.ts](src/workers/montage.worker.ts))
 
 ```ts
 protected _actionMap = new Map<
@@ -371,19 +371,36 @@ protected _actionMap = new Map<
 ])
 ```
 
+`BaseWorker` supplies two handlers every worker registers under its own map entry rather than inheriting a registration: `setBufferRange`, which delegates to whatever `_getBufferRangeTarget` returns, and `resetNetwork`, which clears nothing unless the worker fetches. `reset-network` is posted to every service's worker on session restore, so leaving it unregistered turns a routine message into a warning about an unsupported action. A subclass assigns its own `_actionMap` as a field, which shadows the base's, so an action registered on `BaseWorker` alone would never be reached.
+
 [src/workers/base.worker.ts](src/workers/base.worker.ts) `handleMessage` looks up the action in `_actionMap` and calls the handler. Each handler calls `this._validate(...)` to type-narrow the payload, does work, and returns via `this._success(...)` / `this._failure(...)`. All three deliver through `this._postMessage`, which carries the original `rn` correlation ID and is the single point a substitute redirects to run these handlers on the main thread.
 
-### 3. The substitute — switch statement ([src/assets/biosignal/service/MontageWorkerSubstitute.ts](src/assets/biosignal/service/MontageWorkerSubstitute.ts))
+**The class module holds no worker-thread code.** Instantiating the worker and binding `onmessage` lives in [src/workers/montage.worker.entry.ts](src/workers/montage.worker.entry.ts), which is the module `MontageService` imports with Vite's `?worker&inline` suffix. The split is what lets the substitute import the same class: a module body that runs on import would assign the application's own `window.onmessage` the moment main-thread code reached for it. A worker whose handlers are shared needs the same two files; `signal-reader.worker.ts` already has no entry of its own, because each reader package supplies one.
 
-`MontageService` uses `MontageWorkerSubstitute` in place of a real Worker when it is constructed without a memory manager, or with the reserved override name `'substitute'`. The substitute is a plain class that the service `.postMessage(...)`s commissions to, and it sends replies back via `.returnMessage(...)`. The dispatch is a hand-written `switch (action) { case 'foo': ... }` over the same action names, and it constructs its own `MontageProcessor` on the main thread.
+### 3. The substitute runs the worker's own handlers
 
-Because the action map and the switch are two separate places, **adding a new action to the union and the worker is not enough — you must also add a case to the substitute switch**. The compiler does not catch the omission; the failure is a runtime reply, and which message you get says which half is missing. An unhandled action in the substitute falls through the switch's `default` to `ServiceWorkerSubstitute.postMessage`, which answers `Action '<name>' is not implemented.`; an action missing from a real worker's `_actionMap` is answered by `handleMessage` in [src/workers/base.worker.ts](src/workers/base.worker.ts) with `Action '<name>' is not supported by this worker.`
+`MontageService` uses [MontageWorkerSubstitute](src/assets/biosignal/service/MontageWorkerSubstitute.ts) in place of a real Worker when it is constructed without a memory manager, or with the reserved override name `'substitute'`. The substitute holds a `MontageWorker` and hands it every commission, so there is no second implementation of the vocabulary to keep aligned:
 
-Both halves answer in the same shape: `{ rn, action, success, error }` for a failure and `{ rn, action, success, ...results }` for a success, with the cause always under `error`. The substitute must not spread the inbound commission into its reply — that returns the request's own payload alongside the response, so a consumer reading a field off the reply can be handed the request's value for it. `ServiceWorkerSubstitute.returnSuccess` / `returnFailure` are the only places this shape is built on the substitute side; a substitute that calls `returnMessage` directly is responsible for matching it.
+```ts
+class MainThreadCommissions extends MontageWorker {
+    protected override _close () {}
+    protected override _postMessage (reply: WorkerMessage['data']) {
+        this._substitute.returnMessage(reply)
+    }
+}
+```
 
-`MontageWorkerSubstitute` is the one substitute still dispatched this way, and it is the one this warning is about. [ServiceWorkerSubstitute](src/assets/service/ServiceWorkerSubstitute.ts) is the base every substitute extends; reader substitutes extend [SignalReaderWorkerSubstitute](src/assets/service/SignalReaderWorkerSubstitute.ts) instead and have no switch (see 3b). [TrendWorkerSubstitute](src/assets/biosignal/service/TrendWorkerSubstitute.ts) is outside the scheme entirely — it implements `BiosignalTrendService` directly and drives a main-thread `TrendProcessor` through ordinary method calls, with no commissions at all. `TrendService` has no substitute branch of its own: its `setupWithCache` logs that `TrendWorkerSubstitute` is the no-SAB path and returns `{ success: false }`, so the *caller* chooses between the two implementations.
+What makes that possible is that `BaseWorker` routes every reply through `_postMessage` and closes its thread through `_close`, so redirecting those two runs the same handlers here. **A handler must not reach for the global `postMessage` or `close`**, and must validate through `this._validate` rather than calling `validateCommissionProps` directly: the utility's default reply target is that same global, which on the main thread is `window.postMessage`, so a validation failure would go to the window and the commission it refused would never settle. Nothing about that is visible — the reply is sent, to the wrong place.
 
-Inside a substitute case, replies use `this.returnSuccess(message)` / `this.returnFailure(message)`; out-of-band notifications (e.g. per-epoch `'trend-epoch'` messages from inside the processor) need the processor's `_postMessage` callback to be wired to `this.returnMessage.bind(this)` — see the processor constructor's second parameter.
+Four montage commissions cannot mean the same thing on both sides, and each is overridden where it differs rather than left out. `setup-cache` hands over a live cache object, whose methods no structured clone carries, so the worker refuses it and the substitute serves it. `set-buffer-range`, `setup-input-cache` and `setup-input-mutex` need shared memory or a shared worker, which is what an environment running a substitute does not have, so the substitute refuses those three. A fifth, `setup-worker`, is shared, with `_resolveModuleSettings` overridden: the processor keeps the settings reference it is given, and on the main thread that must be the application's live module settings rather than the snapshot the commission carries.
+
+Both halves answer in the same shape: `{ rn, action, success, error }` for a failure and `{ rn, action, success, ...results }` for a success, with the cause always under `error`. A reply must not spread the inbound commission into it — that returns the request's own payload alongside the response, so a consumer reading a field off the reply can be handed the request's value for it.
+
+The stakes are worth stating, because a partial substitute looks like a working fallback and is not one. An unregistered action is answered with a failure, and `GenericService.shutdown` reads a failed `shutdown` as a refusal and skips the teardown it guards — so the worker is never terminated, its processor and cache stay resident, and nothing reports it. On the substitute side the same commission has to answer *before* tearing itself down: `ServiceWorkerSubstitute.shutdown` clears the listeners the service subscribed with, so a reply posted after it reaches nobody and the awaiting promise never settles at all.
+
+[ServiceWorkerSubstitute](src/assets/service/ServiceWorkerSubstitute.ts) is the base every substitute extends. Reader substitutes extend [SignalReaderWorkerSubstitute](src/assets/service/SignalReaderWorkerSubstitute.ts) (see 3c). [TrendWorkerSubstitute](src/assets/biosignal/service/TrendWorkerSubstitute.ts) is outside the scheme entirely — it implements `BiosignalTrendService` directly and drives a main-thread `TrendProcessor` through ordinary method calls, with no commissions at all. `TrendService` has no substitute branch of its own: its `setupWithCache` logs that `TrendWorkerSubstitute` is the no-SAB path and returns `{ success: false }`, so the *caller* chooses between the two implementations.
+
+Out-of-band notifications (e.g. per-epoch `'trend-epoch'` messages from inside the processor) go through the processor's `_postMessage` callback, wired to the worker's own `this._postMessage` — see the processor constructor's second parameter — so they reach the service on either side of the boundary.
 
 ### 3b. Reader workers — the shared vocabulary
 
@@ -415,11 +432,11 @@ class EdfWorkerSubstitute extends SignalReaderWorkerSubstitute<EdfReader> {
 }
 ```
 
-What makes that possible is that `BaseWorker` routes every reply through `_postMessage` and closes its thread through `_close`, so redirecting those two runs the same handlers on the main thread. **A handler must not reach for the global `postMessage` or `close`**, and must validate through `this._validate` rather than calling `validateCommissionProps` directly: the utility's default reply target is that same global, which on the main thread is `window.postMessage`, so a validation failure would go to the window and the commission it refused would never settle. Nothing about that is visible — the reply is sent, to the wrong place.
+The redirect and the rules it imposes on a handler are the same as for the montage pair in 3 above.
 
 Three commissions mean something different on the main thread and are overridden there. `setup-cache` answers with the cache object itself, which a worker cannot do because it would cross the thread boundary as a clone with no link to the memory it stands for, and refuses a `useMemoryManager` request outright, a substitute existing precisely because there is no `SharedArrayBuffer` to manage. `update-settings` acknowledges a snapshot without applying it, the substitute reading the very settings module the snapshot was taken from. `shutdown` tears the reader down but closes nothing, the service terminating the substitute after the reply.
 
-The stakes are worth stating, because a partial substitute looks like a working fallback and is not one. An unanswered commission is reported as a failure, a failed commission rejects, and `GenericService.shutdown` and `unload` each await one before tearing anything down — so a missing handler does not degrade a study, it makes the study impossible to close, on exactly the origins that cannot use a worker.
+A reader's stakes differ from the montage's in where the damage lands. `GenericService.unload` awaits a commission too, and a reader's cache is the study's signal data, so a missing handler does not degrade a study — it makes the study impossible to close, on exactly the origins that cannot use a worker.
 
 ### 4. Subclass workers
 
@@ -433,7 +450,7 @@ A worker keeps its own copy of the settings tree; `setup-worker` seeds it with `
 
 Apply the snapshot with `SETTINGS.applySnapshot(data.settings)` rather than assigning its properties over the worker's own. It writes field by field, so accessors survive — `app.isSabUsed` has to keep testing the worker's cross-origin isolation rather than adopt what the main thread evaluated — and it registers a module the worker has not seen, which is the normal case since modules register through the main thread's runtime. A worker that only needs one namespace can read `data.settings.modules[namespace]` out of the message instead, as the montage and trend workers do.
 
-A substitute needs no case of its own: it runs on the main thread and reads the very settings module the application writes to, so `ServiceWorkerSubstitute` answers the action for every substitute that does not override it, and `SignalReaderWorkerSubstitute` overrides it to the same effect.
+A substitute applies no snapshot: it runs on the main thread and reads the very settings module the application writes to. `ServiceWorkerSubstitute` answers the action for every substitute that does not override it, `SignalReaderWorkerSubstitute` overrides it to the same effect, and `MontageWorkerSubstitute` reaches it from the other direction — it overrides `_resolveModuleSettings` to read the live module, which leaves the shared handler assigning the processor the reference it already holds.
 
 The snapshot is what makes the relay safe to miss. A worker attached after a change, or one still setting up, is corrected by the next message; a stream of individual field writes would leave it stale with nothing able to detect the drift. `syncSettings` in [src/util/worker.ts](src/util/worker.ts) builds the per-field message and is deprecated — no worker accepts that shape.
 
@@ -441,11 +458,11 @@ The snapshot is what makes the relay safe to miss. A worker attached after a cha
 
 1. Add the entry to the relevant commission type in [src/types/biosignal.ts](src/types/biosignal.ts).
 2. Add a handler method to the worker and register it in `_actionMap`.
-3. Add a matching `case` to the corresponding worker substitute's `postMessage`. A reader's worker needs no change when the commission is one every reader answers alike — add it to `SignalReaderWorker` instead, and every reader package gains it. A trend commission has no case to add: `TrendWorkerSubstitute` implements the service interface rather than the worker protocol, so give it the matching method instead.
+3. Decide whether the commission means the same thing on both sides. It usually does, and then there is nothing to add — the substitute runs the same handler. Where it does not, override the handler in the substitute and say why; refusing it there with a reason is better than leaving it out, since an absent handler and a refusal reach the service as the same failure and only one of them explains itself. A trend commission has nothing to add either way: `TrendWorkerSubstitute` implements the service interface rather than the worker protocol, so give it the matching method instead.
 4. If the processor needs to push out-of-band notifications, route them through `this._postMessage(...)` rather than calling `postMessage` directly so the substitute can intercept them.
 5. Add the dispatching method on the service and wire the response actions in `handleMessage`.
 
-The two hand-maintained dispatch sites (worker `_actionMap`, substitute `switch`) are a known ergonomic hazard; a shared-map refactor is tracked in [ROADMAP.md](ROADMAP.md).
+`_validate` answers the commission itself when validation fails, so a handler returns `false` after it rather than calling `this._failure` again — a second reply arrives under a request number the service has already released.
 
 ---
 
@@ -608,11 +625,11 @@ All remote I/O in the family — HTTP range reads, header/size probes, remote co
 
 - `EpicurrentsApp.notifySessionRestored()` ([src/index.ts](src/index.ts)) — the host calls this after re-login. It resets `networkBreakers` on the main thread (connectors, main-thread readers), then calls `resetNetwork()` on every registered service.
 - `AssetService.resetNetwork(origin?)` ([GenericService](src/assets/service/GenericService.ts)) — resets the main registry and posts `{ action: 'reset-network', origin }` to its worker (fire-and-forget).
-- Worker side — a worker calls `setNetworkStatusHandler((origin, state) => postMessage({ action: 'network-status', origin, state }))` at setup and handles `reset-network` by calling `networkBreakers.reset(origin)`. `GenericService` re-emits an incoming `network-status` as a `network-status` `'after'` event carrying `{ endpoint, state }` — the field is `endpoint`, **not** `origin`, because `GenericAsset.dispatchEvent` already fills `detail.origin` with `this`.
+- Worker side — a worker calls `setNetworkStatusHandler((origin, state) => this._postMessage({ action: 'network-status', origin, state }))` at setup and overrides `resetNetwork` to call `networkBreakers.reset(origin)`. The base handler accepts the action and clears nothing, so a worker that fetches nothing needs no override. `GenericService` re-emits an incoming `network-status` as a `network-status` `'after'` event carrying `{ endpoint, state }` — the field is `endpoint`, **not** `origin`, because `GenericAsset.dispatchEvent` already fills `detail.origin` with `this`.
 
 **Service commission backstop.** `GenericService` wires `worker.onerror` / `onmessageerror` to `_rejectAllCommissions`, so a synchronous worker crash or an undeserialisable message rejects every in-flight commission instead of stranding it. These events carry no `rn` correlation ID, so reject-all is the only safe response; it does not replace each worker handler's own duty to post a `success:false` reply for a caught failure (an async `onmessage` reject raises `unhandledrejection`, not `onerror`).
 
-**Adding a new worker-bearing reader:** register `setNetworkStatusHandler` and a `reset-network` handler in the worker so it participates in the session-restore reset; route its byte reads through `resilientFetch` (breaker-only if the op-queue or a one-shot read owns cancellation).
+**Adding a new worker-bearing reader:** register `setNetworkStatusHandler` and override `resetNetwork` in the worker so it participates in the session-restore reset; route its byte reads through `resilientFetch` (breaker-only if the op-queue or a one-shot read owns cancellation).
 
 The full fetch-path audit (findings F1–F19) and the per-repository rollout live in the consuming platform repo's `docs/engineering-notes/viewer-network-resilience.md` and `viewer-network-recovery-plan.md`.
 

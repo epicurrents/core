@@ -1,5 +1,20 @@
 /**
- * Default biosignal montage worker.
+ * Default biosignal montage worker. Holds every commission a montage answers, on either side of the
+ * thread boundary: the worker thread runs this class through `montage.worker.entry`, and
+ * {@link MontageWorkerSubstitute} runs the same class on the main thread with
+ * {@link BaseWorker._postMessage} and `_close` redirected.
+ *
+ * The vocabulary is a contract with `MontageService`, not a menu. A commission with no handler is
+ * answered with a failure, and the service reads that as the operation having been refused — so a
+ * `shutdown` nobody implements leaves the worker running with its processor, its cache and its
+ * buffer views, and reports nothing. Keeping the set in one class is what stops the two halves from
+ * drifting into answering different questions.
+ *
+ * Four commissions cannot mean the same thing on both sides, and each says so where it is
+ * overridden rather than by being absent. `setup-cache` hands over a live cache object and is
+ * answerable only where there is no boundary to clone it across; `set-buffer-range`,
+ * `setup-input-cache` and `setup-input-mutex` need shared memory or a shared worker, which is
+ * precisely what the environments using a substitute do not have.
  * @package    epicurrents/core
  * @copyright  2022 Sampsa Lohi
  * @license    Apache-2.0
@@ -13,7 +28,7 @@ import type {
     SetupMutexResponse,
     SignalInterruptionMap,
 } from '#types/biosignal'
-import type { CommonBiosignalSettings } from '#types/config'
+import type { AppSettings, CommonBiosignalSettings } from '#types/config'
 import type { WorkerMessage } from '#types/service'
 import MontageProcessor from '#assets/biosignal/service/MontageProcessor'
 import { Log } from 'scoped-event-log'
@@ -31,12 +46,15 @@ export class MontageWorker extends BaseWorker {
         ['map-channels', this.mapChannels],
         ['release-cache', this.releaseCache],
         ['release-signal-arrays', this.releaseSignalArrays],
+        ['reset-network', this.resetNetwork],
         ['set-buffer-range', this.setBufferRange],
         ['set-interruptions', this.setInterruptions],
         ['set-filters', this.setFilters],
+        ['setup-cache', this.setupCache],
         ['setup-input-cache', this.setInputCache],
         ['setup-input-mutex', this.setupInputMutex],
         ['setup-worker', this.setupWorker],
+        ['shutdown', this.shutdown],
         ['update-settings', this.updateSettings],
     ])
     /** Montage processer. */
@@ -69,6 +87,20 @@ export class MontageWorker extends BaseWorker {
     }
 
     /**
+     * Resolve this montage's module settings from a settings snapshot.
+     *
+     * A worker holds no settings of its own, so the snapshot a commission carries is the only
+     * source it has. A substitute overrides this to read the application's live settings instead:
+     * the processor keeps the reference it is given, and handing it a snapshot there would freeze
+     * the montage at the values held when the commission was posted.
+     * @param settings - Settings snapshot carried by the commission.
+     * @returns The module's settings, or null when the snapshot carries none for this namespace.
+     */
+    protected _resolveModuleSettings (settings: AppSettings): CommonBiosignalSettings | null {
+        return (settings.modules[this._namespace] as unknown as CommonBiosignalSettings) || null
+    }
+
+    /**
      *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
@@ -95,7 +127,7 @@ export class MontageWorker extends BaseWorker {
                 this._montage !== null
             )
             if (!data) {
-                this._failure(msgData)
+                // `_validate` has already answered the commission.
                 return
             }
             try {
@@ -130,7 +162,7 @@ export class MontageWorker extends BaseWorker {
             this._montage !== null
         )
         if (!data) {
-            return this._failure(msgData)
+            return false
         }
         this._montage?.mapChannels(data.config)
         Log.debug(`Channel mapping complete.`, SCOPE)
@@ -184,8 +216,11 @@ export class MontageWorker extends BaseWorker {
             },
             this._montage !== null
         )
-        if (!data || !this._montage) {
-            return this._failure(msgData)
+        if (!data) {
+            return false
+        }
+        if (!this._montage) {
+            return this._failure(msgData, `Cannot set filters before the montage has been set up.`)
         }
         if (this._name !== data.name)  {
             // This event may trigger before the montage itself has been updated.
@@ -195,12 +230,11 @@ export class MontageWorker extends BaseWorker {
         }
         const newFilters = JSON.parse(data.filters as string) as BiosignalFilters
         let someUpdated = false
-        // Batch all filter writes with `skipInvalidate=true` and call `invalidateOutputSignals`
-        // exactly once at the end. The previous fire-and-forget pattern dispatched up to
-        // `(channels + 1) * 3` concurrent invalidations, all contending for the OUTPUT write
-        // lock and starving each other (manifesting as `Maximum retries of locking operation
-        // reached in ~600 ms` errors at mount when the active montage's filters were initialised
-        // and again on every user filter change).
+        // Batch every filter write with `skipInvalidate=true` and invalidate exactly once at the
+        // end. Invalidating per write dispatches up to `(channels + 1) * 3` concurrent
+        // invalidations, which contend for the OUTPUT write lock and starve each other —
+        // `Maximum retries of locking operation reached` at mount, and again on every filter
+        // change the user makes.
         if (newFilters.highpass !== this._montage.filters.highpass) {
             this._montage.setHighpassFilter(newFilters.highpass, undefined, true)
             someUpdated = true
@@ -238,6 +272,25 @@ export class MontageWorker extends BaseWorker {
         return this._success(msgData, { updated: someUpdated } as SetFiltersResponse)
     }
     /**
+     * Take over a signal cache that already exists on the commissioning side.
+     *
+     * Refused on a worker thread and answered by {@link MontageWorkerSubstitute}. The commission
+     * carries a live {@link SignalDataCache}, an object whose methods a structured clone does not
+     * carry, so the only context that can accept one is a context sharing the caller's heap. A
+     * worker takes its input through `setup-input-mutex` or `setup-input-cache` instead.
+     * @param msgData - Data property from the message to the worker.
+     * @returns False, always; the refusal is the answer.
+     */
+    // The refusal needs no await, but the signature is the action map's.
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async setupCache (msgData: WorkerMessage['data']) {
+        return this._failure(
+            msgData,
+            `A montage worker cannot take over a cache held on another thread; ` +
+            `use 'setup-input-mutex' or 'setup-input-cache'.`
+        )
+    }
+    /**
      *
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.
@@ -253,7 +306,7 @@ export class MontageWorker extends BaseWorker {
             this._montage !== null
         )
         if (!data) {
-            return this._failure(msgData)
+            return false
         }
         const setupSuccess = await this._montage?.setupSharedWorkerWithInput(
             data.port as MessagePort,
@@ -284,7 +337,7 @@ export class MontageWorker extends BaseWorker {
             this._montage !== null
         )
         if (!data) {
-            return this._failure(msgData)
+            return false
         }
         const cacheSetup = await this._montage?.setupMutexWithInput(
             data.input,
@@ -314,7 +367,7 @@ export class MontageWorker extends BaseWorker {
             this._montage !== null
         )
         if (!data) {
-            return this._failure(msgData)
+            return false
         }
         const newInterruptions = new Map<number, number>() as SignalInterruptionMap
         for (const intr of data.interruptions) {
@@ -341,19 +394,37 @@ export class MontageWorker extends BaseWorker {
             }
         )
         if (!data) {
-            return this._failure(msgData)
+            return false
         }
         this._namespace = data.namespace as string
-        const settings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
-        // Explicit postMessage routing: in a real worker the global `postMessage` already routes
-        // to the parent thread, but binding it here makes the wiring symmetric with the substitute
-        // (which has to inject `returnMessage`) and avoids any future surprises if the processor
-        // is constructed in an unusual context.
+        const settings = this._resolveModuleSettings(data.settings)
+        if (!settings) {
+            return this._failure(msgData, `Settings carried no '${this._namespace}' module to set the montage up with.`)
+        }
+        // The processor's replies go out through this worker's own transport, so a staged response
+        // reaches the service on either side of the thread boundary.
         this._montage = new MontageProcessor(settings, (msg) => this._postMessage(msg as WorkerMessage['data']))
         this._montage.setupChannels(data.montage, data.config, data.setupChannels)
         this._name = data.montage
         Log.debug(`Worker setup complete.`, SCOPE)
         return this._success(msgData)
+    }
+    /**
+     * Tear the montage processor down and close the worker.
+     *
+     * The reply is posted before the close, because the service awaits it before terminating the
+     * worker and clearing the state that belongs to it. Answering with a failure — which is what an
+     * unregistered action does — leaves the service holding a worker it has been told not to
+     * terminate.
+     * @param msgData - Data property from the message to the worker.
+     * @returns True if action was successful, false otherwise.
+     */
+    async shutdown (msgData: WorkerMessage['data']) {
+        await this._montage?.destroy()
+        this._montage = null
+        const result = this._success(msgData)
+        this._close()
+        return result
     }
     /**
      *
@@ -366,19 +437,19 @@ export class MontageWorker extends BaseWorker {
             { settings: 'Object' }
         )
         if (!data) {
-            return this._failure(msgData)
+            return false
         }
         if (this._namespace && this._montage) {
             // Only update settings after initial setup.
-            const moduleSettings = data.settings.modules[this._namespace] as unknown as CommonBiosignalSettings
+            const moduleSettings = this._resolveModuleSettings(data.settings)
             if (moduleSettings) {
                 this._montage.settings = moduleSettings
                 Log.debug(`Settings updated in worker.`, SCOPE)
             } else {
                 // Keeping settings that have gone stale beats replacing them with nothing. Every
-                // change now posts a whole snapshot to every worker, so one taken while this
-                // worker's module was not registered would otherwise blank the montage's
-                // settings over a change that had nothing to do with it.
+                // change posts a whole snapshot to every worker, so one taken while this worker's
+                // module was not registered would otherwise blank the montage's settings over a
+                // change that had nothing to do with it.
                 Log.warn(
                     `Settings snapshot carried no '${this._namespace}' module; kept the previous settings.`,
                     SCOPE
@@ -387,10 +458,4 @@ export class MontageWorker extends BaseWorker {
         }
         return this._success(msgData)
     }
-}
-
-const MONTAGE = new MontageWorker()
-
-onmessage = async (message: WorkerMessage) => {
-    MONTAGE.handleMessage(message)
 }

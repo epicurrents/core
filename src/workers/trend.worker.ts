@@ -31,6 +31,7 @@ export class TrendWorker extends BaseWorker {
     >([
         ['cancel-trend-computation', this.cancelTrendComputation.bind(this)],
         ['compute-trend',            this.computeTrend.bind(this)],
+        ['reset-network',            this.resetNetwork.bind(this)],
         ['set-buffer-range',         this.setBufferRange.bind(this)],
         ['set-interruptions',        this.setInterruptions.bind(this)],
         ['setup-trend',              this.setupTrend.bind(this)],

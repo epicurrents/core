@@ -19,6 +19,7 @@ export class MemoryManagerWorker extends BaseWorker {
         super()
         this.extendActionMap([
             ['release-and-rearrange', this.releaseAndRearrange],
+            ['reset-network', this.resetNetwork],
             ['set-buffer', this.setBuffer],
         ])
     }

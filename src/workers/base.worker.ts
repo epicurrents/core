@@ -138,6 +138,21 @@ export abstract class BaseWorker {
         return this._failure(msgData, `Repositioning buffer views failed in the worker.`)
     }
     /**
+     * Clear this worker's network breakers so the next load is attempted afresh.
+     *
+     * Every service posts this to its worker after re-authentication, without a request number and
+     * without waiting for a reply, so every worker has to accept it: a worker that has no network
+     * of its own answers a commission nobody reads, and the service has nothing to act on either
+     * way. A worker that fetches through the resilient client overrides this; the default clears
+     * nothing.
+     * @param _msgData - Data property from the message to the worker.
+     */
+    // The no-op needs no await, but the signature is the action map's.
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async resetNetwork (_msgData: WorkerMessage['data']) {
+        return true
+    }
+    /**
      * Handle a commission message to the worker.
      * @param msgData - Data property from the message to the worker.
      * @returns True if action was successful, false otherwise.

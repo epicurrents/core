@@ -1850,6 +1850,12 @@ export interface MontageChannel extends BiosignalChannel, BaseAsset {
 }
 /**
  * Commission types for a montage worker with the action name as key and property types as value.
+ *
+ * The set covers both sides of the thread boundary, since `MontageWorker` and
+ * `MontageWorkerSubstitute` answer the same commissions. Four of them can only be served on one
+ * side and are refused with a reason on the other: `setup-cache` where there is no boundary to
+ * clone a cache across, and `set-buffer-range`, `setup-input-cache` and `setup-input-mutex` where
+ * there is shared memory or a shared worker to reach.
  */
 export type MontageWorkerCommission = {
     /** Get montage signals for the given range */
@@ -1900,6 +1906,19 @@ export type MontageWorkerCommission = {
         /** Filters for individual channels. */
         channels?: BiosignalFilters[]
     }
+    /**
+     * Hand over an existing signal cache to use as the montage's signal data source. Answerable
+     * only by a substitute: the cache is a live object and a structured clone carries none of its
+     * methods, so a worker is commissioned with `setup-input-cache` or `setup-input-mutex` instead.
+     */
+    'setup-cache': WorkerMessage['data'] & {
+        /** The cache to read source signals from. */
+        cache: SignalDataCache
+        /** Duration of the signal data in seconds. */
+        dataDuration: number
+        /** Total duration of the recording in seconds. */
+        recordingDuration: number
+    }
     /** Set up a shared worker cache as signal data source in the montage worker. */
     'setup-input-cache': WorkerMessage['data'] & {
         /** Duration of the signal data in seconds. */
@@ -1933,6 +1952,20 @@ export type MontageWorkerCommission = {
         /** Channel setup configuration. */
         setupChannels: SetupChannel[]
     }
+    /**
+     * Clear the worker's network circuit breakers after re-authentication. Posted to every
+     * service's worker without a request number, so it is answered rather than acted on wherever
+     * the worker does no fetching of its own.
+     */
+    'reset-network': WorkerMessage['data'] & {
+        /** Restrict the reset to a single origin, or omit to reset every breaker. */
+        origin?: string
+    }
+    /**
+     * Destroy the montage processor and close the context the worker runs in. The service awaits
+     * the reply before terminating the worker, so the reply is posted before anything closes.
+     */
+    'shutdown': WorkerMessage['data']
     /** Update global settings. */
     'update-settings': WorkerMessage['data'] & {
         /** Dotted paths of the fields the snapshot is the result of, for selective reaction. */
@@ -2008,6 +2041,15 @@ export type TrendWorkerCommission = {
      */
     'set-interruptions': WorkerMessage['data'] & {
         interruptions: [number, number][]
+    }
+    /**
+     * Clear the worker's network circuit breakers after re-authentication. Posted to every
+     * service's worker without a request number, so it is answered rather than acted on wherever
+     * the worker does no fetching of its own.
+     */
+    'reset-network': WorkerMessage['data'] & {
+        /** Restrict the reset to a single origin, or omit to reset every breaker. */
+        origin?: string
     }
     /** Shut the worker down cleanly. */
     'shutdown': WorkerMessage['data']

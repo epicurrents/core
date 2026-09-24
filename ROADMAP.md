@@ -10,6 +10,8 @@ Core sits at 2.0.0 with fixes committed on top of it. The audit of the sibling p
 
 **The release is a minor rather than a patch.** Most of what has landed is a fix, but repairing the settings relay added `AppSettings.applySnapshot` and closing the substitute vocabulary gap added `SignalReaderWorkerSubstitute`, both published surface. An addition to it is a minor under semver whatever the change around it was for, so the number is 2.1.0 and a package that reaches for either must ask for `^2.1.0` — `^2.0.0` admits a core that has neither. `api-reader` calls the method and `csv-reader` extends the class, and both currently declare `^2.0.0` because naming an unpublished version would be worse. Correcting the two is part of cutting the release, not of the sweep.
 
+`@epicurrents/core/workers` also changes character in the same release. It exported `MontageWorker` from a module that assigned `onmessage` and constructed a worker instance when it was imported, so reaching for the class from the main thread took over the application's own message handler; the class now lives in a module with no side effects and the thread entry in [src/workers/montage.worker.entry.ts](src/workers/montage.worker.entry.ts). The export name and shape are unchanged, and no sibling imports it.
+
 A sibling that needs a fix from this list before the release can rely on the workspace symlink, which resolves core from the checkout rather than the registry — but its declared range still has to name a version that exists, so nothing published may depend on an unreleased fix.
 
 The version in `package.json` stays at 2.0.0 until the sweep finishes. Bumping it early would make every sibling's range look satisfiable against a release that does not exist yet.
@@ -45,19 +47,21 @@ The remainder is mostly `handleMessage` dispatch in worker `onmessage` handlers,
 
 The same configuration still has to reach the sibling packages, which currently have no working lint at all.
 
-## The montage worker and its substitute answer different commissions
+## Montage precaching is a protocol with nobody at either end
 
-Reader workers and their substitutes now share one dispatch (see [Reader substitutes run the worker's own handlers](AGENTS.md#3c-reader-substitutes-run-the-workers-own-handlers)). The montage pair is what remains on two hand-maintained lists, and the lists have already diverged — in both directions, which is worth reading twice.
+`MontageService.cacheMontageSignals` is declared on `BiosignalMontageService`, so it is public API. It posts `cache-montage-signals` with a bare `postMessage`, and no worker or substitute has ever answered that action. `MontageService.handleMessage` does have a branch for the reply — it maps the returned signals onto their sampling rates and calls `saveSignalsToCache` — but that branch runs only after `_getCommissionForMessage` finds an entry, and a message posted without a request number creates none. So the protocol is broken at both ends, and nothing in the family calls the method.
 
-`MontageWorker` answers `data`, `get-signals`, `invalidate-cache`, `map-channels`, `release-cache`, `release-signal-arrays`, `set-buffer-range`, `set-filters`, `set-interruptions`, `setup-input-cache`, `setup-input-mutex`, `setup-worker` and `update-settings`. `MontageWorkerSubstitute` answers `decommission`, `get-signals`, `invalidate-cache`, `map-channels`, `release-cache`, `release-signal-arrays`, `set-filters`, `set-interruptions`, `setup-cache`, `setup-worker` and `shutdown`.
+That makes it the one part of the montage vocabulary still worth a decision rather than a repair. Precaching a montage means deciding what is cached and when it is invalidated, which is a feature; what exists today is the outline of one. Either implement it — handler in `MontageWorker`, commission through `_commissionWorker` so the reply correlates — or drop the method and its response branch. Dropping it is a breaking change to a published interface, so it waits for 3.0 unless the feature lands first.
 
-**`shutdown` is on the substitute and not on the worker**, and `MontageService` inherits `GenericService.shutdown`, which commissions it and awaits the reply before terminating the worker and clearing the state that belongs to it. A failed commission rejects, so tearing down a montage throws on the worker path — the ordinary, cross-origin-isolated one — while working on the substitute path. `setup-cache` against `setup-input-cache` is the same question asked the other way: one of the two names is what the service actually posts, and the other is dead.
+## The memory manager's worker cannot be shut down
 
-The fix is the one the readers took. `MontageProcessor` is to the montage worker what a reader is to a reader worker, so the same shape applies: the handlers move to a class the worker extends, and the substitute runs them with `_postMessage` and `_close` redirected. Settle the vocabulary against what `MontageService` posts before moving anything, since two of the names above cannot both be right.
+`ServiceMemoryManager` extends `GenericService` and inherits its `shutdown`, which commissions `shutdown` and awaits the reply. [src/workers/memory-manager.worker.ts](src/workers/memory-manager.worker.ts) registers `release-and-rearrange` and `set-buffer` and nothing else, so the commission is answered with a failure, `shutdown` reads that as a refusal, and the block it guards never runs: the commissions and waiters are not cleared, `terminate()` is never called, and `isReady` is never dispatched. The worker survives with the shared buffer it manages.
+
+This is the defect the montage worker had, in the one worker the sweep has not opened. The fix is the same shape — a `shutdown` handler that releases what the manager holds, replies, then closes — but the manager's buffer is shared with every service registered against it, so what it should release is worth settling before writing the handler.
 
 ## Reader packages still on a hand-written substitute
 
-`SignalReaderWorkerSubstitute` closes the vocabulary gap for any reader substitute that extends it; `csv-reader` does. The rest still implement a subset by hand — `wav-reader` and `nic-reader` answer five of the thirteen commissions, `natus-reader` eight, `edf-reader` and `dicom-reader` ten — so on an origin without cross-origin isolation a study in those formats cannot be released or shut down.
+`SignalReaderWorkerSubstitute` closes the vocabulary gap for any reader substitute that extends it; `csv-reader` does, as does the montage pair through `MontageWorker`. The rest still implement a subset by hand — `wav-reader` and `nic-reader` answer five of the thirteen commissions, `natus-reader` eight, `edf-reader` and `dicom-reader` ten — so on an origin without cross-origin isolation a study in those formats cannot be released or shut down.
 
 Each conversion is small: extend the new base, delete the switch, keep `setup-worker`. Fold it into each package as the audit sweep opens it, and note that it needs a core that has the base, so a package published before core 2.1.0 cannot declare it.
 

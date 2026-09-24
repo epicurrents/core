@@ -6,7 +6,7 @@
  */
 
 import BiosignalMutex from './BiosignalMutex'
-import InlineMontageWorker from '../../../workers/montage.worker.ts?worker&inline'
+import InlineMontageWorker from '../../../workers/montage.worker.entry.ts?worker&inline'
 import MontageWorkerSubstitute from './MontageWorkerSubstitute'
 import type {
     BiosignalChannelFilters,
