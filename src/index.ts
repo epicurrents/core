@@ -64,6 +64,8 @@ import {
     renderGraph,
     renderOffline,
     WebDAVConnector,
+    codedEventsFromVocabulary,
+    mergeCodedEvents,
 } from './assets'
 export {
     BiosignalAudio,
@@ -106,6 +108,8 @@ export {
     MontageWorkerSubstitute,
     ResourceCollection,
     ResourceLabel,
+    codedEventsFromVocabulary,
+    mergeCodedEvents,
     ServiceMemoryManager,
     ServiceWorkerSubstitute,
     SharedWorkerCache,

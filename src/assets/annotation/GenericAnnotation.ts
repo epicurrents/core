@@ -12,16 +12,15 @@ import type {
     AnnotationOptions,
     AssetSerializeOptions,
     CodedEventProperties,
+    CodedEventTable,
     PropertyChangeContext,
 } from '#types'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'GenericAnnotation'
 
-/** The private property holding the coded events. */
-const _CODED_EVENTS = safeObjectFrom({}) as Record<string,
-    Record<string, CodedEventProperties>
->
+/** The base table: no class-independent terms exist, so it is empty and every class stacks its own on it. */
+const _CODED_EVENTS = safeObjectFrom({}) as CodedEventTable
 
 export default abstract class GenericAnnotation extends GenericAsset implements Annotation {
     /**
@@ -32,40 +31,37 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
      *    -- [eventName: string]: CodedEventProperties
      * ```
      * @remarks
-     * The coded events of each subclass are isolated from each other. This should be overridden in subclasses to
-     * provide class-specific coded events.
+     * A class that declares terms keeps them in a vocabulary file, loads it with `codedEventsFromVocabulary` and
+     * overrides this getter to return `mergeCodedEvents(super.CODED_EVENTS, ownTable)`, so it sees every category
+     * up its chain. The lookups and the extension methods below read `this.CODED_EVENTS`, which is what lets a
+     * subclass inherit them over its own view rather than copy them.
      */
-    static get CODED_EVENTS () {
+    static get CODED_EVENTS (): CodedEventTable {
         return _CODED_EVENTS
     }
     /**
-     * Add standardized event codes to existing coded events.
+     * Add standardized event codes to existing coded events. A term that already carries a code for `standard`
+     * keeps it and is reported; a term or category the table does not have is reported and skipped.
      * @param standard - The external standard the codes follow.
      * @param codes - The codes to add following `CODED_EVENTS` structure.
      */
-    public static readonly addStandardEventCodes = (
-        standard: string,
-        codes: Record<string, Record<string, number | string>>
-    ) => {
+    public static addStandardEventCodes (standard: string, codes: Record<string, Record<string, number | string>>) {
         for (const [category, events] of Object.entries(codes)) {
-            if (!Object.hasOwn(GenericAnnotation.CODED_EVENTS, category) && Object.keys(events).length) {
-                Log.warn(
-                    `The category '${
-                        category
-                    }' does not exist in CODED_EVENTS. Skipping adding standard codes for this category.`,
-                    SCOPE
-                )
+            const categoryEvents = this.CODED_EVENTS[category]
+            if (!categoryEvents) {
+                if (Object.keys(events).length) {
+                    Log.warn(
+                        `The category '${
+                            category
+                        }' does not exist in CODED_EVENTS. Skipping adding standard codes for this category.`,
+                        SCOPE
+                    )
+                }
                 continue
             }
-            const categoryEvents = GenericAnnotation.CODED_EVENTS[category]
             for (const [eventName, eventCode] of Object.entries(events)) {
                 const event = categoryEvents[eventName]
-                if (event) {
-                    if (!event.standardCodes) {
-                        event.standardCodes = {}
-                    }
-                    event.standardCodes[standard] = eventCode
-                } else {
+                if (!event) {
                     Log.warn(
                         `The event name '${
                             eventName
@@ -74,46 +70,58 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
                         }' of CODED_EVENTS. Skipping adding standard code for this event.`,
                         SCOPE
                     )
+                    continue
                 }
+                if (!event.standardCodes) {
+                    // A term's own properties are read-only, but a term is extensible.
+                    Object.assign(event, { standardCodes: {} })
+                } else if (Object.hasOwn(event.standardCodes, standard)) {
+                    Log.warn(
+                        `The event '${eventName}' in category '${category}' already has a standard code for '${
+                            standard
+                        }'.`,
+                        SCOPE
+                    )
+                    continue
+                }
+                Object.assign(event.standardCodes!, { [standard]: eventCode })
             }
         }
     }
     /**
      * Extend the given event category with new events.
-     * @param category - The event category to extend.
+     * @param category - The event category to extend; a category some class in the chain declares.
      * @param events - The events to add.
-     * @throws Error if an event key already exists in the category.
+     * @throws Error if the category does not exist or an event key already exists in it.
      */
-    public static readonly extendEvents = (category: string, events: Record<string, CodedEventProperties> ) => {
+    public static extendEvents (category: string, events: Record<string, CodedEventProperties>) {
+        const categoryEvents = this.CODED_EVENTS[category]
+        if (!categoryEvents) {
+            throw new Error(`${this.name}.extendEvents: Category '${category}' does not exist in CODED_EVENTS.`)
+        }
         for (const eventKey of Object.keys(events)) {
-            if (Object.hasOwn(GenericAnnotation.CODED_EVENTS[category], eventKey)) {
+            if (Object.hasOwn(categoryEvents, eventKey)) {
                 Log.error(
-                    SCOPE,
-                    `GenericAnnotation.extendEvents: Mutating the existing event '${
-                        eventKey
-                    }' in category '${
-                        category
-                    }' is not allowed.`
+                    `Mutating the existing event '${eventKey}' in category '${category}' is not allowed.`,
+                    SCOPE
                 )
                 throw new Error(
-                    `GenericAnnotation.extendEvents: Event key '${eventKey}' already exists in category '${category}'.`
+                    `${this.name}.extendEvents: Event key '${eventKey}' already exists in category '${category}'.`
                 )
             }
         }
-        // CODED_EVENTS is a safe object so we can assign properties directly.
-        Object.assign(GenericAnnotation.CODED_EVENTS[category], events)
+        // A category object is extensible, so new keys land in the table that owns it.
+        Object.assign(categoryEvents, events)
     }
     /**
-     * Get a standardized EEG event by its code.
+     * Get a coded event by its code.
      * @param code - Event code.
-     * @param standard - Possible external standard the code follows ('dicom' or 'ieee').
-     * @returns The matching EEG coded event properties or null if not found.
+     * @param standard - Possible external standard the code follows (a key of the term's `standardCodes`).
+     * @returns The matching coded event properties or null if not found.
      */
     public static getEventForCode (code: string, standard?: string): CodedEventProperties | null {
-        for (const categoryKey of Object.keys(GenericAnnotation.CODED_EVENTS)) {
-            const category = GenericAnnotation.CODED_EVENTS[categoryKey as keyof typeof GenericAnnotation.CODED_EVENTS]
-            for (const eventKey of Object.keys(category)) {
-                const event = category[eventKey]
+        for (const category of Object.values(this.CODED_EVENTS)) {
+            for (const event of Object.values(category)) {
                 if (standard && event.standardCodes && event.standardCodes[standard] === code) {
                     return event
                 } else if (event.code === code) {
@@ -124,19 +132,17 @@ export default abstract class GenericAnnotation extends GenericAsset implements 
         return null
     }
     /**
-     * Get a standardized EEG event by its label.
+     * Get a coded event by its label.
      * @param label - Event label.
      * @param labelMatchers - Optional custom regular expressions to match labels to specific event codes.
-     * @returns The matching EEG coded event properties or null if not found.
+     * @returns The matching coded event properties or null if not found.
      */
     public static getEventForLabel (
         label: string,
         labelMatchers: Record<string, RegExp> = {}
     ): CodedEventProperties | null {
-        for (const categoryKey of Object.keys(GenericAnnotation.CODED_EVENTS)) {
-            const category = GenericAnnotation.CODED_EVENTS[categoryKey as keyof typeof GenericAnnotation.CODED_EVENTS]
-            for (const eventKey of Object.keys(category)) {
-                const event = category[eventKey]
+        for (const category of Object.values(this.CODED_EVENTS)) {
+            for (const event of Object.values(category)) {
                 const matcher = labelMatchers[event.code]
                 if (matcher && matcher.test(label)) {
                     return event

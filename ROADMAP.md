@@ -12,6 +12,8 @@ Core sits at 2.0.0 with fixes committed on top of it. The audit of the sibling p
 
 `@epicurrents/core/workers` also changes character in the same release. It exported `MontageWorker` from a module that assigned `onmessage` and constructed a worker instance when it was imported, so reaching for the class from the main thread took over the application's own message handler; the class now lives in a module with no side effects and the thread entry in [src/workers/montage.worker.entry.ts](src/workers/montage.worker.entry.ts). The export name and shape are unchanged, and no sibling imports it.
 
+The release also adds the shared coded-event vocabulary. `GenericBiosignalEvent.CODED_EVENTS` carries the technical, intervention, observation and environment terms from [src/assets/annotation/vocabulary/biosignal-events.json](src/assets/annotation/vocabulary/biosignal-events.json), `CodedEventProperties` gains `class` and `meta`, and the coded-event statics on `GenericAnnotation` became class-aware methods a subclass inherits over its own table, which is what let the EEG module drop its copies. Additions to published surface, so they ride the minor; the one observable change is that the statics are no longer arrow properties and lose `this` when detached, which nothing in the family did.
+
 A sibling that needs a fix from this list before the release can rely on the workspace symlink, which resolves core from the checkout rather than the registry — but its declared range still has to name a version that exists, so nothing published may depend on an unreleased fix.
 
 The version in `package.json` stays at 2.0.0 until the sweep finishes. Bumping it early would make every sibling's range look satisfiable against a release that does not exist yet.

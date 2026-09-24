@@ -6,12 +6,16 @@
  */
 
 import GenericAnnotation from '#assets/annotation/GenericAnnotation'
+import { codedEventsFromVocabulary, mergeCodedEvents } from '#assets/annotation/vocabulary'
 import { settingsColorToRgba } from '#util'
+import vocabulary from '#assets/annotation/vocabulary/biosignal-events.json'
 import type {
     AnnotationTemplate,
     AssetSerializeOptions,
     BiosignalAnnotationEvent,
     BiosignalAnnotationEventOptions,
+    CodedEventTable,
+    CodedEventVocabulary,
     ConfigSchema,
     ResourceConfig,
     SettingsColor,
@@ -70,6 +74,15 @@ const CONFIG_SCHEMA = {
     version: '1.0',
 } as ConfigSchema
 
+/**
+ * The shared vocabulary every biosignal event class inherits, its categories each carrying a scope. So far every one
+ * is acquisition-scoped: what was done, given and observed during a recording. The terms and the reasoning are in
+ * the consuming platform's engineering note `annotation-event-vocabulary.md`.
+ */
+const _CODED_EVENTS = codedEventsFromVocabulary(vocabulary as CodedEventVocabulary)
+/** The merged view, built on first access. Its category objects are live, so it never goes stale. */
+let _mergedCodedEvents: CodedEventTable | null = null
+
 export default abstract class GenericBiosignalEvent extends GenericAnnotation implements BiosignalAnnotationEvent {
 
     static PRIORITY = {
@@ -77,6 +90,17 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
         COMMENT:    200,
         ACTIVATION: 300,
         EVENT:      400,
+    }
+
+    /**
+     * The shared vocabulary, in the categories TECHNICAL, INTERVENTION, OBSERVATION and ENVIRONMENT, from
+     * `src/assets/annotation/vocabulary/biosignal-events.json`. A modality's event class stacks its own categories on top of these.
+     */
+    static get CODED_EVENTS (): CodedEventTable {
+        if (!_mergedCodedEvents) {
+            _mergedCodedEvents = mergeCodedEvents(super.CODED_EVENTS, _CODED_EVENTS)
+        }
+        return _mergedCodedEvents
     }
 
     /**

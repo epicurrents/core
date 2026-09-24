@@ -55,7 +55,7 @@ src/
     reader/            # signal reader/writer/processor bases, rolling-cache op queue
     service/           # web-worker service base, memory manager, worker substitutes
     study/             # study loaders, importers and exporters
-    annotation/        # annotations and resource labels
+    annotation/        # annotations, resource labels, the coded event vocabulary and its loader
   config/              # Settings singleton
   events/              # EventBus and application events
   runtime/             # RuntimeStateManager
@@ -65,7 +65,7 @@ src/
   workers/             # base, montage, trend, signal-reader and memory-manager workers
 ```
 
-Subpath exports mirror this layout: `@epicurrents/core/assets`, `/config`, `/events`, `/runtime`, `/types`, `/util` and `/workers`. Only these barrels are published; a file inside one, such as `dist/types/event`, is not reachable. The standalone worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`).
+Subpath exports mirror this layout: `@epicurrents/core/assets`, `/config`, `/events`, `/runtime`, `/types`, `/util` and `/workers`. Only these barrels are published; a file inside one, such as `dist/types/event`, is not reachable. The standalone worker bundles are exposed as `@epicurrents/core/workers/<name>.worker.js` (from `umd/`). The vocabulary files are published as `@epicurrents/core/vocabulary/<name>.json` for a consumer that pins a copy of one.
 
 ## Usage
 

@@ -1,10 +1,14 @@
 import {
     GenericAnnotation,
     ResourceLabel,
+    codedEventsFromVocabulary,
+    mergeCodedEvents,
 } from './annotation'
 export {
     GenericAnnotation,
     ResourceLabel,
+    codedEventsFromVocabulary,
+    mergeCodedEvents,
 }
 
 import {

@@ -1773,6 +1773,20 @@ export type ChannelPositionProperties = {
     top: number
 }
 /**
+ * A category of coded events in a vocabulary file.
+ */
+export type CodedEventCategory = {
+    /** Coded events keyed by their table key. */
+    events: Record<string, CodedEventProperties>
+    /**
+     * Whether the category names something that happened during acquisition or something a reader concluded from
+     * the signal. A platform registers the acquisition categories as a vocabulary; findings stay viewer-side.
+     */
+    scope: 'acquisition' | 'finding'
+    /** What the category collects. */
+    description?: string
+}
+/**
  * Properties for coded biosignal annotation events.
  */
 export type CodedEventProperties = {
@@ -1780,12 +1794,34 @@ export type CodedEventProperties = {
     code: string
     /** Descriptive name for the event. */
     name: string
-    /** Significance of the event. */
-    significance?: 'abnormal' | 'artifact' | 'normal' | 'uncertain'
+    /** Event class an event created from this term carries; the class decides its display priority. */
+    class?: BiosignalAnnotationEvent['class']
     /** Optional detailed description of the event. */
     description?: string
-    /** Event codes for additional standards. */
+    /**
+     * Keys a coded event of this term is expected to carry in its code metadata, each with a one-line meaning.
+     * Informational: nothing in the viewer validates the metadata against it.
+     */
+    meta?: Record<string, string>
+    /** Significance of the event. */
+    significance?: 'abnormal' | 'artifact' | 'normal' | 'uncertain'
+    /** Event codes for additional standards, keyed by standard (`dicom`, `ieee`, `snomed`). */
     standardCodes?: Record<string, number | string>
+}
+/** Coded events grouped by category: the shape `CODED_EVENTS` exposes. */
+export type CodedEventTable = Record<string, Record<string, CodedEventProperties>>
+/**
+ * A coded event vocabulary as shipped in a package as a JSON file beside its event class.
+ */
+export type CodedEventVocabulary = {
+    /** Categories keyed by their upper-case table name. */
+    categories: Record<string, CodedEventCategory>
+    /** Identifier the vocabulary is registered under on a platform, such as `epicurrents.biosignal`. */
+    standard: string
+    /** Vocabulary version; bumped whenever a term is added, deprecated or its crosswalk changes. */
+    version: string
+    /** What the vocabulary covers. */
+    description?: string
 }
 /**
  * Indices of channels in the source file used for constructing a derived channel.

@@ -281,4 +281,40 @@ describe('GenericAnnotation', () => {
             expect(GenericAnnotation.getEventForLabel('test-label')).toBeNull()
         })
     })
+
+    describe('class-aware coded event statics', () => {
+        const OWN = {
+            OWN_CATEGORY: {
+                FIRST: { code: 'OWN_FIRST', name: 'First own term', standardCodes: { other: 'O-1' } },
+            },
+        }
+        class CodedAnnotation extends TestAnnotation {
+            static get CODED_EVENTS () {
+                return OWN
+            }
+        }
+
+        it('searches the table of the class it is called on', () => {
+            expect(CodedAnnotation.getEventForCode('OWN_FIRST')?.name).toBe('First own term')
+            expect(CodedAnnotation.getEventForCode('O-1', 'other')?.code).toBe('OWN_FIRST')
+            expect(CodedAnnotation.getEventForLabel('first OWN term')?.code).toBe('OWN_FIRST')
+            expect(GenericAnnotation.getEventForCode('OWN_FIRST')).toBeNull()
+        })
+
+        it('extends the table of the class it is called on', () => {
+            CodedAnnotation.extendEvents('OWN_CATEGORY', { SECOND: { code: 'OWN_SECOND', name: 'Second' } })
+            expect(OWN.OWN_CATEGORY).toHaveProperty('SECOND')
+            expect(GenericAnnotation.CODED_EVENTS).not.toHaveProperty('OWN_CATEGORY')
+        })
+
+        it('refuses a category nothing declares rather than failing on undefined', () => {
+            expect(() => GenericAnnotation.extendEvents('MISSING', { X: { code: 'X', name: 'X' } }))
+                .toThrow(/Category 'MISSING' does not exist/)
+        })
+
+        it('reports a missing category or term when adding standard codes', () => {
+            CodedAnnotation.addStandardEventCodes('other', { MISSING: { X: 'x' }, OWN_CATEGORY: { NOPE: 'n' } })
+            expect(Log.warn).toHaveBeenCalledTimes(2)
+        })
+    })
 })

@@ -1,0 +1,359 @@
+{
+    "standard": "epicurrents.biosignal",
+    "version": "1.0",
+    "description": "The shared vocabulary every biosignal event class inherits. Each category carries a scope: acquisition for what was done, given and observed during a recording, finding for what a reader concluded from the signal. Every category is acquisition-scoped so far; a finding every modality recognises would join under its own scope, and a modality's own findings belong to its own set. State-like terms follow the instant-or-span convention: an event with duration 0 marks entry into the state, which holds until the next event of the same family; an event with a duration bounds the state to that span.",
+    "categories": {
+        "TECHNICAL": {
+            "scope": "acquisition",
+            "description": "Events of the recording apparatus and its operation.",
+            "events": {
+                "CALIBRATION": {
+                    "code": "BIO_TECH_CALIBRATION",
+                    "name": "Calibration",
+                    "class": "technical",
+                    "description": "Calibration signal or procedure. A span covers it; an instant marks its start."
+                },
+                "ELECTRODE_FAULT": {
+                    "code": "BIO_TECH_ELECTRODE_FAULT",
+                    "name": "Electrode fault",
+                    "class": "technical",
+                    "description": "A loose, dried, bridged or detached electrode, whose artifact can pass for cerebral activity. A span covers the fault; an instant marks its start. The viewer also binds the event to the channel concerned through its channel list.",
+                    "meta": {
+                        "electrode": "The electrode concerned, by its canonical label."
+                    }
+                },
+                "ELECTRODE_FIX": {
+                    "code": "BIO_TECH_ELECTRODE_FIX",
+                    "name": "Electrode fixed",
+                    "class": "technical",
+                    "description": "An electrode re-attached, re-gelled or replaced. A span covers the handling (rubbing or pressing); an instant marks the moment it was done. The fault it ends is its own event.",
+                    "meta": {
+                        "electrode": "The electrode concerned, by its canonical label."
+                    }
+                },
+                "FAULT": {
+                    "code": "BIO_TECH_FAULT",
+                    "name": "Technical fault",
+                    "class": "technical",
+                    "description": "A fault in the apparatus other than an electrode. A span covers it; an instant marks its start.",
+                    "meta": {
+                        "component": "The part affected: amplifier, cable or software."
+                    }
+                },
+                "IMPEDANCE": {
+                    "code": "BIO_TECH_IMPEDANCE",
+                    "name": "Impedance check",
+                    "class": "technical",
+                    "description": "Electrode impedance check. A span covers it; an instant marks its start.",
+                    "meta": {
+                        "readings": "Impedance readings keyed by channel label, in kilo-ohms."
+                    }
+                },
+                "MONTAGE_CHANGE": {
+                    "code": "BIO_TECH_MONTAGE_CHANGE",
+                    "name": "Montage or reference change",
+                    "class": "technical",
+                    "description": "State-like: the recording montage or reference changed here and holds until the next change.",
+                    "meta": {
+                        "montage": "Name of the montage or reference in use from this point."
+                    }
+                },
+                "PAUSE": {
+                    "code": "BIO_TECH_PAUSE",
+                    "name": "Recording paused",
+                    "class": "technical",
+                    "description": "A span covers the pause; an instant marks its start."
+                },
+                "RESUME": {
+                    "code": "BIO_TECH_RESUME",
+                    "name": "Recording resumed",
+                    "class": "technical"
+                },
+                "TRIGGER": {
+                    "code": "BIO_TECH_TRIGGER",
+                    "name": "Trigger",
+                    "class": "trigger",
+                    "description": "A reference marker for measuring an effect, such as a stimulus onset.",
+                    "meta": {
+                        "number": "Trigger or stimulus number."
+                    }
+                },
+                "VIDEO_START": {
+                    "code": "BIO_TECH_VIDEO_START",
+                    "name": "Video start",
+                    "class": "technical"
+                },
+                "VIDEO_STOP": {
+                    "code": "BIO_TECH_VIDEO_STOP",
+                    "name": "Video stop",
+                    "class": "technical"
+                }
+            }
+        },
+        "INTERVENTION": {
+            "scope": "acquisition",
+            "description": "Things done to the patient during the recording. Procedures are enumerated only where knowing which one changes the reading; everything else is the generic procedure with the specifics in its metadata.",
+            "events": {
+                "MEDICATION": {
+                    "code": "BIO_INT_MEDICATION",
+                    "name": "Medication given",
+                    "class": "event",
+                    "meta": {
+                        "drug": "Name of the drug.",
+                        "dose": "Dose with its unit.",
+                        "route": "Route of administration."
+                    }
+                },
+                "CARE": {
+                    "code": "BIO_INT_CARE",
+                    "name": "Care and handling",
+                    "class": "event",
+                    "description": "Nursing care or examination: turning, suction, washing, a physical examination. A span covers it; an instant marks its start.",
+                    "meta": {
+                        "action": "What was done."
+                    }
+                },
+                "PATIENT_BUTTON": {
+                    "code": "BIO_INT_PATIENT_BUTTON",
+                    "name": "Patient event button",
+                    "class": "event",
+                    "description": "The patient pressed the event marker."
+                },
+                "PROCEDURE": {
+                    "code": "BIO_INT_PROCEDURE",
+                    "name": "Procedure",
+                    "class": "event",
+                    "description": "A procedure none of the enumerated terms covers. A span covers it; an instant marks its start.",
+                    "meta": {
+                        "procedure": "Name of the procedure."
+                    }
+                },
+                "CPR": {
+                    "code": "BIO_INT_CPR",
+                    "name": "Cardiopulmonary resuscitation",
+                    "class": "event",
+                    "description": "A span covers the resuscitation."
+                },
+                "DEFIBRILLATION": {
+                    "code": "BIO_INT_DEFIBRILLATION",
+                    "name": "Defibrillation or cardioversion",
+                    "class": "event",
+                    "meta": {
+                        "energy": "Energy delivered, in joules."
+                    }
+                },
+                "INTUBATION": {
+                    "code": "BIO_INT_INTUBATION",
+                    "name": "Intubation or extubation",
+                    "class": "event",
+                    "meta": {
+                        "action": "Either intubation or extubation."
+                    }
+                },
+                "NEEDLE": {
+                    "code": "BIO_INT_NEEDLE",
+                    "name": "Blood sampling or needle procedure",
+                    "class": "event"
+                },
+                "OPERATION": {
+                    "code": "BIO_INT_OPERATION",
+                    "name": "Operative procedure",
+                    "class": "event",
+                    "description": "A span covers the operation; an instant marks a stage of it.",
+                    "meta": {
+                        "stage": "The stage marked: incision, clamp, reperfusion, closure."
+                    }
+                }
+            }
+        },
+        "OBSERVATION": {
+            "scope": "acquisition",
+            "description": "What was observed of the patient. Body position and level of consciousness are state-like; the level of consciousness is the behavioural state on the AVPU scale, distinct from any sleep stage read from the signal.",
+            "events": {
+                "MOVEMENT": {
+                    "code": "BIO_OBS_MOVEMENT",
+                    "name": "Movement",
+                    "class": "event",
+                    "meta": {
+                        "part": "The body part that moved."
+                    }
+                },
+                "TALKING": {
+                    "code": "BIO_OBS_TALKING",
+                    "name": "Talking",
+                    "class": "event"
+                },
+                "COUGHING": {
+                    "code": "BIO_OBS_COUGHING",
+                    "name": "Coughing",
+                    "class": "event"
+                },
+                "CRYING": {
+                    "code": "BIO_OBS_CRYING",
+                    "name": "Crying",
+                    "class": "event"
+                },
+                "POSITION_SUPINE": {
+                    "code": "BIO_OBS_POSITION_SUPINE",
+                    "name": "Supine",
+                    "class": "event",
+                    "description": "State-like body position."
+                },
+                "POSITION_PRONE": {
+                    "code": "BIO_OBS_POSITION_PRONE",
+                    "name": "Prone",
+                    "class": "event",
+                    "description": "State-like body position."
+                },
+                "POSITION_LEFT": {
+                    "code": "BIO_OBS_POSITION_LEFT",
+                    "name": "Left lateral",
+                    "class": "event",
+                    "description": "State-like body position."
+                },
+                "POSITION_RIGHT": {
+                    "code": "BIO_OBS_POSITION_RIGHT",
+                    "name": "Right lateral",
+                    "class": "event",
+                    "description": "State-like body position."
+                },
+                "POSITION_UPRIGHT": {
+                    "code": "BIO_OBS_POSITION_UPRIGHT",
+                    "name": "Upright",
+                    "class": "event",
+                    "description": "State-like body position: sitting or standing."
+                },
+                "POSITION_HEAD_DOWN": {
+                    "code": "BIO_OBS_POSITION_HEAD_DOWN",
+                    "name": "Head down",
+                    "class": "event",
+                    "description": "State-like body position: the Trendelenburg position."
+                },
+                "LOC_ALERT": {
+                    "code": "BIO_OBS_LOC_ALERT",
+                    "name": "Alert",
+                    "class": "event",
+                    "description": "State-like level of consciousness: awake and responsive.",
+                    "meta": {
+                        "gcs": "Glasgow Coma Scale total, if scored.",
+                        "rass": "Richmond Agitation-Sedation Scale score, if scored."
+                    }
+                },
+                "LOC_VOICE": {
+                    "code": "BIO_OBS_LOC_VOICE",
+                    "name": "Responds to voice",
+                    "class": "event",
+                    "description": "State-like level of consciousness: responds to voice, no closer qualification.",
+                    "meta": {
+                        "gcs": "Glasgow Coma Scale total, if scored.",
+                        "rass": "Richmond Agitation-Sedation Scale score, if scored."
+                    }
+                },
+                "LOC_CONFUSED": {
+                    "code": "BIO_OBS_LOC_CONFUSED",
+                    "name": "Confused",
+                    "class": "event",
+                    "description": "State-like level of consciousness: responds to voice, disoriented.",
+                    "meta": {
+                        "gcs": "Glasgow Coma Scale total, if scored.",
+                        "rass": "Richmond Agitation-Sedation Scale score, if scored."
+                    }
+                },
+                "LOC_SOMNOLENT": {
+                    "code": "BIO_OBS_LOC_SOMNOLENT",
+                    "name": "Somnolent",
+                    "class": "event",
+                    "description": "State-like level of consciousness: responds to voice, drifts back.",
+                    "meta": {
+                        "gcs": "Glasgow Coma Scale total, if scored.",
+                        "rass": "Richmond Agitation-Sedation Scale score, if scored."
+                    }
+                },
+                "LOC_ASLEEP": {
+                    "code": "BIO_OBS_LOC_ASLEEP",
+                    "name": "Asleep",
+                    "class": "event",
+                    "description": "State-like level of consciousness: the behavioural observation of sleep, not a sleep stage read from the signal.",
+                    "meta": {
+                        "gcs": "Glasgow Coma Scale total, if scored.",
+                        "rass": "Richmond Agitation-Sedation Scale score, if scored."
+                    }
+                },
+                "LOC_PAIN": {
+                    "code": "BIO_OBS_LOC_PAIN",
+                    "name": "Responds to pain",
+                    "class": "event",
+                    "description": "State-like level of consciousness.",
+                    "meta": {
+                        "gcs": "Glasgow Coma Scale total, if scored.",
+                        "rass": "Richmond Agitation-Sedation Scale score, if scored."
+                    }
+                },
+                "LOC_UNRESPONSIVE": {
+                    "code": "BIO_OBS_LOC_UNRESPONSIVE",
+                    "name": "Unresponsive",
+                    "class": "event",
+                    "description": "State-like level of consciousness.",
+                    "meta": {
+                        "gcs": "Glasgow Coma Scale total, if scored.",
+                        "rass": "Richmond Agitation-Sedation Scale score, if scored."
+                    }
+                }
+            }
+        },
+        "ENVIRONMENT": {
+            "scope": "acquisition",
+            "description": "External influences on the recording: things in the surroundings that reach the signal or the patient without anyone intending them to.",
+            "events": {
+                "DISTURBANCE": {
+                    "code": "BIO_ENV_DISTURBANCE",
+                    "name": "Mechanical disturbance",
+                    "class": "event",
+                    "description": "The bed, a cable or the equipment bumped, pulled or moved. A span covers it; an instant marks its start.",
+                    "meta": {
+                        "source": "What was disturbed."
+                    }
+                },
+                "ELECTRICAL_DEVICE": {
+                    "code": "BIO_ENV_ELECTRICAL_DEVICE",
+                    "name": "Electrical device nearby",
+                    "class": "event",
+                    "description": "A device switched on or brought near, the usual source of mains interference. State-like: an instant marks its arrival until the next event of the family; a span bounds its presence.",
+                    "meta": {
+                        "device": "The device: infusion pump, ventilator, phone, cleaning machine."
+                    }
+                },
+                "LIGHT": {
+                    "code": "BIO_ENV_LIGHT",
+                    "name": "Light change",
+                    "class": "event",
+                    "description": "Lights switched on or off, or daylight changing. State-like: an instant marks the change until the next.",
+                    "meta": {
+                        "change": "What changed: on, off, dimmed, daylight."
+                    }
+                },
+                "NOISE": {
+                    "code": "BIO_ENV_NOISE",
+                    "name": "Noise",
+                    "class": "event",
+                    "description": "A sound in the surroundings other than speech: an alarm, a door, construction. A span covers it; an instant marks its start.",
+                    "meta": {
+                        "source": "The source of the sound."
+                    }
+                },
+                "PERSON": {
+                    "code": "BIO_ENV_PERSON",
+                    "name": "Person entering or leaving",
+                    "class": "event",
+                    "description": "Staff or a visitor entering or leaving the room. An instant marks the entry or the exit; a span covers a stay."
+                },
+                "VOICES": {
+                    "code": "BIO_ENV_VOICES",
+                    "name": "Voices nearby",
+                    "class": "event",
+                    "description": "Speech in the surroundings not addressed to the patient. A span covers it; an instant marks its start. Speech addressed to the patient is verbal stimulation, and the patient speaking is an observation."
+                }
+            }
+        }
+    }
+}

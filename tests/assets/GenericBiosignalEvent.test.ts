@@ -252,4 +252,66 @@ describe('GenericBiosignalEvent', () => {
             expect(serialized.color).toBeNull()
         })
     })
+
+    describe('coded events', () => {
+        it('exposes the shared vocabulary in four categories', () => {
+            expect(Object.keys(GenericBiosignalEvent.CODED_EVENTS)).toEqual(['TECHNICAL', 'INTERVENTION', 'OBSERVATION', 'ENVIRONMENT'])
+            expect(GenericBiosignalEvent.CODED_EVENTS.TECHNICAL.CALIBRATION.code).toBe('BIO_TECH_CALIBRATION')
+        })
+
+        it('is searched through a subclass without the subclass declaring anything', () => {
+            expect(TestBiosignalEvent.getEventForCode('BIO_OBS_LOC_ALERT')?.name).toBe('Alert')
+            expect(TestBiosignalEvent.getEventForLabel('impedance check')?.code).toBe('BIO_TECH_IMPEDANCE')
+            expect(TestBiosignalEvent.getEventForLabel('no such term')).toBeNull()
+        })
+
+        it('carries the event class a term is created with', () => {
+            expect(GenericBiosignalEvent.getEventForCode('BIO_TECH_TRIGGER')?.class).toBe('trigger')
+            expect(GenericBiosignalEvent.getEventForCode('BIO_INT_MEDICATION')?.class).toBe('event')
+            expect(GenericBiosignalEvent.getEventForCode('BIO_TECH_PAUSE')?.class).toBe('technical')
+        })
+
+        it('returns the same live table on every access', () => {
+            expect(GenericBiosignalEvent.CODED_EVENTS).toBe(GenericBiosignalEvent.CODED_EVENTS)
+            expect(TestBiosignalEvent.CODED_EVENTS.TECHNICAL).toBe(GenericBiosignalEvent.CODED_EVENTS.TECHNICAL)
+        })
+
+        it('keeps a term from being replaced through the table', () => {
+            const technical = GenericBiosignalEvent.CODED_EVENTS.TECHNICAL
+            expect(() => {
+                technical.CALIBRATION = { code: 'X', name: 'X' }
+            }).toThrow()
+            expect(() => {
+                technical.CALIBRATION.code = 'X'
+            }).toThrow()
+            expect(technical.CALIBRATION.code).toBe('BIO_TECH_CALIBRATION')
+        })
+
+        it('extends a shared category through a subclass into the shared table', () => {
+            TestBiosignalEvent.extendEvents('OBSERVATION', {
+                TEST_ONLY: { code: 'BIO_OBS_TEST_ONLY', name: 'Test only observation' },
+            })
+            expect(GenericBiosignalEvent.getEventForCode('BIO_OBS_TEST_ONLY')?.name).toBe('Test only observation')
+        })
+
+        it('refuses to extend a category no class declares', () => {
+            expect(() => TestBiosignalEvent.extendEvents('NOWHERE', {
+                X: { code: 'BIO_X', name: 'X' },
+            })).toThrow(/Category 'NOWHERE' does not exist/)
+        })
+
+        it('refuses to overwrite an existing term', () => {
+            expect(() => TestBiosignalEvent.extendEvents('TECHNICAL', {
+                CALIBRATION: { code: 'BIO_TECH_CALIBRATION', name: 'Again' },
+            })).toThrow(/already exists/)
+        })
+
+        it('adds a crosswalk code once and keeps the first', () => {
+            TestBiosignalEvent.addStandardEventCodes('test-standard', { TECHNICAL: { CALIBRATION: 'T-1' } })
+            expect(GenericBiosignalEvent.getEventForCode('T-1', 'test-standard')?.code).toBe('BIO_TECH_CALIBRATION')
+            TestBiosignalEvent.addStandardEventCodes('test-standard', { TECHNICAL: { CALIBRATION: 'T-2' } })
+            expect(GenericBiosignalEvent.CODED_EVENTS.TECHNICAL.CALIBRATION.standardCodes?.['test-standard']).toBe('T-1')
+            expect(Log.warn).toHaveBeenCalled()
+        })
+    })
 })
