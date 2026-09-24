@@ -17,6 +17,7 @@ const PREFIXES: Record<string, string> = {
     ENVIRONMENT: 'BIO_ENV_',
     INTERVENTION: 'BIO_INT_',
     OBSERVATION: 'BIO_OBS_',
+    PHYSIOLOGY: 'BIO_PHYS_',
     TECHNICAL: 'BIO_TECH_',
 }
 

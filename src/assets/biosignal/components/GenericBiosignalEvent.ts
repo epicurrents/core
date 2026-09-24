@@ -93,7 +93,7 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
     }
 
     /**
-     * The shared vocabulary, in the categories TECHNICAL, INTERVENTION, OBSERVATION and ENVIRONMENT, from
+     * The shared vocabulary, in the categories TECHNICAL, INTERVENTION, OBSERVATION, ENVIRONMENT and PHYSIOLOGY, from
      * `src/assets/annotation/vocabulary/biosignal-events.json`. A modality's event class stacks its own categories on top of these.
      */
     static get CODED_EVENTS (): CodedEventTable {

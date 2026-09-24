@@ -254,8 +254,8 @@ describe('GenericBiosignalEvent', () => {
     })
 
     describe('coded events', () => {
-        it('exposes the shared vocabulary in four categories', () => {
-            expect(Object.keys(GenericBiosignalEvent.CODED_EVENTS)).toEqual(['TECHNICAL', 'INTERVENTION', 'OBSERVATION', 'ENVIRONMENT'])
+        it('exposes the shared vocabulary in five categories', () => {
+            expect(Object.keys(GenericBiosignalEvent.CODED_EVENTS)).toEqual(['TECHNICAL', 'INTERVENTION', 'OBSERVATION', 'ENVIRONMENT', 'PHYSIOLOGY'])
             expect(GenericBiosignalEvent.CODED_EVENTS.TECHNICAL.CALIBRATION.code).toBe('BIO_TECH_CALIBRATION')
         })
 

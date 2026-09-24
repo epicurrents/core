@@ -1,6 +1,6 @@
 {
     "standard": "epicurrents.biosignal",
-    "version": "1.0",
+    "version": "1.1",
     "description": "The shared vocabulary every biosignal event class inherits. Each category carries a scope: acquisition for what was done, given and observed during a recording, finding for what a reader concluded from the signal. Every category is acquisition-scoped so far; a finding every modality recognises would join under its own scope, and a modality's own findings belong to its own set. State-like terms follow the instant-or-span convention: an event with duration 0 marks entry into the state, which holds until the next event of the same family; an event with a duration bounds the state to that span.",
     "categories": {
         "TECHNICAL": {
@@ -168,7 +168,7 @@
         },
         "OBSERVATION": {
             "scope": "acquisition",
-            "description": "What was observed of the patient. Body position and level of consciousness are state-like; the level of consciousness is the behavioural state on the AVPU scale, distinct from any sleep stage read from the signal.",
+            "description": "What was observed of the patient at the bedside: behaviour, body position and level of consciousness. Body position and level of consciousness are state-like; the level of consciousness is the behavioural state on the AVPU scale, distinct from any sleep stage read from the signal. The patient's cardiorespiratory and autonomic state is PHYSIOLOGY, whichever way it was noticed.",
             "events": {
                 "MOVEMENT": {
                     "code": "BIO_OBS_MOVEMENT",
@@ -352,6 +352,161 @@
                     "name": "Voices nearby",
                     "class": "event",
                     "description": "Speech in the surroundings not addressed to the patient. A span covers it; an instant marks its start. Speech addressed to the patient is verbal stimulation, and the patient speaking is an observation."
+                }
+            }
+        },
+        "PHYSIOLOGY": {
+            "scope": "acquisition",
+            "description": "The cardiorespiratory and autonomic state of the patient during the recording, whether seen at the bedside or read from a polygraphic channel such as ECG, respiration or pulse oximetry. A term here names a state of the body, not an interpretation of the signal of interest, which is a finding of the modality; who noticed it is the annotator. State-like terms follow the instant-or-span convention.",
+            "events": {
+                "BRADYCARDIA": {
+                    "code": "BIO_PHYS_BRADYCARDIA",
+                    "name": "Bradycardia",
+                    "class": "event",
+                    "description": "Heart rate below the range expected for the patient's age. State-like.",
+                    "meta": {
+                        "rate": "Heart rate in beats per minute, if measured."
+                    },
+                    "standardCodes": {
+                        "dicom": "SCT/48867003"
+                    }
+                },
+                "TACHYCARDIA": {
+                    "code": "BIO_PHYS_TACHYCARDIA",
+                    "name": "Tachycardia",
+                    "class": "event",
+                    "description": "Heart rate above the range expected for the patient's age. State-like.",
+                    "meta": {
+                        "rate": "Heart rate in beats per minute, if measured."
+                    },
+                    "standardCodes": {
+                        "dicom": "SCT/3424008",
+                        "ieee": "MDC_EVT_ECG_TACHY"
+                    }
+                },
+                "ARRHYTHMIA": {
+                    "code": "BIO_PHYS_ARRHYTHMIA",
+                    "name": "Arrhythmia",
+                    "class": "event",
+                    "description": "An irregular rhythm or ectopic beats. A span covers a run; an instant marks a single beat.",
+                    "meta": {
+                        "rhythm": "The rhythm, as named."
+                    },
+                    "standardCodes": {
+                        "dicom": "SCT/698247007",
+                        "ieee": "MDC_EVT_ECG_ARRHY"
+                    }
+                },
+                "ASYSTOLE": {
+                    "code": "BIO_PHYS_ASYSTOLE",
+                    "name": "Asystole",
+                    "class": "event",
+                    "description": "No beat for longer than the rhythm allows, up to and including cardiac standstill. A span covers the pause.",
+                    "standardCodes": {
+                        "dicom": "SCT/397829000",
+                        "ieee": "MDC_EVT_ECG_ASYSTOLE"
+                    }
+                },
+                "APNEA": {
+                    "code": "BIO_PHYS_APNEA",
+                    "name": "Apnoea",
+                    "class": "event",
+                    "description": "Breathing stopped. A span covers it.",
+                    "meta": {
+                        "type": "central, obstructive or mixed."
+                    },
+                    "standardCodes": {
+                        "dicom": "SCT/1023001",
+                        "ieee": "MDC_EVT_APNEA"
+                    }
+                },
+                "HYPOPNEA": {
+                    "code": "BIO_PHYS_HYPOPNEA",
+                    "name": "Hypopnoea",
+                    "class": "event",
+                    "description": "Breathing reduced in depth or rate. A span covers it."
+                },
+                "HYPERVENTILATION": {
+                    "code": "BIO_PHYS_HYPERVENTILATION",
+                    "name": "Spontaneous hyperventilation",
+                    "class": "event",
+                    "description": "Breathing faster or deeper than the situation calls for, unprompted; the EEG activation set names the procedure. A span covers it."
+                },
+                "PERIODIC_BREATHING": {
+                    "code": "BIO_PHYS_PERIODIC_BREATHING",
+                    "name": "Periodic breathing",
+                    "class": "event",
+                    "description": "Breathing waxing and waning in cycles, with or without pauses. A span covers the pattern."
+                },
+                "DESATURATION": {
+                    "code": "BIO_PHYS_DESATURATION",
+                    "name": "Oxygen desaturation",
+                    "class": "event",
+                    "description": "Oxygen saturation below the range expected for the patient. A span covers it.",
+                    "meta": {
+                        "nadir": "Lowest saturation in percent, if measured."
+                    },
+                    "standardCodes": {
+                        "dicom": "SCT/449171008"
+                    }
+                },
+                "SWEATING": {
+                    "code": "BIO_PHYS_SWEATING",
+                    "name": "Sweating",
+                    "class": "event",
+                    "description": "State-like: sweating began here and holds until marked otherwise.",
+                    "standardCodes": {
+                        "dicom": "SCT/415690000"
+                    }
+                },
+                "FLUSHING": {
+                    "code": "BIO_PHYS_FLUSHING",
+                    "name": "Flushing",
+                    "class": "event",
+                    "description": "Reddening of the skin. State-like.",
+                    "standardCodes": {
+                        "dicom": "SCT/238810007"
+                    }
+                },
+                "PALLOR": {
+                    "code": "BIO_PHYS_PALLOR",
+                    "name": "Pallor",
+                    "class": "event",
+                    "description": "Paleness of the skin. State-like."
+                },
+                "CYANOSIS": {
+                    "code": "BIO_PHYS_CYANOSIS",
+                    "name": "Cyanosis",
+                    "class": "event",
+                    "description": "Bluish skin or lips. State-like.",
+                    "standardCodes": {
+                        "dicom": "SCT/3415004"
+                    }
+                },
+                "HICCUP": {
+                    "code": "BIO_PHYS_HICCUP",
+                    "name": "Hiccup",
+                    "class": "event",
+                    "description": "A span covers a bout; an instant marks a single hiccup.",
+                    "standardCodes": {
+                        "dicom": "SCT/65958008"
+                    }
+                },
+                "VOMITING": {
+                    "code": "BIO_PHYS_VOMITING",
+                    "name": "Vomiting",
+                    "class": "event",
+                    "standardCodes": {
+                        "dicom": "SCT/422400008"
+                    }
+                },
+                "YAWNING": {
+                    "code": "BIO_PHYS_YAWNING",
+                    "name": "Yawning",
+                    "class": "event",
+                    "standardCodes": {
+                        "dicom": "SCT/248626009"
+                    }
                 }
             }
         }
