@@ -91,6 +91,7 @@ export {
     butterBandstop,
     butterHighpass,
     butterLowpass,
+    DOWNSAMPLE_CUTOFF_FRACTION,
     downsampleSignal,
     FFT,
     SOSFilter,

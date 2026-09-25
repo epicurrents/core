@@ -81,6 +81,8 @@ export type ExportSelectionResult = {
     events: AnnotationEventTemplate[]
     /** Interruptions inside the range as `[start, duration]` pairs, `start` in recording time. */
     interruptions: [number, number][]
+    /** The exported range in the source recording, as {@link resolveExportRange} resolved it. */
+    range: ExportRange
     /** Length of the exported range in seconds of recording time, interruptions included. */
     recordingDuration: number
 }
@@ -472,6 +474,7 @@ export const applyExportSelection = (
         dataDuration: dataEnd - dataStart,
         events: selectEvents(source.events, range.recording, source.channels, outputs),
         interruptions,
+        range,
         recordingDuration: end - start,
     }
 }

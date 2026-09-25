@@ -599,8 +599,11 @@ export function butterLowpass (order: number, fc: number, fs: number): Biquad[] 
 
 /** Order of the anti-aliasing low-pass applied by {@link downsampleSignal}, in prototype poles. */
 const DOWNSAMPLE_FILTER_ORDER = 8
-/** Cutoff of the anti-aliasing low-pass as a fraction of the output sampling rate (0.5 would be Nyquist). */
-const DOWNSAMPLE_CUTOFF_FRACTION = 0.4
+/**
+ * Cutoff of the anti-aliasing low-pass applied by {@link downsampleSignal}, as a fraction of the output sampling rate
+ * (0.5 would be Nyquist). An exporter that records a channel's prefiltering reads it to state the new low-pass.
+ */
+export const DOWNSAMPLE_CUTOFF_FRACTION = 0.4
 
 /**
  * Downsample a signal to a lower sampling rate for data use, as opposed to display. The signal is first low-passed
