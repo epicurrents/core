@@ -589,6 +589,65 @@ export interface BiosignalDataService extends AssetService {
  */
 export type BiosignalDownsamplingMethod = 'average' | 'max' | 'max-abs' | 'min' | 'sum'
 /**
+ * One output channel of a {@link BiosignalExportSelection}.
+ */
+export type BiosignalExportChannel = {
+    /**
+     * Physical range the channel's samples are clipped to, as `[minimum, maximum]` in the channel's unit. Overrides
+     * the selection-wide range.
+     */
+    amplitudeRange?: [number, number]
+    /** Output label. The source channel's label when omitted. */
+    label?: string
+    /** Index of the source channel in the recording's channel list. */
+    source: number
+}
+/**
+ * Limits an export destination places on a {@link BiosignalExportSelection}. Every field is optional and each one
+ * present is checked by `checkExportSelection`; the constraints describe the result, never how to produce it.
+ */
+export type BiosignalExportConstraints = {
+    /** The amplitude range every output channel must be clipped to, as `[minimum, maximum]`. */
+    amplitudeRange?: [number, number]
+    /** Output channel labels, in the required order. The output must carry exactly these channels. */
+    channels?: string[]
+    /** Allowed lengths of the exported signal data, in seconds. */
+    durations?: number[]
+    /**
+     * Keys that must not appear anywhere in the metadata the export carries beside the signal. An exporter removes
+     * them; a destination that finds one refuses the export.
+     */
+    forbiddenMetadataKeys?: string[]
+    /**
+     * The exact output sampling rate, in Hz. A source channel slower than this cannot satisfy the constraint, since an
+     * export only ever downsamples.
+     */
+    samplingRate?: number
+    /** The physical unit every output channel must carry. */
+    unit?: string
+}
+/**
+ * A format-agnostic description of what to export from a biosignal recording: a time range, an ordered set of
+ * channels under output labels, one output rate and an amplitude range. Applied with `applyExportSelection` before
+ * an exporter encodes the result. Omitting every field exports the whole recording unchanged.
+ */
+export type BiosignalExportSelection = {
+    /** Physical range every output channel's samples are clipped to, as `[minimum, maximum]`. */
+    amplitudeRange?: [number, number]
+    /**
+     * Output channels, in output order. Each source channel may appear once. When omitted, every channel carrying a
+     * signal is exported in source order under its own label.
+     */
+    channels?: BiosignalExportChannel[]
+    /**
+     * Range to export as `[start, end]` in seconds of recording time (interruptions included). An end inside an
+     * interruption moves to the edge of the signal data. The whole recording when omitted.
+     */
+    range?: [number, number]
+    /** Output sampling rate for every channel, in Hz. Must not exceed any selected source channel's rate. */
+    samplingRate?: number
+}
+/**
  * Filter types for biosignal resources.
  */
 export type BiosignalFilters = {

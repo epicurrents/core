@@ -7,6 +7,8 @@
  *   - Zero-phase sosfiltfilt closely approximating scipy.signal.sosfiltfilt()
  *     (the steady-state edge initial conditions are a closed-form approximation,
  *     not scipy's exact companion-matrix solve, so edge samples are not bit-exact)
+ *   - Anti-aliased downsampling for data use (`downsampleSignal`), as opposed to the
+ *     display-oriented `resampleSignal` in signal.ts
  *
  * ## Order convention
  * `order` is the number of prototype poles (standard convention).
@@ -591,4 +593,74 @@ export function butterLowpass (order: number, fc: number, fs: number): Biquad[] 
     const sos = zpk2sos(bilinear(lp2lp(buttap(order), wo), fs))
     checkGain(sos, 0, `LP(${order}, fc=${fc})`)
     return sos
+}
+
+// ── Rate conversion ───────────────────────────────────────────────────────────
+
+/** Order of the anti-aliasing low-pass applied by {@link downsampleSignal}, in prototype poles. */
+const DOWNSAMPLE_FILTER_ORDER = 8
+/** Cutoff of the anti-aliasing low-pass as a fraction of the output sampling rate (0.5 would be Nyquist). */
+const DOWNSAMPLE_CUTOFF_FRACTION = 0.4
+
+/**
+ * Downsample a signal to a lower sampling rate for data use, as opposed to display. The signal is first low-passed
+ * with a zero-phase Butterworth filter at 0.4 × the output rate, so content that would alias into the output band is
+ * removed rather than folded into it, and then taken at the output instants: every n-th sample when the rate ratio is
+ * an integer, linear interpolation between neighbours otherwise.
+ *
+ * At equal rates no filter runs and the samples are copied. Throws when asked to upsample, when a rate is not
+ * positive or when the offset is negative: an export must never invent samples, and a silent pass-through would ship
+ * data at the wrong rate.
+ * @param signal - Signal to downsample.
+ * @param fromRate - Sampling rate of `signal`, in Hz.
+ * @param toRate - Output sampling rate, in Hz; must not exceed `fromRate`.
+ * @param length - Number of output samples. Defaults to as many as fit after `offset`; a length reaching past the end of the source repeats its last sample.
+ * @param offset - Position of the first output sample in `signal`, in source samples, fractional allowed. Samples before it still feed the filter, which is what lets a caller pass context around the part it wants. Defaults to 0.
+ * @returns The downsampled signal.
+ */
+export function downsampleSignal (
+    signal: Float32Array,
+    fromRate: number,
+    toRate: number,
+    length?: number,
+    offset = 0
+) {
+    if (!(fromRate > 0) || !(toRate > 0)) {
+        throw new Error(`Sampling rates must be positive (got ${fromRate} Hz and ${toRate} Hz).`)
+    }
+    if (toRate > fromRate) {
+        throw new Error(`Cannot downsample from ${fromRate} Hz to a higher rate of ${toRate} Hz.`)
+    }
+    if (!(offset >= 0)) {
+        throw new Error(`The offset of the first output sample must not be negative (got ${offset}).`)
+    }
+    const step = fromRate/toRate
+    const outLength = length ?? Math.max(0, Math.floor((signal.length - offset)/step + 1e-9))
+    const filtered = signal.length && toRate < fromRate
+                     ? new SOSFilter(
+                           butterLowpass(DOWNSAMPLE_FILTER_ORDER, DOWNSAMPLE_CUTOFF_FRACTION*toRate, fromRate)
+                       ).filtfilt(signal)
+                     : signal
+    const output = new Float32Array(outLength)
+    const last = filtered.length - 1
+    if (last < 0) {
+        return output
+    }
+    const integral = Number.isInteger(offset) && Math.abs(step - Math.round(step)) < 1e-9
+    const integerStep = Math.round(step)
+    for (let i = 0; i < outLength; i++) {
+        if (integral) {
+            output[i] = filtered[Math.min(offset + i*integerStep, last)]
+            continue
+        }
+        const position = offset + i*step
+        const lower = Math.floor(position)
+        if (lower >= last) {
+            output[i] = filtered[last]
+            continue
+        }
+        const fraction = position - lower
+        output[i] = filtered[lower] + (filtered[lower + 1] - filtered[lower])*fraction
+    }
+    return output
 }

@@ -91,10 +91,25 @@ export {
     butterBandstop,
     butterHighpass,
     butterLowpass,
+    downsampleSignal,
     FFT,
     SOSFilter,
 } from './dsp'
 export type { Biquad, Biquad as BiquadSOS } from './dsp'
+export {
+    applyExportSelection,
+    checkExportSelection,
+    resolveExportRange,
+} from './export'
+export type {
+    ExportRange,
+    ExportSelectedChannel,
+    ExportSelectionResult,
+    ExportSelectionViolation,
+    ExportSourceChannel,
+    ExportSourceData,
+    ExportSourceSignalChannel,
+} from './export'
 export {
     awaitThenSleep,
     calculateSignalOffsets,
