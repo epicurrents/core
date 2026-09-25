@@ -582,6 +582,194 @@ export type SignalDecodeResult = {
     interruptions?: SignalInterruptionMap
 }
 /**
+ * One output channel of a {@link SignalExportSelection}.
+ */
+export type SignalExportChannel = {
+    /**
+     * Physical range the channel's samples are clipped to, as `[minimum, maximum]` in the channel's unit. Overrides
+     * the selection-wide range.
+     */
+    amplitudeRange?: [number, number]
+    /** Output label. The source channel's label when omitted. */
+    label?: string
+    /** Index of the source channel in the recording's channel list. */
+    source: number
+}
+/**
+ * Limits an export destination places on a {@link SignalExportSelection}. Every field is optional and each one
+ * present is checked by `checkExportSelection`; the constraints describe the result, never how to produce it.
+ */
+export type SignalExportConstraints = {
+    /** The amplitude range every output channel must be clipped to, as `[minimum, maximum]`. */
+    amplitudeRange?: [number, number]
+    /** Output channel labels, in the required order. The output must carry exactly these channels. */
+    channels?: string[]
+    /** Allowed lengths of the exported signal data, in seconds. */
+    durations?: number[]
+    /**
+     * Keys that must not appear anywhere in the metadata the export carries beside the signal. An exporter removes
+     * them; a destination that finds one refuses the export.
+     */
+    forbiddenMetadataKeys?: string[]
+    /**
+     * The exact output sampling rate, in Hz. A source channel slower than this cannot satisfy the constraint, since an
+     * export only ever downsamples.
+     */
+    samplingRate?: number
+    /** The physical unit every output channel must carry. */
+    unit?: string
+}
+/**
+ * A recording exported for a {@link SignalExportTarget}.
+ */
+export type SignalExportFile = {
+    /** The encoded recording, in the target's format. */
+    data: ArrayBuffer
+    /** The metadata sidecar the exporter writes beside the recording, when the target asks for it; null otherwise. */
+    sidecar: string | null
+}
+/**
+ * The resolved bounds of a selection's range.
+ */
+export type SignalExportRange = {
+    /** `[start, end]` in data time, the signal positions to read. */
+    data: [number, number]
+    /** `[start, end]` in recording time, after moving an end that fell inside an interruption to the data edge. */
+    recording: [number, number]
+}
+/**
+ * One output channel of an applied selection.
+ */
+export type SignalExportSelectedChannel = {
+    /** Output label. */
+    label: string
+    /** Output sampling rate in Hz. */
+    samplingRate: number
+    /** Output samples. */
+    signal: Float32Array
+    /** Index of the source channel in the recording's channel list. */
+    source: number
+}
+/**
+ * A format-agnostic description of what to export from a signal recording: a time range, an ordered set of
+ * channels under output labels, one output rate and an amplitude range. Applied with `applyExportSelection` before
+ * an exporter encodes the result. Omitting every field exports the whole recording unchanged.
+ */
+export type SignalExportSelection = {
+    /** Physical range every output channel's samples are clipped to, as `[minimum, maximum]`. */
+    amplitudeRange?: [number, number]
+    /**
+     * Output channels, in output order. Each source channel may appear once. When omitted, every channel carrying a
+     * signal is exported in source order under its own label.
+     */
+    channels?: SignalExportChannel[]
+    /**
+     * Range to export as `[start, end]` in seconds of recording time (interruptions included). An end inside an
+     * interruption moves to the edge of the signal data. The whole recording when omitted.
+     */
+    range?: [number, number]
+    /** Output sampling rate for every channel, in Hz. Must not exceed any selected source channel's rate. */
+    samplingRate?: number
+}
+/**
+ * The result of applying a selection. Times are relative to the start of the exported range.
+ */
+export type SignalExportSelectionResult = {
+    /** Output channels in output order. */
+    channels: SignalExportSelectedChannel[]
+    /** Length of the exported signal data in seconds, excluding interruptions. */
+    dataDuration: number
+    /** Events overlapping the range, clipped to it, with channel references remapped to the output. */
+    events: AnnotationEventTemplate[]
+    /** Interruptions inside the range as `[start, duration]` pairs, `start` in recording time. */
+    interruptions: [number, number][]
+    /** The exported range in the source recording, as `resolveExportRange` resolved it. */
+    range: SignalExportRange
+    /** Length of the exported range in seconds of recording time, interruptions included. */
+    recordingDuration: number
+}
+/**
+ * Everything `applyExportSelection` transforms.
+ */
+export type SignalExportSource = {
+    /** The recording's full channel list, in source order. */
+    channels: SignalExportSourceChannel[]
+    /** Data time, in seconds, of the first sample of every channel's `signal`. Defaults to 0. */
+    dataOffset?: number
+    /** The recording's events. Their `start` is in recording time. */
+    events: AnnotationEventTemplate[]
+    /** The recording's interruptions as `[start, duration]` pairs, with `start` in recording time. */
+    interruptions: [number, number][]
+}
+/**
+ * A channel of the recording as the selection reads it. The list passed to the export functions is the recording's
+ * full channel list, so a channel's position in it is the index a selection and an event refer to it by. A channel
+ * of `meta` modality, or without a positive sampling rate, carries no signal and cannot be exported.
+ */
+export type SignalExportSourceChannel = {
+    /** The channel's label. */
+    label: string
+    /** The channel's modality; `meta` marks a channel that carries no numeric signal, such as an annotation channel. */
+    modality?: string
+    /** Identifying name of the channel, which an event's string channel references match. The label when omitted. */
+    name?: string
+    /** Number of samples the channel holds over the whole recording. */
+    sampleCount: number
+    /** Sampling rate in Hz. */
+    samplingRate: number
+    /**
+     * The channel's samples, starting at the data time given by `dataOffset` in the transform's input. Absent where
+     * only the channel's description is needed, and allowed to be absent for a channel the selection does not export.
+     */
+    signal?: Float32Array
+    /** Physical unit of the channel's samples. */
+    unit?: string
+}
+/**
+ * A destination the host application offers for exporting a signal recording, registered with
+ * `EpicurrentsApp.registerSignalExportTarget`. The application offers a target only for a resource opened from a
+ * local file (see `isLocalResource`): a recording that was loaded from elsewhere already exists somewhere, and
+ * sending it on would copy it. The export is made under the target's constraints and options and handed to
+ * `submit`; what the target does with it is the host's business.
+ */
+export type SignalExportTarget = {
+    /** Limits the export must meet. An export dialog pre-fills and locks the choices they fix. */
+    constraints?: SignalExportConstraints
+    /** File format the target accepts, matched against the `format` of a registered exporter. */
+    format: string
+    /** User-facing label of the target. */
+    label: string
+    /** Options passed to the exporter, taking precedence over the choices made in the export dialog. */
+    options?: Record<string, unknown>
+    /** Does the target also take the metadata sidecar the exporter writes beside the recording. */
+    sidecar?: boolean
+    /**
+     * Send an exported recording to the destination.
+     * @param file - The exported recording and, if the target asked for it, its sidecar.
+     * @returns A promise resolving with the outcome to show the person.
+     */
+    submit (file: SignalExportFile): Promise<SignalExportTargetResult>
+}
+/**
+ * The outcome of handing a recording to a {@link SignalExportTarget}.
+ */
+export type SignalExportTargetResult = {
+    /** A message for the person who sent the recording, such as the destination's identifier for it. */
+    message: string
+    /** Did the destination accept the recording. */
+    success: boolean
+}
+/**
+ * A reason a selection cannot be applied or does not meet a destination's constraints. `code` is stable for
+ * programmatic use; `message` is written for the person making the selection.
+ */
+export type SignalExportViolation = {
+    code: 'amplitude_range' | 'channel_template' | 'duplicate_channel' | 'duration' | 'empty_range' | 'invalid_rate'
+          | 'invalid_range' | 'no_channels' | 'no_signal' | 'sampling_rate' | 'unit' | 'unknown_channel'
+          | 'upsampling'
+    message: string
+}
+/**
  * Partially loaded signal file containing:
  * - `data` as a pseudo-File object.
  * - `dataLen` as length of the actual signal data in seconds.

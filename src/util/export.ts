@@ -1,110 +1,26 @@
 /**
- * Export selection: the format-agnostic reduction of a biosignal recording to a time range, an ordered set of
+ * Export selection: the format-agnostic reduction of a signal recording to a time range, an ordered set of
  * channels under output labels, one output rate and an amplitude range. An exporter applies it before encoding, so
- * every exporter offers the same operations and none of them knows why a selection was made.
+ * every exporter offers the same operations and none of them knows why a selection was made. Also the rule deciding
+ * which resources may be sent to an export target, and the label matching an export dialog suggests channels with.
  * @package    epicurrents/core
  * @copyright  2026 Sampsa Lohi
  * @license    Apache-2.0
  */
 
+import type { DataResource } from '#types/application'
+import type { AnnotationEventTemplate } from '#types/biosignal'
 import type {
-    AnnotationEventTemplate,
-    BiosignalExportConstraints,
-    BiosignalExportSelection,
-} from '#types/biosignal'
+    SignalExportConstraints,
+    SignalExportRange,
+    SignalExportSelectedChannel,
+    SignalExportSelection,
+    SignalExportSelectionResult,
+    SignalExportSource,
+    SignalExportSourceChannel,
+    SignalExportViolation,
+} from '#types/reader'
 import { downsampleSignal } from './dsp'
-
-/**
- * A channel of the recording as the selection reads it. The list passed to the functions below is the recording's
- * full channel list, so a channel's position in it is the index a selection and an event refer to it by. A channel
- * of `meta` modality, or without a positive sampling rate, carries no signal and cannot be exported.
- */
-export type ExportSourceChannel = {
-    /** The channel's label. */
-    label: string
-    /** The channel's modality; `meta` marks a channel that carries no numeric signal, such as an annotation channel. */
-    modality?: string
-    /** Identifying name of the channel, which an event's string channel references match. The label when omitted. */
-    name?: string
-    /** Number of samples the channel holds over the whole recording. */
-    sampleCount: number
-    /** Sampling rate in Hz. */
-    samplingRate: number
-    /** Physical unit of the channel's samples. */
-    unit?: string
-}
-/**
- * A source channel together with its signal data, for {@link applyExportSelection}.
- */
-export type ExportSourceSignalChannel = ExportSourceChannel & {
-    /**
-     * The channel's samples, starting at the data time given by `dataOffset` in the transform's input. May be absent
-     * for a channel the selection does not export.
-     */
-    signal?: Float32Array
-}
-/**
- * Everything {@link applyExportSelection} transforms.
- */
-export type ExportSourceData = {
-    /** The recording's full channel list, in source order. */
-    channels: ExportSourceSignalChannel[]
-    /** Data time, in seconds, of the first sample of every channel's `signal`. Defaults to 0. */
-    dataOffset?: number
-    /** The recording's events. Their `start` is in recording time. */
-    events: AnnotationEventTemplate[]
-    /** The recording's interruptions as `[start, duration]` pairs, with `start` in recording time. */
-    interruptions: [number, number][]
-}
-/**
- * One output channel of an applied selection.
- */
-export type ExportSelectedChannel = {
-    /** Output label. */
-    label: string
-    /** Output sampling rate in Hz. */
-    samplingRate: number
-    /** Output samples. */
-    signal: Float32Array
-    /** Index of the source channel in the recording's channel list. */
-    source: number
-}
-/**
- * The result of applying a selection. Times are relative to the start of the exported range.
- */
-export type ExportSelectionResult = {
-    /** Output channels in output order. */
-    channels: ExportSelectedChannel[]
-    /** Length of the exported signal data in seconds, excluding interruptions. */
-    dataDuration: number
-    /** Events overlapping the range, clipped to it, with channel references remapped to the output. */
-    events: AnnotationEventTemplate[]
-    /** Interruptions inside the range as `[start, duration]` pairs, `start` in recording time. */
-    interruptions: [number, number][]
-    /** The exported range in the source recording, as {@link resolveExportRange} resolved it. */
-    range: ExportRange
-    /** Length of the exported range in seconds of recording time, interruptions included. */
-    recordingDuration: number
-}
-/**
- * The resolved bounds of a selection's range.
- */
-export type ExportRange = {
-    /** `[start, end]` in data time, the signal positions to read. */
-    data: [number, number]
-    /** `[start, end]` in recording time, after moving an end that fell inside an interruption to the data edge. */
-    recording: [number, number]
-}
-/**
- * A reason a selection cannot be applied or does not meet a destination's constraints. `code` is stable for
- * programmatic use; `message` is written for the person making the selection.
- */
-export type ExportSelectionViolation = {
-    code: 'amplitude_range' | 'channel_template' | 'duplicate_channel' | 'duration' | 'empty_range' | 'invalid_rate'
-          | 'invalid_range' | 'no_channels' | 'no_signal' | 'sampling_rate' | 'unit' | 'unknown_channel'
-          | 'upsampling'
-    message: string
-}
 
 /** Tolerance for comparing times and rates that went through floating-point arithmetic. */
 const EPSILON = 1e-6
@@ -117,12 +33,12 @@ const FILTER_MARGIN_SECONDS = 1
 /**
  * Does the channel carry a numeric signal that can be exported.
  */
-const carriesSignal = (channel: ExportSourceChannel) => channel.samplingRate > 0 && channel.modality !== 'meta'
+const carriesSignal = (channel: SignalExportSourceChannel) => channel.samplingRate > 0 && channel.modality !== 'meta'
 
 /**
  * Total length of the recording's signal data in seconds: the shortest channel that carries a signal.
  */
-const dataLength = (channels: ExportSourceChannel[]) => {
+const dataLength = (channels: SignalExportSourceChannel[]) => {
     let length = Number.POSITIVE_INFINITY
     for (const channel of channels) {
         if (carriesSignal(channel)) {
@@ -159,7 +75,7 @@ const recordingToDataTime = (time: number, interruptions: [number, number][]) =>
 /**
  * The output channels a selection names, with the default applied: every channel that carries a signal.
  */
-const selectedChannels = (channels: ExportSourceChannel[], selection: BiosignalExportSelection) => {
+const selectedChannels = (channels: SignalExportSourceChannel[], selection: SignalExportSelection) => {
     if (selection.channels) {
         return selection.channels.map(channel => ({
             amplitudeRange: channel.amplitudeRange ?? selection.amplitudeRange,
@@ -183,10 +99,10 @@ const selectedChannels = (channels: ExportSourceChannel[], selection: BiosignalE
  * @returns The resolved range, or null when it is invalid or holds no signal data.
  */
 export const resolveExportRange = (
-    channels: ExportSourceChannel[],
+    channels: SignalExportSourceChannel[],
     interruptions: [number, number][],
     range?: [number, number]
-): ExportRange | null => {
+): SignalExportRange | null => {
     const gaps = sortedInterruptions(interruptions)
     const totalData = dataLength(channels)
     const totalRecording = totalData + gaps.reduce((total, [, duration]) => total + duration, 0)
@@ -225,12 +141,12 @@ export const resolveExportRange = (
  * @returns Every violation found, in a stable order.
  */
 export const checkExportSelection = (
-    channels: ExportSourceChannel[],
+    channels: SignalExportSourceChannel[],
     interruptions: [number, number][],
-    selection: BiosignalExportSelection,
-    constraints?: BiosignalExportConstraints
-): ExportSelectionViolation[] => {
-    const violations = [] as ExportSelectionViolation[]
+    selection: SignalExportSelection,
+    constraints?: SignalExportConstraints
+): SignalExportViolation[] => {
+    const violations = [] as SignalExportViolation[]
     const outputs = selectedChannels(channels, selection)
     if (!outputs.length) {
         violations.push({ code: 'no_channels', message: 'The selection exports no channels.' })
@@ -350,7 +266,7 @@ export const checkExportSelection = (
 const selectEvents = (
     events: AnnotationEventTemplate[],
     range: [number, number],
-    sources: ExportSourceChannel[],
+    sources: SignalExportSourceChannel[],
     outputs: { label: string, source: number }[]
 ) => {
     const indexBySource = new Map(outputs.map(({ source }, index) => [source, index]))
@@ -417,9 +333,9 @@ const selectEvents = (
  * @returns The transformed data, or the violations that prevent applying the selection.
  */
 export const applyExportSelection = (
-    source: ExportSourceData,
-    selection: BiosignalExportSelection
-): ExportSelectionResult | { violations: ExportSelectionViolation[] } => {
+    source: SignalExportSource,
+    selection: SignalExportSelection
+): SignalExportSelectionResult | { violations: SignalExportViolation[] } => {
     const violations = checkExportSelection(source.channels, source.interruptions, selection)
     if (violations.length) {
         return { violations }
@@ -428,7 +344,7 @@ export const applyExportSelection = (
     const [dataStart, dataEnd] = range.data
     const offset = source.dataOffset ?? 0
     const outputs = selectedChannels(source.channels, selection)
-    const channels = [] as ExportSelectedChannel[]
+    const channels = [] as SignalExportSelectedChannel[]
     for (const output of outputs) {
         const channel = source.channels[output.source]
         const signal = channel.signal
@@ -477,4 +393,51 @@ export const applyExportSelection = (
         range,
         recordingDuration: end - start,
     }
+}
+
+/**
+ * Was the resource opened from a local file: does every data file of its source study carry a `File` object, as a
+ * study loader sets one only for a file the person picked or dropped. A resource loaded from a URL, through a
+ * connector, or from a source that says nothing about its files is not local.
+ * @param resource - The resource to check.
+ * @returns True if the resource was opened from a local file.
+ */
+export const isLocalResource = (resource: DataResource) => {
+    const files = resource.source?.files.filter(file => file.role === 'data') ?? []
+    return files.length > 0 && files.every(file => typeof File !== 'undefined' && file.file instanceof File)
+}
+
+/** Modality words a channel label may start with, which say nothing about the channel's position. */
+const LABEL_MODALITY_PREFIX = /^(eeg|ecg|ekg|eog|emg|resp|misc)[\s:._-]+/i
+/** Reference suffixes of a referential channel label. */
+const LABEL_REFERENCE_SUFFIX = /[\s_-]+(ref|avg|av|average|le|a1a2|a12|m1m2|cz)$/i
+
+/**
+ * The comparable core of a channel label: lower case, without a leading modality word or a trailing reference.
+ */
+const labelCore = (label: string) => {
+    return label.trim().replace(LABEL_MODALITY_PREFIX, '').replace(LABEL_REFERENCE_SUFFIX, '').toLowerCase()
+}
+
+/**
+ * Suggest the source channel an output label should be exported from: the one whose label matches exactly, ignoring
+ * case, or failing that the only one whose label matches once a leading modality word (`EEG Fp1`) and a trailing
+ * reference (`Fp1-Ref`, `Fp1-AVG`) are removed from both. A suggestion for the person to confirm, never a mapping to
+ * apply unseen; an ambiguous match suggests nothing.
+ * @param label - The output label to find a source for.
+ * @param channels - The recording's full channel list.
+ * @returns Index of the suggested source channel, or null when there is no unambiguous match.
+ */
+export const suggestExportSource = (label: string, channels: SignalExportSourceChannel[]): number | null => {
+    const candidates = channels.map((channel, index) => ({ channel, index })).filter(c => carriesSignal(c.channel))
+    const exact = candidates.filter(c => c.channel.label.trim().toLowerCase() === label.trim().toLowerCase())
+    if (exact.length === 1) {
+        return exact[0].index
+    }
+    if (exact.length > 1) {
+        return null
+    }
+    const core = labelCore(label)
+    const loose = candidates.filter(c => labelCore(c.channel.label) === core)
+    return loose.length === 1 ? loose[0].index : null
 }

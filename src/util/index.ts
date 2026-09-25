@@ -100,16 +100,9 @@ export type { Biquad, Biquad as BiquadSOS } from './dsp'
 export {
     applyExportSelection,
     checkExportSelection,
+    isLocalResource,
     resolveExportRange,
-} from './export'
-export type {
-    ExportRange,
-    ExportSelectedChannel,
-    ExportSelectionResult,
-    ExportSelectionViolation,
-    ExportSourceChannel,
-    ExportSourceData,
-    ExportSourceSignalChannel,
+    suggestExportSource,
 } from './export'
 export {
     awaitThenSleep,

@@ -19,6 +19,7 @@ import { DatasetLoader, MediaDataset } from './dataset'
 import {
     FileSystemItem,
     ReaderMode,
+    SignalExportTarget,
     WriterMode,
 } from './reader'
 import { AssetService } from './service'
@@ -489,6 +490,13 @@ export interface EpicurrentsApp {
      */
     createDataset (name?: string, setAsActive?: boolean): MediaDataset
     /**
+     * The export targets the given resource may be sent to: every registered target when the resource was opened from
+     * a local file, none otherwise.
+     * @param resource - The resource to export.
+     * @returns Registered targets by name.
+     */
+    getSignalExportTargets (resource: DataResource): Map<string, SignalExportTarget>
+    /**
      * Get a worker instance to override a default worker or null if no override exists.
      * @param name - Name of the worker to override.
      */
@@ -536,6 +544,13 @@ export interface EpicurrentsApp {
      */
     registerService (name: string, service: AssetService): void
     /**
+     * Register a destination signal recordings can be exported to. Dispatches the application event
+     * `signal-export-targets-changed`.
+     * @param name - Unique name of the target. If another target exists with the same name it will be replaced.
+     * @param target - The target.
+     */
+    registerSignalExportTarget (name: string, target: SignalExportTarget): void
+    /**
      * Register a new study exporter.
      * @param name - Unique name of the exporter. If another exporter exists with the same name it will be replaced.
      * @param label - A user-facing label for the exporter.
@@ -556,6 +571,13 @@ export interface EpicurrentsApp {
      * @param resource - The resource to select or its unique ID.
      */
     selectActiveResource (resource: DataResource | string): void
+    /**
+     * Remove a registered export target. Dispatches the application event `signal-export-targets-changed` when a
+     * target was removed.
+     * @param name - Name the target was registered under.
+     * @returns True if a target was removed.
+     */
+    unregisterSignalExportTarget (name: string): boolean
     /**
      * Load the given dataset.
      * @param dataset - The dataset to load.
@@ -770,6 +792,7 @@ export type RuntimeAppModule = NullProtoObject & {
         short: string
     }
     runningId: number
+    signalExportTargets: Map<string, SignalExportTarget>
     studyExporters: Map<string, StudyExporterContext>
     studyImporters: Map<string, StudyImporterContext>
     studyLoadProtocols: Map<string, StudyLoaderProtocolContext>

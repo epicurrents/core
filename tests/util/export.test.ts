@@ -4,11 +4,13 @@ import {
     applyExportSelection,
     checkExportSelection,
     resolveExportRange,
-    type ExportSelectionResult,
-    type ExportSourceData,
-    type ExportSourceSignalChannel,
 } from '../../src/util/export'
 import type { AnnotationEventTemplate } from '../../src/types/biosignal'
+import type {
+    SignalExportSelectionResult,
+    SignalExportSource,
+    SignalExportSourceChannel,
+} from '../../src/types/reader'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -31,7 +33,7 @@ const interiorPeak = (signal: Float32Array, edge: number) => {
     return peak
 }
 
-const channel = (label: string, rate: number, signal: Float32Array, extra = {}): ExportSourceSignalChannel => ({
+const channel = (label: string, rate: number, signal: Float32Array, extra = {}): SignalExportSourceChannel => ({
     label,
     sampleCount: signal.length,
     samplingRate: rate,
@@ -48,12 +50,12 @@ const event = (start: number, duration: number, channels?: (number | string)[]):
     start,
 } as AnnotationEventTemplate)
 
-const applied = (source: ExportSourceData, selection: Parameters<typeof applyExportSelection>[1]) => {
+const applied = (source: SignalExportSource, selection: Parameters<typeof applyExportSelection>[1]) => {
     const result = applyExportSelection(source, selection)
     if ('violations' in result) {
         throw new Error(result.violations.map(v => v.message).join(' '))
     }
-    return result as ExportSelectionResult
+    return result as SignalExportSelectionResult
 }
 
 // ── downsampleSignal ──────────────────────────────────────────────────────────

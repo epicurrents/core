@@ -168,6 +168,7 @@ import type {
     MediaDataset,
     ResourceModule,
     SettingsValue,
+    SignalExportTarget,
     StudyLoader,
     WriterMode,
     StateManager,
@@ -293,6 +294,13 @@ export class Epicurrents implements EpicurrentsApp {
         this.#runtime.addDataset(newSet, setAsActive)
         Log.debug(`New dataset '${setName}' created${ setAsActive ? ' and set as active dataset' : '' }.`, SCOPE)
         return newSet
+    }
+
+    getSignalExportTargets (resource: DataResource) {
+        if (!util.isLocalResource(resource)) {
+            return new Map<string, SignalExportTarget>()
+        }
+        return new Map(this.#runtime.APP.signalExportTargets)
     }
 
     getWorkerOverride (name: string) {
@@ -422,6 +430,11 @@ export class Epicurrents implements EpicurrentsApp {
         this.#runtime.setService(name, service)
     }
 
+    registerSignalExportTarget (name: string, target: SignalExportTarget) {
+        this.#runtime.APP.signalExportTargets.set(name, target)
+        this.#eventBus.dispatchScopedEvent(ApplicationEvents.SIGNAL_EXPORT_TARGETS_CHANGED, 'application', 'after')
+    }
+
     registerStudyExporter (name: string, label: string, mode: WriterMode, loader: StudyLoader) {
         if (this.#memoryManager) {
             loader.registerMemoryManager(this.#memoryManager)
@@ -478,5 +491,13 @@ export class Epicurrents implements EpicurrentsApp {
 
     setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
         this.#runtime.setWorkerOverride(name, getWorker)
+    }
+
+    unregisterSignalExportTarget (name: string) {
+        const removed = this.#runtime.APP.signalExportTargets.delete(name)
+        if (removed) {
+            this.#eventBus.dispatchScopedEvent(ApplicationEvents.SIGNAL_EXPORT_TARGETS_CHANGED, 'application', 'after')
+        }
+        return removed
     }
 }

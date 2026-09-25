@@ -8,6 +8,7 @@
 import { safeObjectFrom } from '#util'
 import type { RuntimeAppModule, SafeObject } from '#types/application'
 import type { DatasourceConnector } from '#types/connector'
+import type { SignalExportTarget } from '#types/reader'
 import type {
     StudyExporterContext,
     StudyImporterContext,
@@ -27,6 +28,7 @@ const APP: SafeObject & RuntimeAppModule = safeObjectFrom({
         short: 'App',
     },
     runningId: 0,
+    signalExportTargets: new Map<string, SignalExportTarget>(),
     studyExporters: new Map<string, StudyExporterContext>(),
     studyImporters: new Map<string, StudyImporterContext>(),
     studyLoadProtocols: new Map<string, StudyLoaderProtocolContext>(),

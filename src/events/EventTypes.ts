@@ -48,6 +48,8 @@ export enum ApplicationEvents {
      * new and old values, and `source` naming whether a user or the system made the change.
      */
     SETTING_CHANGED = 'setting-changed',
+    /** A signal export target was registered, replaced or removed. */
+    SIGNAL_EXPORT_TARGETS_CHANGED = 'signal-export-targets-changed',
 }
 /**
  * Events emitted by the application class.
@@ -61,6 +63,8 @@ export type ApplicationEvent = {
     [ApplicationEvents.SET_ACTIVE_DATASET]: EventWithPayload<BaseDataset>
     /** A settings field changed value. */
     [ApplicationEvents.SETTING_CHANGED]: PropertyChangeEvent<SettingsValue>
+    /** A signal export target was registered, replaced or removed. */
+    [ApplicationEvents.SIGNAL_EXPORT_TARGETS_CHANGED]: BroadcastStateEvent
 }
 /**
  * Names of events emitted by all assets.
