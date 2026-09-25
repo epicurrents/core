@@ -30,19 +30,19 @@ import {
 } from './util'
 import { SignalSourceOptions, UrlAccessOptions } from './config'
 
-export type AnonymizationProperties = {
+export type DeidentificationProperties = {
     /**
-     * Anonymize the patient ID.
+     * De-identify the patient ID.
      */
-    anonymizePatientId?: boolean
+    deidentifyPatientId?: boolean
     /**
-     * Anonymize the patient name.
+     * De-identify the patient name.
      */
-    anonymizePatientName?: boolean
+    deidentifyPatientName?: boolean
     /**
-     * Anonymize the patient birth date.
+     * De-identify the patient birth date.
      */
-    anonymizePatientBirthDate?: boolean
+    deidentifyPatientBirthDate?: boolean
 }
 
 /**
@@ -424,10 +424,10 @@ export interface SignalDataEncoder extends FileEncoder {
     createHeader (properties?: Partial<BiosignalHeaderRecord>): BiosignalHeaderRecord
     /**
      * Encode the header and signal data into a specific format.
-     * @param anonymize - Whether to anonymize the data before encoding.
+     * @param deidentify - Whether to de-identify the data before encoding.
      * @returns Promise resolving to an ArrayBuffer containing the encoded data, or null if encoding failed.
      */
-    encode (anonymize?: boolean): Promise<ArrayBuffer | null>
+    encode (deidentify?: boolean): Promise<ArrayBuffer | null>
     /**
      * Set the annotations to include in the encoded data.
      * @param annotations - Annotations to include.
