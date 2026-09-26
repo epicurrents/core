@@ -368,6 +368,10 @@ export default abstract class GenericBiosignalService extends GenericService imp
             if (data.success) {
                 commission.resolve(data.recordingLength)
             } else {
+                // The worker's reason travels in the reply and is logged nowhere else: a reader that
+                // threw is caught in the worker and answered as a failure, so without this the only
+                // trace is the resource's generic "preparing failed".
+                Log.error(`Setting up the worker failed: ${data.error || 'no reason given'}`, SCOPE)
                 commission.resolve(0)
             }
             this._notifyWaiters('setup-worker', data.success)

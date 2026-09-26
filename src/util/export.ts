@@ -409,20 +409,33 @@ export const isLocalResource = (resource: DataResource) => {
 
 /** Modality words a channel label may start with, which say nothing about the channel's position. */
 const LABEL_MODALITY_PREFIX = /^(eeg|ecg|ekg|eog|emg|resp|misc)[\s:._-]+/i
-/** Reference suffixes of a referential channel label. */
-const LABEL_REFERENCE_SUFFIX = /[\s_-]+(ref|avg|av|average|le|a1a2|a12|m1m2|cz)$/i
+/** Reference suffixes of a referential channel label: common, average, linked and ear or mastoid references. */
+const LABEL_REFERENCE_SUFFIX = /[\s_-]+(ref|avg|av|average|ar|le|linked|a1a2|a12|m1m2|m12|a1|a2|m1|m2|cz)$/i
+/** The older 10-20 names of the four temporal and parietal electrodes, under the names the 10-10 system gives them. */
+const LEGACY_ELECTRODE_NAMES: Record<string, string> = { t3: 't7', t4: 't8', t5: 'p7', t6: 'p8' }
+
+/** Characters other than letters and digits at either end of a label: quotes, signs, brackets, stray punctuation. */
+const LABEL_EDGE_MARKS = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu
 
 /**
- * The comparable core of a channel label: lower case, without a leading modality word or a trailing reference.
+ * The comparable core of a channel label: lower case, without a leading modality word or a trailing reference,
+ * without marks at either end (`Fp1'`, `+C3`), and with an older 10-20 electrode name (`T3`) under its 10-10 name
+ * (`T7`). The marks are removed before the reference is looked for and again after, so `EEG Fp1-Ref'` resolves.
  */
 const labelCore = (label: string) => {
-    return label.trim().replace(LABEL_MODALITY_PREFIX, '').replace(LABEL_REFERENCE_SUFFIX, '').toLowerCase()
+    const core = label.replace(LABEL_EDGE_MARKS, '')
+                      .replace(LABEL_MODALITY_PREFIX, '')
+                      .replace(LABEL_REFERENCE_SUFFIX, '')
+                      .replace(LABEL_EDGE_MARKS, '')
+                      .toLowerCase()
+    return LEGACY_ELECTRODE_NAMES[core] ?? core
 }
 
 /**
  * Suggest the source channel an output label should be exported from: the one whose label matches exactly, ignoring
  * case, or failing that the only one whose label matches once a leading modality word (`EEG Fp1`) and a trailing
- * reference (`Fp1-Ref`, `Fp1-AVG`) are removed from both. A suggestion for the person to confirm, never a mapping to
+ * reference (`Fp1-Ref`, `Fp1-AVG`, `Fp1-A1`) and any marks at either end (`Fp1'`) are removed from both and an older
+ * electrode name (`T3`) is read as its 10-10 name (`T7`). A suggestion for the person to confirm, never a mapping to
  * apply unseen; an ambiguous match suggests nothing.
  * @param label - The output label to find a source for.
  * @param channels - The recording's full channel list.

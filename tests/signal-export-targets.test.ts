@@ -69,6 +69,32 @@ describe('suggestExportSource', () => {
         expect(suggestExportSource('C3', [channel('EEG C3-AVG')])).toBe(0)
     })
 
+    it('matches through an ear, mastoid or linked reference', () => {
+        const channels = [channel('EEG Fp1-A1'), channel('EEG Fp2-A2'), channel('EEG C3-M1'), channel('EEG O1-LE')]
+        expect(suggestExportSource('Fp1', channels)).toBe(0)
+        expect(suggestExportSource('Fp2', channels)).toBe(1)
+        expect(suggestExportSource('C3', channels)).toBe(2)
+        expect(suggestExportSource('O1', channels)).toBe(3)
+    })
+
+    it('ignores marks at either end of a label', () => {
+        const channels = [channel("EEG Fp1'"), channel('EEG Fp2+'), channel('(C3)'), channel("EEG O1-Ref'")]
+        expect(suggestExportSource('Fp1', channels)).toBe(0)
+        expect(suggestExportSource('Fp2', channels)).toBe(1)
+        expect(suggestExportSource('C3', channels)).toBe(2)
+        expect(suggestExportSource('O1', channels)).toBe(3)
+        expect(suggestExportSource('C3-P3', [channel("EEG C3-P3'"), channel("EEG C3'")])).toBe(0)
+    })
+
+    it('reads an older 10-20 electrode name as its 10-10 name', () => {
+        const channels = [channel('EEG T3-Ref'), channel('EEG T4-Ref'), channel('EEG T5'), channel('T6')]
+        expect(suggestExportSource('T7', channels)).toBe(0)
+        expect(suggestExportSource('T8', channels)).toBe(1)
+        expect(suggestExportSource('P7', channels)).toBe(2)
+        expect(suggestExportSource('P8', channels)).toBe(3)
+        expect(suggestExportSource('T3', [channel('EEG T7')])).toBe(0)
+    })
+
     it('keeps a bipolar derivation distinct from its first electrode', () => {
         expect(suggestExportSource('C3', [channel('C3-P3')])).toBeNull()
         expect(suggestExportSource('C3-P3', [channel('EEG C3-P3'), channel('EEG C3-Ref')])).toBe(0)
