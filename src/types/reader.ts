@@ -751,11 +751,25 @@ export type SignalExportTarget = {
     submit (file: SignalExportFile): Promise<SignalExportTargetResult>
 }
 /**
+ * A file a {@link SignalExportTarget} hands back for the person who sent the recording to keep, such as a receipt
+ * naming what the destination received. The interface saves it for them.
+ */
+export type SignalExportReceipt = {
+    /** Contents of the file. */
+    data: string
+    /** Name to save the file under. */
+    fileName: string
+    /** Media type of the file. */
+    mimeType: string
+}
+/**
  * The outcome of handing a recording to a {@link SignalExportTarget}.
  */
 export type SignalExportTargetResult = {
     /** A message for the person who sent the recording, such as the destination's identifier for it. */
     message: string
+    /** A file for the person to keep, saved for them when present. */
+    receipt?: SignalExportReceipt
     /** Did the destination accept the recording. */
     success: boolean
 }
