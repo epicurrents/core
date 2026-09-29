@@ -14,6 +14,8 @@ Core sits at 2.0.0 with fixes committed on top of it. The audit of the sibling p
 
 The release also adds the shared coded-event vocabulary. `GenericBiosignalEvent.CODED_EVENTS` carries the technical, intervention, observation and environment terms from [src/assets/annotation/vocabulary/biosignal-events.json](src/assets/annotation/vocabulary/biosignal-events.json), `CodedEventProperties` gains `class` and `meta`, and the coded-event statics on `GenericAnnotation` became class-aware methods a subclass inherits over its own table, which is what let the EEG module drop its copies. Additions to published surface, so they ride the minor; the one observable change is that the statics are no longer arrow properties and lose `this` when detached, which nothing in the family did.
 
+The memory manager gained a teardown in the same release. `MemoryManager.shutdown` unloads every service registered against the shared buffer, awaits them, and then has the worker drop the buffer and close — the manager's half of the defect the montage worker had. `EpicurrentsApp` gained `unloadNeedsConfirmation` and `allowUnload` alongside it, which is how a host asks whether leaving the document would cost the user an open review session or an annotation edit, and how an application-initiated reload waives the question. Three additions to published surface, so they ride the same minor.
+
 A sibling that needs a fix from this list before the release can rely on the workspace symlink, which resolves core from the checkout rather than the registry — but its declared range still has to name a version that exists, so nothing published may depend on an unreleased fix.
 
 The version in `package.json` stays at 2.0.0 until the sweep finishes. Bumping it early would make every sibling's range look satisfiable against a release that does not exist yet.
@@ -55,11 +57,15 @@ The same configuration still has to reach the sibling packages, which currently 
 
 That makes it the one part of the montage vocabulary still worth a decision rather than a repair. Precaching a montage means deciding what is cached and when it is invalidated, which is a feature; what exists today is the outline of one. Either implement it — handler in `MontageWorker`, commission through `_commissionWorker` so the reply correlates — or drop the method and its response branch. Dropping it is a breaking change to a published interface, so it waits for 3.0 unless the feature lands first.
 
-## The memory manager's worker cannot be shut down
+## The unload guard confirms rather than preserves
 
-`ServiceMemoryManager` extends `GenericService` and inherits its `shutdown`, which commissions `shutdown` and awaits the reply. [src/workers/memory-manager.worker.ts](src/workers/memory-manager.worker.ts) registers `release-and-rearrange` and `set-buffer` and nothing else, so the commission is answered with a failure, `shutdown` reads that as a refusal, and the block it guards never runs: the commissions and waiters are not cleared, `terminate()` is never called, and `isReady` is never dispatched. The worker survives with the shared buffer it manages.
+`EpicurrentsApp.unloadNeedsConfirmation` is true while any resource is open and from the first user-sourced change to a resource's `events` or `labels`, and nothing but `allowUnload` makes it false again. It prevents an accident; it recovers nothing once the user accepts the prompt or the tab goes away another way.
 
-This is the defect the montage worker had, in the one worker the sweep has not opened. The fix is the same shape — a `shutdown` handler that releases what the manager holds, replies, then closes — but the manager's buffer is shared with every service registered against it, so what it should release is worth settling before writing the handler.
+Two refinements, in the order they are worth doing.
+
+**Restoring the session.** The position the user had navigated to, the active montage and the filter state could be written to session storage and offered back on the next load, which would make an interrupted review resumable rather than merely guarded. The limit is what a browser will not give back: a recording opened from a URL can be reloaded, but one opened from the user's own disk cannot be reopened without them picking the file again, and nothing the viewer stores changes that. So the restore is worth having for a host that loads by URL and only partial for a standalone viewer — which is also why the guard is the one protection that works in both cases and should stay whatever else lands.
+
+**Clearing the annotation condition.** It is deliberately sticky, because the viewer has no notion of a saved state and a flag that cleared itself would have to guess. The consequence is that a user who annotates, submits through an export target, and then leaves is still asked. An export target's `submit` hands back a receipt, the first thing in the family that knows an annotation set reached somewhere durable, so the condition could be cleared per resource on a successful submit and re-armed by the next edit. That needs a per-resource flag rather than the single application-level one, and a decision about what a partial submit means — one resource of several, or a signal export that carries no annotations at all. Over-warning is the safe direction until then.
 
 ## Reader packages still on a hand-written substitute
 

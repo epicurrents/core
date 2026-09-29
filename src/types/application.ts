@@ -462,6 +462,22 @@ export interface EpicurrentsApp {
      */
     readonly runtime: RuntimeState
     /**
+     * Should leaving the document be confirmed with the user first.
+     *
+     * True while any resource is open, and true once the user has added, edited or removed an
+     * annotation — whether or not that resource is still open, since the viewer has no submitted or
+     * saved state to fall back on. Annotations a recording arrives with do not count, and neither
+     * does a resource that failed to load.
+     *
+     * An open recording is enough on its own because the review session is the work: finding the
+     * recording again, loading it and navigating back to the same position is expensive on a long
+     * one and sometimes impractical. With nothing open there is nothing to return to, and leaving is
+     * unremarkable.
+     *
+     * {@link EpicurrentsApp.allowUnload} is the only thing that makes it false again.
+     */
+    unloadNeedsConfirmation: boolean
+    /**
      * Does the application instance use a memory manager. A memory manager requires
      * SharedArrayBuffer to be available.
      */
@@ -472,6 +488,15 @@ export interface EpicurrentsApp {
      * @param modality - Override resource modality (optional).
      */
     addResource (resource: DataResource, modality?: string): void
+    /**
+     * Waive the unload confirmation, for a reload or navigation the application is itself
+     * performing — an update that reloads the page, or a host remounting the viewer.
+     *
+     * The waiver stays in effect, so it is called immediately before the navigation rather than
+     * kept set in advance. It does not mean the annotation edits were saved anywhere; it means
+     * whoever calls it has taken responsibility for them.
+     */
+    allowUnload (): void
     /**
      * Modify the default configuration before the app is launched.
      * After launching the app, use setSettingsValue() instead.

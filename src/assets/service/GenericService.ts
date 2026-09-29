@@ -702,7 +702,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
         return commission.promise as Promise<SetupWorkerResponse>
     }
 
-    async shutdown () {
+    async shutdown (): Promise<void> {
         // Before the runtime guard: a service that cannot reach the runtime still has a live bus
         // subscription, and the worker it relays to is on its way out either way.
         this._settingsRelayUnsubscribe?.()

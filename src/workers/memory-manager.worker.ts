@@ -21,6 +21,7 @@ export class MemoryManagerWorker extends BaseWorker {
             ['release-and-rearrange', this.releaseAndRearrange],
             ['reset-network', this.resetNetwork],
             ['set-buffer', this.setBuffer],
+            ['shutdown', this.shutdown],
         ])
     }
     /**
@@ -133,6 +134,18 @@ export class MemoryManagerWorker extends BaseWorker {
         } else {
             return this._failure(msgData, `Commission 'set-buffer' did not contain a value for the buffer.`)
         }
+    }
+    // Dropping the views needs no await, but the signature is the action map's.
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async shutdown (msgData: WorkerMessage['data']) {
+        // The manager unloads every service it holds before commissioning this, so the buffer this
+        // drops is one nothing is reading any more. Answer before closing: `close()` stops the
+        // thread, and a reply posted after it never leaves.
+        this._buffer = null
+        this._view = null
+        const result = this._success(msgData)
+        this._close()
+        return result
     }
 }
 

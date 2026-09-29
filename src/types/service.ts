@@ -232,6 +232,17 @@ export interface MemoryManager {
      */
     removeFromBuffer (removeServices: boolean, ...ranges: number[][]): Promise<void>
     /**
+     * Unload every service this manager holds and release the shared buffer they were allocated
+     * from, terminating the manager's worker.
+     *
+     * The buffer is the one every managed service's mutex views are cut from, so the services are
+     * unloaded first and awaited; a service that outlived the buffer would hold views into memory
+     * with no owner. The manager cannot be used afterwards.
+     * @returns Promise that resolves once every managed service has been unloaded and the worker
+     *          has acknowledged the release.
+     */
+    shutdown (): Promise<void>
+    /**
      * Update the last used manager.
      * @param manager - New last used manager.
      */
@@ -248,6 +259,11 @@ export type MemoryManagerWorkerCommission = {
     'set-buffer': WorkerMessage['data'] & {
         buffer: SharedArrayBuffer
     }
+    /**
+     * Drop the shared buffer and close the thread. The manager unloads every service registered
+     * against the buffer before commissioning this, so the worker has nothing of its own to save.
+     */
+    'shutdown': WorkerMessage['data']
 }
 export type MemoryManagerWorkerCommissionAction = keyof MemoryManagerWorkerCommission
 /**

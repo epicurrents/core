@@ -109,7 +109,7 @@ src/
 3. Call `registerService(name, service)` for optional services (Pyodide, ONNX…).
 4. Call `registerStudyImporter(name, label, mode, loader)`.
 5. Call `registerInterface(InterfaceConstructor)`.
-6. Call `launch()` — sets up the memory manager when `SETTINGS.app.useMemoryManager` is true, then constructs the interface and awaits its readiness. The manager is created first, so the interface sees the final answer: a setup that finds no cross-origin isolation, no `SharedArrayBuffer`, or no allocatable buffer clears `app.useMemoryManager` through the runtime (so registered property-update handlers run) and continues on the main-thread path.
+6. Call `launch()` — sets up the memory manager when `SETTINGS.app.useMemoryManager` is true, then constructs the interface and awaits its readiness. The manager is created first, so the interface sees the final answer: a setup that finds no cross-origin isolation, no `SharedArrayBuffer`, or no allocatable buffer clears `app.useMemoryManager` through the runtime (so registered property-update handlers run) and continues on the main-thread path. The allocation case additionally shuts the manager down before dropping it: the manager's constructor starts its worker before it attempts the allocation, so releasing only the reference would leave a thread running for the life of the document.
 7. Call `loadStudy(loaderName, source, options)` to open a recording.
 
 ---
@@ -121,6 +121,28 @@ src/
 Extends `GenericAsset`. Wraps a module-level `state` singleton object — not a reactive UI store. All mutations go through named methods (`addDataset`, `setActiveResource`, `setModule`, …) that dispatch `before`/`after` scoped events via the `EventBus`. `WORKERS` is a `Map<string, (() => Worker) | null>` — the value is a factory or `null`, not a factory returning `null` — used to inject test doubles or deployment-specific workers.
 
 The `SETTINGS` singleton takes programmatic changes through `setSettingsValue`, and `init()` additionally reads a `settings` entry from `localStorage` and applies the fields a module declares in `_userDefinable` (with `source: 'user'`), warning on a module name or field that is not user-settable. **Nothing in the package writes to `localStorage`** — persisting a user's overrides is the host application's job.
+
+### ServiceMemoryManager teardown
+
+`shutdown` is an ordering problem before it is anything else. The manager's `SharedArrayBuffer` is the one every registered service's mutex views are cut from, so the services are unloaded — and awaited — before the worker is told to drop it; a service outliving the buffer holds views into memory with no owner. The unload is `unload(false)`, because `unload(true)` calls back into `release`, which would commission a rearrange of a buffer that is about to go. A service that fails to unload is logged and skipped rather than allowed to abort the teardown, since the alternative is one stuck service keeping the worker thread alive.
+
+`MemoryManagerWorker.shutdown` then drops `_buffer` and `_view`, answers, and only then closes. The order matters: `close()` stops the thread, so a reply posted after it never leaves, and `GenericService.shutdown` resolves its commission with the reply's success flag rather than rejecting — an unanswered or failed shutdown therefore skips the whole teardown block, `terminate()` among it, in silence. That is the shape the montage worker leaked through before it had a handler of its own.
+
+Nothing in the package calls `shutdown` on the manager except the failed-allocation path in `launch`. A host that tears an application down calls it; closing the document does the same job for free.
+
+### Leaving the document
+
+`EpicurrentsApp.unloadNeedsConfirmation` answers whether leaving the document would cost the user anything. Two conditions make it true, and either is enough.
+
+**A resource is open.** The review session is the work, not just the data: finding a recording again, loading it and navigating back to the same position is expensive on a long one and sometimes impractical. The check reads the datasets live rather than counting, so closing a resource is reflected with no second piece of bookkeeping to keep in step, and a resource whose `state` is `'error'` does not count — a failed load is nothing to return to.
+
+**An annotation was edited.** True from the first change to a resource's `events` or `labels` that did not come from a `'system'` source, tracked through one subscription on the runtime's `add-resource` event — the single funnel every resource enters through, whether a host, a study loader or a session restore added it. This condition outlives the resource it was made on, because the edit is gone either way and closing the recording must not make leaving look safe.
+
+The source flag is the whole distinction for the second one. A reader applies the annotations a recording arrives with through `addEventsFromTemplates({ source: 'system' })`, and the interface applies a user's edits with `{ source: 'user' }`; an omitted source means `'user'`, which is what a viewer component passes when the user draws an event. So anything but an explicit `'system'` counts, and a call site that forgets its context over-warns rather than quietly letting an edit go.
+
+`allowUnload` is the only thing that makes the answer false again. That waiver exists for a navigation the application or its host is itself performing: an update that reloads the page, or a host remounting the viewer. It stays in effect once taken, so it is called immediately before the navigation rather than kept set in advance, and it asserts that the caller has taken responsibility for the session, not that anything saved it.
+
+Core only reports the fact. The prompting belongs to whoever owns the exit: the framework entry in the `interface` package installs the `beforeunload` handler that covers closing the tab, reloading and navigating the document away, and an embedding host intercepts its own in-app navigation, which never unloads the document at all.
 
 ### Signal data flow — three paths
 

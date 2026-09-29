@@ -132,6 +132,7 @@ import {
     type BiosignalPropertyEvent,
     type BiosignalResourceEvent,
     type DatasetEvent,
+    DatasetEvents,
     dispatchPropertyChange,
     EventBus,
     EventScopes,
@@ -160,7 +161,9 @@ import type {
     ApplicationConfig,
     AssetService,
     DataResource,
+    DatasetResourceContext,
     EpicurrentsApp,
+    EventWithPayload,
     FileSystemItem,
     InterfaceModule,
     InterfaceModuleConstructor,
@@ -174,6 +177,7 @@ import type {
     StateManager,
     ConfigStudyLoader,
     DatabaseQueryOptions,
+    PropertyChangeEvent,
 } from '#types'
 import * as util from '#util'
 export { util }
@@ -188,6 +192,12 @@ export class Epicurrents implements EpicurrentsApp {
      * Master event bus.
      */
     #eventBus = new EventBus()
+    /**
+     * Has the user added, edited or removed an annotation in this document. Sticky, and deliberately
+     * outlives the resource it was made on: the viewer has no notion of a submitted or saved state,
+     * so an edit made and then closed is still work that leaving would discard.
+     */
+    #hasAnnotationChanges = false
     /**
      * Initiated user interface.
      */
@@ -208,6 +218,10 @@ export class Epicurrents implements EpicurrentsApp {
      * Application state.
      */
     #runtime: StateManager
+    /**
+     * Has the application waived the unload confirmation for a navigation it is itself performing.
+     */
+    #unloadAllowed = false
 
     constructor () {
         if (typeof window.__EPICURRENTS__ === 'undefined') {
@@ -227,6 +241,7 @@ export class Epicurrents implements EpicurrentsApp {
         window.__EPICURRENTS__.EVENT_BUS = this.eventBus
         this.#runtime = new RuntimeStateManager()
         window.__EPICURRENTS__.RUNTIME = this.runtime
+        this.#watchAnnotationChanges()
     }
 
     // Public properties.
@@ -249,8 +264,57 @@ export class Epicurrents implements EpicurrentsApp {
         return this.#runtime
     }
 
+    get unloadNeedsConfirmation () {
+        return (this.#hasAnnotationChanges || this.#hasOpenResources()) && !this.#unloadAllowed
+    }
+
     get useMemoryManager () {
         return this.#memoryManager !== null
+    }
+
+    // Private methods.
+    /**
+     * Is anything open in the viewer that a user would have to find their way back to.
+     *
+     * Read live from the datasets rather than counted, so closing a resource is reflected without a
+     * second piece of bookkeeping to keep in step. A resource that failed to load or has been
+     * destroyed is not something anyone can return to, so neither counts; one still loading does,
+     * since the user set it going and would have to set it going again.
+     */
+    #hasOpenResources () {
+        for (const dataset of this.#runtime.APP.datasets) {
+            for (const context of dataset.resources) {
+                if (context.resource.state !== 'destroyed' && context.resource.state !== 'error') {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * Note every annotation edit a user makes, so leaving the document can be confirmed with them.
+     *
+     * The runtime is the single funnel every resource enters through, so one subscription covers
+     * resources added by a host, by a study loader and by a session restore alike. The annotations a
+     * recording arrives with are applied with a `'system'` source and an edit in the interface with
+     * a `'user'` one, which is what separates work worth confirming from a file's own contents.
+     */
+    #watchAnnotationChanges () {
+        this.#runtime.addEventListener(DatasetEvents.ADD_RESOURCE, (event) => {
+            const payload = (event as EventWithPayload<DataResource | DatasetResourceContext>).detail.payload
+            const resource = 'resource' in payload ? payload.resource : payload
+            for (const property of ['events', 'labels']) {
+                resource.addEventListener(`property-change:${property}`, (change) => {
+                    // An omitted source means `'user'`, so anything but an explicit `'system'`
+                    // counts — an interface action that forgets the context should over-warn rather
+                    // than quietly let the edit go.
+                    if ((change as PropertyChangeEvent<unknown>).detail.source !== 'system') {
+                        this.#hasAnnotationChanges = true
+                    }
+                }, SCOPE)
+            }
+        }, SCOPE)
     }
 
     addResource (resource: DataResource, modality?: string) {
@@ -273,6 +337,10 @@ export class Epicurrents implements EpicurrentsApp {
             return
         }
         this.#runtime.addResource(finalModality, resource)
+    }
+
+    allowUnload () {
+        this.#unloadAllowed = true
     }
 
     configure (config: { [field: string]: SettingsValue }) {
@@ -330,6 +398,17 @@ export class Epicurrents implements EpicurrentsApp {
                 if (!this.#memoryManager.isAvailable) {
                     // Shared array buffer allocation failed, possibly due to insufficient memory.
                     Log.warn(`Memory manager initiation failed, defaulting to basic mode.`, 'index')
+                    // The manager's constructor starts its worker before attempting the allocation,
+                    // so dropping the reference on its own leaves a thread running for the life of
+                    // the document with nothing to do and nothing able to reach it. A failure here
+                    // is reported and swallowed: this path is already the fallback, and a thread
+                    // that cannot be closed is a smaller problem than a launch that cannot finish.
+                    await this.#memoryManager.shutdown().catch((e: unknown) => {
+                        Log.error(
+                            `Shutting down the unusable memory manager failed: ${(e as Error)?.message ?? e}.`,
+                            'index'
+                        )
+                    })
                     this.#memoryManager = null
                     this.#runtime.setSettingsValue('app.useMemoryManager', false, { source: 'system' })
                 }

@@ -28,10 +28,6 @@ export default class ServiceMemoryManager extends GenericService implements Memo
      * The total memory buffer available to this application.
      */
     protected _buffer: SharedArrayBuffer
-    protected _decommissionWorker: {
-        resolve: () => void,
-        rn: number,
-    } | null = null
     protected _isAvailable = false
     /**
      * The loaders managed by this memory managed.
@@ -384,6 +380,30 @@ export default class ServiceMemoryManager extends GenericService implements Memo
         await Promise.all(this._managed.values().map(async managed => {
             managed // TODO: Unlock buffer.
         }))
+    }
+
+    async shutdown () {
+        // The services have to let go of the buffer before the manager does: each one holds mutex
+        // views cut from it, and a service outliving the buffer would be reading memory with no
+        // owner. Unloading is therefore awaited rather than fired off.
+        //
+        // `unload(false)` is the right half of the pair — the `true` variant calls back into
+        // `release` here, which commissions a rearrange of a buffer that is about to be dropped.
+        // Clearing `_managed` first is what makes that skip cheaply if anything does reach it.
+        const services = [...this._managed.values()]
+        this._managed.clear()
+        await Promise.all(services.map(async managed => {
+            // One service failing to unload must not leave the worker running, so each failure is
+            // reported and the teardown carries on.
+            await managed.service.unload(false).catch((e: unknown) => {
+                Log.error(
+                    `Unloading service ${managed.service.id.slice(0, 8)} during manager shutdown threw: ` +
+                    `${(e as Error)?.message ?? e}.`,
+                    SCOPE
+                )
+            })
+        }))
+        await super.shutdown()
     }
 
     updateLastUsed (loader: ManagedService) {
