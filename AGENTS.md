@@ -217,6 +217,8 @@ It normally runs inside the montage worker, but it is a public export ([src/asse
 
 Every setter on `GenericBiosignalResource` (and all assets) calls `_setPropertyValue(name, value)` which dispatches a `property-change:<name>` scoped event. Consumers subscribe to these events to trigger reactivity/redraws without direct coupling to the resource implementation.
 
+The inverse is the trap: **an assignment to the backing field sets the value and announces nothing.** A consumer that registered its listeners on mount and otherwise does not poll — which is every one of them — never learns of the change, so the asset holds the right value while the interface shows the state it had when it mounted. Anything a subclass sets after construction, and in particular anything set from a promise the constructor started, goes through the public setter or `_setPropertyValue`. Writing `this._state` where `this.state` was meant is the shape this takes, and it fails silently in the one direction nothing tests: later than the interface.
+
 ---
 
 ## Other public subsystems
