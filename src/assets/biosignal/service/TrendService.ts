@@ -6,7 +6,7 @@
  */
 
 import GenericService from '#assets/service/GenericService'
-import InlineTrendWorker from '../../../workers/trend.worker.ts?worker&inline'
+import InlineTrendWorker from '../../../workers/trend.worker.entry.ts?worker&inline'
 import type {
     BiosignalTrendEpoch,
     BiosignalDownsamplingMethod,

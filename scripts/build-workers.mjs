@@ -22,7 +22,7 @@ for (const name of WORKERS) {
         logLevel: 'warn',
         build: {
             lib: {
-                entry: abs(`./src/workers/${name}.worker.ts`),
+                entry: abs(`./src/workers/${name}.worker.entry.ts`),
                 name: 'EpiCWorker',
                 formats: ['iife'],
                 fileName: () => `${name}.worker.js`,

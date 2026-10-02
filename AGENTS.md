@@ -99,7 +99,8 @@ src/
                          # text, worker helpers,
                          # network/ (resilientFetch + per-origin circuit breaker)
   workers/               # base.worker, montage.worker, trend.worker,
-                         # signal-reader.worker, memory-manager.worker
+                         # signal-reader.worker, memory-manager.worker,
+                         # *.worker.entry (thread entries; see Worker resolution)
 ```
 
 ### App lifecycle
@@ -372,6 +373,10 @@ The cost of inlining is that a worker is created from a `blob:` URL, which the c
 ```
 
 `build:workers` and the inlined copy run the same bundler settings, so the two are the same code. The `dist/workers/*.worker.js` files are neither of these — they are the worker sources compiled as ordinary modules, with bare imports, and are **not** runnable as a standalone worker.
+
+**A worker's class and its thread entry are separate modules, and both halves must point at the entry.** `<name>.worker.ts` declares the class and nothing else; `<name>.worker.entry.ts` constructs it and binds `onmessage`. The split is what the class modules' other callers need — the barrel exports `MemoryManagerWorker`, the substitutes run `MontageWorker` and `SignalReaderWorker` on the main thread, and importing a module that bound `onmessage` would take over the host's own handler. Both the `?worker&inline` import and the `WORKERS` list in [scripts/build-workers.mjs](scripts/build-workers.mjs) therefore name the entry, and the sentence above — that the standalone and inlined bundles are the same code — is only true while they do. A standalone bundle built from the class module loads, answers nothing, and reports no error, so nothing in the suite or the build says it happened; the check is that each `umd/` bundle still assigns `onmessage`.
+
+The package declares `"sideEffects": false`, which rests on that split: a consumer's bundler is being told it may drop any core module whose exports go unused. Re-adding import-time work to a class module makes the declaration false in the direction that loses code silently, so an entry's construction and binding stay in the entry file.
 
 When adding a new worker-bearing package, add the same two keys. The builder's worker-discovery step auto-discovers any `@epicurrents/*` package with a `umd/` directory, so no list needs updating there.
 

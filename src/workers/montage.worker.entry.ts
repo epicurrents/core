@@ -1,6 +1,7 @@
 /**
- * Worker-thread entry point for the montage worker. Imported only through Vite's `?worker&inline`
- * suffix, which is what makes the module body run on a thread of its own.
+ * Worker-thread entry point for the montage worker. Imported through Vite's `?worker&inline` suffix
+ * and built as the standalone bundle, which is what makes the module body run on a thread of its
+ * own.
  *
  * The handlers live in {@link MontageWorker}, in a module with no side effects, because
  * {@link MontageWorkerSubstitute} runs the same class on the main thread. Instantiating the worker

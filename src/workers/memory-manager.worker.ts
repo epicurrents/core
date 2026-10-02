@@ -148,9 +148,3 @@ export class MemoryManagerWorker extends BaseWorker {
         return result
     }
 }
-
-const MEMORY_MANAGER = new MemoryManagerWorker()
-
-onmessage = async (message: WorkerMessage) => {
-    MEMORY_MANAGER.handleMessage(message)
-}

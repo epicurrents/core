@@ -6,7 +6,7 @@
  */
 
 import GenericService from './GenericService'
-import InlineMemoryManagerWorker from '../../workers/memory-manager.worker.ts?worker&inline'
+import InlineMemoryManagerWorker from '../../workers/memory-manager.worker.entry.ts?worker&inline'
 import {
     type AllocateMemoryResponse,
     type AssetService,

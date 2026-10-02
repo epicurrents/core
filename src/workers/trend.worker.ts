@@ -200,8 +200,3 @@ export class TrendWorker extends BaseWorker {
         return this._success(msgData)
     }
 }
-
-const WORKER = new TrendWorker()
-onmessage = async (message: MessageEvent) => {
-    WORKER.handleMessage(message)
-}
