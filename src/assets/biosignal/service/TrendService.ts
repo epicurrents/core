@@ -137,7 +137,10 @@ export default class TrendService extends GenericService implements BiosignalTre
         if (data.action === 'trend-error') {
             const trendName = data.name as string
             const comp = this._trendComputations.get(trendName)
-            comp?.reject(data.error as string)
+            // The reply is not obliged to name a cause, and the reject handler takes a reason, so
+            // one stands in. Passing the field through unguarded rejects with `undefined`, which
+            // reaches the awaiting caller as a failure that reports nothing.
+            comp?.reject(data.error ?? 'Computing the trend failed in the worker.')
             this._trendComputations.delete(trendName)
             return true
         }

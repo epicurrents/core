@@ -322,7 +322,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
                     commission.resolve(data.success)
                     this.dispatchPropertyChangeEvent('isReady', this.isReady, prevState)
                 } else if (commission.reject) {
-                    commission.reject(data.error as string)
+                    commission.reject(data.error)
                 }
                 this._notifyWaiters('setup-worker', data.success)
                 return true
@@ -345,10 +345,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 commission.resolve(message.data.result)
                 return true
             } else if (message.data.success === false && commission.reject) {
-                // Workers report the failure cause in `error` (see BaseWorker._failure); some
-                // legacy paths use `reason`. Forward whichever is present so the awaiting
-                // caller sees the actual cause instead of an empty string.
-                commission.reject((message.data.reason || message.data.error || '') as string)
+                // Two fields carry a cause and both are live: a refused or failed commission
+                // reports it in `error` (see BaseWorker._failure), and a staged result whose own
+                // status is the failure reports it in `reason`. Forward whichever is present so
+                // the awaiting caller sees the actual cause instead of an empty string.
+                commission.reject(message.data.reason || message.data.error || '')
                 return false
             } else {
                 commission.resolve() // Same as undefined result
@@ -551,7 +552,11 @@ export default abstract class GenericService extends GenericAsset implements Ass
         this._settingsRelayUnsubscribe?.()
         this._settingsRelayUnsubscribe = null
         this._settingsChanged.length = 0
-        this._commissions.clear()
+        // A no-op after a shutdown that ran its teardown, which empties the map. It is the path
+        // where the worker refused the shutdown commission that needs this: the teardown above is
+        // skipped there, so without it the entries are dropped unsettled and their callers wait
+        // for the life of the page.
+        this._rejectAllCommissions(`Service '${this._name}' was destroyed`)
         this._waiters.clear()
         this._actionWatchers.length = 0
         this._manager = null
@@ -716,7 +721,12 @@ export default abstract class GenericService extends GenericAsset implements Ass
         window.__EPICURRENTS__.RUNTIME?.SETTINGS.removeAllPropertyUpdateHandlersFor(this._name)
         const response = this._commissionWorker('shutdown')
         if (await response.promise) {
-            this._commissions.clear()
+            // Settle whatever is still in flight before dropping it. Clearing the map discards each
+            // entry's resolve and reject closures without calling either, so a caller awaiting a
+            // reply at this moment waits for the life of the page — the worker is about to be
+            // terminated, so no reply is ever coming. Rejecting is what the awaiting code is
+            // written to handle, as it is on the superseded-request and worker-error paths.
+            this._rejectAllCommissions(`Service '${this._name}' was shut down`)
             this._waiters.clear()
             this._actionWatchers.length = 0
             this._isCacheSetup = false

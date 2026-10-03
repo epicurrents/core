@@ -320,7 +320,7 @@ export default abstract class GenericBiosignalService extends GenericService imp
                 : {
                     status: 'error',
                     reason: (data.reason as string | undefined)
-                            ?? (data.error as string | undefined)
+                            ?? data.error
                             ?? 'Signal request failed in the worker.',
                 }
             const pending = this._pendingSignalRequests.get(rn)
@@ -342,7 +342,10 @@ export default abstract class GenericBiosignalService extends GenericService imp
         }
         if (data.action === 'get-signals') {
             if (!data.success) {
-                Log.error("Loading signals failed!", SCOPE, data.error as Error)
+                // The cause belongs in the message. `Log.error`'s third argument takes an `Error`,
+                // and a reply carries its cause as text, so a cause passed there is logged as an
+                // `Error` that is really a string — and the message itself names no cause at all.
+                Log.error(`Loading signals failed: ${data.error ?? 'no cause reported'}`, SCOPE)
                 commission.resolve(null)
             } else {
                 commission.resolve({

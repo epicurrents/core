@@ -8,6 +8,7 @@
  */
 
 import type { WorkerSubstitute, WorkerMessage } from '#types'
+import { validateCommissionProps } from '#util'
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'ServiceWorkerSubstitute'
@@ -24,6 +25,53 @@ export default class ServiceWorkerSubstitute implements WorkerSubstitute {
     constructor () {
     }
 
+    /**
+     * Report a failed commission, in the shape a handler registered here would use.
+     * @param msgData - Data part of the commission being answered.
+     * @param error - Cause of the failure.
+     * @returns False, so a handler can return it directly.
+     */
+    protected _failure (msgData: WorkerMessage['data'], error?: string) {
+        this.returnFailure(msgData, error)
+        return false
+    }
+
+    /**
+     * Report a successful commission, in the shape a handler registered here would use.
+     * @param msgData - Data part of the commission being answered.
+     * @param results - Values to return to the caller, if any.
+     * @returns True, so a handler can return it directly.
+     */
+    protected _success (msgData: WorkerMessage['data'], results?: Record<string, unknown>) {
+        this.returnSuccess(msgData, results)
+        return true
+    }
+
+    /**
+     * Validate the properties a commission must carry, answering the commission itself if they are
+     * missing or of the wrong type.
+     *
+     * Wraps {@link validateCommissionProps} so the validation failure is delivered through this
+     * substitute's own transport. Calling the utility directly leaves it on its default, the global
+     * `postMessage`, which on the main thread posts the refusal to the window and leaves the
+     * commission it was answering unsettled.
+     *
+     * The refusal is the answer, so a handler acting on `false` must not report the failure a
+     * second time: the service releases the commission on the first reply and has nothing left to
+     * match a second one to.
+     * @param msgData - Data part of the commission being answered.
+     * @param requiredProps - Property names mapped to their expected types.
+     * @param requiredSetup - Has the setup this commission requires been completed (default true).
+     * @returns The message data when valid, false when not.
+     */
+    protected _validate <D extends WorkerMessage['data']> (
+        msgData: D,
+        requiredProps: { [name: string]: string | string[] },
+        requiredSetup = true,
+    ): false | D {
+        return validateCommissionProps(msgData, requiredProps, requiredSetup, this.returnMessage.bind(this))
+    }
+
     dispatchEvent (_event: Event) {
         Log.warn(`dispatchEvent is not implemented in service worker substitute.`, SCOPE)
         return false
@@ -37,6 +85,20 @@ export default class ServiceWorkerSubstitute implements WorkerSubstitute {
             return
         }
         const action = message.action
+        if (action === 'shutdown') {
+            // Answered here rather than in each substitute, for the same reason as the settings
+            // relay below and with a worse failure if it is missed: `GenericService.shutdown` and
+            // `unload` both await this commission before tearing anything down, and a refusal —
+            // which is what an unregistered action produces — leaves the service holding a worker
+            // it has been told not to terminate, so the study cannot be closed at all.
+            //
+            // The reply goes out before the teardown, because `shutdown` drops the listeners and
+            // `onmessage` together and a reply sent after it reaches nobody. A substitute holding a
+            // resource of its own overrides `shutdown` to release it, so the call is polymorphic.
+            this.returnSuccess(message)
+            this.shutdown()
+            return
+        }
         if (action === 'update-settings') {
             // Every substitute runs on the main thread and reads the very settings module the
             // application writes to, so a settings snapshot describes state it already has. Handled

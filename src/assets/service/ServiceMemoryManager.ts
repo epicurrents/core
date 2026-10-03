@@ -126,7 +126,7 @@ export default class ServiceMemoryManager extends GenericService implements Memo
             if (data.success) {
                 commission.resolve(data.result)
             } else {
-                commission.reject(data.error as string)
+                commission.reject(data.error)
             }
             return true
         }

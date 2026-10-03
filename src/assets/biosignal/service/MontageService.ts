@@ -183,7 +183,9 @@ export default class MontageService extends GenericService implements BiosignalM
             return true
         } else if (data.action === 'get-signals') {
             if (!data.success) {
-                Log.error("Loading signals failed!", SCOPE, data.error as Error)
+                // See the matching call in `GenericBiosignalService`: the `error` argument takes an
+                // `Error`, and a reply carries its cause as text.
+                Log.error(`Loading signals failed: ${data.error ?? 'no cause reported'}`, SCOPE)
                 commission.resolve({ signals: [], range: data.range })
             } else {
                 commission.resolve({ signals: data.signals, range: data.range })

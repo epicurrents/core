@@ -417,8 +417,11 @@ export interface BaseAsset {
      * defining this resource, such as duration, channel count,
      * number of images/pages or similar. The properties are meant
      * to be used alongside resource names as key attributes.
+     *
+     * See {@link MainProperty} for the two kinds of entry the map serves and how a renderer tells
+     * them apart.
      */
-    getMainProperties (): Map<string, string|number|null>
+    getMainProperties (): Map<string, MainProperty>
     /**
      * Prepare this resource for use. This includes steps like loading
      * the necessary metadata etc.
@@ -716,6 +719,17 @@ export type InterfaceResourceModuleContext = {
     /** Interface-scope module settings. */
     settings?: SafeObject & Record<string, unknown>
 }
+/**
+ * A single entry's value in the map {@link DataResource.getMainProperties} returns.
+ *
+ * The map serves two kinds of entry, which is what this union covers. A named property keys on the
+ * property's own name and carries its value (`'duration'` → seconds, `'date'` → a `Date`). A state
+ * or dependency message keys on the translatable message itself and carries the parameters to
+ * interpolate into it (`'Loading dependency {n}/{t}...'` → `{ n: 1, t: 2 }`), or `null` when it
+ * takes none. A renderer therefore reads the key as a label and the value by its own type, and a
+ * resource that adds an entry of a shape not in this union has no renderer for it.
+ */
+export type MainProperty = string | number | Date | Record<string, string | number> | null
 /**
  * Object with the prototype property pointing to null (to prevent prototype pollution).
  */

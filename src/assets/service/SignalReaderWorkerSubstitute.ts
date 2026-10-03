@@ -20,7 +20,6 @@
 import GenericSignalReader from '#assets/reader/GenericSignalReader'
 import type { BiosignalCacheDerivationSlot } from '#types/biosignal'
 import type { WorkerMessage, WorkerSubstitute } from '#types/service'
-import { validateCommissionProps } from '#util'
 import { SignalReaderWorker } from '#workers/signal-reader.worker'
 import { Log } from 'scoped-event-log'
 import ServiceWorkerSubstitute from './ServiceWorkerSubstitute'
@@ -102,44 +101,6 @@ export default class SignalReaderWorkerSubstitute<T extends GenericSignalReader 
         super()
         this._reader = reader
         this._commissions = new MainThreadCommissions(reader, this)
-    }
-
-    /**
-     * Report a failed commission, in the shape a handler registered here would use.
-     * @param msgData - Data part of the commission being answered.
-     * @param error - Cause of the failure.
-     * @returns False, so a handler can return it directly.
-     */
-    protected _failure (msgData: WorkerMessage['data'], error?: string) {
-        this.returnFailure(msgData, error)
-        return false
-    }
-
-    /**
-     * Report a successful commission, in the shape a handler registered here would use.
-     * @param msgData - Data part of the commission being answered.
-     * @param results - Values to return to the caller, if any.
-     * @returns True, so a handler can return it directly.
-     */
-    protected _success (msgData: WorkerMessage['data'], results?: Record<string, unknown>) {
-        this.returnSuccess(msgData, results)
-        return true
-    }
-
-    /**
-     * Validate the properties a commission must carry, answering the commission itself if they are
-     * missing or of the wrong type.
-     * @param msgData - Data part of the commission being answered.
-     * @param requiredProps - Property names mapped to their expected types.
-     * @param requiredSetup - Has the setup this commission requires been completed (default true).
-     * @returns The message data when valid, false when not.
-     */
-    protected _validate <D extends WorkerMessage['data']> (
-        msgData: D,
-        requiredProps: { [name: string]: string | string[] },
-        requiredSetup = true,
-    ): false | D {
-        return validateCommissionProps(msgData, requiredProps, requiredSetup, this.returnMessage.bind(this))
     }
 
     /**

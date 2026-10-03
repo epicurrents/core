@@ -32,12 +32,16 @@ export abstract class BaseWorker {
     protected _close () {
         close()
     }
-    /** 
+    /**
      * Return a failure response to the service.
+     *
+     * The cause is text rather than an `Error`, because the reply crosses a thread boundary as a
+     * structured clone; `WorkerResponse` declares the same, so a consumer reads it without an
+     * assertion.
      * @param data - Data part of the received message.
-     * @param error - Optional error message as string or array of strings (defaults to validation failure).
+     * @param error - Optional cause of the failure (defaults to a validation failure).
      */
-    protected _failure (data: WorkerMessage['data'], error?: string|string[]) {
+    protected _failure (data: WorkerMessage['data'], error?: string) {
         const errorMsg = error ||  `Commission property validation failed for action '${data.action}'.`
         this._postMessage({
             rn: data.rn,

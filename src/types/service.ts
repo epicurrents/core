@@ -87,7 +87,9 @@ export interface AssetService extends BaseAsset {
      * the worker-side buffer views accordingly.
      * @param range - Allocated index range as `[start, end]`.
      * @param moves - All region moves performed by the memory manager in the same rearrange, so the worker can also reposition input views coupled to another service's moved region.
-     * @returns Promise that resolves true when the worker has acknowledged the change, false when the reposition failed — the caller must treat a false result as a hard error, since the worker's views no longer match the manager's bookkeeping.
+     * @returns Promise that resolves true when the worker has acknowledged the change, false when
+     *          the reposition failed — a false result is a hard error, since the worker's views no
+     *          longer match the manager's bookkeeping.
      */
     setBufferRange: (range: number[], moves?: BufferRangeMove[]) => Promise<boolean>
     /**
@@ -544,7 +546,20 @@ export type WorkerResponse = {
         rn: number
         /** Was the task successful or not. */
         success: boolean
-        /** Possible reason for failure. */
+        /**
+         * Cause of a refused or failed commission, as the worker's own failure path reports it.
+         *
+         * Declared because the index signature below would otherwise type it `unknown` and leave
+         * every consumer asserting the string it always is. Not to be confused with
+         * {@link TaskResponse.error}, which carries a caught exception from a connector; what
+         * crosses a thread boundary is a structured clone, so a reply reports its cause as text.
+         */
+        error?: string
+        /**
+         * Reason a staged result ended in an error status, as the signal-reading path reports it.
+         * Separate from `error` above: this reply carries `success: true` and a result whose own
+         * status is the failure, so a consumer reads whichever of the two is present.
+         */
         reason?: string
         /** Other returned parameters. */
         [prop: string]: unknown

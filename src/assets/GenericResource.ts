@@ -7,7 +7,7 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import type { AnnotationLabel, DataResource } from '#types/application'
+import type { AnnotationLabel, DataResource, MainProperty } from '#types/application'
 import type { StudyContext } from '#types/study'
 import { Log } from 'scoped-event-log'
 import { ResourceEvents } from '#events'
@@ -126,7 +126,11 @@ export default abstract class GenericResource extends GenericAsset implements Da
 
     getMainProperties () {
         // Override this in a child class.
-        const props = new Map()
+        // Typed to the interface's own return rather than left to infer from the first `set`. An
+        // untyped map is `Map<any, any>`, which admits an entry of any shape at all — here and in
+        // every subclass that builds on this one — so the declaration would stop describing what
+        // the map holds with nothing reporting it.
+        const props = new Map<string, MainProperty>()
         // Show universal state-related information.
         if (this.state === 'error') {
             props.set(this._errorReason, null)

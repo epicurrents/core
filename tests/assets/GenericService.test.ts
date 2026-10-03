@@ -514,4 +514,76 @@ describe('GenericService', () => {
             await expect(replacement.promise).resolves.toBe('ok')
         })
     })
+
+    describe('teardown settles what is still in flight', () => {
+        const makeService = () => {
+            const worker = { postMessage: vi.fn(), addEventListener: vi.fn(), terminate: vi.fn() }
+            const service = new TestService('Test', worker as any)
+            ;(global.window as any).__EPICURRENTS__.RUNTIME = {
+                SETTINGS: { removeAllPropertyUpdateHandlersFor: vi.fn() },
+            }
+            return { service, worker }
+        }
+
+        /** Answer the service's own `shutdown` commission, which it awaits before tearing down. */
+        const answerShutdown = (service: TestService, success = true) => {
+            const rn = (service as any)._commissions.get('shutdown')?.keys().next().value as number
+            void service.handleWorkerCommission({ data: { action: 'shutdown', rn, success } })
+        }
+
+        it('rejects a commission still in flight when the worker is shut down', async () => {
+            // Clearing the map discards each entry's resolve and reject closures without calling
+            // either, and the worker is terminated immediately after, so no reply is ever coming:
+            // the caller waits for the life of the page.
+            const { service } = makeService()
+            const pending = service.commissionWorker('do-thing')
+            const settled = expect(pending.promise).rejects.toBeDefined()
+            const shutdown = service.shutdown()
+            answerShutdown(service)
+            await shutdown
+            await settled
+            expect(service.commissionCount('do-thing')).toBe(0)
+        })
+
+        it('leaves nothing behind for the caller to wait on after a destroy', async () => {
+            // The path that needs this is a worker refusing the shutdown commission: the teardown
+            // in `shutdown` is skipped, so `destroy` is where the in-flight entries are reached.
+            const { service } = makeService()
+            const pending = service.commissionWorker('do-thing')
+            const settled = expect(pending.promise).rejects.toBeDefined()
+            const destroyed = service.destroy()
+            answerShutdown(service, false)
+            await destroyed
+            await settled
+            expect(service.commissionCount('do-thing')).toBe(0)
+        })
+
+        it('reports how many commissions a shutdown had to reject', async () => {
+            // A clean teardown rejects nothing and says nothing; a session that loses work this way
+            // is worth a line in the log, since the callers only see their own promise fail.
+            const { service } = makeService()
+            const first = service.commissionWorker('do-thing')
+            const second = service.commissionWorker('other-thing')
+            const settled = Promise.all([
+                expect(first.promise).rejects.toBeDefined(),
+                expect(second.promise).rejects.toBeDefined(),
+            ])
+            const shutdown = service.shutdown()
+            answerShutdown(service)
+            await shutdown
+            await settled
+            expect(Log.error).toHaveBeenCalledWith(
+                expect.stringContaining('2 pending commission(s)'),
+                expect.any(String),
+            )
+        })
+
+        it('says nothing when a shutdown had nothing in flight to reject', async () => {
+            const { service } = makeService()
+            const shutdown = service.shutdown()
+            answerShutdown(service)
+            await shutdown
+            expect(Log.error).not.toHaveBeenCalled()
+        })
+    })
 })
