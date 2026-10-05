@@ -19,13 +19,10 @@ import type {
 import { CommonBiosignalSettings, type ConfigChannelLayout, type TrendEpochScaling } from '../types/config'
 import { type SignalCachePart } from '#types/service'
 import { type TypedNumberArray, type TypedNumberArrayConstructor } from '#types/util'
-import { EPS as FLOAT16_EPS } from '@stdlib/constants-float16'
-import { EPS as FLOAT32_EPS } from '@stdlib/constants-float32'
-import { EPS as FLOAT64_EPS } from '@stdlib/constants-float64'
 import { Log } from 'scoped-event-log'
 //import { BiosignalMutex } from '#assets/biosignal'
 import { LTTB } from 'downsample'
-import { NUMERIC_ERROR_VALUE } from './constants'
+import { FLOAT16_EPS, FLOAT32_EPS, FLOAT64_EPS, NUMERIC_ERROR_VALUE } from './constants'
 import { deepClone } from './general'
 
 import {

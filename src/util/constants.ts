@@ -26,6 +26,17 @@ export const MB_BYTES = 1024*1024
 /** Number of bytes in one gibibyte. */
 export const GB_BYTES = 1024*1024*1024
 
+// Machine epsilon per IEEE 754 binary format: the smallest difference the format can represent
+// between 1 and the next value above it, and so the tightest tolerance a comparison of two values
+// held in that format can meaningfully use. Written as the powers of two they are, because each is
+// exactly representable and an expression cannot be mistyped into a value that merely looks right.
+/** Machine epsilon for IEEE 754 half precision. */
+export const FLOAT16_EPS = 2**-10
+/** Machine epsilon for IEEE 754 single precision. */
+export const FLOAT32_EPS = 2**-23
+/** Machine epsilon for IEEE 754 double precision, which the language already exposes as 2^-52. */
+export const FLOAT64_EPS = Number.EPSILON
+
 /**
  * Array index position is not active or has not been assigned yet.
  */

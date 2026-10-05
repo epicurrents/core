@@ -22,7 +22,7 @@ import type {
 } from '#types'
 import IOMutex, { type MutexExportProperties } from 'asymmetric-io-mutex'
 import { Log } from 'scoped-event-log'
-import { EPS as FLOAT32_EPS } from '@stdlib/constants-float32'
+import { FLOAT32_EPS } from '#util/constants'
 import { GenericBiosignalHeader } from '../biosignal'
 import GenericDataProcessor from './GenericDataProcessor'
 

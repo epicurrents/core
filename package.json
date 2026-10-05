@@ -64,9 +64,6 @@
   "author": "Sampsa Lohi",
   "license": "Apache-2.0",
   "dependencies": {
-    "@stdlib/constants-float16": "^0.2.1",
-    "@stdlib/constants-float32": "^0.2.1",
-    "@stdlib/constants-float64": "^0.2.1",
     "asymmetric-io-mutex": "^1.0.0",
     "codecutils": "^0.1.3",
     "downsample": "^1.4.0",
