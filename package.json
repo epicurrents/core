@@ -53,7 +53,7 @@
     "lint": "npm run lint:src",
     "lint:src": "eslint src",
     "prepack": "npm run build",
-    "release": "npm publish --access=public",
+    "release": "npm publish --access=public && git push --follow-tags",
     "test": "npm run test:unit",
     "test:unit": "vitest run --coverage"
   },
