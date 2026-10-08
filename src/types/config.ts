@@ -356,6 +356,12 @@ export type CommonBiosignalSettings = {
             epochLength: number
             /** Ladder deriving `epochLength` from the recording length, consulted only while `epochLength` is 0. */
             epochScaling: TrendEpochScaling
+            /**
+             * Seconds between the starts of consecutive epochs. Shorter than the epoch, epochs overlap and the trend
+             * gains a value every step without losing the epoch's resolution; `0`, or anything the epoch length
+             * cannot honour, means no overlap.
+             */
+            epochStep: number
             /** Method used to extract the per-epoch amplitude envelope. */
             envelopeMethod: 'minmax' | 'percentile5_95'
             /** Amplitude scale compression applied to the envelope before plotting. */
@@ -369,6 +375,12 @@ export type CommonBiosignalSettings = {
             epochLength: number
             /** Ladder deriving `epochLength` from the recording length, consulted only while `epochLength` is 0. */
             epochScaling: TrendEpochScaling
+            /**
+             * Seconds between the starts of consecutive epochs. Shorter than the epoch, epochs overlap and the trend
+             * gains a value every step without losing the epoch's resolution; `0`, or anything the epoch length
+             * cannot honour, means no overlap.
+             */
+            epochStep: number
             /** Frequency band `[hp, lp]` in Hz integrated per electrode. Defaults to delta = [1, 4]. */
             band: [number, number]
             /** Apply Common Average Reference before the FFT. */
@@ -383,6 +395,12 @@ export type CommonBiosignalSettings = {
             epochLength: number
             /** Ladder deriving `epochLength` from the recording length, consulted only while `epochLength` is 0. */
             epochScaling: TrendEpochScaling
+            /**
+             * Seconds between the starts of consecutive epochs. Shorter than the epoch, epochs overlap and the trend
+             * gains a value every step without losing the epoch's resolution; `0`, or anything the epoch length
+             * cannot honour, means no overlap.
+             */
+            epochStep: number
             /** Numerator band `[hp, lp]` in Hz. Defaults to TAR (theta = [4, 8]). */
             numeratorBand: [number, number]
             /** Denominator band `[hp, lp]` in Hz. Defaults to TAR (alpha = [8, 13]). */
@@ -401,6 +419,12 @@ export type CommonBiosignalSettings = {
              * and a shorter epoch gives the FFT fewer raw bins than that to aggregate.
              */
             epochScaling: TrendEpochScaling
+            /**
+             * Seconds between the starts of consecutive epochs. Shorter than the epoch, epochs overlap and the trend
+             * gains a value every step without losing the epoch's resolution; `0`, or anything the epoch length
+             * cannot honour, means no overlap.
+             */
+            epochStep: number
             /** Upper frequency limit in Hz (bins above this are discarded). */
             maxFreqHz: number
             /** Visualisation mode. `power` = brightness encodes power; `proportion` = column height encodes relative share. */

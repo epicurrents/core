@@ -10,7 +10,7 @@
  * @license    Apache-2.0
  */
 
-import { computeAmplitudeIntegratedEpoch } from '#util/signal'
+import { computeAmplitudeIntegratedEpoch, resolveTrendEpochStep, trendEpochRange } from '#util/signal'
 import { butterHighpass, FFT, SOSFilter } from '#util/dsp'
 import { Log } from 'scoped-event-log'
 import BiosignalMutex from './BiosignalMutex'
@@ -526,10 +526,13 @@ export default class TrendProcessor {
         this._trendSessions.set(name, mySession)
         this._cancelledTrends.delete(name)
         const epochLength = trendProps.epochLength
+        const step = resolveTrendEpochStep(epochLength, trendProps.epochStep)
         const rangeStart = Math.max(0, range?.[0] ?? 0)
         const rangeEnd = Math.min(range?.[1] ?? this._totalRecordingLength, this._totalRecordingLength)
-        const totalEpochs = Math.ceil((rangeEnd - rangeStart) / epochLength)
-        const firstEpoch = Math.floor(rangeStart / epochLength)
+        const [firstEpoch, endEpoch] = trendEpochRange(
+            [rangeStart, rangeEnd], this._totalRecordingLength, epochLength, step
+        )
+        const totalEpochs = endEpoch - firstEpoch
 
         const yieldToEventLoop = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
@@ -613,7 +616,10 @@ export default class TrendProcessor {
             return null
         }
         const epochLength = trendProps.epochLength
-        const startTime = Math.max(0, epochIndex * epochLength)
+        // Epochs start a step apart and each covers a full epoch length, so with a step shorter than the
+        // epoch they overlap. Neighbouring epochs then read the same signal, which is the point.
+        const step = resolveTrendEpochStep(epochLength, trendProps.epochStep)
+        const startTime = Math.max(0, epochIndex * step)
         const endTime = Math.min(startTime + epochLength, this._totalRecordingLength)
         if (endTime - startTime <= 0) {
             return null

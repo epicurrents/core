@@ -119,12 +119,13 @@ export default class TrendWorkerSubstitute implements BiosignalTrendService {
             numeratorBand?: [number, number]
             denominatorBand?: [number, number]
             band?: [number, number]
+            epochStep?: number
         } = {}
     ): Promise<SetupWorkerResponse> {
         if (!this._processor) {
             return { success: false }
         }
-        const { downsamplingMethod = 'average', maxFreqHz, numeratorBand, denominatorBand, band } = options
+        const { downsamplingMethod = 'average', maxFreqHz, numeratorBand, denominatorBand, band, epochStep } = options
         this._processor.setupTrend(name, {
             derivation,
             samplingRate,
@@ -134,6 +135,7 @@ export default class TrendWorkerSubstitute implements BiosignalTrendService {
             numeratorBand,
             denominatorBand,
             band,
+            epochStep,
         })
         return { success: true }
     }

@@ -14,6 +14,7 @@ import type {
 } from '#types'
 import { Log } from 'scoped-event-log'
 import GenericAsset from '#assets/GenericAsset'
+import { resolveTrendEpochStep } from '#util/signal'
 
 const SCOPE = 'GenericBiosignalTrend'
 
@@ -35,6 +36,7 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
     protected _derivation: BiosignalTrendDerivation
     protected _downsamplingMethod: BiosignalDownsamplingMethod = 'average'
     protected _epochLength = 0
+    protected _epochStep = 0
     /** For spectrogram trends: number of frequency bins per epoch. */
     protected _frequencyBins: number | undefined = undefined
     protected _label: string
@@ -57,6 +59,7 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
         super(name, 'trend')
         this._derivation = derivation
         this._epochLength = options.epochLength
+        this._epochStep = resolveTrendEpochStep(options.epochLength, options.epochStep)
         this._label = label
         this._samplingRate = options.samplingRate
         this._service = service
@@ -83,6 +86,9 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
     }
     get epochLength () {
         return this._epochLength
+    }
+    get epochStep () {
+        return this._epochStep
     }
     get frequencyBins () {
         return this._frequencyBins
@@ -114,6 +120,7 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
                 numeratorBand: this._numeratorBand,
                 denominatorBand: this._denominatorBand,
                 band: this._band,
+                epochStep: this._epochStep,
             },
         ).then(() => {
             Log.debug(`Trend '${this._name}' registered with service.`, SCOPE)
@@ -216,9 +223,11 @@ export default class GenericBiosignalTrend extends GenericAsset implements Biosi
      * Replaces any existing signal data and emits `trend-complete`.
      * @param signal      - Flat signal array in the layout expected by the trend's renderer.
      * @param epochLength - Duration of each epoch in seconds.
+     * @param epochStep - Seconds between epoch starts; defaults to `epochLength`.
      */
-    loadSignal (signal: number[], epochLength: number) {
+    loadSignal (signal: number[], epochLength: number, epochStep?: number) {
         this._epochLength = epochLength
+        this._epochStep = resolveTrendEpochStep(epochLength, epochStep)
         this._signal.length = 0
         this._signal.push(...signal)
         Log.debug(`Trend '${this._name}' loaded ${signal.length} signal values externally.`, SCOPE)

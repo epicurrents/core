@@ -61,8 +61,12 @@ import {
     partsNotCached,
     resampleSignal,
     resolveTrendEpochLength,
+    resolveTrendEpochStep,
     shouldDisplayChannel,
     shouldFilterSignal,
+    trendCoveredEnd,
+    trendEpochCount,
+    trendEpochRange,
 } from './signal'
 import {
     inlineWorker,
@@ -138,6 +142,7 @@ export {
     RelayLogMessage,
     resampleSignal,
     resolveTrendEpochLength,
+    resolveTrendEpochStep,
     returnFailure,
     returnSuccess,
     rgbaToSettingsColor,
@@ -153,6 +158,9 @@ export {
     syncSettings,
     timePartsToShortString,
     toPlainData,
+    trendCoveredEnd,
+    trendEpochCount,
+    trendEpochRange,
     validateCommissionProps,
 }
 export {

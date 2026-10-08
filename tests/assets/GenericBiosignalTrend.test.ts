@@ -111,6 +111,23 @@ describe('GenericBiosignalTrend', () => {
             )
         })
 
+        it('should resolve the epoch step and hand it to the service', () => {
+            const overlapping = new GenericBiosignalTrend(
+                'spec', 'Spectrogram', baseDerivation, mockService as any, { samplingRate: 2, epochLength: 3, epochStep: 0.5 }
+            )
+            expect(overlapping.epochStep).toBe(0.5)
+            expect(mockService.setupTrend).toHaveBeenLastCalledWith(
+                'spec', baseDerivation, 2, 3, expect.objectContaining({ epochStep: 0.5 }),
+            )
+            // No step, a zero and an overlong one all mean back-to-back epochs.
+            for (const epochStep of [undefined, 0, 4]) {
+                const trend = new GenericBiosignalTrend(
+                    'spec', 'Spectrogram', baseDerivation, mockService as any, { samplingRate: 1, epochLength: 3, epochStep }
+                )
+                expect(trend.epochStep).toBe(3)
+            }
+        })
+
         it('should honour an overridden downsamplingMethod from extraProperties', () => {
             new GenericBiosignalTrend(
                 'aeeg-test', 'aEEG', baseDerivation, mockService as any, { samplingRate: 0.133, epochLength: 15, downsamplingMethod: 'maximum' as any }

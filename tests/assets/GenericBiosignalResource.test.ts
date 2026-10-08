@@ -136,6 +136,68 @@ describe('GenericBiosignalResource', () => {
         vi.useRealTimers()
     })
 
+    describe('trend removal', () => {
+        const makeTrend = (name: string) => ({ name, cancelTrendComputation: vi.fn() }) as any
+
+        /** Phases of the `trends` property-change events, with the trend count the live property had at each. */
+        const trendEvents = (resource: TestBiosignalResource) => {
+            const seen: [string, number][] = []
+            mockEventBus.dispatchScopedEvent.mockImplementation((event: string, _scope: string, phase: string) => {
+                if (event === 'property-change:trends') {
+                    seen.push([phase, Object.keys(resource.trends).length])
+                }
+                return true
+            })
+            return seen
+        }
+
+        it('removeAllTrends announces an emptied map in the before phase, then after', () => {
+            // A renderer resets its per-name drawing state in the 'before' phase. Without it, a
+            // trend rebuilt under the same name would be drawn from where the removed one stopped.
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const a = makeTrend('a')
+            resource.addTrend(a)
+            const seen = trendEvents(resource)
+            resource.removeAllTrends()
+            expect(seen).toEqual([['before', 0], ['after', 0]])
+            expect(a.cancelTrendComputation).toHaveBeenCalled()
+        })
+
+        it('removeAllTrends keeps the trends when the before phase vetoes', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const a = makeTrend('a')
+            resource.addTrend(a)
+            mockEventBus.dispatchScopedEvent.mockReturnValue(false)
+            resource.removeAllTrends()
+            expect(Object.keys(resource.trends)).toEqual(['a'])
+            expect(a.cancelTrendComputation).not.toHaveBeenCalled()
+        })
+
+        it('removeAllTrends announces nothing when there is nothing to remove', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const seen = trendEvents(resource)
+            resource.removeAllTrends()
+            expect(seen).toEqual([])
+        })
+
+        it('removeTrend announces both phases and honours a veto', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const a = makeTrend('a')
+            const b = makeTrend('b')
+            resource.addTrend(a)
+            resource.addTrend(b)
+            const seen = trendEvents(resource)
+            expect(resource.removeTrend('a')).toBe(true)
+            expect(seen).toEqual([['before', 1], ['after', 1]])
+            expect(a.cancelTrendComputation).toHaveBeenCalled()
+
+            mockEventBus.dispatchScopedEvent.mockImplementation(() => false)
+            expect(resource.removeTrend('b')).toBe(false)
+            expect(Object.keys(resource.trends)).toEqual(['b'])
+            expect(b.cancelTrendComputation).not.toHaveBeenCalled()
+        })
+    })
+
     describe('constructor', () => {
         it('should create a biosignal resource with name and modality', () => {
             const resource = new TestBiosignalResource('EEG Recording', 'eeg')

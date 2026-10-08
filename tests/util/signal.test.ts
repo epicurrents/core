@@ -19,8 +19,12 @@ import {
     partsNotCached,
     resampleSignal,
     resolveTrendEpochLength,
+    resolveTrendEpochStep,
     shouldDisplayChannel,
     shouldFilterSignal,
+    trendCoveredEnd,
+    trendEpochCount,
+    trendEpochRange,
 } from '../../src/util/signal'
 import { BiosignalChannelMarker, BiosignalChannelProperties, type BiosignalChannel, type BiosignalFilters } from '../../src/types/biosignal'
 import { CommonBiosignalSettings } from '../../src/types/config'
@@ -1652,6 +1656,76 @@ describe('Signal utilities', () => {
             const raised = scaling()
             raised.steps = raised.steps.map(s => ({ ...s, fromDuration: s.fromDuration + 3600 }))
             expect(resolveTrendEpochLength(60, { epochLength: 0, epochScaling: raised })).toBe(2)
+        })
+    })
+
+    describe('trend epoch steps', () => {
+        /** Back-to-back epoch arithmetic, written out independently: every step-equals-length case must reproduce it. */
+        const legacyCount = (total: number, length: number) => Math.ceil(total / length)
+        const legacyRange = (start: number, end: number, length: number) => {
+            const first = Math.floor(start / length)
+            return [first, first + Math.ceil((end - start) / length)]
+        }
+
+        test('an empty, zero, negative or overlong step means no overlap', () => {
+            for (const step of [undefined, null, '', 0, -1, NaN, Infinity, '0.5']) {
+                expect(resolveTrendEpochStep(3, step)).toBe(3)
+            }
+            expect(resolveTrendEpochStep(3, 4)).toBe(3)
+            expect(resolveTrendEpochStep(3, 3)).toBe(3)
+            expect(resolveTrendEpochStep(3, 0.5)).toBe(0.5)
+        })
+
+        test('with no overlap the count and ranges are the back-to-back ones', () => {
+            for (const [total, length] of [[75, 3], [75, 2], [3600, 30], [7, 5], [2, 5]]) {
+                expect(trendEpochCount(total, length, length)).toBe(legacyCount(total, length))
+                // Every whole-epoch extension range the recording schedules, and the run to the end.
+                for (let end = length; end <= total; end += length) {
+                    expect(trendEpochRange([end - length, end], total, length, length))
+                        .toEqual(legacyRange(end - length, end, length))
+                }
+                expect(trendEpochRange([0, total], total, length, length)).toEqual([0, legacyCount(total, length)])
+                expect(trendCoveredEnd(total, length, length)).toBe(Math.floor(total / length) * length)
+            }
+        })
+
+        test('overlapping epochs start a step apart and end within a step of the recording end', () => {
+            // 3 s windows every 0.5 s over 75 s: starts 0 … 72, the last one ending exactly at 75.
+            expect(trendEpochCount(75, 3, 0.5)).toBe(145)
+            // A length the step does not divide: starts 0 … 72.5, the last running 0.5 s past the end.
+            expect(trendEpochCount(75.5, 3, 0.5)).toBe(146)
+            // Shorter than one epoch: a single partial one, as without overlap.
+            expect(trendEpochCount(2, 3, 0.5)).toBe(1)
+        })
+
+        test('consecutive ranges compute every epoch once and none twice', () => {
+            const total = 75
+            for (const [length, step] of [[3, 0.5], [3, 1], [3, 2], [2, 0.5], [3, 3]]) {
+                const seen = new Map<number, number>()
+                let from = 0
+                // Ragged extension points, as cache progress delivers them.
+                for (const cached of [4.3, 9.9, 10, 31.7, 50, 74.2, 75]) {
+                    const to = cached >= total ? total : trendCoveredEnd(cached, length, step)
+                    if (to <= from) {
+                        continue
+                    }
+                    const [first, end] = trendEpochRange([from, to], total, length, step)
+                    for (let i = first; i < end; i++) {
+                        seen.set(i, (seen.get(i) ?? 0) + 1)
+                    }
+                    from = to
+                }
+                const count = trendEpochCount(total, length, step)
+                expect([...seen.keys()].sort((a, b) => a - b)).toEqual([...Array(count).keys()])
+                expect([...seen.values()].every(n => n === 1)).toBe(true)
+            }
+        })
+
+        test('the covered end is the end of the last whole epoch in the cached signal', () => {
+            expect(trendCoveredEnd(10, 3, 0.5)).toBe(10)
+            expect(trendCoveredEnd(10.2, 3, 0.5)).toBe(10)
+            expect(trendCoveredEnd(10, 3, 2)).toBe(9)
+            expect(trendCoveredEnd(2.9, 3, 0.5)).toBe(0)
         })
     })
 })

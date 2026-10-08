@@ -1166,11 +1166,26 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     removeAllTrends (): void {
-        for (const trend of this._trends.values()) {
+        if (!this._trends.size) {
+            return
+        }
+        // Announced in both phases, as the montage does. A renderer that keeps per-trend drawing
+        // state keyed by name resets it in the 'before' phase, and a rebuilt trend reuses its name;
+        // with only an 'after' event the rebuilt trend would be drawn from where the removed one stopped.
+        const oldTrends = this.trends
+        const saved = new Map(this._trends)
+        this._trends.clear()
+        const newTrends = this.trends
+        if (!this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'before')) {
+            for (const [name, trend] of saved) {
+                this._trends.set(name, trend)
+            }
+            return
+        }
+        for (const trend of saved.values()) {
             trend.cancelTrendComputation()
         }
-        this._trends.clear()
-        this.dispatchPropertyChangeEvent('trends', this.trends, undefined)
+        this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'after')
     }
 
     removeEvents (...events: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[]
@@ -1269,9 +1284,15 @@ export default abstract class GenericBiosignalResource extends GenericResource i
             Log.error(`Cannot remove trend '${name}': not found on this recording.`, SCOPE)
             return false
         }
-        trend.cancelTrendComputation()
+        const oldTrends = this.trends
         this._trends.delete(name)
-        this.dispatchPropertyChangeEvent('trends', this.trends, undefined)
+        const newTrends = this.trends
+        if (!this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'before')) {
+            this._trends.set(name, trend)
+            return false
+        }
+        trend.cancelTrendComputation()
+        this.dispatchPropertyChangeEvent('trends', newTrends, oldTrends, 'after')
         return true
     }
 

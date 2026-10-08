@@ -102,6 +102,7 @@ export class TrendWorker extends BaseWorker {
             numeratorBand:     data.numeratorBand     as [number, number] | undefined,
             denominatorBand:   data.denominatorBand   as [number, number] | undefined,
             band:              data.band              as [number, number] | undefined,
+            epochStep:         data.epochStep         as number | undefined,
         })
         Log.debug(`Trend '${data.name}' set up.`, SCOPE)
         return this._success(msgData)

@@ -1151,6 +1151,8 @@ export interface BiosignalTrendService {
             numeratorBand?: [number, number]
             denominatorBand?: [number, number]
             band?: [number, number]
+            /** Seconds between the starts of consecutive epochs; defaults to `epochLength`. */
+            epochStep?: number
         }
     ): Promise<SetupWorkerResponse>
     /**
@@ -1652,6 +1654,12 @@ export interface BiosignalTrend extends BaseAsset {
     downsamplingMethod: BiosignalDownsamplingMethod
     /** Length of each computed epoch in seconds. */
     epochLength: number
+    /**
+     * Seconds between the starts of consecutive epochs, at most {@link epochLength}. Equal to it when epochs do not
+     * overlap; shorter, and epoch `i` covers `[i * epochStep, i * epochStep + epochLength)`, so neighbouring epochs
+     * share signal and the trend gains a value every `epochStep` seconds.
+     */
+    epochStep: number
     /** Descriptive label for this trend. */
     label: string
     /** Sampling rate of this trend in Hz. */
@@ -1684,8 +1692,9 @@ export interface BiosignalTrend extends BaseAsset {
      * Use this for trends whose values are computed externally (e.g. on the backend).
      * @param signal      - Flat signal array in the layout expected by the trend's renderer.
      * @param epochLength - Duration of each epoch in seconds.
+     * @param epochStep - Seconds between epoch starts; defaults to `epochLength`.
      */
-    loadSignal (signal: number[], epochLength: number): void
+    loadSignal (signal: number[], epochLength: number, epochStep?: number): void
 }
 /** Definition of a biosignal trend derivation. */
 export type BiosignalTrendDerivation = {
@@ -1750,6 +1759,8 @@ export type BiosignalTrendProperties = {
     downsamplingMethod: BiosignalDownsamplingMethod
     /** Length of each epoch in seconds. */
     epochLength: number
+    /** Seconds between the starts of consecutive epochs; absent means `epochLength`. */
+    epochStep?: number
     /** Samples per data unit (equals Hz when the data unit is 1 second). */
     samplingRate: number
     /** For spectrogram trends: upper frequency limit in Hz. */

@@ -35,6 +35,9 @@ import {
 
 const SCOPE = 'util:signal'
 
+/** Slack for epoch arithmetic, so a boundary that lands on an exact multiple within float error counts as one. */
+const TREND_EPSILON = 1e-9
+
 // Filter cache: SOSFilter instances are stateless between calls so the same object can be
 // reused for every signal segment with the same (fs, hp, lp, nf) parameters. In a montage
 // with N channels all filtered at the same settings, this avoids N redundant Butterworth
@@ -1701,6 +1704,86 @@ export const resolveTrendEpochLength = (
     // Snapped down, so the epoch count lands at or above the target rather than below it.
     const targeted = Math.floor(recordingDuration/scaling.targetEpochs/quantum)*quantum
     return Math.max(stepLength, targeted)
+}
+
+/**
+ * Resolve the step between the starts of consecutive trend epochs, in seconds.
+ *
+ * A step shorter than the epoch length makes the epochs overlap: each still covers `epochLength` seconds, so the
+ * frequency resolution of a spectral trend is unchanged, while the trend gains a value every `step` seconds. Empty,
+ * zero, negative or non-numeric input means "no overlap" and resolves to the epoch length, since that is what anyone
+ * clearing the field expects. A step longer than the epoch would leave signal between epochs that no epoch covers,
+ * so it resolves to the epoch length as well, with a warning.
+ * @param epochLength - Resolved epoch length in seconds.
+ * @param step - Configured step in seconds.
+ * @returns Step in seconds, above zero and at most `epochLength`.
+ */
+export const resolveTrendEpochStep = (epochLength: number, step: unknown): number => {
+    if (typeof step !== 'number' || !Number.isFinite(step) || step <= 0) {
+        return epochLength
+    }
+    if (step > epochLength) {
+        Log.warn(`Trend epoch step ${step}s exceeds the epoch length ${epochLength}s; using the epoch length.`, SCOPE)
+        return epochLength
+    }
+    return step
+}
+
+/**
+ * Count the trend epochs with which a recording of `totalDuration` seconds is covered.
+ *
+ * Epoch `i` covers `[i * step, i * step + epochLength)`. Epochs are placed while they reach less than one step past
+ * the end, so the last one may be partial by less than a step — which, with no overlap, is the familiar partial final
+ * epoch of `ceil(totalDuration / epochLength)`. A recording shorter than one epoch still gets a single partial epoch.
+ * @param totalDuration - Recording length in seconds.
+ * @param epochLength - Epoch length in seconds.
+ * @param step - Step between epoch starts in seconds, as resolved by {@link resolveTrendEpochStep}.
+ */
+export const trendEpochCount = (totalDuration: number, epochLength: number, step: number): number => {
+    if (!(totalDuration > 0) || !(epochLength > 0) || !(step > 0)) {
+        return 0
+    }
+    return Math.max(1, Math.ceil((totalDuration - epochLength + step) / step - TREND_EPSILON))
+}
+
+/**
+ * The epochs a computation over `range` covers, as `[first, end)` epoch indices.
+ *
+ * The range is in seconds of signal: an epoch belongs to it when it ends after `range[0]` and no later than
+ * `range[1]`, so consecutive ranges `[a, b]`, `[b, c]` compute every epoch once and none twice. A range reaching the
+ * end of the recording also takes the final, possibly partial, epochs {@link trendEpochCount} places there.
+ * @param range - `[start, end]` in seconds.
+ * @param totalDuration - Recording length in seconds.
+ * @param epochLength - Epoch length in seconds.
+ * @param step - Step between epoch starts in seconds.
+ */
+export const trendEpochRange = (
+    range: [number, number],
+    totalDuration: number,
+    epochLength: number,
+    step: number,
+): [number, number] => {
+    const count = trendEpochCount(totalDuration, epochLength, step)
+    const [start, end] = range
+    const first = start > 0 ? Math.max(0, Math.floor((start - epochLength) / step + TREND_EPSILON) + 1) : 0
+    const last = end >= totalDuration
+        ? count
+        : Math.min(count, Math.max(0, Math.floor((end - epochLength) / step + TREND_EPSILON) + 1))
+    return [Math.min(first, last), last]
+}
+
+/**
+ * The end, in seconds, of the last whole trend epoch that fits within `cachedEnd` seconds of signal, or 0 when not
+ * even the first one does. A computation extended up to this point never computes an epoch from partial signal.
+ * @param cachedEnd - End of the signal available, in seconds.
+ * @param epochLength - Epoch length in seconds.
+ * @param step - Step between epoch starts in seconds.
+ */
+export const trendCoveredEnd = (cachedEnd: number, epochLength: number, step: number): number => {
+    if (!(cachedEnd >= epochLength) || !(step > 0)) {
+        return 0
+    }
+    return Math.floor((cachedEnd - epochLength) / step + TREND_EPSILON) * step + epochLength
 }
 
 /**

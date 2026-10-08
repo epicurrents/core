@@ -170,9 +170,10 @@ export default class TrendService extends GenericService implements BiosignalTre
             numeratorBand?: [number, number]
             denominatorBand?: [number, number]
             band?: [number, number]
+            epochStep?: number
         } = {}
     ): Promise<SetupWorkerResponse> {
-        const { downsamplingMethod = 'average', maxFreqHz, numeratorBand, denominatorBand, band } = options
+        const { downsamplingMethod = 'average', maxFreqHz, numeratorBand, denominatorBand, band, epochStep } = options
         const fields: [string, unknown][] = [
             ['derivation',         derivation],
             ['downsamplingMethod', downsamplingMethod],
@@ -184,6 +185,7 @@ export default class TrendService extends GenericService implements BiosignalTre
         if (numeratorBand !== undefined)   fields.push(['numeratorBand',   numeratorBand])
         if (denominatorBand !== undefined) fields.push(['denominatorBand', denominatorBand])
         if (band !== undefined)            fields.push(['band',            band])
+        if (epochStep !== undefined)       fields.push(['epochStep',       epochStep])
         const commission = this._commissionWorker('setup-trend', new Map(fields))
         return commission.promise as Promise<SetupWorkerResponse>
     }
