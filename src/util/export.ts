@@ -2,7 +2,8 @@
  * Export selection: the format-agnostic reduction of a signal recording to a time range, an ordered set of
  * channels under output labels, one output rate and an amplitude range. An exporter applies it before encoding, so
  * every exporter offers the same operations and none of them knows why a selection was made. Also the rule deciding
- * which resources may be sent to an export target, and the label matching an export dialog suggests channels with.
+ * which resources may be sent to an export target, the mode a target's toggle puts in effect, and the label matching
+ * an export dialog suggests channels with.
  * @package    epicurrents/core
  * @copyright  2026 Sampsa Lohi
  * @license    Apache-2.0
@@ -18,6 +19,8 @@ import type {
     SignalExportSelectionResult,
     SignalExportSource,
     SignalExportSourceChannel,
+    SignalExportTarget,
+    SignalExportTargetMode,
     SignalExportViolation,
 } from '#types/reader'
 import { downsampleSignal } from './dsp'
@@ -453,4 +456,23 @@ export const suggestExportSource = (label: string, channels: SignalExportSourceC
     const core = labelCore(label)
     const loose = candidates.filter(c => labelCore(c.channel.label) === core)
     return loose.length === 1 ? loose[0].index : null
+}
+
+/**
+ * The mode `target` exports in with its toggle in the state `on`: the target's own constraints, options, sidecar and
+ * `submit`, or its toggle's `off` mode. A target without a toggle is always in its own mode.
+ * @param target - The export target.
+ * @param on - Is the target's toggle on.
+ */
+export const exportTargetMode = (target: SignalExportTarget, on: boolean): SignalExportTargetMode => {
+    if (on || !target.toggle) {
+        return {
+            constraints: target.constraints,
+            options: target.options,
+            sidecar: target.sidecar,
+            // Called through the target, so a target written as a class keeps its `this`.
+            submit: (file) => target.submit(file),
+        }
+    }
+    return target.toggle.off
 }

@@ -749,6 +749,12 @@ export type SignalExportTarget = {
      * @returns A promise resolving with the outcome to show the person.
      */
     submit (file: SignalExportFile): Promise<SignalExportTargetResult>
+    /**
+     * A switch the export dialog shows for this target, choosing between two ways of exporting to the same
+     * destination. The target's own constraints, options, sidecar and `submit` apply while the switch is on, and the
+     * toggle's `off` mode replaces them while it is off. Resolve the mode in effect with `exportTargetMode`.
+     */
+    toggle?: SignalExportTargetToggle
 }
 /**
  * A file a {@link SignalExportTarget} hands back for the person who sent the recording to keep, such as a receipt
@@ -772,6 +778,23 @@ export type SignalExportTargetResult = {
     receipt?: SignalExportReceipt
     /** Did the destination accept the recording. */
     success: boolean
+}
+/**
+ * How a {@link SignalExportTarget} exports in one state of its toggle: everything that may differ between the two
+ * states. The format and the label stay the target's, so a target is offered under one name for one exporter.
+ */
+export type SignalExportTargetMode = Pick<SignalExportTarget, 'constraints' | 'options' | 'sidecar' | 'submit'>
+/**
+ * A switch on a {@link SignalExportTarget}. Since the constraints can differ between the two states, the switch is
+ * set before anything is encoded, and changing it resets the choices the constraints fix.
+ */
+export type SignalExportTargetToggle = {
+    /** Is the switch on when the export dialog opens. Defaults to true. */
+    initial?: boolean
+    /** User-facing label of the switch, describing what turning it on does. */
+    label: string
+    /** The export made while the switch is off. */
+    off: SignalExportTargetMode
 }
 /**
  * A reason a selection cannot be applied or does not meet a destination's constraints. `code` is stable for

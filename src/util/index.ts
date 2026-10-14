@@ -104,6 +104,7 @@ export type { Biquad, Biquad as BiquadSOS } from './dsp'
 export {
     applyExportSelection,
     checkExportSelection,
+    exportTargetMode,
     isLocalResource,
     resolveExportRange,
     suggestExportSource,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Epicurrents } from '../src'
-import { isLocalResource, suggestExportSource } from '../src/util/export'
+import { exportTargetMode, isLocalResource, suggestExportSource } from '../src/util/export'
 import type { DataResource } from '../src/types/application'
 import type { SignalExportSourceChannel, SignalExportTarget } from '../src/types/reader'
 
@@ -157,5 +157,55 @@ describe('signal export targets', () => {
         expect(app.unregisterSignalExportTarget('a')).toBe(false)
         expect(listener).toHaveBeenCalledTimes(2)
         unsubscribe()
+    })
+})
+
+// ── exportTargetMode ──────────────────────────────────────────────────────────
+
+describe('exportTargetMode', () => {
+    const off = {
+        constraints: { durations: [] as number[] },
+        options: { dither: false },
+        sidecar: false,
+        submit: vi.fn(async () => ({ message: 'off', success: true })),
+    }
+    const toggled = (): SignalExportTarget => ({
+        ...target(),
+        constraints: { durations: [10] },
+        options: { dither: true },
+        sidecar: true,
+        toggle: { label: 'Also to the pool', off },
+    })
+
+    it('is the target itself while the toggle is on', async () => {
+        const mode = exportTargetMode(toggled(), true)
+        expect(mode.constraints).toEqual({ durations: [10] })
+        expect(mode.options).toEqual({ dither: true })
+        expect(mode.sidecar).toBe(true)
+        expect(await mode.submit({ data: new ArrayBuffer(0), sidecar: null })).toEqual({ message: 'ok', success: true })
+    })
+
+    it('is the toggle\'s off mode while the toggle is off', async () => {
+        const mode = exportTargetMode(toggled(), false)
+        expect(mode).toBe(off)
+        expect(await mode.submit({ data: new ArrayBuffer(0), sidecar: null })).toEqual({ message: 'off', success: true })
+    })
+
+    it('ignores the state for a target without a toggle', () => {
+        expect(exportTargetMode({ ...target(), constraints: { samplingRate: 128 } }, false).constraints)
+            .toEqual({ samplingRate: 128 })
+    })
+
+    it('calls a class target\'s submit with the target as this', async () => {
+        class Destination {
+            format = 'edf'
+            label = 'Class'
+            reply = 'from the class'
+            async submit () {
+                return { message: this.reply, success: true }
+            }
+        }
+        const mode = exportTargetMode(new Destination() as SignalExportTarget, true)
+        expect((await mode.submit({ data: new ArrayBuffer(0), sidecar: null })).message).toBe('from the class')
     })
 })
