@@ -1791,7 +1791,7 @@ export type CodedEventCategory = {
     events: Record<string, CodedEventProperties>
     /**
      * Whether the category names something that happened during acquisition or something a reader concluded from
-     * the signal. A platform registers the acquisition categories as a vocabulary; findings stay viewer-side.
+     * the signal. A platform registers the acquisition categories as a vocabulary, and no finding category.
      */
     scope: 'acquisition' | 'finding'
     /** What the category collects. */
@@ -1816,7 +1816,7 @@ export type CodedEventProperties = {
     meta?: Record<string, string>
     /** Significance of the event. */
     significance?: 'abnormal' | 'artifact' | 'normal' | 'uncertain'
-    /** Event codes for additional standards, keyed by standard (`dicom`, `ieee`, `snomed`). */
+    /** Event codes for additional standards, keyed by standard (`dicom`, `hed`, `ieee`, `snomed`). */
     standardCodes?: Record<string, number | string>
 }
 /** Coded events grouped by category: the shape `CODED_EVENTS` exposes. */

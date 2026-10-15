@@ -11,15 +11,19 @@ import type { CodedEventVocabulary } from '../src/types'
 
 const VOCABULARY = vocabulary as CodedEventVocabulary
 const EVENT_CLASSES = ['activation', 'answer', 'comment', 'event', 'example', 'question', 'technical', 'trigger']
-const CROSSWALKS = ['dicom', 'ieee', 'snomed']
-/** The code prefix each category's terms carry. */
-const PREFIXES: Record<string, string> = {
-    ENVIRONMENT: 'BIO_ENV_',
-    INTERVENTION: 'BIO_INT_',
-    OBSERVATION: 'BIO_OBS_',
-    PHYSIOLOGY: 'BIO_PHYS_',
-    TECHNICAL: 'BIO_TECH_',
+const CROSSWALKS = ['dicom', 'hed', 'ieee', 'snomed']
+/**
+ * The code prefixes each category's terms carry. A code never changes once shipped, so a term that moves to another
+ * category keeps the prefix it was given: the bedside signs carry `BIO_PHYS_` in OBSERVATION.
+ */
+const PREFIXES: Record<string, string[]> = {
+    ENVIRONMENT: ['BIO_ENV_'],
+    INTERVENTION: ['BIO_INT_'],
+    OBSERVATION: ['BIO_OBS_', 'BIO_PHYS_'],
+    TECHNICAL: ['BIO_TECH_'],
 }
+/** A HED tag in short form, with an optional value after a slash: `Speak`, `Prone`. */
+const HED_TAG = /^[A-Z][A-Za-z0-9]*(-[A-Za-z0-9]+)*(\/[^/]+)?$/
 
 const terms = () => Object.entries(VOCABULARY.categories).flatMap(
     ([category, { events }]) => Object.entries(events).map(([key, term]) => ({ category, key, term }))
@@ -43,7 +47,8 @@ describe('biosignal-events.json', () => {
         const codes = new Set<string>()
         for (const { category, key, term } of terms()) {
             expect(term.code, key).toMatch(/^[A-Z][A-Z0-9_]+$/)
-            expect(term.code.startsWith(PREFIXES[category]), `${term.code} in ${category}`).toBe(true)
+            const prefixed = PREFIXES[category].some(prefix => term.code.startsWith(prefix))
+            expect(prefixed, `${term.code} in ${category}`).toBe(true)
             expect(codes.has(term.code), `duplicate ${term.code}`).toBe(false)
             codes.add(term.code)
             expect(term.name.length, key).toBeGreaterThan(0)
@@ -51,11 +56,19 @@ describe('biosignal-events.json', () => {
         }
     })
 
-    it('uses only the three crosswalk columns', () => {
+    it('uses only the four crosswalk columns', () => {
         for (const { key, term } of terms()) {
             for (const standard of Object.keys(term.standardCodes ?? {})) {
                 expect(CROSSWALKS, `${key}: ${standard}`).toContain(standard)
             }
+        }
+    })
+
+    it('names a HED tag in short form in its hed crosswalk', () => {
+        const tags = terms().map(({ term }) => term.standardCodes?.hed).filter(tag => tag !== undefined)
+        expect(tags.length).toBeGreaterThan(0)
+        for (const tag of tags) {
+            expect(String(tag)).toMatch(HED_TAG)
         }
     })
 

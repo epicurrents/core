@@ -75,9 +75,10 @@ const CONFIG_SCHEMA = {
 } as ConfigSchema
 
 /**
- * The shared vocabulary every biosignal event class inherits, its categories each carrying a scope. So far every one
- * is acquisition-scoped: what was done, given and observed during a recording. The terms and the reasoning are in
- * the consuming platform's engineering note `annotation-event-vocabulary.md`.
+ * The shared vocabulary every biosignal event class inherits, its categories each carrying a scope. Every one is
+ * acquisition-scoped: what was done, given and observed during a recording that the signal cannot recover. Findings
+ * are not coded here. The terms and the reasoning are in the consuming platform's engineering note
+ * `annotation-event-vocabulary.md`.
  */
 const _CODED_EVENTS = codedEventsFromVocabulary(vocabulary as CodedEventVocabulary)
 /** The merged view, built on first access. Its category objects are live, so it never goes stale. */
@@ -93,8 +94,9 @@ export default abstract class GenericBiosignalEvent extends GenericAnnotation im
     }
 
     /**
-     * The shared vocabulary, in the categories TECHNICAL, INTERVENTION, OBSERVATION, ENVIRONMENT and PHYSIOLOGY, from
-     * `src/assets/annotation/vocabulary/biosignal-events.json`. A modality's event class stacks its own categories on top of these.
+     * The shared vocabulary, in the categories TECHNICAL, INTERVENTION, OBSERVATION and ENVIRONMENT, from
+     * `src/assets/annotation/vocabulary/biosignal-events.json`. A modality's event class stacks its own categories on
+     * top of these.
      */
     static get CODED_EVENTS (): CodedEventTable {
         if (!_mergedCodedEvents) {
