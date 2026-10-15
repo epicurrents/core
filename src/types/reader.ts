@@ -307,6 +307,12 @@ export type FileFormatReaderSpecs = {
 export interface FileFormatExporter extends BaseAsset {
     /** Description of the produced files(s). */
     description: string
+    /**
+     * The integer range the exporter writes samples in, as `[minimum, maximum]`, for a format that stores samples as
+     * scaled integers; absent for one that stores them otherwise. A sample's physical step is the physical span of a
+     * channel over the digital span, so a host can tell what resolution an amplitude range gives.
+     */
+    readonly digitalRange?: [number, number]
     /** The file format that this exporter produces. */
     readonly format: string
     /**
