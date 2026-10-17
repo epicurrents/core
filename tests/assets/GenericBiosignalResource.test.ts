@@ -462,6 +462,21 @@ describe('GenericBiosignalResource', () => {
             resource.addEvents(event)
             expect(resource.events).toHaveLength(1)
         })
+
+        it('should keep events of one span that differ in class or codes', () => {
+            // An unlabelled event is named by its code or class, so those are what tell two such events apart.
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const at = { start: 10, duration: 0, type: 'event', label: '', channels: [] }
+            resource.addEvents(
+                { ...at, id: 'a', class: 'activation', codes: {} } as any,
+                { ...at, id: 'b', class: 'technical', codes: {} } as any,
+                { ...at, id: 'c', class: 'technical', codes: { hed: 'Eye-blink-artifact' } } as any,
+            )
+            expect(resource.events.map(e => e.id)).toEqual(['a', 'b', 'c'])
+            resource.addEvents({ ...at, id: 'd', class: 'technical', codes: { hed: 'Eye-blink-artifact' } } as any)
+            resource.addEvents({ ...at, id: 'e', class: 'activation', codes: [] } as any)
+            expect(resource.events).toHaveLength(3)
+        })
     })
 
     describe('removeEvents', () => {

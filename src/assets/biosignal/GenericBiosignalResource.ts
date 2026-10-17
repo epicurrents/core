@@ -107,6 +107,19 @@ const CONFIG_SCHEMA = {
 const SCOPE = 'GenericBiosignalResource'
 
 /**
+ * Do two events carry the same codes: the same standards, each with the same value. An event made from a class
+ * template may carry its codes as an empty array, which reads as no codes.
+ */
+function _sameCodes (a?: BiosignalAnnotationEvent['codes'], b?: BiosignalAnnotationEvent['codes']) {
+    const entriesOf = (codes?: BiosignalAnnotationEvent['codes']) => {
+        return codes && !Array.isArray(codes) ? Object.entries(codes) : []
+    }
+    const left = entriesOf(a)
+    const right = new Map(entriesOf(b))
+    return left.length === right.size && left.every(([standard, value]) => right.get(standard) === value)
+}
+
+/**
  * Returns true when `value` is a `PropertyChangeContext` (or `null`) rather
  * than an annotation item.  Used by the overloaded mutation methods to detect
  * whether the caller is passing an optional context as the first argument.
@@ -676,7 +689,9 @@ export default abstract class GenericBiosignalResource extends GenericResource i
                         oldEvent.start === newEvent.start
                         && oldEvent.duration === newEvent.duration
                         && oldEvent.type === newEvent.type
+                        && oldEvent.class === newEvent.class
                         && oldEvent.label === newEvent.label
+                        && _sameCodes(oldEvent.codes, newEvent.codes)
                         && (oldEvent.channels?.length ?? 0) === (newEvent.channels?.length ?? 0)
                         && (oldEvent.channels ?? []).every(val => (newEvent.channels ?? []).includes(val))
                     )
