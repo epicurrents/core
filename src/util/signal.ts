@@ -1406,7 +1406,9 @@ export const mapMontageChannels = (
                 // Store this in a separate const to avoid Typescript linter errors.
                 const refChan = channelMap[refIdx]
                 if (refChan === null || refChan === undefined) {
-                    Log.warn(
+                    // A setup serves recordings that carry only part of its array, so a reference the recording
+                    // lacks is routine rather than a fault, the same as a missing active channel.
+                    Log.debug(
                         `Reference channel ${refIdx} for montage channel ${chan.label} not found in setup.`,
                     SCOPE)
                     continue
