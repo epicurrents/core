@@ -159,7 +159,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
      * Recording-time end of the trusted-navigation span reported by the reader, or -1 when
      * navigation is unrestricted. On a discontinuous recording without a complete interruption
      * table only positions within the explored span have exact timing; the viewStart setter
-     * clamps to this value so no navigation path can land beyond it.
+     * clamps to this value so no navigation path can land beyond it. The reader reports it first
+     * when the signal cache is set up, before anything can be read, and -1 until then.
      */
     protected _exploredEnd = -1
     protected _interruptions: SignalInterruptionMap = new Map<number, number>()
@@ -260,7 +261,15 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._exploredEnd
     }
     set exploredEnd (value: number) {
+        // A complete trusted table places every position, whatever the reader has explored so far.
+        if (this._trustedInterruptions) {
+            value = -1
+        }
         this._setPropertyValue('exploredEnd', value)
+        // A view start set while the limit was higher or not yet known is held to it as well.
+        if (value >= 0 && this._viewStart > value) {
+            this.viewStart = value
+        }
     }
 
     get displayViewStart () {

@@ -1439,7 +1439,9 @@ export interface BiosignalResource extends DataResource {
      * Recording-time end of the trusted-navigation span, or -1 when navigation is unrestricted.
      * On a discontinuous recording without a complete interruption table, only positions within
      * the explored span have exact timing; the `viewStart` setter clamps to this value and the
-     * navigator renders the span beyond it as off-limits.
+     * navigator renders the span beyond it as off-limits. Lowering it below the current view start
+     * moves the view start to it, and a complete trusted interruption table holds it at -1 whatever
+     * the reader reports.
      */
     exploredEnd: number
     /**
@@ -2130,6 +2132,8 @@ export type SetFiltersResponse = {
 export type SetupCacheResponse = {
     success: boolean
     cacheProperties?: SignalDataCache
+    /** The reader's explored end once the cache is set up; see `SignalProcessorCache.exploredEnd`. */
+    exploredEnd?: number
 }
 /**
  * Configuration for a single signal channel in BiosignalSetup.
@@ -2243,6 +2247,8 @@ export type SetupDerivation = BiosignalChannelTemplate & {
 export type SetupMutexResponse = {
     success: boolean
     cacheProperties?: MutexExportProperties
+    /** The reader's explored end once the cache is set up; see `SignalProcessorCache.exploredEnd`. */
+    exploredEnd?: number
 }
 /**
  * Response sent after setting up a shared worker as signal cache.

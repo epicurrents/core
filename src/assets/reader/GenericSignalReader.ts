@@ -722,6 +722,13 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         // If we're at the start of the recording and can cache it entirely, just do that.
         if (this.SETTINGS.app.maxLoadCacheSize >= totalSignalDataSize) {
             Log.debug(`Loading the whole recording to cache.`, SCOPE)
+            // A position beyond the explored span may lie past an interruption not yet known, and reading the part at
+            // it would place that part's signals at the wrong time. Read from the frontier instead; the sequential
+            // fill below is what moves the frontier on.
+            const exploredLimit = this._exploredRecordingEnd()
+            if (exploredLimit >= 0 && startFrom > exploredLimit) {
+                startFrom = exploredLimit
+            }
             if (startFrom) {
                 // Not starting from the beginning, prioritise the part at the view so it is
                 // available before the sequential fill reaches it — but only when no cache process

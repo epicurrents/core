@@ -359,6 +359,11 @@ export default abstract class GenericBiosignalService extends GenericService imp
             return true
         } else if (data.action === 'setup-cache') {
             this._isCacheSetup = data.success
+            // Set before the commission resolves, so the recording is restricted before anything awaiting the cache
+            // can move its view.
+            if (data.success && typeof data.exploredEnd === 'number') {
+                this._recording.exploredEnd = data.exploredEnd
+            }
             if (data.success) {
                 commission.resolve(data.cacheProperties)
             } else {

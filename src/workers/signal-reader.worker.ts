@@ -261,6 +261,9 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
      * more: the object itself would arrive on the other side as a structured clone with no link to
      * the memory it stands for. Serving that case to an application that has to read the cache is
      * the worker substitute's job, where the two live on one thread.
+     *
+     * Both cases answer with the reader's explored end. Nothing is read before the cache exists, so this is the value
+     * the application holds until the first progress report replaces it.
      * @param msgData - Data property from the message to the worker.
      */
     async setupCache (msgData: WorkerMessage['data']) {
@@ -283,12 +286,12 @@ export abstract class SignalReaderWorker<T extends GenericSignalReader = Generic
             if (!exportProps) {
                 return this._failure(msgData, `Mutex setup failed.`)
             }
-            return this._success(msgData, { cacheProperties: exportProps })
+            return this._success(msgData, { cacheProperties: exportProps, exploredEnd: this._reader.exploredEnd })
         }
         if (!this._reader.setupCache((msgData.dataDuration as number) || 0, derivationSlots)) {
             return this._failure(msgData, `Cache setup failed.`)
         }
-        return this._success(msgData)
+        return this._success(msgData, { exploredEnd: this._reader.exploredEnd })
     }
 
     /**

@@ -884,6 +884,13 @@ export interface SignalProcessorCache extends Modify<DataProcessorCache, {
      */
     discontinuous: boolean
     /**
+     * Recording-time end of the span whose positions map exactly to the source data, or -1 when every position does
+     * (a continuous source, or a complete interruption table). On a discontinuous source the span starts at zero and
+     * grows as reading reveals the interruptions within it; a position beyond it may lie past an interruption not yet
+     * known.
+     */
+    readonly exploredEnd: number
+    /**
      * Total length of the recording in seconds (including gaps).
      */
     totalLength: number

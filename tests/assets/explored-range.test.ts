@@ -4,7 +4,8 @@
  * On a discontinuous file without a complete trusted interruption table, the recording-time↔
  * data-time mapping is only exact within the contiguously decoded span. The frontier tracks
  * that span, ignores detached decodes (which prove nothing about the gaps before them), and
- * clamps rolling-window slide targets; a complete trusted table lifts the restriction.
+ * clamps rolling-window slide targets and the first read of a whole-recording cache; a complete
+ * trusted table lifts the restriction.
  *
  * @package    epicurrents/core
  * @copyright  2026 Sampsa Lohi
@@ -14,22 +15,19 @@
 import GenericSignalReader from '../../src/assets/reader/GenericSignalReader'
 
 class TestReader extends GenericSignalReader {
-    constructor () {
-        super(Float32Array)
+    constructor (settings?: ConstructorParameters<typeof GenericSignalReader>[1]) {
+        super(Float32Array, settings)
     }
     extend (unitStart: number, unitEnd: number) {
         this._extendExploredUnits(unitStart, unitEnd)
-    }
-    exploredEnd () {
-        return this._exploredRecordingEnd()
     }
     viewBlockFor (position: number) {
         return this._viewBlockForPosition(position)
     }
 }
 
-const buildReader = (discontinuous = true) => {
-    const reader = new TestReader()
+const buildReader = (discontinuous = true, settings?: ConstructorParameters<typeof GenericSignalReader>[1]) => {
+    const reader = new TestReader(settings)
     const raw = reader as unknown as Record<string, unknown>
     raw._discontinuous = discontinuous
     raw._dataUnitDuration = 1
@@ -53,35 +51,35 @@ describe('Exploration frontier bookkeeping', () => {
     test('contiguous decodes extend the frontier, detached ones do not', () => {
         const reader = buildReader()
         reader.extend(0, 10)
-        expect(reader.exploredEnd()).toBe(10)
+        expect(reader.exploredEnd).toBe(10)
         reader.extend(8, 20)
-        expect(reader.exploredEnd()).toBe(20)
+        expect(reader.exploredEnd).toBe(20)
         // A detached decode (e.g. the last-record duration probe) proves nothing about the
         // gaps before it and must not advance the frontier.
         reader.extend(40, 50)
-        expect(reader.exploredEnd()).toBe(20)
+        expect(reader.exploredEnd).toBe(20)
     })
     test('known interruptions extend the frontier in recording time', () => {
         const reader = buildReader()
         reader.addNewInterruptions(new Map([[5, 3]]))
         reader.extend(0, 10)
         // 10 data units plus the 3-second gap discovered within them.
-        expect(reader.exploredEnd()).toBe(13)
+        expect(reader.exploredEnd).toBe(13)
     })
     test('continuous recordings are unrestricted', () => {
         const reader = buildReader(false)
-        expect(reader.exploredEnd()).toBe(-1)
+        expect(reader.exploredEnd).toBe(-1)
     })
     test('a complete trusted interruption table lifts the restriction', () => {
         const reader = buildReader()
-        expect(reader.exploredEnd()).toBe(0)
+        expect(reader.exploredEnd).toBe(0)
         reader.setInterruptions(new Map([[5, 3]]), true)
-        expect(reader.exploredEnd()).toBe(-1)
+        expect(reader.exploredEnd).toBe(-1)
     })
     test('a discovered (partial) table keeps the restriction', () => {
         const reader = buildReader()
         reader.setInterruptions(new Map([[5, 3]]))
-        expect(reader.exploredEnd()).toBe(0)
+        expect(reader.exploredEnd).toBe(0)
     })
 })
 
@@ -101,5 +99,38 @@ describe('Slide-target clamping', () => {
     test('unrestricted recordings never clamp', () => {
         const reader = buildReader(false)
         expect(reader.viewBlockFor(45)).toBe(4)
+    })
+})
+
+describe('Whole-recording cache start', () => {
+    /** A reader whose whole recording fits the cache, with reads recorded rather than made. */
+    const buildCachingReader = () => {
+        const reader = buildReader(true, {
+            app: { maxLoadCacheSize: 1e9, signalLoadingYieldMs: 0 },
+        } as unknown as ConstructorParameters<typeof GenericSignalReader>[1])
+        const raw = reader as unknown as Record<string, unknown>
+        raw._fileTypeHeader = {}
+        raw._fallbackCache = {}
+        raw._dataUnitSize = 1
+        // A negative next position ends the sequential fill after its first read.
+        const reads = vi.spyOn(reader, '_readAndCachePart').mockResolvedValue(-1)
+        return { reader, reads }
+    }
+    test('a start beyond the frontier reads the part at the frontier first', async () => {
+        const { reader, reads } = buildCachingReader()
+        reader.extend(0, 10)
+        await reader.cacheSignals(45)
+        expect(reads.mock.calls[0][0]).toBe(10)
+    })
+    test('a start beyond an unexplored recording reads nothing ahead of the fill', async () => {
+        const { reader, reads } = buildCachingReader()
+        await reader.cacheSignals(45)
+        expect(reads.mock.calls.map(call => call[0])).toEqual([0])
+    })
+    test('a start within the frontier reads the part at it first', async () => {
+        const { reader, reads } = buildCachingReader()
+        reader.extend(0, 30)
+        await reader.cacheSignals(25)
+        expect(reads.mock.calls[0][0]).toBe(25)
     })
 })

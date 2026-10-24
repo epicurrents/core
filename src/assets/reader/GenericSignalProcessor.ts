@@ -84,6 +84,10 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         return this._discontinuous
     }
 
+    get exploredEnd () {
+        return this._exploredRecordingEnd()
+    }
+
     get totalLength () {
         return this._totalRecordingLength
     }

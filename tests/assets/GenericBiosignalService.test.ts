@@ -188,6 +188,36 @@ describe('GenericBiosignalService', () => {
             expect(mockRecording.setInterruptions).toHaveBeenCalled()
         })
 
+        it('should give the recording the explored end of a cache setup before resolving it', async () => {
+            const service = new TestBiosignalService(mockRecording)
+            let seenAtResolve: unknown = null
+            ;(service as any)._commissions.set(
+                'setup-cache',
+                new Map([[3, {
+                    rn: 3,
+                    resolve: () => { seenAtResolve = mockRecording.exploredEnd },
+                    reject: vi.fn(),
+                }]])
+            )
+            await service.handleMessage({
+                data: { action: 'setup-cache', rn: 3, success: true, cacheProperties: {}, exploredEnd: 0 },
+            } as any)
+            expect(mockRecording.exploredEnd).toBe(0)
+            expect(seenAtResolve).toBe(0)
+        })
+
+        it('should leave the explored end alone when a cache setup fails', async () => {
+            const service = new TestBiosignalService(mockRecording)
+            ;(service as any)._commissions.set(
+                'setup-cache',
+                new Map([[4, { rn: 4, resolve: vi.fn(), reject: vi.fn() }]])
+            )
+            await service.handleMessage({
+                data: { action: 'setup-cache', rn: 4, success: false, exploredEnd: 0 },
+            } as any)
+            expect(mockRecording.exploredEnd).toBeUndefined()
+        })
+
         it('should resolve a single-stage terminal request-signals response', async () => {
             const service = new TestBiosignalService(mockRecording)
             let resolved: any = null

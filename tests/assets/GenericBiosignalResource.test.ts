@@ -368,6 +368,22 @@ describe('GenericBiosignalResource', () => {
             resource.viewStart = 500
             expect(resource.viewStart).toBe(500)
         })
+
+        it('should move a view start set before the limit was known back to it', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            resource.viewStart = 500
+            resource.exploredEnd = 0
+            expect(resource.viewStart).toBe(0)
+        })
+
+        it('should stay unrestricted with a complete trusted interruption table', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            resource.setTrustedInterruptions(new Map([[29, 1]]))
+            resource.viewStart = 500
+            resource.exploredEnd = 0
+            expect(resource.exploredEnd).toBe(-1)
+            expect(resource.viewStart).toBe(500)
+        })
     })
 
     describe('startTime', () => {
