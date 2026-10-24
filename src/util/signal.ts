@@ -481,18 +481,26 @@ export const calculateSignalOffsets = (
 }
 
 /**
- * Combine the given signal parts into as few as possible parts. This method will prioritize combining the parts and
- * will invalidate data on channels that have incompatible sampling rates.
+ * Combine the given signal parts into as few as possible parts, in any input order. This method will prioritize
+ * combining the parts and will invalidate data on channels that have incompatible sampling rates. When two parts
+ * overlap, the one later in the list supplies the overlapping samples.
  * @param signalParts - A list of any compatible signal parts.
  * @returns combined parts as an array
  */
 export const combineAllSignalParts = (...signalParts: SignalCachePart[]): SignalCachePart[] => {
-    for (let i=0; i<signalParts.length; i++) {
-        for (let j=i+1; j<signalParts.length; j++) {
-            if (combineSignalParts(signalParts[i], signalParts[j], 'shape')) {
-                // Remove the combined part.
-                signalParts.splice(j, 1)
-                j--
+    // A part that grows by absorbing a later one can come to meet a part the pass has already compared it with, so
+    // pass again until nothing combines. Each combination removes a part, which bounds the number of passes.
+    let combined = true
+    while (combined) {
+        combined = false
+        for (let i=0; i<signalParts.length; i++) {
+            for (let j=i+1; j<signalParts.length; j++) {
+                if (combineSignalParts(signalParts[i], signalParts[j], 'shape')) {
+                    // Remove the combined part.
+                    signalParts.splice(j, 1)
+                    j--
+                    combined = true
+                }
             }
         }
     }

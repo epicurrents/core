@@ -453,6 +453,46 @@ describe('Signal utilities', () => {
             expect(result[0].end).toBe(15)
         })
 
+        it('should combine a chain of parts given out of order', () => {
+            const part1 = {
+                start: 0,
+                end: 2,
+                signals: [{
+                    data: new Float32Array([1, 2]),
+                    samplingRate: 1
+                }]
+            }
+            const part2 = {
+                start: 4,
+                end: 6,
+                signals: [{
+                    data: new Float32Array([5, 6]),
+                    samplingRate: 1
+                }]
+            }
+            const part3 = {
+                start: 2,
+                end: 4,
+                signals: [{
+                    data: new Float32Array([3, 4]),
+                    samplingRate: 1
+                }]
+            }
+            const result = combineAllSignalParts(part1, part2, part3)
+            expect(result.length).toBe(1)
+            expect(result[0].start).toBe(0)
+            expect(result[0].end).toBe(6)
+            expect(Array.from(result[0].signals[0].data)).toEqual([1, 2, 3, 4, 5, 6])
+        })
+
+        it('should report a chain of ranges given out of order as continuous', () => {
+            expect(isContinuousSignal(
+                { start: 0, end: 1, signals: [] },
+                { start: 2, end: 3, signals: [] },
+                { start: 1, end: 2, signals: [] },
+            )).toBe(true)
+        })
+
         it('should keep non-consecutive parts separate', () => {
             const part1 = {
                 start: 0,
