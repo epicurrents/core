@@ -160,6 +160,7 @@ export {
 import type {
     ApplicationConfig,
     AssetService,
+    ContextMenuAction,
     DataResource,
     DatasetResourceContext,
     EpicurrentsApp,
@@ -364,6 +365,10 @@ export class Epicurrents implements EpicurrentsApp {
         return newSet
     }
 
+    getContextMenuActions () {
+        return new Map(this.#runtime.APP.contextMenuActions)
+    }
+
     getSignalExportTargets (resource: DataResource) {
         if (!util.isLocalResource(resource)) {
             return new Map<string, SignalExportTarget>()
@@ -497,6 +502,10 @@ export class Epicurrents implements EpicurrentsApp {
         }
     }
 
+    registerContextMenuAction (name: string, action: ContextMenuAction) {
+        this.#runtime.APP.contextMenuActions.set(name, action)
+    }
+
     registerInterface (intf: InterfaceModuleConstructor) {
         this.#interfaceConstructor = intf
     }
@@ -570,6 +579,10 @@ export class Epicurrents implements EpicurrentsApp {
 
     setWorkerOverride (name: string, getWorker: (() => Worker)|null) {
         this.#runtime.setWorkerOverride(name, getWorker)
+    }
+
+    unregisterContextMenuAction (name: string) {
+        return this.#runtime.APP.contextMenuActions.delete(name)
     }
 
     unregisterSignalExportTarget (name: string) {

@@ -6,7 +6,7 @@
  */
 
 import { safeObjectFrom } from '#util'
-import type { RuntimeAppModule, SafeObject } from '#types/application'
+import type { ContextMenuAction, RuntimeAppModule, SafeObject } from '#types/application'
 import type { DatasourceConnector } from '#types/connector'
 import type { SignalExportTarget } from '#types/reader'
 import type {
@@ -20,6 +20,7 @@ import type {
 const APP: SafeObject & RuntimeAppModule = safeObjectFrom({
     activeDataset: null,
     connectors: new Map<string, DatasourceConnector>(),
+    contextMenuActions: new Map<string, ContextMenuAction>(),
     datasets: [],
     id: '',
     moduleName: {

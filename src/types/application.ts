@@ -445,6 +445,46 @@ export interface BaseAsset {
     awaitDeactivation (): Promise<void>
 }
 /**
+ * An entry a host adds to the context menu the interface opens on a plot or on an annotation in it.
+ */
+export type ContextMenuAction = {
+    /** Name of an icon shown before the label. */
+    icon?: string
+    /** User-facing label, already translated. */
+    label: string
+    /** The menus the entry appears in. */
+    targets: ContextMenuTarget[]
+    /**
+     * Whether the entry appears in the menu opened in the given context. Without this method it appears in every
+     * menu of its targets.
+     * @param context - What the menu was opened on.
+     */
+    isAvailable? (context: ContextMenuActionContext): boolean
+    /**
+     * Carry out the action. The menu has closed by the time this is called.
+     * @param context - What the menu was opened on.
+     */
+    run (context: ContextMenuActionContext): void
+}
+/**
+ * What a context menu was opened on.
+ */
+export type ContextMenuActionContext = {
+    /** The annotation the menu was opened on, for the `annotation` target. */
+    annotation: Annotation | null
+    /** Name of the channel the menu was opened on, if any. */
+    channel: string | null
+    /** The resource shown in the plot. */
+    resource: DataResource
+    target: ContextMenuTarget
+    /** Recording time in seconds at the pointer, or the annotation's start. */
+    timestamp: number
+}
+/**
+ * The kinds of context menu an action can be added to: the menu of an annotation, or of the plot around it.
+ */
+export type ContextMenuTarget = 'annotation' | 'plot'
+/**
  * The main Epicurrents application.
  */
 export interface EpicurrentsApp {
@@ -518,6 +558,12 @@ export interface EpicurrentsApp {
      */
     createDataset (name?: string, setAsActive?: boolean): MediaDataset
     /**
+     * The actions hosts have added to the interface's context menus. The interface reads these each time it opens a
+     * menu.
+     * @returns Registered actions by name.
+     */
+    getContextMenuActions (): Map<string, ContextMenuAction>
+    /**
      * The export targets the given resource may be sent to: every registered target when the resource was opened from
      * a local file, none otherwise.
      * @param resource - The resource to export.
@@ -572,6 +618,12 @@ export interface EpicurrentsApp {
      */
     registerService (name: string, service: AssetService): void
     /**
+     * Add an action to the interface's context menus. Menus already open are not changed.
+     * @param name - Unique name of the action. If another action exists with the same name it will be replaced.
+     * @param action - The action.
+     */
+    registerContextMenuAction (name: string, action: ContextMenuAction): void
+    /**
      * Register a destination signal recordings can be exported to. Dispatches the application event
      * `signal-export-targets-changed`.
      * @param name - Unique name of the target. If another target exists with the same name it will be replaced.
@@ -599,6 +651,12 @@ export interface EpicurrentsApp {
      * @param resource - The resource to select or its unique ID.
      */
     selectActiveResource (resource: DataResource | string): void
+    /**
+     * Remove an action from the interface's context menus.
+     * @param name - Name the action was registered under.
+     * @returns True if an action was removed.
+     */
+    unregisterContextMenuAction (name: string): boolean
     /**
      * Remove a registered export target. Dispatches the application event `signal-export-targets-changed` when a
      * target was removed.
@@ -823,6 +881,7 @@ export type ResourceModule = {
 export type RuntimeAppModule = NullProtoObject & {
     activeDataset: MediaDataset | null
     connectors: Map<string, DatasourceConnector>
+    contextMenuActions: Map<string, ContextMenuAction>
     datasets: MediaDataset[]
     id: string
     moduleName: {
