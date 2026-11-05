@@ -170,6 +170,7 @@ const _settings = {
     app: {
         _userDefinable: {
         },
+        dataBlockChunkDuration: 300,
         dataBlockDuration: 3600,
         dataChunkSize: 5*MB_BYTES,
         get isSabUsed () {

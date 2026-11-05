@@ -153,6 +153,50 @@ describe('requestSignals on the rolling path', () => {
         expect(secondResult.status).toBe('ready')
         expect(reader.blockLoads.slice(1).map(l => l.idx).sort()).toStrictEqual([2, 3, 4])
     })
+    test('a newer view request for the same window joins the slide instead of restarting it', async () => {
+        // A block load reports each part it reads, and every report brings the viewer back for the
+        // same window. Superseding there would abort the load and read the block from the start again.
+        const { reader } = await setupReader()
+        const first = await reader.requestSignals([5, 15])
+        expect(first.status).toBe('pending')
+        await until(() => reader.blockLoads.length === 1)
+        const second = await reader.requestSignals([7, 17])
+        expect(reader.blockLoads[0].signal?.aborted).toBe(false)
+        for (let i = 0; i < 3; i++) {
+            await until(() => reader.blockLoads.length === i + 1)
+            reader.blockLoads[i].resolve(true)
+        }
+        expect(second.status).toBe('pending')
+        const secondResult = await (second as { ready: Promise<SignalRequest> }).ready
+        expect(secondResult.status).toBe('ready')
+        // One load per block of the window [0,2], none repeated.
+        expect(reader.blockLoads.map(l => l.idx)).toStrictEqual([0, 1, 2])
+    })
+    test('a view request resolves once a part covering its range lands, before the window is loaded', async () => {
+        // An hour-long block is read in parts; the plot needs the first seconds of it, and waiting
+        // for the whole window kept it blank for a minute on a dense recording.
+        const { reader } = await setupReader()
+        const raw = reader as unknown as {
+            _cachedRecordingRange: () => Promise<[number, number]>
+            _pendingSlide: { listeners: Set<() => void> } | null
+        }
+        let covered: [number, number] = [0, 0]
+        raw._cachedRecordingRange = async () => covered
+        const request = await reader.requestSignals([5, 15])
+        expect(request.status).toBe('pending')
+        await until(() => reader.blockLoads.length === 1)
+        // The first part of block 0 lands; block 0 is still loading.
+        covered = [0, 20]
+        for (const listener of [...raw._pendingSlide!.listeners]) {
+            listener()
+        }
+        const result = await (request as { ready: Promise<SignalRequest> }).ready
+        expect(result.status).toBe('ready')
+        expect(reader.blockLoads.length).toBe(1)
+        expect(reader.blockLoads[0].signal?.aborted).toBe(false)
+        reader.autoLoad = true
+        reader.blockLoads[0].resolve(true)
+    })
     test('a hung load times out to error and the queue keeps working', async () => {
         const originalTimeout = GenericSignalReader.LOAD_BLOCK_TIMEOUT
         GenericSignalReader.LOAD_BLOCK_TIMEOUT = 20

@@ -55,6 +55,13 @@ export interface AppSettings {
          */
         dataBlockDuration: number
         /**
+         * Seconds of signal a rolling-cache block is read in at a time. Each part is inserted and announced before the
+         * next is read, so the view can be drawn once the part holding it is in rather than after the whole block.
+         * Rounded down to whole data records, and at least one. Default 300 s, about the longest page a sleep study is
+         * read at; a deployment whose views run longer raises it.
+         */
+        dataBlockChunkDuration: number
+        /**
          * Maximum number of bytes to load in one chunk. This will be rounded down to the nearest whole data record
          * size - 1 (because one data record may be added for signal interpolation).
          * If the size of a single data record is larger than dataChunkSize, the value will be rounded up to match one

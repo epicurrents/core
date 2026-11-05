@@ -13,6 +13,7 @@ import {
     NUMERIC_ERROR_VALUE,
     partsNotCached,
     resilientFetch,
+    sleep,
 } from '#util'
 import type {
     AppSettings,
@@ -145,6 +146,28 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * touches the window at a time. See {@link requestSignals} and {@link _slideToBlock}.
      */
     protected _opQueue = new SignalReaderOpQueue()
+    /**
+     * The slide whose ops are on the queue, until it settles. A slide to the same window joins it
+     * instead of superseding it: a block load reports every part it reads, each report brings the
+     * viewer back to ask for the same window, and superseding would abort the load and start the
+     * block again from its first part.
+     */
+    protected _pendingSlide: {
+        firstIdx: number
+        secondIdx: number
+        /** Resolves true once the window is in place or a newer slide took over, false on a failed load. */
+        done: Promise<boolean>
+        /** Indices of the blocks that failed to load, complete once `done` resolves. */
+        failures: number[]
+        /** True once the slide's invalidate has run, so the cache holds this window's data and no other's. */
+        invalidated: boolean
+        /** Called when the invalidate runs, when a part of a block lands and when the slide settles. */
+        listeners: Set<() => void>
+        /** True once `done` has resolved; read synchronously, so a waiter cannot miss the settling. */
+        settled: boolean
+        /** True when a newer slide or a release took over before this one finished. */
+        superseded: boolean
+    } | null = null
     /** Loading process start time (for debugging). */
     protected _startTime = 0
     /**
@@ -836,7 +859,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                 Log.error(`Rolling cache requested but no data blocks have been built.`, SCOPE)
                 return false
             }
-            return await this._slideToBlock(this._viewBlockForPosition(startFrom))
+            return await this._slideToBlock(this._viewBlockForPosition(startFrom), startFrom)
         }
         return true
     }
@@ -1128,62 +1151,42 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         if (!win) {
             return { status: 'error', reason: 'Could not resolve a rolling window for the requested range.' }
         }
-        this._opQueue.supersedeStream('view')
         const missing = this._dataBlocks
             .slice(win.firstIdx, win.secondIdx + 1)
             .filter(b => !b.loaded).length
         if (!missing) {
             // Window already resident: a single coordinated read.
+            this._opQueue.supersedeStream('view')
             const part = await this._enqueueRead(range, config, 'view')
             if (part === 'superseded' || gen !== this._viewRequestGen) {
                 return { status: 'superseded' }
             }
             return part ? { status: 'ready', part } : { status: 'error', reason: 'Reading signals failed.' }
         }
-        // Slide needed: enqueue invalidate + per-block loads + the final read, and return
-        // immediately with a pending handle that the final read settles.
-        let settled = false
-        let resolveReady!: (result: SignalRequest) => void
-        const ready = new Promise<SignalRequest>((resolve) => {
-            resolveReady = (result: SignalRequest) => {
-                if (!settled) {
-                    settled = true
-                    resolve(result)
-                }
+        // Slide needed: start the slide, or join the one already loading this window, and return a
+        // pending handle. The handle settles as soon as the range itself is in the cache, not when
+        // the whole window is: a block is read in parts, and the view usually needs the first.
+        const slide = this._startSlide(win)
+        const ready = (async (): Promise<SignalRequest> => {
+            await this._awaitSlideCoverage(slide, range)
+            const cached = slide.invalidated && await this._isRangeCached(range)
+            if (gen !== this._viewRequestGen || (slide.superseded && !cached)) {
+                // A newer view request carries the work.
+                return { status: 'superseded' }
             }
-        })
-        const settleSuperseded = () => resolveReady({ status: 'superseded' })
-        const failures: number[] = []
-        for (const op of this._buildSlideOps(win, 'view', settleSuperseded, failures)) {
-            this._opQueue.enqueue(op)
-        }
-        this._opQueue.enqueue({
-            kind: 'read',
-            stream: 'view',
-            settleSuperseded,
-            run: async (signal) => {
-                if (signal.aborted) {
-                    settleSuperseded()
-                    return
+            if (!cached && slide.failures.length) {
+                return { status: 'error', reason: `Data block(s) ${slide.failures.join(', ')} failed to load.` }
+            }
+            try {
+                const part = await this.getSignals(range, config)
+                if (gen !== this._viewRequestGen) {
+                    return { status: 'superseded' }
                 }
-                if (failures.length) {
-                    resolveReady({
-                        status: 'error',
-                        reason: `Data block(s) ${failures.join(', ')} failed to load.`,
-                    })
-                    return
-                }
-                try {
-                    const part = await this.getSignals(range, config)
-                    resolveReady(part
-                        ? { status: 'ready', part }
-                        : { status: 'error', reason: 'Reading signals failed.' }
-                    )
-                } catch (e: unknown) {
-                    resolveReady({ status: 'error', reason: (e as Error)?.message ?? 'Reading signals failed.' })
-                }
-            },
-        })
+                return part ? { status: 'ready', part } : { status: 'error', reason: 'Reading signals failed.' }
+            } catch (e: unknown) {
+                return { status: 'error', reason: (e as Error)?.message ?? 'Reading signals failed.' }
+            }
+        })()
         return { status: 'pending', ready }
     }
 
@@ -1319,12 +1322,13 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
     }
 
     /**
-     * Load one data block's worth of raw signal into the cache. The block's data range is converted
-     * to data-time seconds and fetched via the existing {@link _readSignalPart} path (HTTP `Range:`
-     * or `File.slice()` plus decoder + interruption handling), then inserted into the cache via
-     * {@link insertSignals}. The mutex side handles cache-relative addressing — the insert is
-     * keyed by the block's absolute data-time start, and the mutex writes to the correct offset
-     * inside its current `RANGE_START`/`RANGE_END` window.
+     * Load one data block's worth of raw signal into the cache, a part of `dataBlockChunkDuration`
+     * at a time through {@link _loadBlockPart}: each part is fetched via the existing
+     * {@link _readSignalPart} path (HTTP `Range:` or `File.slice()` plus decoder + interruption
+     * handling), inserted into the cache via {@link insertSignals} and announced before the next is
+     * read. The mutex side handles cache-relative addressing — each insert is keyed by the part's
+     * absolute data-time start, and the mutex writes to the correct offset inside its current
+     * `RANGE_START`/`RANGE_END` window.
      *
      * Sets `_dataBlocks[idx].data` to a sentinel non-null value on success so callers can tell
      * "this block has been loaded since the last slide" from `data === null`. The actual sample
@@ -1350,62 +1354,36 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             return false
         }
         try {
-            // Block bounds are data-time (gap-exclusive) but `_readSignalPart` takes recording
-            // time — it subtracts prior interruption time itself, and the mutex insert converts
-            // the result back to cache time. Passing data-time bounds directly would subtract
-            // the gaps twice, fetching file positions earlier than this block for every block
-            // past the first interruption. The conversion uses the known gap table, which is
-            // exact for blocks within (or adjacent to) the explored span — the only blocks a
-            // clamped slide can target.
-            const readStart = this._cacheTimeToRecordingTime(block.startTime)
-            const readEnd = block.endTime >= this._totalDataLength
-                            ? this._totalRecordingLength
-                            : this._cacheTimeToRecordingTime(block.endTime)
-            if (readStart === NUMERIC_ERROR_VALUE || readEnd === NUMERIC_ERROR_VALUE) {
-                Log.error(`Cannot load block ${idx}, block bounds failed recording-time conversion.`, SCOPE)
-                return false
+            // The block is read in parts of `dataBlockChunkDuration`, each inserted and announced as
+            // it lands, so a viewer waiting on the view's range can draw it as soon as the part
+            // holding it is in. Read whole, an hour-long block of a dense recording keeps the plot
+            // empty for the entire read, though the view needs minutes of it at most.
+            const unitsPerPart = Math.max(
+                1,
+                Math.floor((this.SETTINGS.app.dataBlockChunkDuration || 0)/this._dataUnitDuration)
+            )
+            const partSeconds = this.SETTINGS.app.dataBlockChunkDuration > 0
+                                ? unitsPerPart*this._dataUnitDuration
+                                : block.endTime - block.startTime
+            const yieldMs = this.SETTINGS.app.signalLoadingYieldMs ?? 50
+            for (let partStart = block.startTime; partStart < block.endTime; partStart += partSeconds) {
+                if (signal?.aborted) {
+                    Log.debug(`Block ${idx} load was aborted.`, SCOPE)
+                    return false
+                }
+                const partEnd = Math.min(partStart + partSeconds, block.endTime)
+                if (!await this._loadBlockPart(idx, partStart, partEnd, signal)) {
+                    return false
+                }
+                if (partEnd < block.endTime && yieldMs > 0) {
+                    // The same breathing room the full-cache fill gives the consumer between chunks.
+                    await sleep(yieldMs)
+                }
             }
-            const newSignals = await this._readSignalPart(readStart, readEnd, true, false, signal)
-            if (!newSignals || !newSignals.signals.length) {
-                Log.warn(`Block ${idx} read returned no signals.`, SCOPE)
-                return false
-            }
-            this._finaliseSignalPart(newSignals)
-            if (this.discontinuous) {
-                newSignals.start = this._recordingTimeToCacheTime(newSignals.start)
-                newSignals.end = this._recordingTimeToCacheTime(newSignals.end)
-            }
-            await this._cache.insertSignals(newSignals)
-            // Notify the main thread that new data has been loaded. The viewer watches
-            // `signalCacheStatus` property changes that are driven by these `cache-signals`
-            // updates to decide when to render; without this dispatch the renderer would never
-            // know the rolling cache has fresh samples and would show blank channels even though
-            // the SAB-backed mutex holds the data.
-            //
-            // `getSignalUpdatedRange()` returns positions *within the cache buffer* (in seconds);
-            // when the rolling cache has slid past time 0, the absolute recording-time range is
-            // offset by `cacheRange.start`. For the full-cache path `cacheRange.start === 0` so
-            // adding it is harmless.
-            const updated = await this.getSignalUpdatedRange()
-            const cacheRange = await this._getSignalCacheRange()
-            const absStart = cacheRange.start + updated.start
-            const absEnd = cacheRange.start + updated.end
-            // Progress reports in recording time — see `_cacheRangeToRecordingRange` for why.
-            const [progressStart, progressEnd] = this._cacheRangeToRecordingRange(absStart, absEnd)
-            if (this._updateCallback) {
-                this._updateCallback({
-                    action: 'cache-signals',
-                    events: this.getEvents([readStart, readEnd]),
-                    exploredEnd: this._exploredRecordingEnd(),
-                    interruptions: this.getInterruptions(undefined, true),
-                    range: [progressStart, progressEnd],
-                    success: true,
-                })
-            }
-            this._notifyDataWaiters(progressStart, progressEnd)
             // Mark as loaded. The actual samples live in the SAB-backed mutex; the `loaded`
             // flag just tracks "this block has data in the current window" to avoid redundant
-            // re-loads on subsequent `_slideToBlock` calls that don't change the window.
+            // re-loads on subsequent `_slideToBlock` calls that don't change the window. A block
+            // whose load stopped part-way stays unloaded and is read again in full.
             block.loaded = true
             return true
         } catch (e: unknown) {
@@ -1416,6 +1394,86 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             Log.error(`Failed to load block ${idx}: ${(e as Error).message}.`, SCOPE, e as Error)
             return false
         }
+    }
+
+    /**
+     * Read the part of block `idx` between `startTime` and `endTime` (data time), insert it into the
+     * cache and announce it with a `cache-signals` update. Returns false when the read yields
+     * nothing; a throw, including an abort, reaches {@link _loadBlock}.
+     * @param idx - Index of the block the part belongs to, for messages.
+     * @param startTime - Start of the part in data time (gap-exclusive seconds).
+     * @param endTime - End of the part in data time.
+     * @param signal - Abort signal of the block load.
+     */
+    protected async _loadBlockPart (idx: number, startTime: number, endTime: number, signal?: AbortSignal) {
+        // Part bounds are data-time (gap-exclusive) but `_readSignalPart` takes recording
+        // time — it subtracts prior interruption time itself, and the mutex insert converts
+        // the result back to cache time. Passing data-time bounds directly would subtract
+        // the gaps twice, fetching file positions earlier than this part for every part
+        // past the first interruption. The conversion uses the known gap table, which is
+        // exact for blocks within (or adjacent to) the explored span — the only blocks a
+        // clamped slide can target.
+        const readStart = this._cacheTimeToRecordingTime(startTime)
+        const readEnd = endTime >= this._totalDataLength
+                        ? this._totalRecordingLength
+                        : this._cacheTimeToRecordingTime(endTime)
+        if (readStart === NUMERIC_ERROR_VALUE || readEnd === NUMERIC_ERROR_VALUE) {
+            Log.error(`Cannot load block ${idx}, block bounds failed recording-time conversion.`, SCOPE)
+            return false
+        }
+        const newSignals = await this._readSignalPart(readStart, readEnd, true, false, signal)
+        if (!newSignals || !newSignals.signals.length) {
+            Log.warn(`Block ${idx} read returned no signals.`, SCOPE)
+            return false
+        }
+        this._finaliseSignalPart(newSignals)
+        if (this.discontinuous) {
+            newSignals.start = this._recordingTimeToCacheTime(newSignals.start)
+            newSignals.end = this._recordingTimeToCacheTime(newSignals.end)
+        }
+        if (!this._cache) {
+            // Released while the part was being read; there is nowhere to put it.
+            return false
+        }
+        await this._cache.insertSignals(newSignals)
+        // Notify the main thread that new data has been loaded. The viewer watches
+        // `signalCacheStatus` property changes that are driven by these `cache-signals`
+        // updates to decide when to render; without this dispatch the renderer would never
+        // know the rolling cache has fresh samples and would show blank channels even though
+        // the SAB-backed mutex holds the data.
+        //
+        // `getSignalUpdatedRange()` returns positions *within the cache buffer* (in seconds);
+        // when the rolling cache has slid past time 0, the absolute recording-time range is
+        // offset by `cacheRange.start`. For the full-cache path `cacheRange.start === 0` so
+        // adding it is harmless.
+        const [progressStart, progressEnd] = await this._cachedRecordingRange()
+        if (this._updateCallback) {
+            this._updateCallback({
+                action: 'cache-signals',
+                events: this.getEvents([readStart, readEnd]),
+                exploredEnd: this._exploredRecordingEnd(),
+                interruptions: this.getInterruptions(undefined, true),
+                range: [progressStart, progressEnd],
+                success: true,
+            })
+        }
+        this._notifyDataWaiters(progressStart, progressEnd)
+        for (const listener of [...this._pendingSlide?.listeners ?? []]) {
+            listener()
+        }
+        return true
+    }
+
+    /**
+     * The range the cache holds, in recording time. `getSignalUpdatedRange()` returns positions
+     * within the cache buffer; when the rolling cache has slid past time 0 the absolute range is
+     * offset by the cache range's start, which is 0 on the full-cache path.
+     */
+    protected async _cachedRecordingRange (): Promise<[number, number]> {
+        const updated = await this.getSignalUpdatedRange()
+        const cacheRange = await this._getSignalCacheRange()
+        // Progress reports in recording time — see `_cacheRangeToRecordingRange` for why.
+        return this._cacheRangeToRecordingRange(cacheRange.start + updated.start, cacheRange.start + updated.end)
     }
 
     /**
@@ -1662,9 +1720,15 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
      * in-window data is preserved via {@link BiosignalMutex.setSignalRange}.
      *
      * Resolves true when the window is established (or a newer slide superseded this one —
-     * the newer op carries the work), false when a block load failed.
+     * the newer op carries the work), false when a block load failed. Given a `position`, it
+     * resolves true as soon as the data unit at that position is in the new window instead: a
+     * block is read in parts, and a caller positioning the cache for a view should not wait for
+     * the hours of window around it. A read that then finds the view only partly cached comes
+     * back short, and the next cache update draws the rest.
+     * @param centerIdx - Index of the block to center the window on.
+     * @param position - Recording-time position the caller needs, usually the view start.
      */
-    protected async _slideToBlock (centerIdx: number): Promise<boolean> {
+    protected async _slideToBlock (centerIdx: number, position?: number): Promise<boolean> {
         if (!this._useRolling || !this._mutex || !this._dataBlocks.length) {
             return false
         }
@@ -1672,40 +1736,148 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         if (!win) {
             return false
         }
+        const pending = this._pendingSlide
+        if (!pending || pending.firstIdx !== win.firstIdx || pending.secondIdx !== win.secondIdx) {
+            // Logged only for a slide that starts; a request joining one in progress queues nothing.
+            const blocksToLoadCount = this._dataBlocks
+                .slice(win.firstIdx, win.secondIdx + 1)
+                .filter(b => !b.loaded).length
+            Log.info(
+                `_slideToBlock(center=${centerIdx}): window=[${win.firstIdx},${win.secondIdx}] ` +
+                `range=[${win.rangeStart},${win.rangeEnd}]s blocksToLoad=${blocksToLoadCount}`,
+                SCOPE
+            )
+        }
+        const slide = this._startSlide(win)
+        if (position !== undefined) {
+            const range = [position, Math.min(position + this._dataUnitDuration, this._totalRecordingLength)]
+            await this._awaitSlideCoverage(slide, range)
+            if (slide.invalidated && await this._isRangeCached(range)) {
+                return true
+            }
+        }
+        return await slide.done
+    }
+
+    /**
+     * Queue the ops that put window `win` in place — an invalidate, one load per missing block and
+     * a completion marker — or join the slide already queued for the same window. A slide to any
+     * other window supersedes the pending view-stream ops first (newest target wins).
+     *
+     * Joining is what keeps a block load from restarting: the load reports each part it reads, and
+     * every report brings the viewer back to ask for the window being loaded.
+     * @param win - The window to put in place, as {@link _windowForCenter} gives it.
+     */
+    protected _startSlide (win: { firstIdx: number, secondIdx: number, rangeStart: number, rangeEnd: number }) {
+        const pending = this._pendingSlide
+        if (pending && pending.firstIdx === win.firstIdx && pending.secondIdx === win.secondIdx) {
+            return pending
+        }
         this._opQueue.supersedeStream('view')
-        const blocksToLoadCount = this._dataBlocks
-            .slice(win.firstIdx, win.secondIdx + 1)
-            .filter(b => !b.loaded).length
-        Log.info(
-            `_slideToBlock(center=${centerIdx}): window=[${win.firstIdx},${win.secondIdx}] ` +
-            `range=[${win.rangeStart},${win.rangeEnd}]s blocksToLoad=${blocksToLoadCount}`,
-            SCOPE
-        )
-        return await new Promise<boolean>((resolve) => {
+        let settle!: (value: boolean) => void
+        const done = new Promise<boolean>((resolve) => {
             let settled = false
-            const settle = (value: boolean) => {
+            settle = (value: boolean) => {
                 if (!settled) {
                     settled = true
                     resolve(value)
                 }
             }
-            const failures: number[] = []
-            // A superseding slide means a newer target took over; that is not a failure of the
-            // window (the newer op establishes it), so callers get success.
-            const settleSuperseded = () => settle(true)
-            for (const op of this._buildSlideOps(win, 'view', settleSuperseded, failures)) {
-                this._opQueue.enqueue(op)
-            }
-            // Completion marker: runs after the last load op and reports the outcome.
-            this._opQueue.enqueue({
-                kind: 'load',
-                stream: 'view',
-                settleSuperseded,
-                run: async () => {
-                    settle(!failures.length)
-                },
-            })
         })
+        const failures: number[] = []
+        const slide = {
+            firstIdx: win.firstIdx,
+            secondIdx: win.secondIdx,
+            done,
+            failures,
+            invalidated: false,
+            listeners: new Set<() => void>(),
+            settled: false,
+            superseded: false,
+        }
+        const notify = () => {
+            for (const listener of [...slide.listeners]) {
+                listener()
+            }
+        }
+        // A superseding slide means a newer target took over; that is not a failure of the
+        // window (the newer op establishes it), so callers get success.
+        const settleSuperseded = () => {
+            slide.superseded = true
+            settle(true)
+        }
+        const ops = this._buildSlideOps(win, 'view', settleSuperseded, failures)
+        // The first op is the invalidate. Once it has run, what the cache reports covered is this
+        // window's data, which is what lets a read wait on coverage rather than on the whole slide.
+        const invalidate = ops[0]
+        ops[0] = {
+            ...invalidate,
+            run: async (signal) => {
+                await invalidate.run(signal)
+                slide.invalidated = true
+                notify()
+            },
+        }
+        for (const op of ops) {
+            this._opQueue.enqueue(op)
+        }
+        // Completion marker: runs after the last load op and reports the outcome.
+        this._opQueue.enqueue({
+            kind: 'load',
+            stream: 'view',
+            settleSuperseded,
+            run: async () => {
+                settle(!failures.length)
+            },
+        })
+        this._pendingSlide = slide
+        void done.finally(() => {
+            slide.settled = true
+            if (this._pendingSlide === slide) {
+                this._pendingSlide = null
+            }
+            notify()
+        })
+        return slide
+    }
+
+    /**
+     * Resolve once `range` is in the cache for `slide`'s window, or once the slide has settled,
+     * whichever comes first. The part of a block holding the range is enough; the rest of the
+     * window is not waited for.
+     * @param slide - The slide that puts the range's window in place.
+     * @param range - The range to wait for, in recording time.
+     */
+    protected async _awaitSlideCoverage (slide: NonNullable<GenericSignalReader['_pendingSlide']>, range: number[]) {
+        while (!slide.settled) {
+            if (slide.invalidated && await this._isRangeCached(range)) {
+                return
+            }
+            if (slide.settled) {
+                // Settled while the coverage test awaited; its notification has already gone out.
+                return
+            }
+            await new Promise<void>((resolve) => {
+                const listener = () => {
+                    slide.listeners.delete(listener)
+                    resolve()
+                }
+                slide.listeners.add(listener)
+            })
+        }
+    }
+
+    /**
+     * Whether the cache holds `range` (recording time) whole; a range running past the end of the
+     * recording counts as held when the cache reaches the end.
+     * @param range - The range to test.
+     */
+    protected async _isRangeCached (range: number[]) {
+        const [start, end] = await this._cachedRecordingRange()
+        if (start === NUMERIC_ERROR_VALUE || end === NUMERIC_ERROR_VALUE || end <= start) {
+            return false
+        }
+        return range[0] >= start && (range[1] <= end || end >= this._totalRecordingLength)
     }
 
     /**
