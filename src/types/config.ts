@@ -482,6 +482,12 @@ export type ConfigChannelFilter  = {
 export type ConfigChannelLayout = {
     /** Relative space between two channels within a group. */
     channelSpacing?: number
+    /**
+     * Relative height of each channel in a group, one entry per `layout` group; a missing, zero or negative entry is 1.
+     * A montage uses this to give some signal types more room than others, e.g. EEG over respiration when scoring
+     * sleep stages.
+     */
+    groupHeights?: number[]
     /** Relative space between two channel groups. */
     groupSpacing?: number
     /** Use raw montage layout (all channels evenly spaced). */
@@ -500,6 +506,8 @@ export type ConfigMapChannels = {
     correctedChannelSuffix?: string
     channelSpacing: number
     electrodes: string[]
+    /** Relative channel height per layout group; see `ConfigChannelLayout`. */
+    groupHeights?: number[]
     groupSpacing: number
     isRaw: boolean
     layout: number[]

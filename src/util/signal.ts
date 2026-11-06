@@ -305,6 +305,7 @@ export const calculateAmplitudeEnvelope = (
  *               ```
  *               {
  *                  channelSpacing: number,
+ *                  groupHeights: number[],
  *                  groupSpacing: number,
  *                  layout: number[],
  *                  yPadding: number,
@@ -317,7 +318,11 @@ export const calculateAmplitudeEnvelope = (
  *               `yPadding` is the extra amount of padding (relative to channelSpacing) to add above the first channel
  *                 and below the last channel.\
  *               `layout` is an array of logical channel group sizes. The number of channels in each element are
- *                 considered a part of the same group.
+ *                 considered a part of the same group.\
+ *               `groupHeights` is an optional array of relative channel heights, one per `layout` group. Each channel
+ *                 of a group with height 2 takes twice the room of a channel with height 1; a missing, zero or
+ *                 negative entry is 1. The weight is per channel, so a group missing some of its channels shrinks
+ *                 instead of spreading the rest over its share.
  *
  * @example
  * calculateSignalOffsets({
@@ -328,6 +333,13 @@ export const calculateAmplitudeEnvelope = (
  * })
  * // will produce five logical groups, the first four containing four channels and the last two channels,
  * // with each group separated by 2 times the amount of spacing of the individual channels inside each group.
+ * @example
+ * calculateSignalOffsets({
+ *      layout: [ 6, 2, 1, 1, 3, 1 ],
+ *      groupHeights: [ 2, 1.5, 1.5, 1, 0.5, 1 ],
+ * })
+ * // gives each channel of the first group twice the room of a channel in the fourth, and each channel of the fifth
+ * // group half of it.
  */
 export const calculateSignalOffsets = (
     channels: (BiosignalChannelProperties | MontageChannel)[],
@@ -372,6 +384,7 @@ export const calculateSignalOffsets = (
     const requiredConfig = Object.assign(
         {
             channelSpacing: 1,
+            groupHeights: [],
             groupSpacing: 1,
             isRaw: false, // We checked for this above.
             layout: [],
@@ -380,29 +393,20 @@ export const calculateSignalOffsets = (
         config
     )
     // Calculate channel offsets from the provided config.
-    let nGroups = 0
     let nChannels = 0
     let nChanTotal = 0
     // Copy to a plain array — reaching here guarantees an array (the guard above),
     // but it may be a reactive proxy from the host store, and the offset maths below
     // index and iterate it directly on the main thread.
     const configLayout = [...requiredConfig.layout]
-    const layout = []
     for (const group of configLayout) {
-        let nGroup = 0
         // Remove missing, hidden, and _orig overlay channels from the layout count.
         for (let i=nChanTotal; i<nChanTotal+group; i++) {
             if (shouldDisplayChannel(channels[i], false) && !channels[i]?.isOriginal) {
-                nGroup++
+                nChannels++
             }
         }
-        nChannels += nGroup
         nChanTotal += group
-        // Don't add empty groups.
-        if (nGroup) {
-            nGroups++
-            layout.push(nGroup)
-        }
     }
     // Check if the number of non-meta channels matches the constructed layout.
     const nSignalChannels = channels.filter(
@@ -411,27 +415,26 @@ export const calculateSignalOffsets = (
     if (nChannels !== nSignalChannels) {
         Log.warn(`The number of channels does not match config layout.`, SCOPE)
     }
-    // Calculate total trace height, starting with top and bottom margins.
-    let layoutH = 2*requiredConfig.yPadding
-    // Add channel heights.
-    layoutH += (nChannels - (nGroups - 1) - 1)*requiredConfig.channelSpacing
-    // Add group heights.
-    layoutH += (nGroups - 1)*requiredConfig.groupSpacing
-    // Go through the signals and add their respective offsets.
-    // First trace is y-padding away from the top.
-    let yPos = 1.0 - requiredConfig.yPadding/layoutH
+    // Group heights are indexed by layout group, empty groups included, so a montage's weights stay with their groups
+    // when a recording lacks some of the channels.
+    const configHeights = Array.isArray(requiredConfig.groupHeights) ? [...requiredConfig.groupHeights] : []
+    if (configHeights.length && configHeights.length !== configLayout.length) {
+        Log.warn(
+            `Config has ${configHeights.length} group heights for ${configLayout.length} layout groups; ` +
+            `groups without a height use 1.`,
+        SCOPE)
+    }
+    const groupHeight = (group: number) => {
+        const height = configHeights[group]
+        return typeof height === 'number' && height > 0 ? height : 1
+    }
+    // Collect the displayed channels with the height of their group, then place them top-down. Distances are in units
+    // of the config spacings and normalized to the trace height once the total is known. A channel takes its group's
+    // height times channelSpacing; the gap between groups and the padding at the ends grow with the channels next to
+    // them, so that with every height 1 the layout is the same as before group heights existed.
+    const placed = [] as { chan: typeof channels[number], group: number, height: number }[]
     let chanIdx = 0
-    const chanHeight = requiredConfig.channelSpacing/layoutH
-    // Save into a variable if group spacing has been applied.
-    // We cannot determine it by checking if this is the first channel in the group, because
-    // the first channel may be missing or hidden for some other reason.
-    let groupSpacing = true
     for (let i=0; i<configLayout.length; i++) {
-        // Top and bottom margins are applied automatically, so skip first visible group spacing.
-        if (i && !groupSpacing) {
-            yPos -= (1/layoutH)*requiredConfig.groupSpacing
-            groupSpacing = true
-        }
         for (let j=0; j<configLayout[i]; j++) {
             const chan = channels[chanIdx]
             // Check that number of layout channels hasn't exceeded number of actual channels.
@@ -446,21 +449,39 @@ export const calculateSignalOffsets = (
             if (!shouldDisplayChannel(chan, false) || chan.isOriginal) {
                 continue
             }
-            if (!groupSpacing) {
-                yPos -= (1/layoutH)*requiredConfig.channelSpacing
-            } else {
-                // Skip the first channel (group spacing has already been applied).
-                groupSpacing = false
+            placed.push({ chan, group: i, height: groupHeight(i) })
+        }
+    }
+    const { channelSpacing, groupSpacing, yPadding } = requiredConfig
+    const positions = [] as number[]
+    let pos = 0
+    for (let k=0; k<placed.length; k++) {
+        const { group, height } = placed[k]
+        if (!k) {
+            pos = yPadding + 0.5*(height - 1)*channelSpacing
+        } else {
+            const prev = placed[k - 1]
+            pos += 0.5*(prev.height + height)*channelSpacing
+            if (prev.group !== group) {
+                pos += groupSpacing - channelSpacing
             }
-            chan.offset = {
-                baseline: yPos,
-                bottom: yPos - 0.5*chanHeight,
-                top: yPos + 0.5*chanHeight,
-            }
-            // Check if a meta channel has slipped into the visible layout.
-            if (chan.modality === 'meta') {
-                Log.warn(`Metadata channel ${chan.label} has been included into visbile layout.`, SCOPE)
-            }
+        }
+        positions.push(pos)
+    }
+    const last = placed[placed.length - 1]
+    const layoutH = last ? pos + yPadding + 0.5*(last.height - 1)*channelSpacing : 0
+    for (let k=0; k<placed.length; k++) {
+        const { chan, height } = placed[k]
+        const baseline = 1.0 - positions[k]/layoutH
+        const chanHeight = height*channelSpacing/layoutH
+        chan.offset = {
+            baseline,
+            bottom: baseline - 0.5*chanHeight,
+            top: baseline + 0.5*chanHeight,
+        }
+        // Check if a meta channel has slipped into the visible layout.
+        if (chan.modality === 'meta') {
+            Log.warn(`Metadata channel ${chan.label} has been included into visbile layout.`, SCOPE)
         }
     }
     // Copy offsets from primary channels to their original-signal overlay counterparts.
@@ -1203,6 +1224,7 @@ export const isContinuousSignal = (...signalParts: SignalCachePart[]) => {
  * @param config - Biosignal config of the appropriate type and channel layout properties. Expected fields are:
  * *               - `channels` SetupChannel[] - List of channels to include in the montage.
  *                 - `channelSpacing` number - Relative spacing between consecutive channels (default 1).
+ *                 - `groupHeights` number[] - Relative channel height per layout group (default 1 for each).
  *                 - `groupSpacing` number - Relative spacing between consecutive groups (default 1).
  *                 - `isRaw` boolean - Is this a raw setup (default yes).
  *                 - `layout` number[] - Channel layout as number of channels per each group (default no layout).
@@ -1215,6 +1237,7 @@ export const mapMontageChannels = (
         channelSpacing: number
         correctedChannelSuffix?: string
         electrodes: string[]
+        groupHeights?: number[]
         groupSpacing: number
         isRaw: boolean
         layout: number[]
@@ -1241,6 +1264,10 @@ export const mapMontageChannels = (
             contralateralChannel: props?.contralateralChannel,
             scale: props?.scale || 0,
             sensitivity: props?.sensitivity || 0,
+            displayRange: props?.displayRange ?? null,
+            highpassFilter: props?.highpassFilter ?? null,
+            lowpassFilter: props?.lowpassFilter ?? null,
+            notchFilter: props?.notchFilter ?? null,
             displayPolarity: props?.displayPolarity || 0,
             offset: props?.offset || 0.5,
             visible: visible,
@@ -1460,6 +1487,11 @@ export const mapMontageChannels = (
                         samplingRate: chan.samplingRate || actSR,
                         contralateralChannel: chan.contralateralChannel,
                         scale: chan.scale,
+                        sensitivity: chan.sensitivity,
+                        displayRange: chan.displayRange,
+                        highpassFilter: chan.highpassFilter,
+                        lowpassFilter: chan.lowpassFilter,
+                        notchFilter: chan.notchFilter,
                         displayPolarity: chan.polarity,
                         unit: chan.unit || actUnit,
                         isOriginal: isOrigChan || undefined,
@@ -1478,6 +1510,11 @@ export const mapMontageChannels = (
                     samplingRate: actSR,
                     contralateralChannel: chan.contralateralChannel,
                     scale: chan.scale,
+                    sensitivity: chan.sensitivity,
+                    displayRange: chan.displayRange,
+                    highpassFilter: chan.highpassFilter,
+                    lowpassFilter: chan.lowpassFilter,
+                    notchFilter: chan.notchFilter,
                     displayPolarity: chan.polarity,
                     unit: chan.unit || actUnit,
                     isOriginal: isOrigChan || undefined,
@@ -1545,6 +1582,7 @@ export const mapMontageChannels = (
         channels,
         {
             channelSpacing: config.channelSpacing || 1,
+            groupHeights: config.groupHeights || [],
             groupSpacing: config.groupSpacing || 1,
             isRaw: false,
             layout: config.layout || [],

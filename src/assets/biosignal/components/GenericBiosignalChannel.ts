@@ -96,6 +96,7 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         vertical: [] as BiosignalCursor[],
     }
     protected _displayPolarity: -1 | 0 | 1 = 0
+    protected _displayRange: [number, number] | null = null
     protected _filters = {
         bandreject: [],
         highpass: null,
@@ -158,6 +159,9 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
         this._sensitivity = extraProperties.sensitivity || 0
         // The following numeric values have 0 as a default, so they can be checked more leniently
         this._displayPolarity = extraProperties.displayPolarity || 0
+        // A range with no span cannot be drawn, so it reads as sensitivity mode.
+        const range = extraProperties.displayRange
+        this._displayRange = range && range[1] !== range[0] ? [range[0], range[1]] : null
         this._filters.highpass = extraProperties.highpassFilter || null
         this._filters.lowpass = extraProperties.lowpassFilter || null
         this._filters.notch = extraProperties.notchFilter || null
@@ -192,6 +196,17 @@ export default abstract class GenericBiosignalChannel extends GenericAsset imple
     }
     set displayPolarity (value: SignalPolarity) {
         this._setPropertyValue('displayPolarity', value)
+    }
+
+    get displayRange () {
+        return this._displayRange
+    }
+    set displayRange (value: [number, number] | null) {
+        if (value && value[1] === value[0]) {
+            Log.error(`A display range must span some values, [${value.join(', ')}] was given.`, SCOPE)
+            return
+        }
+        this._setPropertyValue('displayRange', value)
     }
 
     get filters () {

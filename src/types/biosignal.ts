@@ -211,6 +211,11 @@ export interface BiosignalChannel {
     /** Display polarity of the signal on this channel. */
     displayPolarity: SignalPolarity
     /**
+     * Values the channel's band spans, bottom to top, in the unit the signal is read in. A channel with a range is
+     * drawn to fill its band with it, independently of any sensitivity; null or absent means sensitivity mode.
+     */
+    displayRange?: [number, number] | null
+    /**
      * Individual filters in Hz to override the resource's general filter.
      * Null means that the channel uses the resource's filter value for that type.
      * Zero means that the filter is disabled.
@@ -370,8 +375,16 @@ export type BiosignalChannelProperties = {
     contralateralChannel?: string
     /** Polarity of the signal on this channel. */
     displayPolarity?: -1 | 0 | 1
+    /** Values the channel's band spans, bottom to top; see `BiosignalChannel.displayRange`. */
+    displayRange?: [number, number] | null
     /** ? */
     height?: number
+    /** Individual high-pass filter in Hz; the recording's applies if omitted, and zero switches it off. */
+    highpassFilter?: number | null
+    /** Individual low-pass filter in Hz; the recording's applies if omitted, and zero switches it off. */
+    lowpassFilter?: number | null
+    /** Individual notch filter in Hz; the recording's applies if omitted, and zero switches it off. */
+    notchFilter?: number | null
     /** Channel label displayed in the UI. */
     label?: string
     /** Laterality of the signal. */
@@ -443,6 +456,23 @@ export type BiosignalChannelTemplate = {
      * This can take any value, but only has options for whole digits in the UI.
      */
     scale?: number
+    /**
+     * Sensitivity of the channel in its physical unit per cm, drawn independently of the recording's sensitivity; the
+     * recording's applies if omitted. For a channel whose range has nothing to do with the main signal's, such as
+     * nasal pressure or snore beside EEG.
+     */
+    sensitivity?: number
+    /**
+     * Values the channel's band spans, bottom to top, in the unit the signal is read in, drawn in place of a
+     * sensitivity. For a channel read against a fixed scale, such as SpO2 between 50 and 100 %.
+     */
+    displayRange?: [number, number]
+    /** Individual high-pass filter in Hz, for a channel read in a band of its own; the recording's if omitted. */
+    highpassFilter?: number
+    /** Individual low-pass filter in Hz, for a channel read in a band of its own; the recording's if omitted. */
+    lowpassFilter?: number
+    /** Individual notch filter in Hz; the recording's if omitted. */
+    notchFilter?: number
 }
 
 export type BiosignalConfig = {
@@ -1193,6 +1223,13 @@ export type BiosignalMontageTemplate = {
      * Descriptive label for this montage.
      */
     label: string
+    /**
+     * Relative height of each channel in a group, one entry per `layout` group (default 1 for each).
+     * @example
+     * // Channels of the first group take twice the room of the others:
+     * groupHeights = [2, 1, 1]
+     */
+    groupHeights?: number[]
     /**
      * Channel layout as an array of numbers, each representing the number of channels in a group.
      * @example

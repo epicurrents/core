@@ -16,6 +16,7 @@ import {
     getSignalScale,
     interpolateSignalValues,
     isContinuousSignal,
+    mapMontageChannels,
     partsNotCached,
     resampleSignal,
     resolveTrendEpochLength,
@@ -345,6 +346,74 @@ describe('Signal utilities', () => {
             // Distance from vieport top/bottom should be twice the distance between channels.
             expect(channels[0].offset.baseline).toBeCloseTo(0.6, 4)
             expect(channels[1].offset.baseline).toBeCloseTo(0.4, 4)
+        })
+
+        it('should lay out as before when every group height is 1', () => {
+            const make = () => Array.from({ length: 5 }, () => ({ ...baseChannel, visible: true }))
+            const config = { channelSpacing: 1, groupSpacing: 2, isRaw: false, layout: [3, 2], yPadding: 1.5 }
+            const plain = make()
+            const weighted = make()
+            calculateSignalOffsets(plain, config)
+            calculateSignalOffsets(weighted, { ...config, groupHeights: [1, 1] })
+            for (let i = 0; i < plain.length; i++) {
+                expect(weighted[i].offset.baseline).toBeCloseTo(plain[i].offset.baseline, 10)
+                expect(weighted[i].offset.top).toBeCloseTo(plain[i].offset.top, 10)
+                expect(weighted[i].offset.bottom).toBeCloseTo(plain[i].offset.bottom, 10)
+            }
+        })
+
+        it('should give the channels of a taller group more room', () => {
+            const channels = Array.from({ length: 3 }, () => ({ ...baseChannel, visible: true }))
+            // One channel of height 2, then two of height 1, all spacings 1. In spacing units from the top: padding
+            // 1 + 0.5 extra for the tall channel puts it at 1.5; the next is 0.5*(2 + 1) = 1.5 further at 3, the last
+            // at 4, and the bottom padding is 1, for a total of 5.
+            calculateSignalOffsets(channels, {
+                channelSpacing: 1,
+                groupHeights: [2, 1],
+                groupSpacing: 1,
+                isRaw: false,
+                layout: [1, 2],
+                yPadding: 1,
+            })
+            expect(channels[0].offset.baseline).toBeCloseTo(1 - 1.5/5, 10)
+            expect(channels[1].offset.baseline).toBeCloseTo(1 - 3/5, 10)
+            expect(channels[2].offset.baseline).toBeCloseTo(1 - 4/5, 10)
+            expect(channels[0].offset.top - channels[0].offset.bottom).toBeCloseTo(2/5, 10)
+            expect(channels[1].offset.top - channels[1].offset.bottom).toBeCloseTo(1/5, 10)
+            // Adjacent bands meet without overlapping.
+            expect(channels[0].offset.bottom).toBeCloseTo(channels[1].offset.top, 10)
+        })
+
+        it('should keep group heights with their groups when a group has no displayed channels', () => {
+            const channels = [
+                { ...baseChannel, visible: false },
+                { ...baseChannel, visible: true },
+                { ...baseChannel, visible: true },
+            ]
+            // The first group is empty, so the half-height group is first on screen; it must not take the first
+            // group's height.
+            calculateSignalOffsets(channels, {
+                channelSpacing: 1,
+                groupHeights: [3, 0.5, 1],
+                groupSpacing: 1,
+                isRaw: false,
+                layout: [1, 1, 1],
+                yPadding: 1,
+            })
+            const height = (i: number) => channels[i].offset.top - channels[i].offset.bottom
+            expect(height(1)/height(2)).toBeCloseTo(0.5, 10)
+        })
+
+        it('should treat a missing or non-positive group height as 1', () => {
+            const make = () => Array.from({ length: 3 }, () => ({ ...baseChannel, visible: true }))
+            const config = { channelSpacing: 1, groupSpacing: 1, isRaw: false, layout: [1, 1, 1], yPadding: 1 }
+            const plain = make()
+            const odd = make()
+            calculateSignalOffsets(plain, config)
+            calculateSignalOffsets(odd, { ...config, groupHeights: [0, -2] })
+            for (let i = 0; i < plain.length; i++) {
+                expect(odd[i].offset.baseline).toBeCloseTo(plain[i].offset.baseline, 10)
+            }
         })
 
         it('should fall back to raw spacing when the config layout is missing or not an array', () => {
@@ -1766,6 +1835,54 @@ describe('Signal utilities', () => {
             expect(trendCoveredEnd(10.2, 3, 0.5)).toBe(10)
             expect(trendCoveredEnd(10, 3, 2)).toBe(9)
             expect(trendCoveredEnd(2.9, 3, 0.5)).toBe(0)
+        })
+    })
+
+    describe('mapMontageChannels', () => {
+        const setup = {
+            channels: [
+                { index: 0, label: 'C4-M1', modality: 'eeg', name: 'c4-m1', samplingRate: 256, unit: 'uV' },
+                { index: 1, label: 'Resp nasal', modality: 'res', name: 'resp nasal', samplingRate: 32, unit: 'cmH2O' },
+            ],
+        } as unknown as Parameters<typeof mapMontageChannels>[0]
+        const channel = (name: string, modality: string, extra = {}) => ({
+            active: name, label: name, laterality: '', modality, name, reference: [], unit: '', ...extra,
+        })
+
+        it('carries the sensitivity of a template channel to the montage channel', () => {
+            const channels = mapMontageChannels(setup, {
+                channels: [channel('c4-m1', 'eeg'), channel('resp nasal', 'res', { sensitivity: 2 })],
+                channelSpacing: 1,
+                electrodes: ['c4-m1', 'resp nasal'],
+                groupSpacing: 1,
+                isRaw: false,
+                layout: [1, 1],
+                yPadding: 1,
+            } as unknown as Parameters<typeof mapMontageChannels>[1])
+            // Zero is the recording's sensitivity.
+            expect(channels.map(c => c.sensitivity)).toEqual([0, 2])
+        })
+
+        it('carries the display range and filters of a template channel, and leaves them unset otherwise', () => {
+            const channels = mapMontageChannels(setup, {
+                channels: [
+                    channel('c4-m1', 'eeg'),
+                    channel('resp nasal', 'res', { displayRange: [-5, 5], highpassFilter: 0, lowpassFilter: 10 }),
+                ],
+                channelSpacing: 1,
+                electrodes: ['c4-m1', 'resp nasal'],
+                groupSpacing: 1,
+                isRaw: false,
+                layout: [1, 1],
+                yPadding: 1,
+            } as unknown as Parameters<typeof mapMontageChannels>[1])
+            expect(channels[0]).toEqual(expect.objectContaining({
+                displayRange: null, highpassFilter: null, lowpassFilter: null, notchFilter: null,
+            }))
+            // Zero is kept: it switches the filter off rather than taking the recording's.
+            expect(channels[1]).toEqual(expect.objectContaining({
+                displayRange: [-5, 5], highpassFilter: 0, lowpassFilter: 10, notchFilter: null,
+            }))
         })
     })
 })

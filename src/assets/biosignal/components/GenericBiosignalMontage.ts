@@ -513,8 +513,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
 
     setChannelLayout (config?: ConfigChannelLayout) {
         if (config && !config.layout?.length) {
-            // Respect saved layout if new one is not given.
+            // Respect saved layout if new one is not given. Group heights index the layout's groups, so they come
+            // with it; a caller passing a layout of its own passes heights for it too.
             config.layout = this._config?.layout
+            config.groupHeights ??= this._config?.groupHeights
         }
         calculateSignalOffsets(this._channels, config)
     }
