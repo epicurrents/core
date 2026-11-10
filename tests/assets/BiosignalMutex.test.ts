@@ -203,6 +203,39 @@ describe('BiosignalMutex', () => {
         })
     })
 
+    describe('coveredLength', () => {
+        it('rounds a length off the unit grid up to the next whole unit', () => {
+            expect(BiosignalMutex.coveredLength(7.3)).toBe(8)
+            expect(BiosignalMutex.coveredLength(7.5, 0.5)).toBe(7.5)
+            expect(BiosignalMutex.coveredLength(7.6, 0.5)).toBe(8)
+        })
+
+        it('keeps a whole length, and one a rounding error past it, as it is', () => {
+            expect(BiosignalMutex.coveredLength(20)).toBe(20)
+            expect(BiosignalMutex.coveredLength(0.1 + 0.2 + 2.7)).toBe(3)
+        })
+    })
+
+    describe('initSignalBuffers on a recording off its data-unit grid', () => {
+        // The range fields are Int32, so a 7.3 s range stored as is would read back as 7 and every insert would be
+        // cropped to it, losing the final 0.3 s.
+        it('lays out and records whole units', async () => {
+            const mutex = new BiosignalMutex()
+            vi.spyOn(mutex as unknown as { _awaitBufferLock: () => boolean }, '_awaitBufferLock')
+                .mockReturnValue(true)
+            const arrays = vi.spyOn(mutex as unknown as { setDataArrays: (a: unknown) => void }, 'setDataArrays')
+            const meta = vi.spyOn(
+                mutex as unknown as { _setOutputMetaFieldValue: (n: string, v: number) => void },
+                '_setOutputMetaFieldValue'
+            )
+            const cachePart = { start: 0, end: 0, signals: [{ data: new Float32Array(0), samplingRate: 100 }] }
+            await mutex.initSignalBuffers(cachePart, 7.3, new ArrayBuffer(1024) as SharedArrayBuffer, 0)
+            expect(arrays).toHaveBeenCalledWith([{ constructor: Float32Array, length: 800 }])
+            expect(meta).toHaveBeenCalledWith(BiosignalMutex.RANGE_ALLOCATED_NAME, 8)
+            expect(meta).toHaveBeenCalledWith(BiosignalMutex.RANGE_END_NAME, 8)
+        })
+    })
+
     describe('destroy', () => {
         it('should release buffers', () => {
             const mutex = new BiosignalMutex()

@@ -145,6 +145,23 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
         return props
     }
 
+    /**
+     * Length the buffers of a mutex holding `dataLength` of signal data cover: the whole data units that contain it.
+     *
+     * The range meta fields are Int32, so a range end that is not a whole number of data units cannot be stored and
+     * would be cut back to the last whole one, taking every sample past it with it. The buffers cover the whole final
+     * unit instead; the samples past the data stay zero, and the updated range of each signal, which is stored as a
+     * float, still ends where the data does. Memory for a mutex must be requested for this length, because the buffers
+     * are laid out from their starting index with nothing to stop them at the end of the allocation.
+     * @param dataLength - Length of the signal data in seconds.
+     * @param dataUnitDuration - Duration of one data unit in seconds (default 1).
+     * @returns Covered length in seconds.
+     */
+    static coveredLength (dataLength: number, dataUnitDuration = 1) {
+        // The tolerance keeps a length a float rounding error past a whole unit on that unit.
+        return Math.ceil(dataLength/dataUnitDuration - 1e-6)*dataUnitDuration
+    }
+
     /** Master lock of the buffer holding this mutex. */
     protected _bufferLock = null as Int32Array | null
 
@@ -842,6 +859,7 @@ export default class BiosignalMutex extends IOMutex implements SignalCacheMutex 
             Log.error(`Cannot initialize mutex buffers, master buffer did not become available.`, SCOPE)
             return false
         }
+        dataLength = BiosignalMutex.coveredLength(dataLength, dataUnitDurationMs/1000)
         // Initialize the buffer. On the overwrite path the IOMutex re-binds its
         // lock + meta views to the new buffer; data array views need a separate
         // pass via `rebuildDataArrayViews` because they sit outside the meta region.

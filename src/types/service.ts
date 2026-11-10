@@ -398,7 +398,7 @@ export interface SignalCacheMutex extends AsymmetricMutex {
      * Initialize the signal buffers. Possible signal data contained in the SignalCachePart is ignored
      * here and must be passed again with insertSignals to be saved.
      * @param cacheProps - an object containing the signal cache properties.
-     * @param dataLength - length of the signal data in seconds.
+     * @param dataLength - length of the signal data in seconds; the buffers cover the whole data units containing it (see `BiosignalMutex.coveredLength`).
      * @param buffer - Data buffer.
      * @param bufferStart - 32-bit starting index of this mutex withing the buffer (optional, defaults to zero).
      * @returns True if the buffers were initialized, false if they could not be.
