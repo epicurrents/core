@@ -259,14 +259,15 @@ export default abstract class GenericBiosignalCascadeMontage extends GenericBios
             { length: this._rowCount },
             (_, i) => this._createChannel(src, i),
         )
-        this.channels = channels
         // Cascade montages are added to the recording AFTER the consumer's montage-change handler
         // has called `setChannelLayout` on the existing montages, so they miss the offset pass
         // and would render every row on top of the others. Compute offsets here without a config
         // — the configured layout path (group sizes + spacing) doesn't apply since every row is
         // the same channel, so we want the equidistant branch (`!config`) that spaces N rows
-        // evenly across the viewport.
+        // evenly across the viewport. The offsets are set before the channels are assigned, since
+        // the assignment announces the channels and a listener reads their offsets there.
         calculateSignalOffsets(channels)
+        this.channels = channels
         return channels
     }
 
