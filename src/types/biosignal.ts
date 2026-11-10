@@ -1277,7 +1277,13 @@ export interface BiosignalResource extends DataResource {
     dataCache: MutexExportProperties | SignalDataCache | null
     /** Duration of the actual signal data in seconds, without gaps. */
     dataDuration: number
-    /** Are annotations locked against modification (adding, removing, or editing). */
+    /**
+     * Why annotations are held against adding and removing, or null while they are not. Unlike {@link lockAnnotations}
+     * a hold can be released, by setting it back to null, and it locks no existing annotation: an application holds a
+     * resource while nothing added to it would be kept, and announces the reason when it refuses an addition.
+     */
+    annotationsHold: string | null
+    /** Are annotations locked against modification (adding, removing, or editing), for good or by a hold. */
     annotationsLocked: boolean
     /** List of events. */
     events: BiosignalAnnotationEvent[]

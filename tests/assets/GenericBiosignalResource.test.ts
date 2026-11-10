@@ -520,6 +520,51 @@ describe('GenericBiosignalResource', () => {
         })
     })
 
+    describe('annotationsHold', () => {
+        const spike = (id: string, start: number) =>
+            ({ id, start, duration: 1, type: 'spike', label: id, channels: [] } as any)
+
+        it('locks annotations while held and releases them', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            resource.addEvents(spike('evt-1', 10))
+            resource.annotationsHold = 'Held for the review.'
+            expect(resource.annotationsLocked).toBe(true)
+            resource.addEvents(spike('evt-2', 20))
+            expect(resource.removeEvents('evt-1')).toEqual([])
+            expect(resource.events.map(e => e.id)).toEqual(['evt-1'])
+            resource.annotationsHold = null
+            expect(resource.annotationsLocked).toBe(false)
+            resource.addEvents(spike('evt-2', 20))
+            expect(resource.events).toHaveLength(2)
+        })
+
+        it('locks no existing annotation', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            resource.addEvents(spike('evt-1', 10))
+            resource.annotationsHold = 'Held for the review.'
+            expect(resource.events[0].locked).toBeFalsy()
+        })
+
+        it('announces the change of the lock it makes', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const dispatch = vi.spyOn(resource, 'dispatchPropertyChangeEvent')
+            resource.annotationsHold = 'Held for the review.'
+            expect(dispatch).toHaveBeenCalledWith('annotationsLocked', true, false)
+            dispatch.mockClear()
+            // A new reason leaves the lock as it was, so only the hold changes.
+            resource.annotationsHold = 'Held for another reason.'
+            expect(dispatch.mock.calls.map(call => call[0])).not.toContain('annotationsLocked')
+        })
+
+        it('is not released by releasing a hold over a permanent lock', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            resource.lockAnnotations()
+            resource.annotationsHold = 'Held for the review.'
+            resource.annotationsHold = null
+            expect(resource.annotationsLocked).toBe(true)
+        })
+    })
+
     describe('interruptions', () => {
         it('should set and get interruptions', () => {
             const resource = new TestBiosignalResource('Test', 'eeg')

@@ -141,6 +141,7 @@ function _isPropertyChangeContext (value: unknown): value is PropertyChangeConte
 export default abstract class GenericBiosignalResource extends GenericResource implements BiosignalResource {
     // Protected properties.
     protected _activeMontage: BiosignalMontage | null = null
+    protected _annotationsHold: string | null = null
     protected _annotationsLocked: boolean = false
     protected _cacheProps: SignalDataCache | null = null
     protected _channels: SourceChannel[] = []
@@ -228,8 +229,20 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         return this._activeMontage
     }
 
+    get annotationsHold () {
+        return this._annotationsHold
+    }
+    set annotationsHold (value: string | null) {
+        const wasLocked = this.annotationsLocked
+        this._setPropertyValue('annotationsHold', value)
+        // Listeners follow `annotationsLocked`, which the hold is part of, so they hear of it under that name too.
+        if (this.annotationsLocked !== wasLocked) {
+            this.dispatchPropertyChangeEvent('annotationsLocked', this.annotationsLocked, wasLocked)
+        }
+    }
+
     get annotationsLocked () {
-        return this._annotationsLocked
+        return this._annotationsLocked || this._annotationsHold !== null
     }
     set annotationsLocked (value: boolean) {
         if (this._annotationsLocked) {
@@ -682,7 +695,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     addEvents (...items: BiosignalAnnotationEvent[]): void
     addEvents (context: PropertyChangeContext | null, ...items: BiosignalAnnotationEvent[]): void
     addEvents (contextOrFirst: PropertyChangeContext | BiosignalAnnotationEvent | null, ...rest: BiosignalAnnotationEvent[]): void {
-        if (this._annotationsLocked) {
+        if (this.annotationsLocked) {
             Log.error(`Cannot add events to a resource with locked annotations.`, SCOPE)
             return
         }
@@ -724,7 +737,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     addEventsFromTemplates (_context: PropertyChangeContext | null, ..._templates: AnnotationEventTemplate[]) {
-        if (this._annotationsLocked) {
+        if (this.annotationsLocked) {
             Log.error(`Cannot add events to a resource with locked annotations.`, SCOPE)
             return
         }
@@ -734,7 +747,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     addLabels (...items: AnnotationLabel[]): void
     addLabels (context: PropertyChangeContext | null, ...items: AnnotationLabel[]): void
     addLabels (contextOrFirst: PropertyChangeContext | AnnotationLabel | null, ...rest: AnnotationLabel[]): void {
-        if (this._annotationsLocked) {
+        if (this.annotationsLocked) {
             Log.error(`Cannot add labels to a resource with locked annotations.`, SCOPE)
             return
         }
@@ -773,7 +786,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     addLabelsFromTemplates (_context: PropertyChangeContext | null, ..._templates: AnnotationLabelTemplate[]) {
-        if (this._annotationsLocked) {
+        if (this.annotationsLocked) {
             Log.error(`Cannot add labels to a resource with locked annotations.`, SCOPE)
             return
         }
@@ -1215,7 +1228,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     removeEvents (...events: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[]
     removeEvents (context: PropertyChangeContext | null, ...events: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[]
     removeEvents (contextOrFirst: PropertyChangeContext | string | number | BiosignalAnnotationEvent | null, ...rest: (string | number | BiosignalAnnotationEvent)[]): BiosignalAnnotationEvent[] {
-        if (this._annotationsLocked) {
+        if (this.annotationsLocked) {
             Log.error(`Cannot remove events from a resource with locked annotations.`, SCOPE)
             return []
         }
@@ -1260,7 +1273,7 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     removeLabels (...labels: (string | number | AnnotationLabel)[]): AnnotationLabel[]
     removeLabels (context: PropertyChangeContext | null, ...labels: (string | number | AnnotationLabel)[]): AnnotationLabel[]
     removeLabels (contextOrFirst: PropertyChangeContext | string | number | AnnotationLabel | null, ...rest: (string | number | AnnotationLabel)[]): AnnotationLabel[] {
-        if (this._annotationsLocked) {
+        if (this.annotationsLocked) {
             Log.error(`Cannot remove labels from a resource with locked annotations.`, SCOPE)
             return []
         }
