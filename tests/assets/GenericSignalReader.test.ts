@@ -22,6 +22,7 @@ vi.mock('../../src/util', () => ({
 }))
 
 vi.mock('../../src/util/constants', () => ({
+    FLOAT32_EPS: 1.1920928955078125e-07,
     NUMERIC_ERROR_VALUE: -1,
 }))
 
@@ -219,6 +220,49 @@ describe('GenericSignalReader', () => {
             const result = await reader._readPartFromFile(0, 10)
             expect(result).toBeNull()
             expect(Log.error).toHaveBeenCalled()
+        })
+
+        describe('a recording that does not end on its data-unit grid', () => {
+            // 2.5 s of samples in 1 s units of 4 bytes, followed by bytes that are not samples, as a WAV
+            // file can carry further chunks after its data chunk.
+            const makeReader = () => {
+                const reader = new TestSignalReader()
+                reader.testDataOffset = 0
+                reader.testDataUnitDuration = 1
+                reader.testDataUnitSize = 4
+                reader.testDataUnitCount = 3
+                reader.testTotalDataLength = 2.5
+                reader.testTotalRecordingLength = 2.5
+                reader.testFile = {
+                    data: new File([new Uint8Array(10), new Uint8Array([9, 9, 9, 9])], 'tail.bin'),
+                    dataLength: 2.5,
+                    length: 2.5,
+                    start: 0,
+                }
+                return reader
+            }
+
+            it('reads the final, shorter unit', async () => {
+                const part = await makeReader()._readPartFromFile(2, 0.5)
+                expect(part?.data.size).toBe(2)
+                expect(part?.dataLength).toBe(0.5)
+                expect(part?.length).toBe(0.5)
+            })
+
+            it('stops at the end of the samples rather than the end of the file', async () => {
+                const part = await makeReader()._readPartFromFile(0, 2.5)
+                const bytes = new Uint8Array(await part!.data.arrayBuffer())
+                expect(bytes.length).toBe(10)
+                expect(bytes.includes(9)).toBe(false)
+                expect(part?.dataLength).toBe(2.5)
+            })
+
+            it('reads whole units as before', async () => {
+                const part = await makeReader()._readPartFromFile(0, 2)
+                expect(part?.data.size).toBe(8)
+                expect(part?.dataLength).toBe(2)
+                expect(part?.length).toBe(2)
+            })
         })
     })
 

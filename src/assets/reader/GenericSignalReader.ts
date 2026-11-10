@@ -331,7 +331,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
                     // Either first load or loaded preceding part previously, now load the following part.
                     (process.direction === GenericSignalReader.READ_DIRECTION_ALTERNATING && process.start >= start)
                 ) {
-                    nextRecord = this._timeToDataUnitIndex(updated.end)
+                    nextRecord = this._timeToDataUnitEnd(updated.end)
                 } else if (
                     process.direction === GenericSignalReader.READ_DIRECTION_BACKWARD ||
                     // We loaded a following part previously, so load a preceding part next.
@@ -394,11 +394,19 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             Math.floor(this._timeToDataUnitIndex(startFrom))
         )
         const unitEnd = Math.min(
-            Math.ceil(this._timeToDataUnitIndex(startFrom + dataLength)),
+            this._timeToDataUnitEnd(startFrom + dataLength),
             this._dataUnitCount
         )
         const dataStart = this._dataOffset + unitStart*this._dataUnitSize
-        const dataEnd = this._dataOffset + unitEnd*this._dataUnitSize
+        // A recording that does not end on its data-unit grid has a final unit shorter than the others, and the bytes
+        // past its end belong to whatever the format stores after the samples.
+        const dataEnd = Math.min(
+            this._dataOffset + unitEnd*this._dataUnitSize,
+            this._totalDataLength
+                ? this._dataOffset + Math.round(this._totalDataLength/this._dataUnitDuration*this._dataUnitSize)
+                : Infinity
+        )
+        const partDataLength = (dataEnd - dataStart)/this._dataUnitSize*this._dataUnitDuration
         const getBlob = this._file?.data ? async () => {
             // Slice the data directly from the file.
             return this._file?.data.slice(dataStart, dataEnd) as Blob
@@ -429,7 +437,9 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
             return blob
         }
         const startTime = this._dataUnitIndexToTime(unitStart)
+        // Less the part of the final unit the recording does not have.
         const partLength = this._dataUnitIndexToTime(unitEnd - unitStart)
+                           - ((unitEnd - unitStart)*this._dataUnitDuration - partDataLength)
         let blob: Blob
         try {
             blob = await getBlob()
@@ -450,7 +460,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         // Cache only the visible part.
         return {
             data: signalFilePart,
-            dataLength: (unitEnd - unitStart)*this._dataUnitDuration,
+            dataLength: partDataLength,
             length: partLength,
             start: startTime,
         } as SignalFilePart
@@ -562,7 +572,7 @@ export default abstract class GenericSignalReader extends GenericSignalProcessor
         // yield different indices than the ones actually read. Mirrors `_readPartFromFile`.
         const exploredUnitStart = Math.max(0, Math.floor(this._timeToDataUnitIndex(start)))
         const exploredUnitEnd = Math.min(
-            Math.ceil(this._timeToDataUnitIndex(end)),
+            this._timeToDataUnitEnd(end),
             this._dataUnitCount
         )
         const recordsPerSecond = 1/this._dataUnitDuration

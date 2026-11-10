@@ -191,6 +191,25 @@ export default abstract class GenericSignalProcessor extends GenericDataProcesso
         return time - this._getInterruptionTimeBetween(0, time)
     }
     /**
+     * Convert a recording timestamp to the exclusive end index of the data units that cover the recording up to it.
+     *
+     * Unlike {@link _timeToDataUnitIndex}, which names the unit a time falls in, a time inside a unit counts that unit
+     * in. The two agree on a unit boundary. They differ only where a recording does not end on its data-unit grid,
+     * and there this is the conversion that reaches the final, shorter unit at all.
+     * @param time - Timestamp in seconds to convert.
+     * @returns Exclusive data unit end index.
+     */
+    protected _timeToDataUnitEnd (time: number): number {
+        const index = this._timeToDataUnitIndex(time)
+        if (index === NUMERIC_ERROR_VALUE) {
+            return index
+        }
+        const priorIntrTotal = time > 0 ? this._getInterruptionTimeBetween(0, time) : 0
+        // The same tolerance as the floor, applied the other way, so a time a rounding error past a boundary still
+        // ends on that boundary.
+        return Math.max(index, Math.ceil((time - FLOAT32_EPS - priorIntrTotal)/this._dataUnitDuration))
+    }
+    /**
      * Convert a recording timestamp to data unit index.
      * @param time - Timestamp in seconds to convert.
      * @returns Data unit index.
