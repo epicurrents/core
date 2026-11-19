@@ -287,6 +287,25 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         super.configure(config, CONFIG_SCHEMA, this)
     }
 
+    async destroy () {
+        for (const trend of this._trends.values()) {
+            trend.cancelTrendComputation()
+        }
+        try {
+            // The service's shutdown is the only thing that terminates the montage worker.
+            await this._service?.destroy()
+        } finally {
+            // Asset teardown removes the channel listeners too, so the channels are dropped only after it. It runs when
+            // the shutdown is refused as well, and the refusal still reaches the caller.
+            super.destroy()
+            this._cacheParts.length = 0
+            this._cachedSignals = { start: 0, end: 0, signals: [] }
+            this._channels = []
+            this._highlights.clear()
+            this._trends.clear()
+        }
+    }
+
     async getAllSignals (range: number[], config?: ConfigChannelFilter): Promise<SignalCacheResponse> {
         // Check if we have the requested signals in cache.
         const derivedSignals = {

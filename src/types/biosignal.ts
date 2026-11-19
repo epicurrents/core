@@ -877,6 +877,12 @@ export interface BiosignalMontage extends BaseAsset {
      */
     cacheSignals (...ranges: [number, number][]): Promise<void>
     /**
+     * Destroy the montage and terminate its worker. Release the montage's buffers first, while the memory manager
+     * still holds them; the service is no longer usable afterwards.
+     * @returns Promise that resolves when the worker has been shut down.
+     */
+    destroy (): Promise<void>
+    /**
     * Get derived montage channel signals for the given range.
     * @param range - Range of the given signals in seconds.
     * @param config - Optional configuration (TODO: config definitions).
@@ -1132,6 +1138,11 @@ export interface BiosignalMontageService extends AssetService {
  * display montage is active.
  */
 export interface BiosignalTrendService {
+    /**
+     * Shut the worker down and drop the service's state. The owning resource calls this when it is destroyed and
+     * before replacing the service, since nothing else terminates the worker.
+     */
+    destroy (): Promise<void>
     /**
      * Reposition the worker's input views after the source (reader) service's buffer region has
      * moved in a memory-manager rearrange. Forwarded by the owning resource — the trend service

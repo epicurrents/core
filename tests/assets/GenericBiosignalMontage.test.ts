@@ -49,6 +49,7 @@ vi.mock('asymmetric-io-mutex', () => ({
 vi.mock('../../src/assets/biosignal/service/MontageService', () => ({
     default: vi.fn().mockImplementation(function() {
         return {
+            destroy: vi.fn().mockResolvedValue(undefined),
             id: 'mock-service-id',
             getSignals: vi.fn().mockResolvedValue(null),
             setFilters: vi.fn().mockResolvedValue({ success: true }),
@@ -321,6 +322,30 @@ describe('GenericBiosignalMontage', () => {
         it('service getter should return the (mocked) montage service', () => {
             const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
             expect(montage.service.id).toBe('mock-service-id')
+        })
+    })
+
+    describe('destroy', () => {
+        // Nothing else terminates a montage's worker, so a destroy that skipped the service would leave one thread
+        // running for every montage of every recording ever destroyed.
+        it('should destroy the service and cancel every trend', async () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            const trend = { cancelTrendComputation: vi.fn(), label: 'a', name: 'a' } as any
+            montage.addTrend(trend)
+            await montage.destroy()
+            expect(montage.service.destroy).toHaveBeenCalledTimes(1)
+            expect(trend.cancelTrendComputation).toHaveBeenCalled()
+            expect(montage.channels).toEqual([])
+            expect(Object.keys(montage.trends)).toHaveLength(0)
+            expect(montage.state).toBe('destroyed')
+        })
+
+        it('should finish its own teardown when the service refuses to shut down', async () => {
+            const montage = new TestBiosignalMontage('M', mockRecording, mockSetup)
+            ;(montage.service.destroy as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('refused'))
+            await expect(montage.destroy()).rejects.toThrow('refused')
+            expect(montage.state).toBe('destroyed')
+            expect(montage.channels).toEqual([])
         })
     })
 })

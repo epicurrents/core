@@ -566,11 +566,13 @@ The cache lifecycle has three levels, with `releaseSignalArrays` as the Level 1 
 |---|---|---|---|---|
 | 1 — Soft release | `releaseSignalArrays()` | `releaseSignalArrays()` / `releaseOutputBufferViews()` | `releaseSignalArrays()` | `release-signal-arrays` |
 | 2 — Full teardown | `releaseCache()` | `releaseBuffers()` (inherited from `IOMutex`) | `releaseBuffers()` | `release-cache` |
-| 3 — Destroy | `destroy()` | `destroy()` | (resource destroy path) | `shutdown` / `decommission` |
+| 3 — Destroy | `destroy()` | `destroy()` | `destroy()` | `shutdown` / `decommission` |
 
 **Level 1 contract:** cancel in-flight caching processes, drop the worker-side signal-array views, reset `signalCacheStatus` — but **preserve the mutex layout** (`_outputData.arrays` entries, `_outputData.fields`, `_outputMeta.fields`) and the SAB allocation. The same mutex shell can then be cheaply rebound to a fresh buffer via `initSignalBuffers(..., overwrite=true)` + `IOMutex.rebuildDataArrayViews()`.
 
 **Level 2 contract:** Level 1 first, then drop the mutex reference entirely and free the SAB from the memory manager. A fresh `setupCache` / `setupMutex` round-trip is required afterwards.
+
+**Level 3 contract:** Level 2 first, while the montages and the memory manager are still attached, since the resource's release walks its montages and hands every range to the manager in one call. Then each montage's `destroy()` shuts its service down, which is the only thing that terminates a montage worker, and the resource destroys its own service last. A montage that refuses the shutdown does not stop the others, and a resource that owns a further service of its own (the EEG trend service) destroys it in its override. Level 2 alone leaves every worker running: an evicted or unloaded resource keeps its montage workers until it is destroyed.
 
 **Pieces in place**
 

@@ -879,7 +879,22 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async destroy (): Promise<void> {
-        this._activeMontage?.removeAllEventListeners()
+        // The buffers go back first, while the montages and the memory manager are still held: the release walks the
+        // montages and hands every range to the manager in one call. A failed release still lets the workers go.
+        try {
+            await this.releaseBuffers()
+        } catch (e) {
+            Log.warn(`Releasing the buffers of ${this.name} failed while destroying it: ${String(e)}`, SCOPE)
+        }
+        // Each montage owns a worker that only the montage's own destroy terminates. One montage failing to shut down
+        // must not keep the others' workers running.
+        const montages = [...this._montages]
+        const results = await Promise.allSettled(montages.map(m => m.destroy()))
+        results.forEach((result, idx) => {
+            if (result.status === 'rejected') {
+                Log.warn(`Destroying montage ${montages[idx].name} of ${this.name} failed.`, SCOPE)
+            }
+        })
         this._activeMontage = null
         this._cacheProps = null
         this._channels.length = 0
@@ -889,12 +904,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         this._filters.bandreject.length = 0
         this._interruptions.clear()
         this._memoryManager = null
-        this._montages.forEach(m => m.removeAllEventListeners())
         this._montages.length = 0
         this._mutexProps = null
         this._recordMontage = null
-        await this.releaseBuffers()
-        this._service?.destroy()
+        await this._service?.destroy()
         this._service = null
         this._setup = null
         this._signalCacheStatus.length = 0

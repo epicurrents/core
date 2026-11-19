@@ -836,6 +836,47 @@ describe('GenericBiosignalResource', () => {
             expect(resource.activeMontage).toBeNull()
             expect(resource.state).toBe('destroyed')
         })
+
+        // The release walks the montages and hands their ranges to the manager, so it has to run while both are held;
+        // emptying them first releases nothing.
+        it('should release every montage buffer to the manager before dropping the montages', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const order: string[] = []
+            const makeMontage = (name: string) => ({
+                destroy: vi.fn(async () => { order.push(`destroy ${name}`) }),
+                name,
+                releaseBuffers: vi.fn(async () => { order.push(`release ${name}`) }),
+                serviceId: `service-${name}`,
+            })
+            const a = makeMontage('a')
+            const b = makeMontage('b')
+            ;(resource as any)._montages = [a, b]
+            const manager = { release: vi.fn(async () => { order.push('manager') }) }
+            ;(resource as any)._memoryManager = manager
+            const service = { destroy: vi.fn().mockResolvedValue(undefined), id: 'service-r', unload: vi.fn() }
+            ;(resource as any)._service = service
+            await resource.destroy()
+            expect(manager.release).toHaveBeenCalledWith('service-a', 'service-b', 'service-r')
+            expect(order.indexOf('manager')).toBeLessThan(order.indexOf('destroy a'))
+            expect(a.destroy).toHaveBeenCalledTimes(1)
+            expect(b.destroy).toHaveBeenCalledTimes(1)
+            expect(service.destroy).toHaveBeenCalledTimes(1)
+            expect(resource.montages).toEqual([])
+        })
+
+        it('should destroy the remaining montages when one fails to shut down', async () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const failing = {
+                destroy: vi.fn().mockRejectedValue(new Error('refused')),
+                name: 'a',
+                releaseBuffers: vi.fn(),
+            }
+            const other = { destroy: vi.fn().mockResolvedValue(undefined), name: 'b', releaseBuffers: vi.fn() }
+            ;(resource as any)._montages = [failing, other]
+            await resource.destroy()
+            expect(other.destroy).toHaveBeenCalledTimes(1)
+            expect(resource.state).toBe('destroyed')
+        })
     })
 
     describe('getAbsoluteTimeAt', () => {
