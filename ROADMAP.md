@@ -90,6 +90,14 @@ Each conversion is small: extend the new base, delete the switch, keep `setup-wo
 It stays exported because it is part of `@epicurrents/core/util`, and dropping a published export is a major-version change rather than something to fold into a patch. Remove it, and the `fields` handshake it implies, when 3.0 opens.
 
 
+## Release deferred studies as a minor
+
+`addDeferredStudy`, `openDeferredResource`, `replaceResource` on the dataset and the runtime, `DeferredResource`, `isDeferredResource`, the `DeferredStudy` type and the `app.eagerStudyLoadLimit` setting are additions to the published surface, so they ship as a minor (2.3.0). The platform SPA declares the part it calls locally until its `@epicurrents/core` dev dependency moves to that release.
+
+## Release the readers of opened recordings
+
+Deferred studies bound what a dataset costs when it opens, but not what opening recordings one after another costs: each opened recording keeps its reader, its montage and trend workers and, with shared memory, its file worker until the whole dataset is destroyed. `unload` releases the cache and stops no worker, and a study loader keeps every resource it created in `_resources`. A user stepping through a few hundred recordings in one tab still exhausts it. The deferred shape makes the fix cheap: keep the last few opened recordings, and replace an older one with a `DeferredResource` rebuilt from its kept descriptor, destroying the loaded resource so its service shuts its worker down. It needs a resource that has unsaved annotation work to be skipped, and the loader to drop the resource from `_resources`.
+
 ## Cheap mutex rebind on reactivation
 
 Level 1 release is wired and used, but the *rebind* direction is not: reusing a released mutex shell over a fresh buffer via `BiosignalMutex.initSignalBuffers(..., overwrite=true)` + `rebuildDataArrayViews()` instead of a full setup. Both real `initSignalBuffers` call sites pass `overwrite=false`, so reactivation always does the full `requestMemory` + `setupMutex` + `setDataArrays` walk — the `overwrite=true` branch is reachable but never taken (see [Rolling signal cache → Eviction and reactivation coherence](AGENTS.md#eviction-and-reactivation-coherence)).

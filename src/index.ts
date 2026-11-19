@@ -14,6 +14,7 @@ import {
     BiosignalCache,
     BiosignalMutex,
     BiosignalStudyLoader,
+    DeferredResource,
     DirectSynthesizer,
     ErrorResource,
     FileSystemDirectory,
@@ -72,6 +73,7 @@ export {
     BiosignalCache,
     BiosignalMutex,
     BiosignalStudyLoader,
+    DeferredResource,
     DirectSynthesizer,
     ErrorResource,
     FileSystemDirectory,
@@ -163,6 +165,7 @@ import type {
     ContextMenuAction,
     DataResource,
     DatasetResourceContext,
+    DeferredStudy,
     EpicurrentsApp,
     EventWithPayload,
     FileSystemItem,
@@ -182,6 +185,7 @@ import type {
 } from '#types'
 import * as util from '#util'
 export { util }
+const { isDeferredResource } = util
 
 import { Log } from 'scoped-event-log'
 
@@ -193,6 +197,10 @@ export class Epicurrents implements EpicurrentsApp {
      * Master event bus.
      */
     #eventBus = new EventBus()
+    /**
+     * Loads of deferred resources in progress, by the deferred resource's id.
+     */
+    #deferredLoads = new Map<string, Promise<DataResource | null>>()
     /**
      * Has the user added, edited or removed an annotation in this document. Sticky, and deliberately
      * outlives the resource it was made on: the viewer has no notion of a submitted or saved state,
@@ -207,6 +215,10 @@ export class Epicurrents implements EpicurrentsApp {
      * Constructor for an interface module to use for the app.
      */
     #interfaceConstructor = null as null | InterfaceModuleConstructor
+    /**
+     * The settled tail of the tasks queued on each study importer, by importer name.
+     */
+    #loaderQueues = new Map<string, Promise<void>>()
     /**
      * Memory manager used to control the shared array buffer (or null if not used).
      */
@@ -280,11 +292,15 @@ export class Epicurrents implements EpicurrentsApp {
      * Read live from the datasets rather than counted, so closing a resource is reflected without a
      * second piece of bookkeeping to keep in step. A resource that failed to load or has been
      * destroyed is not something anyone can return to, so neither counts; one still loading does,
-     * since the user set it going and would have to set it going again.
+     * since the user set it going and would have to set it going again. A deferred resource is a
+     * listing, not something opened, so it counts only once the user has set its load going.
      */
     #hasOpenResources () {
         for (const dataset of this.#runtime.APP.datasets) {
             for (const context of dataset.resources) {
+                if (isDeferredResource(context.resource) && context.resource.state === 'added') {
+                    continue
+                }
                 if (context.resource.state !== 'destroyed' && context.resource.state !== 'error') {
                     return true
                 }
@@ -316,6 +332,131 @@ export class Epicurrents implements EpicurrentsApp {
                 }, SCOPE)
             }
         }, SCOPE)
+    }
+
+    /**
+     * Read a study with the named importer and create its resource, without adding it anywhere. A failure at any step
+     * gives an error resource in its place, so the caller always has something to put in the dataset.
+     *
+     * Run through `#queueOnLoader`: an importer holds the study it is working on in a single field between reading it
+     * and creating the resource, so two of these running at once on one importer could each create the other's.
+     * @returns The resource, the modality to add it under and whether it is a loaded study rather than an error.
+     */
+    async #buildStudyResource (
+        loader: string,
+        source: string | string[] | File | FileSystemItem,
+        options: ConfigStudyLoader & DatabaseQueryOptions
+    ): Promise<{ loaded: boolean, modality: string, resource: DataResource }> {
+        const context = this.#runtime.APP.studyImporters.get(loader)
+        if (!context) {
+            Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
+            return { loaded: false, modality: 'UNKNOWN', resource: new ErrorResource(options.name || 'Unknown', 'error') }
+        }
+        const modality = context.loader.resourceModality
+        if (this.#memoryManager) {
+            context.loader.registerMemoryManager(this.#memoryManager)
+        }
+        const study = typeof source === 'string'
+            ? await context.loader.loadFromUrl(source, options)
+            : Array.isArray(source) ? await context.loader.loadFromDirectory(
+                                                MixedFileSystemItem.UrlsToFsItem(...source),
+                                                options
+                                            )
+            : source instanceof File ? await context.loader.loadFromFile(source, options)
+            : source.files.length ? await context.loader.loadFromDirectory(source, options)
+            : source.file ? await context.loader.loadFromFile(source.file, options)
+                          : null
+        if (!study) {
+            return { loaded: false, modality, resource: new ErrorResource(options.name || 'Unknown', modality) }
+        }
+        const nextIdx = await context.loader.useStudy(study)
+        const resource = await context.loader.getResource(nextIdx)
+        if (!resource) {
+            return { loaded: false, modality, resource: new ErrorResource(study.name, study.modality, study) }
+        }
+        return { loaded: true, modality, resource }
+    }
+
+    /**
+     * Load the study a deferred resource lists and put the result in its place. Never rejects: every failure is logged
+     * and answered with null.
+     */
+    async #loadDeferred (placeholder: DataResource & { study: DeferredStudy }): Promise<DataResource | null> {
+        const study = placeholder.study
+        const dataset = this.#runtime.APP.datasets.find(
+            ds => ds.resources.some(ctx => ctx.resource.id === placeholder.id)
+        )
+        if (!dataset) {
+            Log.error(`Could not open deferred resource ${placeholder.name}: no dataset holds it.`, SCOPE)
+            return null
+        }
+        const options = { ...study.options, name: study.options?.name ?? study.name }
+        placeholder.state = 'loading'
+        let built: { loaded: boolean, modality: string, resource: DataResource }
+        try {
+            built = await this.#queueOnLoader(
+                study.loader,
+                () => this.#buildStudyResource(study.loader, study.source, options)
+            )
+        } catch (e) {
+            Log.error(`Loading the study ${study.name} failed.`, SCOPE, e as Error)
+            built = { loaded: false, modality: placeholder.modality, resource: new ErrorResource(study.name, 'error') }
+        }
+        if (!this.#runtime.replaceResource(placeholder, built.resource, dataset)) {
+            // The placeholder left its dataset while the study loaded, so nothing is waiting for the result; a loaded
+            // resource is destroyed rather than left holding a reader nobody can reach.
+            await built.resource.destroy()
+            return null
+        }
+        placeholder.destroy()
+        if (!built.loaded) {
+            return null
+        }
+        const resource = built.resource
+        if (!await resource.prepare(options)) {
+            Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
+            return null
+        }
+        if (study.onLoaded) {
+            try {
+                await study.onLoaded(resource)
+            } catch (e) {
+                Log.error(`The loaded callback of study ${study.name} failed.`, SCOPE, e as Error)
+            }
+        }
+        return resource
+    }
+
+    /**
+     * Run `task` after every task already queued on the same importer has settled, whatever their outcome.
+     */
+    #queueOnLoader<T> (loader: string, task: () => Promise<T>): Promise<T> {
+        const previous = this.#loaderQueues.get(loader) ?? Promise.resolve()
+        const run = previous.then(task)
+        const tail = run.then(() => undefined, () => undefined)
+        this.#loaderQueues.set(loader, tail)
+        tail.then(() => {
+            if (this.#loaderQueues.get(loader) === tail) {
+                this.#loaderQueues.delete(loader)
+            }
+        })
+        return run
+    }
+
+    addDeferredStudy (study: DeferredStudy, options: { dataset?: MediaDataset } = {}) {
+        const context = this.#runtime.APP.studyImporters.get(study.loader)
+        if (!context) {
+            Log.error(`Could not list study ${study.name}, loader ${study.loader} was not found.`, SCOPE)
+            return null
+        }
+        const modality = study.modality || context.loader.resourceModality
+        if (!this.#runtime.MODULES.get(modality)) {
+            Log.error(`Could not list study ${study.name}, no loaded module matches its modality ${modality}.`, SCOPE)
+            return null
+        }
+        const resource = new DeferredResource(study, modality)
+        this.#runtime.addResource(modality, resource, { dataset: options.dataset })
+        return resource
     }
 
     addResource (resource: DataResource, modality?: string) {
@@ -436,59 +577,40 @@ export class Epicurrents implements EpicurrentsApp {
         source: string | string[] | File | FileSystemItem,
         options: ConfigStudyLoader & DatabaseQueryOptions = {}
     ) {
-        const context = this.#runtime.APP.studyImporters.get(loader)
         // Dataset option is only used here. (TODO: Remove other non-clonable options too?)
         // Destructured out rather than deleted from the caller's object: a caller that builds one
         // options object and loads twice lost its dataset target on the second call, and the
         // resource landed in the active dataset instead.
         const { dataset, ...loaderOptions } = options
-        options = loaderOptions
-        if (!context) {
-            Log.error(`Could not load study, loader ${loader} was not found.`, SCOPE)
-            // Add an error resource in place of the resource that failed to load.
-            const errorResource = new ErrorResource(options.name || 'Unknown', 'error', undefined)
-            this.#runtime.addResource('UNKNOWN', errorResource, { dataset })
+        const built = await this.#queueOnLoader(loader, () => this.#buildStudyResource(loader, source, loaderOptions))
+        this.#runtime.addResource(built.modality, built.resource, { dataset })
+        if (!built.loaded) {
             return null
         }
-        if (this.#memoryManager) {
-            context.loader.registerMemoryManager(this.#memoryManager)
+        const resource = built.resource
+        // Start preparing the resource, but return it immediately.
+        resource.prepare(loaderOptions).then(success => {
+            if (!success) {
+                Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
+            }
+        })
+        return resource
+    }
+
+    openDeferredResource (resource: DataResource) {
+        if (!isDeferredResource(resource)) {
+            return Promise.resolve(resource)
         }
-        const study = typeof source === 'string'
-            ? await context.loader.loadFromUrl(source, options)
-            : Array.isArray(source) ? await context.loader.loadFromDirectory(
-                                                MixedFileSystemItem.UrlsToFsItem(...source),
-                                                options
-                                            )
-            : source instanceof File ? await context.loader.loadFromFile(source, options)
-            : source.files.length ? await context.loader.loadFromDirectory(source, options)
-            : source.file ? await context.loader.loadFromFile(source.file, options)
-                          : null
-        if (!study) {
-            // Add an error resource in place of the resource that failed to load.
-            const errorResource = new ErrorResource(
-                options.name || 'Unknown',
-                context.loader.resourceModality,
-                undefined
-            )
-            this.#runtime.addResource(context.loader.resourceModality, errorResource, { dataset })
-            return null
+        const pending = this.#deferredLoads.get(resource.id)
+        if (pending) {
+            return pending
         }
-        const nextIdx = await context.loader.useStudy(study)
-        const resource = await context.loader.getResource(nextIdx)
-        if (resource) {
-            this.#runtime.addResource(context.loader.resourceModality, resource, { dataset })
-            // Start preparing the resource, but return it immediately.
-            resource.prepare(options).then(success => {
-                if (!success) {
-                    Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
-                }
-            })
-            return resource
-        } else {
-            const errorResource = new ErrorResource(study.name, study.modality, study)
-            this.#runtime.addResource(context.loader.resourceModality, errorResource, { dataset })
-        }
-        return null
+        const load = this.#loadDeferred(resource)
+        this.#deferredLoads.set(resource.id, load)
+        load.then(() => {
+            this.#deferredLoads.delete(resource.id)
+        })
+        return load
     }
 
     notifySessionRestored () {

@@ -6,7 +6,9 @@
  */
 
 import GenericResource from '#assets/GenericResource'
+import SETTINGS from '#config/Settings'
 import type { DataResource, TaskResponse } from '#types/application'
+import type { ConfigStudyLoader } from '#types/config'
 import type {
     ConnectorWriteFileOptions,
     DatabaseConnector,
@@ -25,6 +27,8 @@ const SCOPE = 'GenericDataset'
 
 export default abstract class GenericDataset extends GenericResource implements BaseDataset {
     protected _connectorIn: DatasourceConnector | null
+    /** Number of studies this dataset has loaded up front from its input data source. */
+    protected _eagerLoadCount = 0
     protected _connectorOut: DatasourceConnector | null
     protected _outputConflictResolution: ConnectorWriteFileOptions = { overwrite: true }
     protected _resources: DatasetResourceContext[] = []
@@ -71,19 +75,15 @@ export default abstract class GenericDataset extends GenericResource implements 
                         // Expect name to contain study type and file format.
                         const studyType = nameParams[nameParams.length - 2]
                         const fileFormat = nameParams[nameParams.length - 1]
-                        // Attempt to load the resource.
-                        const study = await this._app!.loadStudy(
+                        await this._loadOrDefer(
                             `${studyType}/${fileFormat}-file`,
                             file.url,
                             {
                                 name: file.name,
                                 authHeader: this._connectorIn!.authHeader || undefined,
-                                dataset: this,
-                            }
+                            },
+                            `file ${file.name}`
                         )
-                        if (!study) {
-                            Log.error(`Failed to load study from file ${file.name}.`, SCOPE)
-                        }
                     }
                 }
             })
@@ -98,19 +98,15 @@ export default abstract class GenericDataset extends GenericResource implements 
                             Log.warn(`Data source context is missing required parameters, skipping.`, SCOPE)
                             continue
                         }
-                        // Attempt to load the resource.
-                        const study = await this._app!.loadStudy(
+                        await this._loadOrDefer(
                             `${ctx.modality}/api-url`,
                             ctx.api.url,
                             {
                                 ...ctx,
                                 authHeader: this._connectorIn!.authHeader || undefined,
-                                dataset: this,
-                            }
+                            },
+                            `API item ${ctx.name}`
                         )
-                        if (!study) {
-                            Log.error(`Failed to load study from API item ${ctx.name}.`, SCOPE)
-                        }
                     }
                 } else {
                     Log.warn(`No contents found in input data source for dataset ${this._name}.`, SCOPE)
@@ -245,6 +241,34 @@ export default abstract class GenericDataset extends GenericResource implements 
     }
 
     /**
+     * Load a study listed by the input data source, or list it deferred once `app.eagerStudyLoadLimit` studies have
+     * been loaded up front. A data source names its files and nothing more, so a deferred study is listed by name only.
+     * @param loader - Name of the study importer.
+     * @param source - URL to load the study from.
+     * @param options - Importer options, including the name to list the study under.
+     * @param description - What the study is, for the error log.
+     */
+    protected async _loadOrDefer (
+        loader: string,
+        source: string,
+        options: ConfigStudyLoader & { name: string },
+        description: string
+    ) {
+        if (this._eagerLoadCount < SETTINGS.app.eagerStudyLoadLimit) {
+            this._eagerLoadCount++
+            const study = await this._app!.loadStudy(loader, source, { ...options, dataset: this })
+            if (!study) {
+                Log.error(`Failed to load study from ${description}.`, SCOPE)
+            }
+            return
+        }
+        const deferred = this._app!.addDeferredStudy({ loader, name: options.name, options, source }, { dataset: this })
+        if (!deferred) {
+            Log.error(`Failed to list study from ${description}.`, SCOPE)
+        }
+    }
+
+    /**
      * Watch a newly inserted resource's active state and keep the dataset's
      * ``activeResources`` in sync: whenever the resource's ``isActive`` flips, an
      * ``activeResources`` property change is dispatched. Shared by both insertion
@@ -334,6 +358,37 @@ export default abstract class GenericDataset extends GenericResource implements 
             removed.resource.unload()
         }
         return removed
+    }
+
+    replaceResource (previous: DataResource, next: DataResource) {
+        const resourceIdx = this._resources.findIndex(r => r.resource.id === previous.id)
+        if (resourceIdx < 0) {
+            Log.error(`Could not replace resource ${previous.name}: the resource was not found in the dataset.`, SCOPE)
+            return null
+        }
+        const prevContext = this._resources[resourceIdx]
+        const nextContext = { ...prevContext, resource: next }
+        const payload = { previous: prevContext, next: nextContext }
+        this.dispatchPayloadEvent('replace-resource', payload, 'before')
+        const prevState = [...this.resources]
+        prevContext.resource.removeAllEventListeners(this.id)
+        this._resources.splice(resourceIdx, 1, nextContext)
+        this._watchResourceActiveState(nextContext)
+        if (this._resourceSorting.scheme === 'id') {
+            const orderIdx = this._resourceSorting.order.indexOf(previous.id)
+            if (orderIdx >= 0) {
+                this._resourceSorting.order.splice(orderIdx, 1, next.id)
+            } else {
+                this._resourceSorting.order.push(next.id)
+            }
+        }
+        this.dispatchPayloadEvent('replace-resource', payload, 'after')
+        Log.debug(`Replaced ${previous.name} with ${next.name} in dataset resources.`, SCOPE)
+        this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
+        if (previous.isActive || next.isActive) {
+            this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
+        }
+        return nextContext
     }
 
     setOutputConflictResolution (options: ConnectorWriteFileOptions) {

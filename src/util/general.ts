@@ -6,6 +6,8 @@
  */
 
 import { Log } from 'scoped-event-log'
+import type { DataResource } from '#types/application'
+import type { DeferredStudy } from '#types/dataset'
 
 /**
  * Deep clone an object including any nested object properties. This method uses JSON to perform the cloning, so the
@@ -177,4 +179,18 @@ export const awaitThenSleep = async <T>(promise: Promise<T>, ms: number): Promis
         await sleep(ms)
     }
     return value
+}
+
+/**
+ * Is the given resource a deferred resource, listing a study that has not been loaded.
+ *
+ * Tested by shape rather than by class, so the answer holds when the resource was created by a different copy of the
+ * library than the caller's.
+ * @param resource - The resource to test.
+ * @returns True for a deferred resource.
+ */
+export const isDeferredResource = (
+    resource: DataResource | null | undefined
+): resource is DataResource & { isDeferred: true, study: DeferredStudy } => {
+    return (resource as { isDeferred?: unknown } | null | undefined)?.isDeferred === true
 }

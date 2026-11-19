@@ -15,7 +15,7 @@ import {
     SettingsValue,
 } from './config'
 import { ConnectorType, DatasourceConnector } from './connector'
-import { DatasetLoader, MediaDataset } from './dataset'
+import { DatasetLoader, DeferredStudy, MediaDataset } from './dataset'
 import {
     FileSystemItem,
     ReaderMode,
@@ -532,6 +532,15 @@ export interface EpicurrentsApp {
      */
     addResource (resource: DataResource, modality?: string): void
     /**
+     * List a study in a dataset without loading it. The listing is a deferred resource, which the user can open like
+     * any other; opening it loads the study with `openDeferredResource` and puts the loaded resource in its place.
+     * Nothing is fetched and no worker is started until then.
+     * @param study - The study to list and the instructions for loading it.
+     * @param options - Optional dataset to list the study in (default the active dataset, or a new one if none).
+     * @returns The deferred resource, or null if no importer or module matches the study.
+     */
+    addDeferredStudy (study: DeferredStudy, options?: { dataset?: MediaDataset }): DataResource | null
+    /**
      * Waive the unload confirmation, for a reload or navigation the application is itself
      * performing — an update that reloads the page, or a host remounting the viewer.
      *
@@ -600,6 +609,15 @@ export interface EpicurrentsApp {
      * the app has a network layer; other post-re-auth mechanisms can hook the same signal later.
      */
     notifySessionRestored (): void
+    /**
+     * Load the study a deferred resource lists and put the loaded resource in its place in its dataset, then prepare
+     * it and run the study's `onLoaded`. Calls for a resource already loading share one load, and loads through the
+     * same importer run one at a time. A resource that is not deferred is returned as it is.
+     * @param resource - The deferred resource to load.
+     * @returns Promise with the prepared resource, or null if loading or preparing it failed; the dataset then holds an
+     *          error resource or the failed resource in its place.
+     */
+    openDeferredResource (resource: DataResource): Promise<DataResource | null>
     /**
      * Register an interface module to be used with the application.
      * @param intf - Constructor for the app interface.
@@ -1054,6 +1072,15 @@ export interface StateManager extends RuntimeState, BaseAsset {
      * @emits `remove-resource` with the removed resource as payload.
      */
     removeResource (resource: DataResource | string | number, dataset?: MediaDataset): void
+    /**
+     * Put `next` in the place `previous` holds in its dataset.
+     * @param previous - The resource to replace.
+     * @param next - The resource to put in its place.
+     * @param dataset - Dataset holding `previous`, if not the one found by searching every dataset.
+     * @returns True if `previous` was found and replaced.
+     * @emits `replace-resource` with `{ previous, next }` contexts as payload.
+     */
+    replaceResource (previous: DataResource, next: DataResource, dataset?: MediaDataset): boolean
     /**
      * Set the given dataset as active.
      * @param dataset - New active dataset or null to unset currently active dataset.

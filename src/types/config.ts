@@ -68,6 +68,13 @@ export interface AppSettings {
          * data record.
          */
         dataChunkSize: number
+        /**
+         * Most studies a dataset loads up front when it can list them in no other way, as when a data source names its
+         * files and nothing more. Studies past the limit are listed as deferred resources and load when opened, so a
+         * large source cannot start a reader for every file it holds. A host that can list a study from metadata of its
+         * own lists every study deferred and is not bound by this. Default 50.
+         */
+        eagerStudyLoadLimit: number
         /** Messages ≥ this level will be logged. */
         logThreshold: "DEBUG" | "INFO" | "WARN" | "ERROR" | "DISABLE"
         /** Load files of this size directly. */

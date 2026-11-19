@@ -37,6 +37,7 @@ import { APP as APP_MODULE } from './modules'
 export { APP_MODULE }
 
 import { logInvalidMutation } from './util'
+import { isDeferredResource } from '#util'
 export { logInvalidMutation }
 
 const SCOPE = "runtime"
@@ -73,6 +74,7 @@ export const state: RuntimeState = {
  * Properties of the state should not be mutated directly, but instead by using the dedicated methods:
  * - `addDataset`: Add a new dataset to the state.
  * - `addResource`: Add a new resource to the currently active dataset.
+ * - `replaceResource`: Put a resource in the place another holds in its dataset.
  * - `setActiveDataset`: Set the currently active dataset.
  * - `setActiveResource`: Set the currently active resource within the active dataset.
  * - `setActiveScope`: Set the active app scope.
@@ -345,6 +347,24 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         this.dispatchPayloadEvent('remove-resource', resource)
     }
 
+    replaceResource (previous: DataResource, next: DataResource, dataset?: MediaDataset) {
+        const targetSet = dataset || state.APP.datasets.find(
+            ds => ds.resources.some(ctx => ctx.resource.id === previous.id)
+        )
+        if (!targetSet) {
+            Log.error(`Could not replace resource ${previous.name}: no dataset holds it.`, SCOPE)
+            return false
+        }
+        const payload = { previous, next }
+        this.dispatchPayloadEvent('replace-resource', payload, 'before')
+        const replaced = targetSet.replaceResource(previous, next)
+        if (!replaced) {
+            return false
+        }
+        this.dispatchPayloadEvent('replace-resource', payload)
+        return true
+    }
+
     setActiveDataset (dataset: MediaDataset | null) {
         const prevActive = state.APP.activeDataset
         if (prevActive && prevActive === dataset) {
@@ -377,6 +397,12 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         const activeSet = state.APP.activeDataset
         if (!activeSet) {
             Log.warn(`Could not set active resource, no dataset is active.`, SCOPE)
+            return
+        }
+        if (isDeferredResource(resource)) {
+            // A deferred resource has nothing to show. Activating one would mount a viewer against a resource with no
+            // reader behind it, so it is refused here and opened through `openDeferredResource` instead.
+            Log.warn(`Cannot set deferred resource ${resource.name} active; open it with openDeferredResource.`, SCOPE)
             return
         }
         this.dispatchPayloadEvent('set-active-resource', resource, 'before')

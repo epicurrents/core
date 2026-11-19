@@ -173,6 +173,7 @@ const _settings = {
         dataBlockChunkDuration: 300,
         dataBlockDuration: 3600,
         dataChunkSize: 5*MB_BYTES,
+        eagerStudyLoadLimit: 50,
         get isSabUsed () {
             // Cross-origin isolation is part of the test: a non-isolated document still exposes the
             // SharedArrayBuffer constructor but cannot hand a buffer to a worker, so reporting the

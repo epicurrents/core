@@ -81,6 +81,7 @@ src/
     connector/           # DatabaseAPIConnector, WebDAVConnector
     dataset/             # GenericDataset, MixedMediaDataset
     document/            # GenericDocumentResource
+    deferred/            # DeferredResource
     error/               # ErrorResource
     media/               # BiosignalAudio + synthesizers/ (audio rendering)
     reader/              # GenericSignalReader/Writer/Processor, LocalFileReader,
@@ -243,6 +244,20 @@ Two conventions to know before calling a designer. `order` is the number of prot
 ### ErrorResource
 
 A `GenericResource` that constructs straight into `state = 'error'` and carries a `reason` string, for the case where loading failed before a real resource could exist. `loadStudy` uses it on every failure branch — unknown importer, no study returned, no resource from the study — adding it to the target dataset in place of what could not be loaded before returning `null`. The failure therefore stays visible in the resource list, with `getMainProperties` surfacing the reason, rather than existing only as the caller's discarded return value.
+
+### Deferred studies
+
+A dataset can list a study without loading it. `addDeferredStudy(study, { dataset })` adds a `DeferredResource` ([src/assets/deferred/](src/assets/deferred/)) carrying a `DeferredStudy` descriptor: the importer name, the source, the importer options, the name and the `properties` to list it with. Nothing is fetched and no worker is started. A loaded study holds its reader, and with shared memory a worker, until the dataset is destroyed, so this is what makes a large dataset openable at all.
+
+`openDeferredResource(resource)` loads the study through the same path as `loadStudy`, puts the loaded resource in the listing's place with `replaceResource` (same position, same sorting slot, `replace-resource` dispatched on the dataset and the runtime), prepares it and runs the descriptor's `onLoaded`, then resolves with it. A failed load leaves an `ErrorResource` in the place instead. Calls made while a load runs share it.
+
+Three rules hold the shape together:
+
+- **A deferred resource is never active.** `setActiveResource` refuses one, since a viewer mounted against it would have no reader behind it. The interface's activation action opens it and activates the loaded resource, and drops the activation if a later request superseded it while the study loaded.
+- **Loads through one importer run one at a time** (`#queueOnLoader`, used by `loadStudy` too). A study loader holds the study it is working on in one field between `useStudy` and `getResource`, so two overlapping loads on it would create each other's resource.
+- **`properties` are display only.** Core never reads them for loading, so whoever builds the descriptor decides whether its values are trustworthy enough to list. `isDeferredResource` tests by shape, so it holds across duplicated copies of the package.
+
+A dataset listing an input data source loads up to `app.eagerStudyLoadLimit` studies (default 50) and lists the rest deferred by name. A deferred resource counts as open for the unload guard only once its load has been set going.
 
 ### Study importers and exporters
 

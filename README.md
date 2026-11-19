@@ -101,6 +101,7 @@ if (resource) {
 Key `Epicurrents` methods beyond the flow above:
 
 - `addResource(resource, modality?)` — add an already-constructed resource to the active dataset.
+- `addDeferredStudy(study, { dataset })` / `openDeferredResource(resource)` — list a study without loading it, and load it when it is opened; see AGENTS.md → Deferred studies.
 - `setActiveDataset(dataset)` — make a dataset the active one, or clear it with `null`.
 - `registerStudyExporter(name, label, mode, loader)` — the export-side counterpart of `registerStudyImporter`.
 - `setWorkerOverride(name, getWorker)` — inject a deployment-specific or test-double worker factory; `getWorkerOverride(name)` returns an instance from the registered factory, or `null` when none is registered.
