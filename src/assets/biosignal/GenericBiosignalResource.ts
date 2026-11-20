@@ -6,7 +6,7 @@
  * @license    Apache-2.0
  */
 
-import { ResourceEvents } from '#events'
+import { AssetEvents, ResourceEvents } from '#events'
 import {
     combineSignalParts,
     getIncludedChannels,
@@ -223,6 +223,19 @@ export default abstract class GenericBiosignalResource extends GenericResource i
         if (TYPE_SETTINGS?.correctedChannelSuffix) {
             GenericBiosignalChannel.correctedChannelSuffix = TYPE_SETTINGS.correctedChannelSuffix
         }
+        // A recording out of view keeps its signal cache but needs no montage worker: each montage started on demand
+        // shuts its worker down and starts another, set up as before, on the next read. Without this every recording
+        // ever opened keeps a thread per montage that was read.
+        this.addEventListener(AssetEvents.DEACTIVATE, () => {
+            if (this._isActive) {
+                return
+            }
+            for (const montage of this._montages) {
+                montage.releaseWorker().catch((e: unknown) => {
+                    Log.warn(`Releasing the worker of montage ${montage.name} failed: ${String(e)}`, SCOPE)
+                })
+            }
+        }, this.id)
     }
 
     get activeMontage () {

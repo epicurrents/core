@@ -927,6 +927,12 @@ export interface BiosignalMontage extends BaseAsset {
      */
     releaseBuffers (config?: ConfigReleaseBuffers): Promise<void>
     /**
+     * Shut the montage's worker down if it was started on demand, keeping what it was set up with so that the next
+     * request starts a new one. A montage given its worker at construction keeps it.
+     * @returns Promise that resolves when the worker has been shut down.
+     */
+    releaseWorker (): Promise<void>
+    /**
      * Not yet implemented (TODO: Remove entriley?).
      */
     resetChannels (): void
@@ -1101,6 +1107,11 @@ export interface BiosignalMontageService extends AssetService {
      * Map montage channels in the web worker using the montage config.
      */
     mapChannels (): Promise<void>
+    /**
+     * Shut the worker down if the service starts it on demand. What the service was set up with is kept, and the next
+     * request that needs a worker starts a new one and sets it up again, filters included.
+     */
+    releaseWorker (): Promise<void>
     /**
      * Set the given interruptions to the recording in the web worker.
      * @param gaps - The interruptions to set as a map of <start data time, duration> in seconds.

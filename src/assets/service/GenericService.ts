@@ -84,23 +84,7 @@ export default abstract class GenericService extends GenericAsset implements Ass
                 // It is a message port to a shared worker.
                 this._port = worker as MessagePort
             } else {
-                // Only Worker has the onerror property.
-                this._worker = worker as Worker
-                Log.registerWorker(this._worker)
-                // Backstop against wedged sessions: a worker that throws an uncaught error, or
-                // receives a message it cannot deserialise, posts no commission reply, so every
-                // awaiting commission promise would stay pending forever. These handlers carry no
-                // request number, so the only safe response is to reject all in-flight commissions.
-                // Individual worker handlers still post their own success:false on caught errors;
-                // this covers the paths that cannot report a specific failure.
-                this._worker.onerror = (event) => {
-                    const reason = (event instanceof ErrorEvent && event.message) ? event.message : 'unknown error'
-                    this._rejectAllCommissions(`Worker error: ${reason}`)
-                }
-                this._worker.onmessageerror = () => {
-                    this._rejectAllCommissions('Worker message could not be deserialised.')
-                }
-                this._watchSettings()
+                this._attachWorker(worker as Worker)
             }
         }
     }
@@ -248,6 +232,29 @@ export default abstract class GenericService extends GenericAsset implements Ass
             resolve: commission.resolve,
             rn: requestNum,
         }
+    }
+
+    /**
+     * Make `worker` the service's dedicated worker: register it with the log, reject every commission in flight when
+     * it fails, and relay settings to it. A service that starts its worker after construction calls this then.
+     * @param worker - The dedicated worker to attach.
+     */
+    protected _attachWorker (worker: Worker) {
+        this._worker = worker
+        Log.registerWorker(this._worker)
+        // Backstop against wedged sessions: a worker that throws an uncaught error, or receives a message it cannot
+        // deserialise, posts no commission reply, so every awaiting commission promise would stay pending forever.
+        // These handlers carry no request number, so the only safe response is to reject all in-flight commissions.
+        // Individual worker handlers still post their own success:false on caught errors; this covers the paths that
+        // cannot report a specific failure.
+        this._worker.onerror = (event) => {
+            const reason = (event instanceof ErrorEvent && event.message) ? event.message : 'unknown error'
+            this._rejectAllCommissions(`Worker error: ${reason}`)
+        }
+        this._worker.onmessageerror = () => {
+            this._rejectAllCommissions('Worker message could not be deserialised.')
+        }
+        this._watchSettings()
     }
 
     /**

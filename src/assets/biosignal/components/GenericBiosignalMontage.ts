@@ -422,6 +422,10 @@ export default abstract class GenericBiosignalMontage extends GenericAsset imple
         await this._service?.releaseSignalArrays()
     }
 
+    async releaseWorker () {
+        await this._service?.releaseWorker()
+    }
+
     removeHighlightContext (name: string) {
         if (!this._highlights.has(name)) {
             Log.error(`Could not find highlight context ${name}.`, SCOPE)

@@ -36,6 +36,10 @@ import Log from 'scoped-event-log'
 vi.mock('../../src/events/EventBus')
 
 vi.mock('../../src/events', () => ({
+    AssetEvents: {
+        ACTIVATE: 'activate',
+        DEACTIVATE: 'deactivate',
+    },
     ResourceEvents: {
         UNLOAD: 'resource-unload',
     },
@@ -821,6 +825,36 @@ describe('GenericBiosignalResource', () => {
             ;(resource as any)._service = service
             const result = await resource.loadAndCacheSignals()
             expect(result).toBe(false)
+        })
+    })
+
+    describe('deactivation', () => {
+        /** The handler the resource registered for its own deactivation. */
+        const deactivationHandler = () => {
+            const call = mockEventBus.addScopedEventListener.mock.calls.find((c: unknown[]) => c[0] === 'deactivate')
+            return call?.[1] as () => void
+        }
+
+        it('should release the worker of every montage when the recording goes out of view', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const montages = [
+                { name: 'a', releaseWorker: vi.fn().mockResolvedValue(undefined) },
+                { name: 'b', releaseWorker: vi.fn().mockResolvedValue(undefined) },
+            ]
+            ;(resource as any)._montages = montages
+            ;(resource as any)._isActive = false
+            deactivationHandler()()
+            expect(montages[0].releaseWorker).toHaveBeenCalledTimes(1)
+            expect(montages[1].releaseWorker).toHaveBeenCalledTimes(1)
+        })
+
+        it('should keep the workers while the recording is still active', () => {
+            const resource = new TestBiosignalResource('Test', 'eeg')
+            const montage = { name: 'a', releaseWorker: vi.fn().mockResolvedValue(undefined) }
+            ;(resource as any)._montages = [montage]
+            ;(resource as any)._isActive = true
+            deactivationHandler()()
+            expect(montage.releaseWorker).not.toHaveBeenCalled()
         })
     })
 
