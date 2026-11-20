@@ -452,6 +452,31 @@ describe('GenericDataset', () => {
             expect(sorted).toBeInstanceOf(Map)
             expect(sorted.size).toBe(2)
         })
+
+        const listed = (dataset: TestDataset, ...entries: [string, string][]) => {
+            for (const [id, name] of entries) {
+                const resource = {
+                    id, name, modality: 'test', onPropertyChange: vi.fn(), removeAllEventListeners: vi.fn(),
+                }
+                dataset.addResource({ resource } as any)
+            }
+        }
+
+        it('should follow a custom order, putting resources it does not name first in inserted order', () => {
+            const dataset = new TestDataset('Test')
+            listed(dataset, ['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D'])
+            dataset.setResourceSortingOrder(['c', 'a', 'b'])
+            expect([...dataset.sortedResources.keys()]).toEqual(['d', 'c', 'a', 'b'])
+        })
+
+        it('should group resources by initial in name order under the alphabetical scheme', () => {
+            const dataset = new TestDataset('Test', undefined, 'alphabetical')
+            listed(dataset, ['1', 'beta'], ['2', 'Alpha'], ['3', 'bravo'], ['4', 'alfa'])
+            const groups = [...dataset.sortedResources.entries()].map(
+                ([initial, contexts]) => [initial, contexts.map(c => c.resource.name)]
+            )
+            expect(groups).toEqual([['A', ['alfa', 'Alpha']], ['B', ['beta', 'bravo']]])
+        })
     })
 
     describe('unload', () => {

@@ -24,6 +24,8 @@ import type {
 import { Log } from 'scoped-event-log'
 
 const SCOPE = 'GenericDataset'
+/** Orders resource names as `localeCompare` does, with one collator rather than one set up per comparison. */
+const NAME_ORDER = new Intl.Collator()
 
 export default abstract class GenericDataset extends GenericResource implements BaseDataset {
     protected _connectorIn: DatasourceConnector | null
@@ -207,7 +209,7 @@ export default abstract class GenericDataset extends GenericResource implements 
             const sorted = [...this._resources].sort((a, b) => {
                 const aName = a.name || a.resource.name
                 const bName = b.name || b.resource.name
-                return aName.localeCompare(bName)
+                return NAME_ORDER.compare(aName, bName)
             })
             for (const r of sorted) {
                 const name = r.name || r.resource.name
@@ -223,9 +225,13 @@ export default abstract class GenericDataset extends GenericResource implements 
                 }
             }
         } else if (this._resourceSorting.scheme === 'id') {
-            const sorted = this._resourceSorting.order.length ? [...this._resources].sort(
-                                (a, b) => this._resourceSorting.order.indexOf(a.resource.id)
-                                        - this._resourceSorting.order.indexOf(b.resource.id)
+            // Positions are looked up from a map built once per read. Searching the order list in the comparator
+            // makes a read quadratic in the number of resources, which a dataset listing a thousand studies reads on
+            // every change of any of them.
+            const order = this._resourceSorting.order
+            const position = new Map(order.map((id, idx) => [id, idx]))
+            const sorted = order.length ? [...this._resources].sort(
+                                (a, b) => (position.get(a.resource.id) ?? -1) - (position.get(b.resource.id) ?? -1)
                                 )
                             // Defaults to inserted order.
                             : this._resources
