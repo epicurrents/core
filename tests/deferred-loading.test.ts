@@ -20,11 +20,15 @@ import type { MediaDataset } from '../src/types/dataset'
 
 /** A loaded study's resource: prepares to ready and records whether it was destroyed. */
 class LoadedResource extends GenericResource {
+    static failDestroy = false
     destroyed = false
     constructor (name: string) {
         super(name, 'test')
     }
     destroy () {
+        if (LoadedResource.failDestroy) {
+            throw new Error('destroy failed')
+        }
         this.destroyed = true
         super.destroy()
     }
@@ -81,6 +85,7 @@ describe('deferred studies', () => {
         app.runtime.APP.datasets.length = 0
         app.runtime.APP.activeDataset = null
         app.registerModule('test', { runtime: {}, settings: {} } as never)
+        LoadedResource.failDestroy = false
         importer = makeImporter()
         app.registerStudyImporter('test/url', 'Test', 'url', importer as never)
         dataset = app.createDataset('dataset', true)
@@ -127,6 +132,12 @@ describe('deferred studies', () => {
         expect(importer.loadFromUrl).toHaveBeenCalledWith('a', { authHeader: 'Bearer x', name: 'listed a' })
     })
 
+    it('keeps the dataset option from the importer', async () => {
+        const listed = list('a', { options: { authHeader: 'Bearer x', dataset } })
+        await app.openDeferredResource(listed)
+        expect(importer.loadFromUrl).toHaveBeenCalledWith('a', { authHeader: 'Bearer x', name: 'listed a' })
+    })
+
     it('shares one load between calls made while it runs', async () => {
         const listed = list('a')
         const [first, second] = await Promise.all([app.openDeferredResource(listed), app.openDeferredResource(listed)])
@@ -166,6 +177,23 @@ describe('deferred studies', () => {
         expect(await load).toBeNull()
         expect(importer.resources[0].destroyed).toBe(true)
         expect(dataset.resources).toHaveLength(0)
+    })
+
+    it('answers with null, and forgets the load, when the unused study cannot be destroyed', async () => {
+        LoadedResource.failDestroy = true
+        const listed = list('a')
+        const load = app.openDeferredResource(listed)
+        dataset.removeResource(listed)
+        expect(await load).toBeNull()
+        // A load still remembered would be handed out again instead of the listing being looked for anew.
+        expect(app.openDeferredResource(listed)).not.toBe(load)
+    })
+
+    it('counts an annotation edit on a study loaded from a listing', async () => {
+        const loaded = (await app.openDeferredResource(list('a')))!
+        loaded.dispatchPropertyChangeEvent('events' as never, [], [], 'after', { source: 'user' } as never)
+        dataset.removeResource(loaded)
+        expect(app.unloadNeedsConfirmation).toBe(true)
     })
 
     it('returns a resource that is not deferred as it is', async () => {

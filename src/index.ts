@@ -312,15 +312,14 @@ export class Epicurrents implements EpicurrentsApp {
     /**
      * Note every annotation edit a user makes, so leaving the document can be confirmed with them.
      *
-     * The runtime is the single funnel every resource enters through, so one subscription covers
-     * resources added by a host, by a study loader and by a session restore alike. The annotations a
+     * The runtime is the single funnel every resource enters through, so its two events cover
+     * resources added by a host, by a study loader and by a session restore alike, and a study
+     * loaded into the place of its listing, which is replaced rather than added. The annotations a
      * recording arrives with are applied with a `'system'` source and an edit in the interface with
      * a `'user'` one, which is what separates work worth confirming from a file's own contents.
      */
     #watchAnnotationChanges () {
-        this.#runtime.addEventListener(DatasetEvents.ADD_RESOURCE, (event) => {
-            const payload = (event as EventWithPayload<DataResource | DatasetResourceContext>).detail.payload
-            const resource = 'resource' in payload ? payload.resource : payload
+        const watch = (resource: DataResource) => {
             for (const property of ['events', 'labels']) {
                 resource.addEventListener(`property-change:${property}`, (change) => {
                     // An omitted source means `'user'`, so anything but an explicit `'system'`
@@ -331,6 +330,13 @@ export class Epicurrents implements EpicurrentsApp {
                     }
                 }, SCOPE)
             }
+        }
+        this.#runtime.addEventListener(DatasetEvents.ADD_RESOURCE, (event) => {
+            const payload = (event as EventWithPayload<DataResource | DatasetResourceContext>).detail.payload
+            watch('resource' in payload ? payload.resource : payload)
+        }, SCOPE)
+        this.#runtime.addEventListener('replace-resource', (event) => {
+            watch((event as EventWithPayload<{ next: DataResource }>).detail.payload.next)
         }, SCOPE)
     }
 
@@ -390,7 +396,9 @@ export class Epicurrents implements EpicurrentsApp {
             Log.error(`Could not open deferred resource ${placeholder.name}: no dataset holds it.`, SCOPE)
             return null
         }
-        const options = { ...study.options, name: study.options?.name ?? study.name }
+        // The dataset option places a resource and is not an importer's to read; it need not be clonable either.
+        const { dataset: _target, ...studyOptions } = study.options ?? {}
+        const options = { ...studyOptions, name: studyOptions.name ?? study.name }
         placeholder.state = 'loading'
         let built: { loaded: boolean, modality: string, resource: DataResource }
         try {
@@ -405,7 +413,11 @@ export class Epicurrents implements EpicurrentsApp {
         if (!this.#runtime.replaceResource(placeholder, built.resource, dataset)) {
             // The placeholder left its dataset while the study loaded, so nothing is waiting for the result; a loaded
             // resource is destroyed rather than left holding a reader nobody can reach.
-            await built.resource.destroy()
+            try {
+                await built.resource.destroy()
+            } catch (e) {
+                Log.error(`Destroying the unused resource of study ${study.name} failed.`, SCOPE, e as Error)
+            }
             return null
         }
         placeholder.destroy()
@@ -607,9 +619,11 @@ export class Epicurrents implements EpicurrentsApp {
         }
         const load = this.#loadDeferred(resource)
         this.#deferredLoads.set(resource.id, load)
-        load.then(() => {
+        // Settled either way: an entry left behind would answer every later open with the same failure.
+        const forget = () => {
             this.#deferredLoads.delete(resource.id)
-        })
+        }
+        load.then(forget, forget)
         return load
     }
 
