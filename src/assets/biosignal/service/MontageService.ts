@@ -175,11 +175,13 @@ export default class MontageService extends GenericService implements BiosignalM
             this._stopCancelled = true
             await this._stopping
         }
-        if (!this._deferred) {
-            return this._worker !== null
-        }
+        // Ahead of the deferred test: a starting worker is attached at once, so a request arriving during the start
+        // would otherwise be posted before the setup replayed to the worker.
         if (this._starting) {
             return this._starting
+        }
+        if (!this._deferred) {
+            return this._worker !== null
         }
         this._starting = (async () => {
             const worker = this._createWorker!()
@@ -229,6 +231,10 @@ export default class MontageService extends GenericService implements BiosignalM
             return
         }
         this._stopCancelled = false
+        // A read waiting behind the one in flight would be dispatched as that one finishes and keep the worker, for
+        // a montage nothing reads from any more.
+        this._queuedRead?.resolve({ success: false })
+        this._queuedRead = null
         this._stopping = (async () => {
             await this._starting
             if (this._inFlight.size) {
@@ -247,6 +253,20 @@ export default class MontageService extends GenericService implements BiosignalM
             this._stopping = null
         })
         return this._stopping
+    }
+
+    /**
+     * Whether a setup recorded just now needs no commission, because the service has no worker and the next start
+     * replays it. A setup arriving while the worker is being stopped means the montage is in use again, so the stop
+     * is cancelled where it still can be and waited for either way: a commission sent to a worker that is shutting
+     * down is rejected with it.
+     */
+    private async _setupIsDeferred () {
+        if (this._stopping) {
+            this._stopCancelled = true
+            await this._stopping.catch(() => undefined)
+        }
+        return this._deferred
     }
 
     cacheMontageSignals () {
@@ -274,6 +294,11 @@ export default class MontageService extends GenericService implements BiosignalM
     async destroy () {
         // A destroyed service starts no worker again, whatever reaches it afterwards.
         this._createWorker = null
+        this._queuedRead?.resolve({ success: false })
+        this._queuedRead = null
+        // A stop in progress has a shutdown commission out, which a second one from the teardown would reject, and
+        // it restores the memory manager as it ends.
+        await this._stopping?.catch(() => undefined)
         this._montage = null as unknown as BiosignalMontage
         this._mutex = null
         await super.destroy()
@@ -432,11 +457,13 @@ export default class MontageService extends GenericService implements BiosignalM
     }
 
     setInterruptions (interruptions: SignalInterruptionMap) {
-        if (this._deferred) {
+        if (this._createWorker) {
+            // Recorded with a worker running too: the worker started after a release is given the newest ones.
             this._deferredSetup.interruptions = interruptions
-            return
         }
-        this._postInterruptions(interruptions)
+        if (this._worker) {
+            this._postInterruptions(interruptions)
+        }
     }
 
     private _postInterruptions (interruptions: SignalInterruptionMap) {
@@ -460,7 +487,10 @@ export default class MontageService extends GenericService implements BiosignalM
         await commission.promise
     }
 
-    async setFilters () {
+    async setFilters (): Promise<SetFiltersResponse> {
+        if (!this._montage) {
+            return { success: false, updated: false }
+        }
         if (this._createWorker) {
             this._deferredSetup.filters = true
         }
@@ -497,7 +527,7 @@ export default class MontageService extends GenericService implements BiosignalM
         }
         if (this._createWorker) {
             this._deferredSetup.input = { kind: 'cache', cache }
-            if (this._deferred) {
+            if (await this._setupIsDeferred()) {
                 return { success: true }
             }
         }
@@ -524,7 +554,7 @@ export default class MontageService extends GenericService implements BiosignalM
         }
         if (this._createWorker) {
             this._deferredSetup.input = { kind: 'mutex', props: inputProps }
-            if (this._deferred) {
+            if (await this._setupIsDeferred()) {
                 return { success: true }
             }
         }
@@ -581,7 +611,7 @@ export default class MontageService extends GenericService implements BiosignalM
         }
         if (this._createWorker) {
             this._deferredSetup.input = { kind: 'shared', port: inputPort }
-            if (this._deferred) {
+            if (await this._setupIsDeferred()) {
                 return { success: true }
             }
         }
@@ -612,7 +642,7 @@ export default class MontageService extends GenericService implements BiosignalM
     async setupWorker () {
         if (this._createWorker) {
             this._deferredSetup.worker = true
-            if (this._deferred) {
+            if (await this._setupIsDeferred()) {
                 return true
             }
         }
@@ -639,7 +669,15 @@ export default class MontageService extends GenericService implements BiosignalM
     }
 
     async unload (releaseFromManager = true) {
-        await super.unload(releaseFromManager)
+        try {
+            await super.unload(releaseFromManager)
+        } catch (e: unknown) {
+            // A stop already under way can shut the worker down before it answers the release, which rejects the
+            // commission; the cache went with the worker, so there is nothing left to release.
+            if (this._worker) {
+                throw e
+            }
+        }
         // A worker started on demand goes with the data it was reading; the next request starts another.
         await this._stop()
     }

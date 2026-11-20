@@ -35,6 +35,8 @@ vi.mock('../../src/assets/biosignal/service/BiosignalMutex', () => ({
 const { FakeWorker } = vi.hoisted(() => {
     class FakeWorker {
         static instances: FakeWorker[] = []
+        /** Actions a worker takes and never answers. */
+        static unanswered = new Set<string>()
         listeners: ((event: { data: unknown }) => void)[] = []
         onerror: unknown = null
         onmessageerror: unknown = null
@@ -48,7 +50,7 @@ const { FakeWorker } = vi.hoisted(() => {
         }
         postMessage (message: { action: string, rn?: number }) {
             this.posted.push(message)
-            if (message.rn === undefined) {
+            if (message.rn === undefined || FakeWorker.unanswered.has(message.action)) {
                 return
             }
             const reply = { action: message.action, rn: message.rn, success: true, range: [0, 1], signals: [] }
@@ -82,6 +84,7 @@ describe('MontageService started on demand', () => {
     beforeEach(() => {
         ;(GenericAsset as any).USED_IDS.clear()
         FakeWorker.instances.length = 0
+        FakeWorker.unanswered.clear()
         modules = { eeg: {} }
         const eventBus = {
             addScopedEventListener: vi.fn(() => () => undefined),
@@ -118,6 +121,20 @@ describe('MontageService started on demand', () => {
         await service.setupMontageWithInputMutex({ input: 'props' } as any)
         service.setInterruptions(new Map([[1, 2]]))
         return service
+    }
+
+    /**
+     * Start releasing the worker and return once its shutdown is posted and not yet answered. The release is wrapped,
+     * since a promise returned from here as it is would be awaited to its end.
+     */
+    const releaseUntilShutdown = async (service: MontageService) => {
+        const release = service.releaseWorker()
+        for (let i = 0; i < 5; i++) {
+            await Promise.resolve()
+        }
+        expect(actions(FakeWorker.instances[0])).toContain('shutdown')
+        expect(FakeWorker.instances[0].terminated).toBe(false)
+        return { release }
     }
 
     it('starts no worker until a request needs one', async () => {
@@ -193,6 +210,82 @@ describe('MontageService started on demand', () => {
         await service.releaseWorker()
         // The read was answered rather than rejected by the shutdown.
         expect(await read).toEqual({ signals: [], range: [0, 1] })
+        expect(FakeWorker.instances[0].terminated).toBe(true)
+    })
+
+    it('sets a starting worker up before a read that arrives during the start', async () => {
+        const service = await setUp()
+        await Promise.all([service.setFilters(), service.getSignals([0, 1])])
+        expect(actions(FakeWorker.instances[0])).toEqual([
+            'setup-worker', 'setup-input-mutex', 'set-interruptions', 'set-filters', 'get-signals',
+        ])
+    })
+
+    it('gives a worker started again the interruptions set while the last one ran', async () => {
+        const service = await setUp()
+        await service.getSignals([0, 1])
+        service.setInterruptions(new Map([[5, 6]]))
+        expect(FakeWorker.instances[0].posted.filter(m => m.action === 'set-interruptions')).toHaveLength(2)
+        await service.releaseWorker()
+        await service.getSignals([0, 1])
+        const replayed = FakeWorker.instances[1].posted.filter(m => m.action === 'set-interruptions')
+        expect(replayed).toEqual([{ action: 'set-interruptions', interruptions: [{ start: 5, duration: 6 }] }])
+    })
+
+    it('takes a setup that arrives while the worker is being released', async () => {
+        const service = await setUp()
+        await service.getSignals([0, 1])
+        const { release } = await releaseUntilShutdown(service)
+        // Sent to a worker that is shutting down, the commission would be rejected with it.
+        await service.setupMontageWithInputMutex({ input: 'new props' } as any)
+        await release
+        await service.getSignals([0, 1])
+        const worker = FakeWorker.instances[FakeWorker.instances.length - 1]
+        expect(worker.terminated).toBe(false)
+        const inputs = worker.posted.filter(m => m.action === 'setup-input-mutex')
+        expect(inputs[inputs.length - 1].input).toEqual({ input: 'new props' })
+    })
+
+    it('drops a read waiting behind the one in flight when the worker is released', async () => {
+        const service = await setUp()
+        await service.getSignals([0, 1])
+        const inFlight = service.getSignals([2, 3])
+        const waiting = service.getSignals([4, 5])
+        await service.releaseWorker()
+        expect(await inFlight).toEqual({ signals: [], range: [0, 1] })
+        expect(await waiting).toEqual({ success: false })
+        expect(FakeWorker.instances).toHaveLength(1)
+        expect(FakeWorker.instances[0].terminated).toBe(true)
+        expect(actions(FakeWorker.instances[0]).filter(a => a === 'get-signals')).toHaveLength(2)
+    })
+
+    it('is destroyed while its worker is being released', async () => {
+        const service = await setUp()
+        await service.getSignals([0, 1])
+        const { release } = await releaseUntilShutdown(service)
+        await expect(service.destroy()).resolves.toBeUndefined()
+        await release
+        expect(FakeWorker.instances[0].terminated).toBe(true)
+        expect(actions(FakeWorker.instances[0]).filter(a => a === 'shutdown')).toHaveLength(1)
+        expect((service as any)._manager).toBeNull()
+        await service.getSignals([0, 1])
+        expect(FakeWorker.instances).toHaveLength(1)
+    })
+
+    it('unloads when a release shuts the worker down before it answers', async () => {
+        const service = await setUp()
+        await service.getSignals([0, 1])
+        FakeWorker.unanswered.add('release-cache')
+        vi.useFakeTimers()
+        try {
+            const unload = service.unload(false)
+            const release = service.releaseWorker()
+            await vi.advanceTimersByTimeAsync(1500)
+            await expect(unload).resolves.toBeUndefined()
+            await release
+        } finally {
+            vi.useRealTimers()
+        }
         expect(FakeWorker.instances[0].terminated).toBe(true)
     })
 
