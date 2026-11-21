@@ -9,6 +9,7 @@
  */
 
 import { DataResource } from './application'
+import { StudyListing } from './dataset'
 import { ConfigStudyLoader, UrlAccessOptions } from './config'
 import {
     FileSystemItem,
@@ -155,6 +156,14 @@ export interface StudyLoader {
     resourceModality: string
     /** Resource modalities supported by this loader. */
     supportedModalities: string[]
+    /**
+     * Create the resource of a study listed without being read, in the class a study read by this loader gets, with no
+     * worker, service or reader behind it. The resource reads its study and finishes its setup when it is loaded.
+     * @param listing - The listed study; its `modality` is the one to list it under.
+     * @returns The listed resource, or null if this loader cannot create a resource before reading its study. A loader
+     *          without the method lists nothing either.
+     */
+    createListedResource? (listing: StudyListing): DataResource | null
     /**
      * Use the loaded study to get a resource of the appropriate type.
      * @param idx - Optional array index or ID string of the resource (defaults to last loaded study).

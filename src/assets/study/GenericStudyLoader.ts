@@ -7,6 +7,7 @@
 
 import type { DataResource } from '#types/application'
 import type { ConfigStudyLoader } from '#types/config'
+import type { StudyListing } from '#types/dataset'
 import type {
     FileFormatExporter,
     FileFormatImporter,
@@ -105,6 +106,11 @@ export default class GenericStudyLoader implements StudyLoader {
 
     get supportedModalities () {
         return this._supportedModalities
+    }
+
+    createListedResource (_listing: StudyListing): DataResource | null {
+        // Override this in a child loader whose resource can be created before its study is read.
+        return null
     }
 
     async getResource (idx: number | string = -1): Promise<DataResource | null> {

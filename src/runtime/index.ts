@@ -417,6 +417,15 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             if (!resource.isActive) {
                 resource.isActive = true
             }
+            // A listed resource, or one created but never set loading, loads in place on activation; a view holding
+            // it shows its loading state until it is ready. A resource already loading, ready or failed is left alone.
+            if (resource.state === 'added' || resource.state === 'loaded') {
+                resource.load().then(loaded => {
+                    if (!loaded) {
+                        Log.error(`Loading the activated resource ${resource.name} failed.`, SCOPE)
+                    }
+                })
+            }
         } else {
             for (const res of activeSet.activeResources) {
                 res.isActive = false

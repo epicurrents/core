@@ -176,6 +176,8 @@ import type {
     ResourceModule,
     SettingsValue,
     SignalExportTarget,
+    StudyContext,
+    StudyListing,
     StudyLoader,
     WriterMode,
     StateManager,
@@ -292,13 +294,16 @@ export class Epicurrents implements EpicurrentsApp {
      * Read live from the datasets rather than counted, so closing a resource is reflected without a
      * second piece of bookkeeping to keep in step. A resource that failed to load or has been
      * destroyed is not something anyone can return to, so neither counts; one still loading does,
-     * since the user set it going and would have to set it going again. A deferred resource is a
-     * listing, not something opened, so it counts only once the user has set its load going.
+     * since the user set it going and would have to set it going again. A listed or deferred resource
+     * is a listing, not something opened, so it counts only once the user has set its load going.
      */
     #hasOpenResources () {
         for (const dataset of this.#runtime.APP.datasets) {
             for (const context of dataset.resources) {
                 if (isDeferredResource(context.resource) && context.resource.state === 'added') {
+                    continue
+                }
+                if (context.resource.isListed) {
                     continue
                 }
                 if (context.resource.state !== 'destroyed' && context.resource.state !== 'error') {
@@ -359,23 +364,11 @@ export class Epicurrents implements EpicurrentsApp {
             return { loaded: false, modality: 'UNKNOWN', resource: new ErrorResource(options.name || 'Unknown', 'error') }
         }
         const modality = context.loader.resourceModality
-        if (this.#memoryManager) {
-            context.loader.registerMemoryManager(this.#memoryManager)
-        }
-        const study = typeof source === 'string'
-            ? await context.loader.loadFromUrl(source, options)
-            : Array.isArray(source) ? await context.loader.loadFromDirectory(
-                                                MixedFileSystemItem.UrlsToFsItem(...source),
-                                                options
-                                            )
-            : source instanceof File ? await context.loader.loadFromFile(source, options)
-            : source.files.length ? await context.loader.loadFromDirectory(source, options)
-            : source.file ? await context.loader.loadFromFile(source.file, options)
-                          : null
-        if (!study) {
+        const read = await this.#readStudy(context.loader, source, options)
+        if (!read) {
             return { loaded: false, modality, resource: new ErrorResource(options.name || 'Unknown', modality) }
         }
-        const nextIdx = await context.loader.useStudy(study)
+        const { nextIdx, study } = read
         const resource = await context.loader.getResource(nextIdx)
         if (!resource) {
             return { loaded: false, modality, resource: new ErrorResource(study.name, study.modality, study) }
@@ -425,7 +418,7 @@ export class Epicurrents implements EpicurrentsApp {
             return null
         }
         const resource = built.resource
-        if (!await resource.prepare(options)) {
+        if (!await resource.load(options)) {
             Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
             return null
         }
@@ -453,6 +446,76 @@ export class Epicurrents implements EpicurrentsApp {
             }
         })
         return run
+    }
+
+    /**
+     * Read the study of a listed resource, for its `load`. Never rejects: a failure is logged and answered with null,
+     * which leaves the resource in `error`.
+     */
+    async #readListedStudy (
+        listing: StudyListing,
+        modality: string,
+        options: ConfigStudyLoader
+    ): Promise<StudyContext | null> {
+        const context = this.#runtime.APP.studyImporters.get(listing.loader)
+        if (!context) {
+            Log.error(`Could not read study ${listing.name}, loader ${listing.loader} was not found.`, SCOPE)
+            return null
+        }
+        let study: StudyContext | null = null
+        try {
+            study = (await this.#queueOnLoader(
+                listing.loader,
+                () => this.#readStudy(context.loader, listing.source, options)
+            ))?.study ?? null
+        } catch (e) {
+            Log.error(`Reading the study ${listing.name} failed.`, SCOPE, e as Error)
+            return null
+        }
+        if (!study) {
+            Log.error(`Could not read study ${listing.name}.`, SCOPE)
+            return null
+        }
+        // A loader claims what it reads as its own resource modality, so only a third one is a disagreement: the read
+        // found a study of another kind, which the resource listed under this modality cannot show.
+        if (study.modality !== modality && study.modality !== context.loader.resourceModality) {
+            Log.error(
+                `Study ${listing.name} was listed as ${modality} but read as ${study.modality}.`,
+                SCOPE
+            )
+            return null
+        }
+        return study
+    }
+
+    /**
+     * Read a study with `loader` and hand it to the loader, which then holds it until it creates the resource. Run
+     * through `#queueOnLoader`, for the reason given on `#buildStudyResource`.
+     * @returns The study and the index its resource gets in the loader, or null if the study could not be read.
+     */
+    async #readStudy (
+        loader: StudyLoader,
+        source: string | string[] | File | FileSystemItem,
+        options: ConfigStudyLoader & DatabaseQueryOptions
+    ): Promise<{ nextIdx: number, study: StudyContext } | null> {
+        if (this.#memoryManager) {
+            loader.registerMemoryManager(this.#memoryManager)
+        }
+        const study = typeof source === 'string'
+            ? await loader.loadFromUrl(source, options)
+            : Array.isArray(source) ? await loader.loadFromDirectory(
+                                                MixedFileSystemItem.UrlsToFsItem(...source),
+                                                options
+                                            )
+            : source instanceof File ? await loader.loadFromFile(source, options)
+            : source.files.length ? await loader.loadFromDirectory(source, options)
+            : source.file ? await loader.loadFromFile(source.file, options)
+                          : null
+        if (!study) {
+            return null
+        }
+        const nextIdx = await loader.useStudy(study)
+        return { nextIdx, study }
     }
 
     addDeferredStudy (study: DeferredStudy, options: { dataset?: MediaDataset } = {}) {
@@ -584,6 +647,45 @@ export class Epicurrents implements EpicurrentsApp {
         return true
     }
 
+    listStudy (listing: StudyListing, options: { dataset?: MediaDataset } = {}) {
+        const context = this.#runtime.APP.studyImporters.get(listing.loader)
+        if (!context) {
+            Log.error(`Could not list study ${listing.name}, loader ${listing.loader} was not found.`, SCOPE)
+            return null
+        }
+        const modality = listing.modality || context.loader.resourceModality
+        if (!this.#runtime.MODULES.get(modality)) {
+            Log.error(`Could not list study ${listing.name}, no loaded module matches its modality ${modality}.`, SCOPE)
+            return null
+        }
+        const resource = context.loader.createListedResource?.({ ...listing, modality }) ?? null
+        if (!resource) {
+            Log.error(
+                `Could not list study ${listing.name}, loader ${listing.loader} cannot create a resource unread.`,
+                SCOPE
+            )
+            return null
+        }
+        if (resource.modality !== modality) {
+            Log.error(
+                `Could not list study ${listing.name}: it was listed as ${modality}, the resource is ${resource.modality}.`,
+                SCOPE
+            )
+            return null
+        }
+        // The dataset option places a resource and is not an importer's to read; it need not be clonable either. The
+        // modality goes to the importer, so a loader refuses a study it does not support for it.
+        const { dataset: _target, ...studyOptions } = listing.options ?? {}
+        const loadOptions = { ...studyOptions, modality, name: studyOptions.name ?? listing.name }
+        resource.setListing({
+            options: loadOptions,
+            properties: listing.properties,
+            readStudy: () => this.#readListedStudy(listing, modality, loadOptions),
+        })
+        this.#runtime.addResource(modality, resource, { dataset: options.dataset })
+        return resource
+    }
+
     async loadStudy (
         loader: string,
         source: string | string[] | File | FileSystemItem,
@@ -600,8 +702,8 @@ export class Epicurrents implements EpicurrentsApp {
             return null
         }
         const resource = built.resource
-        // Start preparing the resource, but return it immediately.
-        resource.prepare(loaderOptions).then(success => {
+        // Start loading the resource, but return it immediately.
+        resource.load(loaderOptions).then(success => {
             if (!success) {
                 Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
             }
@@ -696,11 +798,11 @@ export class Epicurrents implements EpicurrentsApp {
         const setResources = this.#runtime.APP.activeDataset.resources.map(ctx => ctx.resource)
         if (typeof resource === 'string') {
             for (const sr of setResources) {
-                if (sr.id === resource && sr.isReady) {
+                if (sr.id === resource && (sr.isReady || sr.isListed)) {
                     this.#runtime.setActiveResource(sr, true)
                 }
             }
-        } else if (setResources.includes(resource) && resource.isReady) {
+        } else if (setResources.includes(resource) && (resource.isReady || resource.isListed)) {
             this.#runtime.setActiveResource(resource, true)
         }
     }

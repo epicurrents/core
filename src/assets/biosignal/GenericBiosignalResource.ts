@@ -1152,22 +1152,23 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async loadAndCacheSignals (): Promise<boolean> {
-        if (!this._service) {
-            Log.error(`Cannot load and cache signals before the service has been set.`, SCOPE)
-            return false
-        }
-        // 1. Decode the study parameters (worker + header setup). This is the "load" step; `prepare`
-        //    is a no-op once `state === 'ready'`, so reuse it rather than duplicating the worker
-        //    setup. `prepare` also applies default setups, which are harmless on this path — export
-        //    reads the raw source channels, not setups.
+        // 1. Decode the study parameters (worker + header setup). This is the "load" step, and going
+        //    through `load` shares a load already running rather than preparing the resource twice.
+        //    Preparing also applies default setups, which are harmless on this path — export reads
+        //    the raw source channels, not setups.
         if (this.state !== 'ready') {
-            // `prepare` resolves true only after flipping `state` to 'ready', so its return value
-            // is a sufficient readiness check on its own.
-            const prepared = await this.prepare()
+            // `load` resolves true only once `state` is 'ready', so its return value is a sufficient
+            // readiness check on its own.
+            const prepared = await this.load()
             if (!prepared) {
                 Log.error(`Cannot cache signals: the resource failed to prepare.`, SCOPE)
                 return false
             }
+        }
+        // Read after loading, which is what creates the service of a listed resource.
+        if (!this._service) {
+            Log.error(`Cannot load and cache signals before the service has been set.`, SCOPE)
+            return false
         }
         // 2. Set up a plain JS-heap cache in the worker (no SAB / mutex, no derivation slots) so the
         //    reader has somewhere to write the decoded records. Skip if a cache or mutex already

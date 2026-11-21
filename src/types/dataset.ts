@@ -145,6 +145,27 @@ export type DeferredStudy = {
     /** Properties to show in listings before the study is loaded, as returned by `getMainProperties`. */
     properties?: [string, MainProperty][]
 }
+/**
+ * A study a host lists in a dataset without reading it, and the instructions for reading it when it is loaded.
+ *
+ * The listed resource is created in its module's own class and loads in place: `load` reads the study from `source`
+ * with the importer named in `loader`, exactly as `loadStudy` would. `properties` are shown until then and are never
+ * read for loading, since a worker computes its offsets from the header the file itself carries.
+ */
+export type StudyListing = {
+    /** Name of the study importer to read the study with. */
+    loader: string
+    /** Name to list the study under. */
+    name: string
+    /** URL(s) or file system item to read the study from. */
+    source: string | string[] | File | FileSystemItem
+    /** Modality to list the study under, if not the importer's resource modality. */
+    modality?: string
+    /** Options passed to the importer and to the resource's load, as in `loadStudy`. */
+    options?: ConfigStudyLoader
+    /** Properties to show in listings before the study is loaded, as returned by `getMainProperties`. */
+    properties?: [string, MainProperty][]
+}
 /** Context for a resource in the dataset. */
 export type DatasetResourceContext = {
     /** The data resource. */

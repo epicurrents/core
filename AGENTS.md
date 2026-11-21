@@ -249,6 +249,26 @@ Two conventions to know before calling a designer. `order` is the number of prot
 
 A `GenericResource` that constructs straight into `state = 'error'` and carries a `reason` string, for the case where loading failed before a real resource could exist. `loadStudy` uses it on every failure branch — unknown importer, no study returned, no resource from the study — adding it to the target dataset in place of what could not be loaded before returning `null`. The failure therefore stays visible in the resource list, with `getMainProperties` surfacing the reason, rather than existing only as the caller's discarded return value.
 
+### Listed studies and loading in place
+
+A resource has two stages, split by cost rather than by object. **Listed**, it holds what a listing shows and the instructions for reading its study, and nothing else: no worker, service, reader or cache. **Loaded**, it has finished its setup on the same object. `load(options)` on `GenericResource` is the one entry between the two:
+
+1. A resource listed without its study (`isListed`) reads it through the `readStudy` its listing carries, and the result becomes `source`.
+2. The protected `_load(options)` hook finishes the setup. A module fills it with what its constructor would otherwise do for a study nobody has opened; the default calls `prepare`, which is all a resource created complete needs.
+3. The state goes from `added` (or `loaded`) through `loading` to `ready`. A read that resolves null, a hook that resolves false or throws, or a hook that sets `error` itself leaves `error` and an `errorReason` on this same resource, keeping a reason the hook gave. A resource in `error` is not loaded again by calling `load`.
+
+Calls made while a load runs share it, and a call on a ready resource resolves at once, which is why core's own callers (`loadStudy`, `loadAndCacheSignals`, the deferred path) go through `load` rather than `prepare`. A resource destroyed mid-load resolves false without running the rest. Unloading back to listed is the module's half: an `unload` that releases the worker and service and sets the state back to `added` makes the resource listed again, and the next `load` sets it up from the `source` it kept, without reading the study again.
+
+`listStudy(listing, { dataset })` is the host-facing entry. It asks the study loader's `createListedResource` for a resource in the module's own class, refuses a study whose importer, module or factory cannot list it, gives the resource its listing and adds it to the dataset. The `GenericStudyLoader` default returns null, so a loader lists only once its module creates its resources unloaded.
+
+The rules that hold the shape:
+
+- **The study read is the only source the resource sets up from.** A `StudyListing`'s `properties` are shown until the load starts and are never read for it, since a worker computes byte offsets from the header it is handed. A host's metadata lists a study; the file describes it.
+- **Modality is fixed at listing.** The listing's modality goes to the importer and the factory. A study loader claims what it reads as its own resource modality, so the read is accepted under either; a third modality (a biosignal loader reading a video file, say) leaves the resource in `error` rather than producing a resource of another class.
+- **Reads through one importer run one at a time**, through the same `#queueOnLoader` as `loadStudy`. Only the read is queued; the setup in `_load` runs outside it.
+- **Activation loads.** `setActiveResource` starts `load` on a resource in `added` or `loaded`, after making it active, so a view can hold an active resource that is still loading. `selectActiveResource` accepts a listed resource as well as a ready one.
+- **A listed resource is not open** for the unload guard until its load has been set going.
+
 ### Deferred studies
 
 A dataset can list a study without loading it. `addDeferredStudy(study, { dataset })` adds a `DeferredResource` ([src/assets/deferred/](src/assets/deferred/)) carrying a `DeferredStudy` descriptor: the importer name, the source, the importer options, the name and the `properties` to list it with. Nothing is fetched and no worker is started. A loaded study holds its reader, and with shared memory a worker, until the dataset is destroyed, so this is what makes a large dataset openable at all.
@@ -261,7 +281,7 @@ Three rules hold the shape together:
 - **Loads through one importer run one at a time** (`#queueOnLoader`, used by `loadStudy` too). A study loader holds the study it is working on in one field between `useStudy` and `getResource`, so two overlapping loads on it would create each other's resource.
 - **`properties` are display only.** Core never reads them for loading, so whoever builds the descriptor decides whether its values are trustworthy enough to list. `isDeferredResource` tests by shape, so it holds across duplicated copies of the package.
 
-A dataset listing an input data source loads up to `app.eagerStudyLoadLimit` studies (default 50) and lists the rest deferred by name. A deferred resource counts as open for the unload guard only once its load has been set going.
+A dataset listing an input data source loads up to `app.eagerStudyLoadLimit` studies (default 50) and lists the rest deferred by name. A deferred resource counts as open for the unload guard only once its load has been set going. See [Listed studies and loading in place](#listed-studies-and-loading-in-place) for the lifecycle that loads a listed resource on itself instead of swapping it.
 
 ### Study importers and exporters
 

@@ -15,7 +15,7 @@ import {
     SettingsValue,
 } from './config'
 import { ConnectorType, DatasourceConnector } from './connector'
-import { DatasetLoader, DeferredStudy, MediaDataset } from './dataset'
+import { DatasetLoader, DeferredStudy, MediaDataset, StudyListing } from './dataset'
 import {
     FileSystemItem,
     ReaderMode,
@@ -382,6 +382,11 @@ export interface BaseAsset {
     dependenciesMissing: string[]
     /** Dependencies of this resource that are ready to use. */
     dependenciesReady: string[]
+    /**
+     * Is the resource listed and not yet set loading: it holds what a listing shows and the instructions for reading
+     * its study, and nothing has been read. Set by `setListing` and cleared when `load` starts.
+     */
+    isListed: boolean
     /** Is the resource ready for use. */
     isReady: boolean
     /** List of label annotations. */
@@ -410,6 +415,11 @@ export interface BaseAsset {
      */
     setDependenciesReady (...dependencies: string[]): void
     /**
+     * List the resource without its study: what to show until it is loaded, and how `load` reads the study.
+     * @param listing - The listing.
+     */
+    setListing (listing: ResourceListing): void
+    /**
      * Get the main properties of this resource as a map of
      * <labelString, stringParams>.
      * @remarks
@@ -422,6 +432,15 @@ export interface BaseAsset {
      * them apart.
      */
     getMainProperties (): Map<string, MainProperty>
+    /**
+     * Finish setting up the resource on itself: read its study if it was listed without one, then set up what it needs
+     * to show the study, such as its worker and service. The state goes from `added` through `loading` to `ready`, and
+     * a failure leaves `error` and `errorReason` on this same resource. Calls made while a load runs share it, and a
+     * call on a ready resource resolves at once.
+     * @param options - Options to load with, over those given with the listing.
+     * @returns Promise resolving true once the resource is ready, false if it failed or was destroyed.
+     */
+    load (options?: ConfigStudyLoader): Promise<boolean>
     /**
      * Prepare this resource for use. This includes steps like loading
      * the necessary metadata etc.
@@ -443,6 +462,20 @@ export interface BaseAsset {
      * resolve immediately.
      */
     awaitDeactivation (): Promise<void>
+}
+/**
+ * What a resource listed without its study holds until it is loaded, as given to `setListing`.
+ */
+export type ResourceListing = {
+    /** Options to load the resource with; any given to `load` take precedence. */
+    options?: ConfigStudyLoader
+    /** Properties to show until the resource is loaded, as returned by `getMainProperties`. */
+    properties?: [string, MainProperty][]
+    /**
+     * Read the resource's source study. Resolves null, or rejects, when the study cannot be read; either leaves the
+     * resource in `error`.
+     */
+    readStudy: () => Promise<StudyContext | null>
 }
 /**
  * An entry a host adds to the context menu the interface opens on a plot or on an annotation in it.
@@ -603,6 +636,19 @@ export interface EpicurrentsApp {
         options?: ConfigStudyLoader
     ): Promise<DataResource|null>
     /**
+     * List a study in a dataset without reading it. The resource is created in its module's own class by the study
+     * loader's `createListedResource`, with no worker, service or reader behind it, and is the resource the dataset
+     * keeps: activating it loads it in place with `load`, which reads the study with the named importer. Reads through
+     * one importer run one at a time, shared with `loadStudy`.
+     *
+     * The study's modality is fixed here. A read that finds another one, other than the loader's own resource
+     * modality, leaves the resource in `error`.
+     * @param listing - The study to list and the instructions for reading it.
+     * @param options - Optional dataset to list the study in (default the active dataset, or a new one if none).
+     * @returns The listed resource, or null if no importer or module matches the study or its loader cannot list one.
+     */
+    listStudy (listing: StudyListing, options?: { dataset?: MediaDataset }): DataResource | null
+    /**
      * Notify the app that the host session was (re-)established, e.g. after a re-login. Clears the
      * network circuit breakers across every active service so loads latched on a prior auth failure
      * resume. A neutral fact notification — the host announces the session change and need not know
@@ -665,7 +711,8 @@ export interface EpicurrentsApp {
      */
     registerStudyImporter (name: string, label: string, mode: ReaderMode, loader: StudyLoader): void
     /**
-     * Select the `resource` in current dataset as active. This will deactivate other possibly active resources.
+     * Select the `resource` in current dataset as active. This will deactivate other possibly active resources. Only a
+     * ready or a listed resource is selected; a listed one loads in place, as `setActiveResource` describes.
      * @param resource - The resource to select or its unique ID.
      */
     selectActiveResource (resource: DataResource | string): void
@@ -1088,7 +1135,8 @@ export interface StateManager extends RuntimeState, BaseAsset {
      */
     setActiveDataset (dataset: MediaDataset | null): void
     /**
-     * Set the given resource active.
+     * Set the given resource active. A resource that has not been set loading (state `added` or `loaded`), a listed
+     * one among them, starts loading in place; it is active, and not ready, until the load settles.
      * @param resource - New resource to set as active or null to deactivate currently active resource.
      * @param deactivateOthers - Deactivate other active resources before activating this (default true). This method can also be used to deactivate other resources while only leaving the given `resource` active.
      * @emits `set-active-resource` with the new resource as payload.

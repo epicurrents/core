@@ -158,6 +158,10 @@ The `DeferredStudy` descriptor and `addDeferredStudy` survive in substance under
 - A worker's header comes from the file even when the listing carried one.
 - A read whose modality disagrees with the listing ends in `error`.
 
+**Progress.** The core half is in the tree, unreleased: `load`, `isListed`, `setListing` and the `_load` hook on `GenericResource`; `createListedResource` on the study loader, optional on the interface since the interface's media and radiology loaders implement it directly, and null by default in `GenericStudyLoader`; `listStudy` on the application; activation loading in `setActiveResource` and `selectActiveResource`; and `loadAndCacheSignals` loading before it looks for a service. [Listed studies and loading in place](AGENTS.md#listed-studies-and-loading-in-place) describes it, and [tests/listed-loading.test.ts](tests/listed-loading.test.ts) pins it against a fake module, the host producer only. All of it is additive, so the deferred API stays beside it while the module packages, the interface and the platform move. Removing that API, and making `createListedResource` required, is the change that makes the release 3.0, and it comes last.
+
+A module adopts the lifecycle by overriding `createListedResource` and moving the tail of its constructor into `_load`. The file-opened producer needs one more step: `getResource` builds the resource unloaded too, with `loadStudy` loading it at once as it does now. Until a module has both, `listStudy` refuses its studies, and a host lists them with `addDeferredStudy`.
+
 **Built on it.** Child resources that are listed and loaded in place are what the interface's nested navigator uses for attachments; see "Dataset navigator with nested resources" in the interface ROADMAP. The platform drops its attachment-parent tracker and its swap-dependent loading code once it consumes 3.0.
 
 ## Release the readers of opened recordings

@@ -25,6 +25,7 @@ import type {
     NullProtoObject,
     PropertyChangeContext,
     PropertyChangeHandler,
+    ResourceListing,
     ResourceModule,
     RuntimeAppModule,
     RuntimeResourceModule,
@@ -57,6 +58,7 @@ export {
     NullProtoObject,
     PropertyChangeContext,
     PropertyChangeHandler,
+    ResourceListing,
     ResourceModule,
     RuntimeAppModule,
     RuntimeResourceModule,
@@ -324,6 +326,7 @@ import type {
     MediaDataset,
     ResourceSortingInstructions,
     ResourceSortingScheme,
+    StudyListing,
 } from './dataset'
 export {
     BaseDataset,
@@ -333,6 +336,7 @@ export {
     MediaDataset,
     ResourceSortingInstructions,
     ResourceSortingScheme,
+    StudyListing,
 }
 
 /////////////////////////////////////////////////

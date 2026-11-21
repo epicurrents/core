@@ -101,6 +101,7 @@ if (resource) {
 Key `Epicurrents` methods beyond the flow above:
 
 - `addResource(resource, modality?)` — add an already-constructed resource to the active dataset.
+- `listStudy(listing, { dataset })` — list a study in its module's own resource class without reading it; activating the resource, or calling its `load`, reads the study and finishes the setup on the same object. See AGENTS.md → Listed studies and loading in place.
 - `addDeferredStudy(study, { dataset })` / `openDeferredResource(resource)` — list a study without loading it, and load it when it is opened; see AGENTS.md → Deferred studies.
 - `setActiveDataset(dataset)` — make a dataset the active one, or clear it with `null`.
 - `registerStudyExporter(name, label, mode, loader)` — the export-side counterpart of `registerStudyImporter`.

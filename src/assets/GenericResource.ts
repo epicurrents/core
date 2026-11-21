@@ -7,7 +7,8 @@
  */
 
 import GenericAsset from '#assets/GenericAsset'
-import type { AnnotationLabel, DataResource, MainProperty } from '#types/application'
+import type { AnnotationLabel, DataResource, MainProperty, ResourceListing } from '#types/application'
+import type { ConfigStudyLoader } from '#types/config'
 import type { StudyContext } from '#types/study'
 import { Log } from 'scoped-event-log'
 import { ResourceEvents } from '#events'
@@ -36,8 +37,12 @@ export default abstract class GenericResource extends GenericAsset implements Da
     protected _dependenciesMissing: string[] = []
     protected _dependenciesReady: string[] = []
     protected _labels: AnnotationLabel[] = []
+    /** What the resource was listed with, kept after loading so an unloaded resource can be loaded again. */
+    protected _listing: ResourceListing | null = null
     /** Is this record selected as active in the UI. */
     protected _loaded = false
+    /** The load in progress, shared by every call to `load` made while it runs. */
+    protected _loadRun: Promise<boolean> | null = null
     protected _source: StudyContext | null = null
 
     constructor (name: string, modality: string, source?: StudyContext) {
@@ -81,6 +86,9 @@ export default abstract class GenericResource extends GenericAsset implements Da
     set dependenciesReady (value: string[]) {
         this._setPropertyValue('dependenciesReady', value)
     }
+    get isListed () {
+        return this._listing !== null && this._state === 'added'
+    }
     get isReady () {
         return this._dependenciesMissing.length === 0 && this._state === 'ready'
     }
@@ -102,6 +110,74 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._setPropertyValue('source', value)
     }
 
+    /**
+     * Leave the resource in `error`, keeping a reason the load already gave.
+     */
+    protected _failLoad (reason: string) {
+        if (!this._errorReason) {
+            this._errorReason = reason
+        }
+        if ((this._state as string) !== 'error') {
+            this.state = 'error'
+        }
+    }
+
+    /**
+     * Finish the setup of a resource whose source study is in `_source`. A module fills this with what a resource
+     * needs only once it is opened: its worker, its service and their setup, and any check that depends on them.
+     * Resolve true once the resource is ready; resolving false or throwing leaves it in `error`. The default prepares
+     * the resource, which is all a resource created complete needs.
+     * @param options - Options to load with.
+     * @returns Promise resolving true on success.
+     */
+    protected async _load (options?: ConfigStudyLoader): Promise<boolean> {
+        return this.prepare(options)
+    }
+
+    /**
+     * Run one load: read the study of a listed resource that has none, then finish the setup through `_load`.
+     */
+    protected async _runLoad (options?: ConfigStudyLoader): Promise<boolean> {
+        const loadOptions = { ...this._listing?.options, ...options }
+        try {
+            this.state = 'loading'
+            if (!this._source && this._listing) {
+                const study = await this._listing.readStudy()
+                if (this._state === 'destroyed') {
+                    return false
+                }
+                if (!study) {
+                    this._failLoad('Reading the study failed')
+                    return false
+                }
+                if (study.meta?.datasetId) {
+                    this._datasetId = study.meta.datasetId as string
+                }
+                this.source = study
+            }
+            const loaded = await this._load(loadOptions)
+            // The state is read back rather than narrowed: `_load` may destroy the resource or fail it itself.
+            const state = this._state as string
+            if (state === 'destroyed') {
+                return false
+            }
+            if (!loaded || state === 'error') {
+                this._failLoad('Loading the study failed')
+                return false
+            }
+            if (state !== 'ready') {
+                this.state = 'ready'
+            }
+            return true
+        } catch (e) {
+            Log.error(`Loading resource ${this.name} failed.`, SCOPE, e as Error)
+            if ((this._state as string) !== 'destroyed') {
+                this._failLoad('Loading the study failed')
+            }
+            return false
+        }
+    }
+
     addDependencies (...dependencies: string[]) {
         // This action may change the resource from being ready to not being ready.
         const wasReady = this.isReady
@@ -119,7 +195,9 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._dependenciesMissing.length = 0
         this._dependenciesReady.length = 0
         this._errorReason = ''
+        this._listing = null
         this._loaded = false
+        this._loadRun = null
         this._source = null
         super.destroy()
     }
@@ -131,6 +209,9 @@ export default abstract class GenericResource extends GenericAsset implements Da
         // every subclass that builds on this one — so the declaration would stop describing what
         // the map holds with nothing reporting it.
         const props = new Map<string, MainProperty>()
+        if (this.isListed && this._listing?.properties?.length) {
+            return new Map(this._listing.properties)
+        }
         // Show universal state-related information.
         if (this.state === 'error') {
             props.set(this._errorReason, null)
@@ -155,7 +236,33 @@ export default abstract class GenericResource extends GenericAsset implements Da
         }
         return props
     }
-    async prepare () {
+    load (options?: ConfigStudyLoader) {
+        if (this._loadRun) {
+            return this._loadRun
+        }
+        if (this._state === 'ready') {
+            return Promise.resolve(true)
+        }
+        if (this._state === 'error' || this._state === 'destroyed') {
+            return Promise.resolve(false)
+        }
+        // Held before the run starts: its first step dispatches the `loading` state synchronously, and a listener that
+        // calls `load` from that dispatch has to find this load rather than start a second one.
+        let settle = (_loaded: boolean) => {}
+        const load = new Promise<boolean>(resolve => {
+            settle = resolve
+        })
+        this._loadRun = load
+        this._runLoad(options).then(settle, () => settle(false))
+        // Cleared whatever the outcome, so an unloaded resource can be loaded again; a later load is guarded by state.
+        load.then(() => {
+            if (this._loadRun === load) {
+                this._loadRun = null
+            }
+        })
+        return load
+    }
+    async prepare (..._args: unknown[]) {
         // Override this in a child class.
         this.state = 'ready'
         return true
@@ -184,6 +291,9 @@ export default abstract class GenericResource extends GenericAsset implements Da
     setDependenciesReady (...dependencies: string[]) {
         const depsReady = this.removeDependencies(...dependencies)
         this._setPropertyValue('dependenciesReady', [...this._dependenciesReady, ...depsReady])
+    }
+    setListing (listing: ResourceListing) {
+        this._listing = listing
     }
     async unload () {
         // Override this in a child class.
