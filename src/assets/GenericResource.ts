@@ -192,6 +192,14 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
 
     destroy () {
+        // Children belong to the resource they are listed under.
+        for (const child of this._childResources) {
+            if (child.state !== 'destroyed') {
+                child.destroy()
+            }
+        }
+        this._activeChildResource = null
+        this._childResources = []
         this._dependenciesMissing.length = 0
         this._dependenciesReady.length = 0
         this._errorReason = ''

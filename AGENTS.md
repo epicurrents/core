@@ -261,6 +261,8 @@ Calls made while a load runs share it, and a call on a ready resource resolves a
 
 `listStudy(listing, { dataset })` is the host-facing entry. It asks the study loader's `createListedResource` for a resource in the module's own class, refuses a study whose importer, module or factory cannot list it or whose loader does not support its modality, gives the resource its listing and adds it to the dataset. The application's memory manager is registered on the loader before the factory runs, as a read registers it, so a module resource that keeps the manager it is created with has it before the loader has read anything. The `GenericStudyLoader` default returns null, so a loader lists only once its module creates its resources unloaded.
 
+Given `{ parent }` in place of a dataset, `listStudy` lists the study as one of the parent's `childResources` rather than as a dataset member: a study attached to a recording, say. A child belongs to its parent, and `GenericResource.destroy` destroys the children with it. Core shows a child through the parent's `activeChildResource`, which a dataset's `activeResources` reports in the parent's place while the parent is active.
+
 A listing's `onLoad` is the host's step in the load. It is called with the resource as the read starts and runs beside it, outside the importer queue, and `_load` runs only once both have settled, so whatever the hook gives the resource is there when the setup looks for it: a host's trusted interruption table, say, which the setup hands to the worker before anything is read. It runs once per read, and a failing hook is logged without failing the load.
 
 The rules that hold the shape:

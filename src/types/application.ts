@@ -376,7 +376,10 @@ export interface BaseAsset {
  export interface DataResource extends BaseAsset {
     /** Currently active child resource, if any. */
     activeChildResource: DataResource | null
-    /** Array of child resources, if any. */
+    /**
+     * Resources listed under this one rather than in a dataset of their own, such as a study attached to a recording.
+     * They belong to this resource and are destroyed with it.
+     */
     childResources: DataResource[]
     /** Possible resource identifier used in the dataset this resource belongs to. */
     datasetId: string | null
@@ -645,11 +648,14 @@ export interface EpicurrentsApp {
      *
      * The study's modality is fixed here. A read that finds another one, other than the loader's own resource
      * modality, leaves the resource in `error`.
+     *
+     * Given a `parent`, the study is listed as one of its `childResources` instead of a dataset member, and belongs to
+     * it: it is opened in the parent's context and destroyed with it.
      * @param listing - The study to list and the instructions for reading it.
-     * @param options - Optional dataset to list the study in (default the active dataset, or a new one if none).
+     * @param options - Optional dataset to list the study in (default the active dataset, or a new one if none), or parent resource to list it under, which takes precedence.
      * @returns The listed resource, or null if no importer or module matches the study or its loader cannot list one.
      */
-    listStudy (listing: StudyListing, options?: { dataset?: MediaDataset }): DataResource | null
+    listStudy (listing: StudyListing, options?: { dataset?: MediaDataset, parent?: DataResource }): DataResource | null
     /**
      * Notify the app that the host session was (re-)established, e.g. after a re-login. Clears the
      * network circuit breakers across every active service so loads latched on a prior auth failure

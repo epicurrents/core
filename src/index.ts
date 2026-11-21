@@ -662,7 +662,7 @@ export class Epicurrents implements EpicurrentsApp {
         return true
     }
 
-    listStudy (listing: StudyListing, options: { dataset?: MediaDataset } = {}) {
+    listStudy (listing: StudyListing, options: { dataset?: MediaDataset, parent?: DataResource } = {}) {
         const context = this.#runtime.APP.studyImporters.get(listing.loader)
         if (!context) {
             Log.error(`Could not list study ${listing.name}, loader ${listing.loader} was not found.`, SCOPE)
@@ -719,7 +719,11 @@ export class Epicurrents implements EpicurrentsApp {
                 return study
             },
         })
-        this.#runtime.addResource(modality, resource, { dataset: options.dataset })
+        if (options.parent) {
+            options.parent.childResources = [...options.parent.childResources, resource]
+        } else {
+            this.#runtime.addResource(modality, resource, { dataset: options.dataset })
+        }
         return resource
     }
 

@@ -337,6 +337,33 @@ describe('listed studies', () => {
         expect(onLoad).toHaveBeenCalledTimes(1)
     })
 
+    it('lists a study under a parent, not in the dataset, and loads it in place', async () => {
+        const parent = list('parent')
+        const listed = app.listStudy(
+            { loader: 'test/url', name: 'attached', source: 'attached' },
+            { parent }
+        ) as ListedResource
+        expect(parent.childResources).toEqual([listed])
+        expect(dataset.resources.map(ctx => ctx.resource)).not.toContain(listed)
+        expect(listed.isListed).toBe(true)
+        expect(await listed.load()).toBe(true)
+        expect(listed.source?.name).toBe('attached')
+        expect(parent.childResources[0]).toBe(listed)
+    })
+
+    it('destroys the children of a destroyed resource', () => {
+        const parent = list('parent')
+        const first = app.listStudy({ loader: 'test/url', name: 'a', source: 'a' }, { parent })!
+        const second = app.listStudy({ loader: 'test/url', name: 'b', source: 'b' }, { parent })!
+        second.destroy()
+        parent.activeChildResource = first
+        parent.destroy()
+        expect(first.state).toBe('destroyed')
+        expect(second.state).toBe('destroyed')
+        expect(parent.childResources).toEqual([])
+        expect(parent.activeChildResource).toBeNull()
+    })
+
     it('does not count a listing as open until its load is set going', async () => {
         const listed = list('a')
         expect(app.unloadNeedsConfirmation).toBe(false)
