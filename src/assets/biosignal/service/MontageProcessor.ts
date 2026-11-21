@@ -11,6 +11,7 @@ import GenericBiosignalSetup from '#assets/biosignal/components/GenericBiosignal
 import {
     concatTypedNumberArrays,
     filterSignal,
+    getChannelFilters,
     getFilterPadding,
     mapMontageChannels,
     shouldDisplayChannel,
@@ -213,9 +214,9 @@ export default class MontageProcessor extends GenericSignalReader implements Sig
                     continue channel_loop
                 }
             }
-            const highpass = chan.highpassFilter !== null ? chan.highpassFilter : this._filters.highpass
-            const lowpass = chan.lowpassFilter !== null ? chan.lowpassFilter : this._filters.lowpass
-            const notch = chan.notchFilter !== null ? chan.notchFilter : this._filters.notch
+            // The same resolution `shouldFilterSignal` decides by, so the filters applied are the ones that made it
+            // decide to filter: a recording default reaches a channel only for the types configured to take it.
+            const { highpass, lowpass, notch } = getChannelFilters(chan, this._filters, this._settings)
             const activeLen = SIGNALS[
                 Array.isArray(chan.active)
                     ? Array.isArray(chan.active[0])
