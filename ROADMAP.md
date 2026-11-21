@@ -96,6 +96,70 @@ It stays exported because it is part of `@epicurrents/core/util`, and dropping a
 
 `addDeferredStudy`, `openDeferredResource`, `replaceResource` on the dataset and the runtime, `DeferredResource`, `isDeferredResource`, the `DeferredStudy` type and the `app.eagerStudyLoadLimit` setting are additions to the published surface, so they ship as a minor (2.3.0). The platform SPA declares the part it calls locally until its `@epicurrents/core` dev dependency moves to that release.
 
+## Load a study in place, not through a placeholder
+
+A deferred study is listed as a `DeferredResource` and loaded into a second object, which `replaceResource` puts in its place ([Deferred studies](AGENTS.md#deferred-studies)). Everything around the identity change pays for it:
+
+- The platform keeps a tracker re-pointing attached studies at whichever object currently holds their recording's place.
+- The interface re-runs its Pyodide wiring on `replace-resource`, and core re-subscribes its annotation watch on the same event.
+- The store's activation action awaits the load and re-dispatches with the new object.
+- A listing cannot be a child resource, because `openDeferredResource` finds and swaps it only as a dataset member.
+
+The intent is to construct the real resource from the start and finish it on itself, in two stages split by cost rather than by object.
+
+**Listed.** The resource exists in its module's own class with what a listing needs: its name, its modality, its main properties and the source its importer reads. Two producers fill it:
+
+- **A study opened from a file or a URL** runs the importer as now, and the module constructs the resource from the study context it returns. For EDF the importer reads the fixed header and the per-signal blocks on the main thread and starts no worker.
+- **A host listing studies it already describes**, as the platform does from its recordings endpoint, supplies the metadata itself, and nothing is fetched.
+
+Either way, a listed resource has no worker, service, reader, signal cache or memory reservation, so listing a thousand studies costs what listing ten does.
+
+**Activated.** First activation finishes the setup on the same object:
+
+1. For a host-listed study, the importer reads the header.
+2. The module creates its worker and service.
+3. It runs the memory-budget check.
+4. It sets up the worker and builds the montages and the cache.
+
+The state goes from `added` to `loading` to `ready`. A failure sets `error` and `errorReason` on the same object; nothing is swapped in, `ErrorResource` included.
+
+The rules that hold the shape:
+
+- **The file's header is the only header a worker gets.** A host's metadata lists the study and is never read for loading, as `properties` are display-only today. A worker computes byte offsets from the header it is handed, so a header rebuilt from host JSON would decode the signal at the wrong offsets once ingest metadata and the stored file disagree, with no error anywhere. The guarantee costs two small range reads per activation.
+- **Modality is fixed at listing.** Some importers decide it while reading today: the biosignal loader turns a video file into a video study, and `RestApiImporter` takes it from the response. A host lists a study under the modality it knows, and a read that disagrees ends in `error`, never in a resource of another class.
+- **Loads through one importer stay queued** (`#queueOnLoader`), since a study loader holds one study between `useStudy` and the resource setup. Concurrent activations of one resource share its load.
+- **Anything wired to "a usable resource appeared" moves to activation.** Left on `add-resource`, the interface's Pyodide wiring would boot Pyodide for every listed recording, and the memory-budget check would fail recordings nobody opened.
+- **A view may hold an active resource that is still loading.** The interface shows one loading state until the resource is ready, and mounts the modality viewer only then. That also retires the `prepare()` re-dispatch of ACTIVATE in `EegRecording` and `AccRecording`, which exists because a viewer can mount before its recording is prepared.
+
+Unloading becomes the reverse step: release the worker, the service and the cache, and go back to listed with the metadata kept. That is the mechanism [Release the readers of opened recordings](#release-the-readers-of-opened-recordings) needs, without rebuilding a placeholder from a kept descriptor.
+
+**Work per package.**
+
+| Package | Work |
+|---|---|
+| core | The two-stage lifecycle on `GenericResource`: a `load` entry, a protected hook a module fills with what its constructor does today, and unload back to listed. A factory on `StudyLoader` that builds the module's class unloaded. `setActiveResource` loads a listed resource instead of refusing it. The listing entry replaces `addDeferredStudy`. Guards in `GenericBiosignalResource` for members read before a service exists. Remove the deferred and swap API. |
+| interface | Media and radiology resources are ready at construction and need no load step. The activation action stops awaiting a swap. The Pyodide wiring moves to activation. The loading state comes before the viewer mounts, and the navigator's gating follows the new states. |
+| emg-module, ncs-module, doc-module, tab-module | Move the source-dependent tail of the constructor (worker, service, `prepareWorker`) into the hook. Close the race where the resource reports `ready` before its worker has finished, since a loading state shown until `ready` makes it visible. |
+| eeg-module, acc-module | Move the channels, the header, the service and the memory-budget check out of the constructor. Guard every listener the constructor wires to `_service`. Retire the `prepare()` re-dispatch. |
+| readers | None expected: the importers read headers without a worker. Verify each one, since a worker started at import would undo the listed stage. |
+
+**API.** A major, 3.0, released together with every module package, which then declares `^3.0.0`. It removes:
+
+- `DeferredResource`, `isDeferredResource` and `openDeferredResource`;
+- `replaceResource` on the dataset and the runtime, and the `replace-resource` event.
+
+The `DeferredStudy` descriptor and `addDeferredStudy` survive in substance under names that drop "deferred"; the naming is open. `app.eagerStudyLoadLimit` either becomes "activate up to this many in the background" or goes, since listing no longer needs a limit. [Retire `syncSettings`](#retire-syncsettings-at-the-next-major) rides the same major.
+
+**Tests that pin the shape.**
+
+- No `Worker` is constructed while a resource is listed, for either producer.
+- The object activated is the object listed.
+- A failed load leaves `error` on that object.
+- A worker's header comes from the file even when the listing carried one.
+- A read whose modality disagrees with the listing ends in `error`.
+
+**Built on it.** Child resources that are listed and loaded in place are what the interface's nested navigator uses for attachments; see "Dataset navigator with nested resources" in the interface ROADMAP. The platform drops its attachment-parent tracker and its swap-dependent loading code once it consumes 3.0.
+
 ## Release the readers of opened recordings
 
 Deferred studies bound what a dataset costs when it opens, but not what opening recordings one after another costs: each opened recording keeps its reader, its montage and trend workers and, with shared memory, its file worker until the whole dataset is destroyed. `unload` releases the cache and stops no worker, and a study loader keeps every resource it created in `_resources`. A user stepping through a few hundred recordings in one tab still exhausts it. The deferred shape makes the fix cheap: keep the last few opened recordings, and replace an older one with a `DeferredResource` rebuilt from its kept descriptor, destroying the loaded resource so its service shuts its worker down. It needs a resource that has unsaved annotation work to be skipped, and the loader to drop the resource from `_resources`.
