@@ -658,6 +658,18 @@ export class Epicurrents implements EpicurrentsApp {
             Log.error(`Could not list study ${listing.name}, no loaded module matches its modality ${modality}.`, SCOPE)
             return null
         }
+        if (!context.loader.isSupportedModality(modality)) {
+            Log.error(
+                `Could not list study ${listing.name}, loader ${listing.loader} does not support modality ${modality}.`,
+                SCOPE
+            )
+            return null
+        }
+        // Registered before the factory runs, as a read registers it, so a module resource that keeps the manager it
+        // is created with has it whether or not this loader has read a study yet.
+        if (this.#memoryManager) {
+            context.loader.registerMemoryManager(this.#memoryManager)
+        }
         const resource = context.loader.createListedResource?.({ ...listing, modality }) ?? null
         if (!resource) {
             Log.error(
@@ -668,15 +680,17 @@ export class Epicurrents implements EpicurrentsApp {
         }
         if (resource.modality !== modality) {
             Log.error(
-                `Could not list study ${listing.name}: it was listed as ${modality}, the resource is ${resource.modality}.`,
+                `Could not list study ${listing.name}: it was listed as ${modality}, ` +
+                `the resource is ${resource.modality}.`,
                 SCOPE
             )
             return null
         }
         // The dataset option places a resource and is not an importer's to read; it need not be clonable either. The
-        // modality goes to the importer, so a loader refuses a study it does not support for it.
-        const { dataset: _target, ...studyOptions } = listing.options ?? {}
-        const loadOptions = { ...studyOptions, modality, name: studyOptions.name ?? listing.name }
+        // modality stays out of the read too: an importer refuses a modality it does not declare, and most declare
+        // none, since their loader claims what they read. The read's modality is checked against the listing instead.
+        const { dataset: _target, modality: _modality, ...studyOptions } = listing.options ?? {}
+        const loadOptions = { ...studyOptions, name: studyOptions.name ?? listing.name }
         resource.setListing({
             options: loadOptions,
             properties: listing.properties,

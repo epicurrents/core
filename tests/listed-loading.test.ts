@@ -61,7 +61,13 @@ const makeLoader = () => {
             return new ListedResource(listing.name, listing.modality!)
         }),
         getResource: vi.fn(async () => null),
+        isSupportedModality: (modality: string) => loader.supportedModalities.includes(modality),
         loadFromUrl: vi.fn(async (url: string, options: ConfigStudyLoader = {}) => {
+            // Like a real importer declaring no modalities of its own, which most do: asked to read for one, it
+            // refuses.
+            if (options.modality) {
+                return null
+            }
             // A read holds the importer until `useStudy` has taken its study.
             loader.inFlight++
             loader.maxInFlight = Math.max(loader.maxInFlight, loader.inFlight)
@@ -73,7 +79,7 @@ const makeLoader = () => {
             const study = {
                 files: [],
                 meta: { header: { duration: 60 } },
-                modality: loader.readModality ?? options.modality ?? 'test',
+                modality: loader.readModality ?? 'test',
                 name: url,
             } as unknown as StudyContext
             loader.current = study
@@ -174,11 +180,22 @@ describe('listed studies', () => {
         await listed.load({ authHeader: 'given' })
         const options = listed.loadCalls[0].options!
         expect(options.authHeader).toBe('given')
-        expect(options.modality).toBe('test')
         expect(options.name).toBe('listed a')
         // The dataset places the resource and is never handed on.
         expect('dataset' in options).toBe(false)
         expect('dataset' in loader.loadFromUrl.mock.calls[0][1]!).toBe(false)
+    })
+
+    it('reads without asking the importer for the listed modality', async () => {
+        const listed = list('a', { modality: 'other', options: { modality: 'other' } })
+        expect(await listed.load()).toBe(true)
+        expect('modality' in loader.loadFromUrl.mock.calls[0][1]!).toBe(false)
+    })
+
+    it('refuses to list a modality the loader does not support', () => {
+        app.registerModule('third', { runtime: {}, settings: {} } as never)
+        expect(list('a', { modality: 'third' })).toBeNull()
+        expect(loader.createListedResource).not.toHaveBeenCalled()
     })
 
     it('sets up from the study read, not from what the listing carried', async () => {

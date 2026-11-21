@@ -35,9 +35,16 @@ export default abstract class GenericDocumentResource extends GenericResource im
     protected _scale = 1
     protected _sourceFormat: string
 
-    constructor (name: string, modality: string, format: string, source: StudyContext) {
+    /**
+     * Create a document resource.
+     * @param name - Document name; this will be displayed in the UI.
+     * @param modality - Document modality.
+     * @param format - Format of the document source.
+     * @param source - Document source as a study context; absent for a listed document until its study is read.
+     */
+    constructor (name: string, modality: string, format: string, source?: StudyContext) {
         super(name, modality, source)
-        if (source.meta?.scale) {
+        if (source?.meta?.scale) {
             this._scale = source.meta.scale as number
         }
         this._sourceFormat = format
