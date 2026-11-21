@@ -518,6 +518,21 @@ export class Epicurrents implements EpicurrentsApp {
         return { nextIdx, study }
     }
 
+    /**
+     * Run the `onLoad` hook of a listing, for its resource's load. Never rejects: the hook's failure is logged and
+     * leaves the load to go on.
+     */
+    async #runListingHook (listing: StudyListing, resource: DataResource) {
+        if (!listing.onLoad) {
+            return
+        }
+        try {
+            await listing.onLoad(resource)
+        } catch (e) {
+            Log.error(`The load hook of study ${listing.name} failed.`, SCOPE, e as Error)
+        }
+    }
+
     addDeferredStudy (study: DeferredStudy, options: { dataset?: MediaDataset } = {}) {
         const context = this.#runtime.APP.studyImporters.get(study.loader)
         if (!context) {
@@ -694,7 +709,15 @@ export class Epicurrents implements EpicurrentsApp {
         resource.setListing({
             options: loadOptions,
             properties: listing.properties,
-            readStudy: () => this.#readListedStudy(listing, modality, loadOptions),
+            // The host's hook runs beside the read rather than queued with it, so a slow hook holds up no other read
+            // through the same importer.
+            readStudy: async () => {
+                const [study] = await Promise.all([
+                    this.#readListedStudy(listing, modality, loadOptions),
+                    this.#runListingHook(listing, resource),
+                ])
+                return study
+            },
         })
         this.#runtime.addResource(modality, resource, { dataset: options.dataset })
         return resource

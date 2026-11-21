@@ -303,6 +303,40 @@ describe('listed studies', () => {
         expect(WorkerStub).toHaveBeenCalledTimes(2)
     })
 
+    it('runs the load hook on the listed resource before its setup, beside the read', async () => {
+        const order = [] as string[]
+        let release = () => {}
+        const listed = list('a', {
+            onLoad: async resource => {
+                order.push('hook')
+                expect(resource).toBe(listed)
+                await new Promise<void>(resolve => {
+                    release = resolve
+                })
+                order.push('hook done')
+            },
+        })
+        const load = listed.load()
+        await vi.waitFor(() => expect(loader.useStudy).toHaveBeenCalledTimes(1))
+        // The read has finished while the hook is still running, and the setup waits for it.
+        expect(listed.loadCalls).toHaveLength(0)
+        release()
+        expect(await load).toBe(true)
+        expect(order).toEqual(['hook', 'hook done'])
+        expect(listed.loadCalls).toHaveLength(1)
+    })
+
+    it('loads despite a failing load hook, and calls it once per read', async () => {
+        const onLoad = vi.fn(async () => {
+            throw new Error('hook failed')
+        })
+        const listed = list('a', { onLoad })
+        expect(await listed.load()).toBe(true)
+        await listed.unload()
+        expect(await listed.load()).toBe(true)
+        expect(onLoad).toHaveBeenCalledTimes(1)
+    })
+
     it('does not count a listing as open until its load is set going', async () => {
         const listed = list('a')
         expect(app.unloadNeedsConfirmation).toBe(false)

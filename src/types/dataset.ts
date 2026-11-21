@@ -161,6 +161,14 @@ export type StudyListing = {
     source: string | string[] | File | FileSystemItem
     /** Modality to list the study under, if not the importer's resource modality. */
     modality?: string
+    /**
+     * Called with the listed resource when its load reads the study, alongside the read; the load goes on to the
+     * resource's setup only once both have settled. It is where a host gives a resource what its setup has to find
+     * there, such as a table the worker must hold before anything is read. Called once per read, so a resource
+     * unloaded and loaded again, which sets up from the study it kept, does not call it again. Errors are logged and
+     * do not fail the load.
+     */
+    onLoad?: (resource: DataResource) => void | Promise<void>
     /** Options passed to the importer and to the resource's load, as in `loadStudy`. */
     options?: ConfigStudyLoader
     /** Properties to show in listings before the study is loaded, as returned by `getMainProperties`. */

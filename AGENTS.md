@@ -261,6 +261,8 @@ Calls made while a load runs share it, and a call on a ready resource resolves a
 
 `listStudy(listing, { dataset })` is the host-facing entry. It asks the study loader's `createListedResource` for a resource in the module's own class, refuses a study whose importer, module or factory cannot list it or whose loader does not support its modality, gives the resource its listing and adds it to the dataset. The application's memory manager is registered on the loader before the factory runs, as a read registers it, so a module resource that keeps the manager it is created with has it before the loader has read anything. The `GenericStudyLoader` default returns null, so a loader lists only once its module creates its resources unloaded.
 
+A listing's `onLoad` is the host's step in the load. It is called with the resource as the read starts and runs beside it, outside the importer queue, and `_load` runs only once both have settled, so whatever the hook gives the resource is there when the setup looks for it: a host's trusted interruption table, say, which the setup hands to the worker before anything is read. It runs once per read, and a failing hook is logged without failing the load.
+
 The rules that hold the shape:
 
 - **The study read is the only source the resource sets up from.** A `StudyListing`'s `properties` are shown until the load starts and are never read for it, since a worker computes byte offsets from the header it is handed. A host's metadata lists a study; the file describes it.
