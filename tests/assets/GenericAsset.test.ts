@@ -467,6 +467,22 @@ describe('GenericAsset', () => {
                 expect.objectContaining({ origin: asset })
             )
         })
+
+        it('lets a subscriber unsubscribe from a destroyed asset', () => {
+            const asset = new TestAsset('Test Asset', 'test')
+            asset.destroy()
+            mockEventBus.removeScope.mockClear()
+            const callback = vi.fn()
+            expect(() => {
+                asset.unsubscribeAll('subscriber')
+                asset.removeAllEventListeners('subscriber')
+                asset.removeAllEventListeners()
+                asset.unsubscribe('event', callback, 'subscriber')
+                asset.removeEventListener('event', callback, 'subscriber')
+            }).not.toThrow()
+            expect(mockEventBus.removeScope).not.toHaveBeenCalled()
+            expect(mockEventBus.unsubscribeAll).not.toHaveBeenCalled()
+        })
     })
 
     describe('static properties', () => {

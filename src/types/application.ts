@@ -332,12 +332,14 @@ export interface BaseAsset {
         phase?: ScopedEventPhase,
     ): void
     /**
-     * Remove all event listeners from this asset, optionally limited to the given `subscriber`.
+     * Remove all event listeners from this asset, optionally limited to the given `subscriber`. Does nothing on a
+     * destroyed asset, whose listeners `destroy` has already removed.
      * @param subscriber - Name of the subscriber (optional).
      */
     removeAllEventListeners (subscriber?: string): void
     /**
-     * Remove the listener for the given `event`(s).
+     * Remove the listener for the given `event`(s). Does nothing on a destroyed asset, whose listeners `destroy` has
+     * already removed.
      * @param event - Event or list of events to match.
      * @param callback - Callback of the listener.
      * @param subscriber - Name of the subscriber.

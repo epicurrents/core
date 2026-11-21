@@ -420,6 +420,10 @@ export default abstract class GenericAsset implements BaseAsset {
     }
 
     removeAllEventListeners (subscriber?: string) {
+        // A destroyed asset has given up its bus, and a subscriber tearing down after it finds nothing left to remove.
+        if (!this._eventBus) {
+            return
+        }
         if (subscriber) {
             this._eventBus.removeAllScopedEventListeners(subscriber, this.id)
         } else {
@@ -433,6 +437,9 @@ export default abstract class GenericAsset implements BaseAsset {
         subscriber: string,
         phase?: ScopedEventPhase
     ) {
+        if (!this._eventBus) {
+            return
+        }
         return this._eventBus.removeScopedEventListener(event, callback, subscriber, this.id, phase)
     }
 
@@ -459,10 +466,16 @@ export default abstract class GenericAsset implements BaseAsset {
         subscriber: string,
         phase?: ScopedEventPhase
     ) {
+        if (!this._eventBus) {
+            return
+        }
         return this._eventBus.unsubscribe(event, callback, subscriber, this.id, phase)
     }
 
     unsubscribeAll (subscriber: string) {
+        if (!this._eventBus) {
+            return
+        }
         return this._eventBus.unsubscribeAll(subscriber, this.id)
     }
 }
