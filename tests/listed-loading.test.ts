@@ -511,13 +511,6 @@ describe('listed studies', () => {
         expect(app.unloadNeedsConfirmation).toBe(true)
     })
 
-    it('does not load a deferred resource on itself', async () => {
-        const deferred = app.addDeferredStudy({ loader: 'test/url', name: 'deferred', source: 'd' }, { dataset })!
-        expect(await deferred.load()).toBe(false)
-        expect(deferred.state).toBe('added')
-        expect(deferred.isReady).toBe(false)
-    })
-
     it('destroys the resource of a listing it refuses', () => {
         const mismatched = new ListedResource('x', 'other')
         loader.createListedResource.mockReturnValueOnce(mismatched)

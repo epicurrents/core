@@ -29,7 +29,7 @@ const NAME_ORDER = new Intl.Collator()
 
 export default abstract class GenericDataset extends GenericResource implements BaseDataset {
     protected _connectorIn: DatasourceConnector | null
-    /** Number of studies this dataset has loaded up front from its input data source. */
+    /** Number of studies this dataset has started loading as it listed them from its input data source. */
     protected _eagerLoadCount = 0
     protected _connectorOut: DatasourceConnector | null
     protected _outputConflictResolution: ConnectorWriteFileOptions = { overwrite: true }
@@ -64,7 +64,7 @@ export default abstract class GenericDataset extends GenericResource implements 
             this._fsConnectorIn.listContents().catch((e: unknown) => {
                 Log.error(`Could not list contents of input data source for dataset ${this._name}.`, SCOPE, e as Error)
                 return null
-            }).then(async response => {
+            }).then(response => {
                 if (!response) {
                     Log.warn(`Could not list contents of input data source for dataset ${this._name}.`, SCOPE)
                 } else if (response.files.length) {
@@ -77,7 +77,7 @@ export default abstract class GenericDataset extends GenericResource implements 
                         // Expect name to contain study type and file format.
                         const studyType = nameParams[nameParams.length - 2]
                         const fileFormat = nameParams[nameParams.length - 1]
-                        await this._loadOrDefer(
+                        this._listSourceStudy(
                             `${studyType}/${fileFormat}-file`,
                             file.url,
                             {
@@ -93,14 +93,14 @@ export default abstract class GenericDataset extends GenericResource implements 
             this._dbConnectorIn.listContents().catch((e: unknown) => {
                 Log.error(`Could not list contents of input data source for dataset ${this._name}.`, SCOPE, e as Error)
                 return null
-            }).then(async response => {
+            }).then(response => {
                 if (Array.isArray(response)) {
                     for (const ctx of response) {
                         if (!ctx.name || !ctx.api || !ctx.modality) {
                             Log.warn(`Data source context is missing required parameters, skipping.`, SCOPE)
                             continue
                         }
-                        await this._loadOrDefer(
+                        this._listSourceStudy(
                             `${ctx.modality}/api-url`,
                             ctx.api.url,
                             {
@@ -247,30 +247,34 @@ export default abstract class GenericDataset extends GenericResource implements 
     }
 
     /**
-     * Load a study listed by the input data source, or list it deferred once `app.eagerStudyLoadLimit` studies have
-     * been loaded up front. A data source names its files and nothing more, so a deferred study is listed by name only.
+     * List a study the input data source holds, and start loading it while fewer than `app.eagerStudyLoadLimit` have
+     * been. A data source names its files and nothing more, so the study is listed by name only; one not loaded here
+     * loads when it is activated.
      * @param loader - Name of the study importer.
-     * @param source - URL to load the study from.
+     * @param source - URL to read the study from.
      * @param options - Importer options, including the name to list the study under.
      * @param description - What the study is, for the error log.
      */
-    protected async _loadOrDefer (
+    protected _listSourceStudy (
         loader: string,
         source: string,
         options: ConfigStudyLoader & { name: string },
         description: string
     ) {
-        if (this._eagerLoadCount < SETTINGS.app.eagerStudyLoadLimit) {
-            this._eagerLoadCount++
-            const study = await this._app!.loadStudy(loader, source, { ...options, dataset: this })
-            if (!study) {
-                Log.error(`Failed to load study from ${description}.`, SCOPE)
-            }
+        const resource = this._app!.listStudy({ loader, name: options.name, options, source }, { dataset: this })
+        if (!resource) {
+            Log.error(`Failed to list study from ${description}.`, SCOPE)
             return
         }
-        const deferred = this._app!.addDeferredStudy({ loader, name: options.name, options, source }, { dataset: this })
-        if (!deferred) {
-            Log.error(`Failed to list study from ${description}.`, SCOPE)
+        if (this._eagerLoadCount < SETTINGS.app.eagerStudyLoadLimit) {
+            this._eagerLoadCount++
+            // Reads through one importer run one at a time, so starting every load at once fetches nothing in parallel
+            // that a read in turn would not.
+            resource.load().then(loaded => {
+                if (!loaded) {
+                    Log.error(`Failed to load study from ${description}.`, SCOPE)
+                }
+            })
         }
     }
 
@@ -364,37 +368,6 @@ export default abstract class GenericDataset extends GenericResource implements 
             removed.resource.unload()
         }
         return removed
-    }
-
-    replaceResource (previous: DataResource, next: DataResource) {
-        const resourceIdx = this._resources.findIndex(r => r.resource.id === previous.id)
-        if (resourceIdx < 0) {
-            Log.error(`Could not replace resource ${previous.name}: the resource was not found in the dataset.`, SCOPE)
-            return null
-        }
-        const prevContext = this._resources[resourceIdx]
-        const nextContext = { ...prevContext, resource: next }
-        const payload = { previous: prevContext, next: nextContext }
-        this.dispatchPayloadEvent('replace-resource', payload, 'before')
-        const prevState = [...this.resources]
-        prevContext.resource.removeAllEventListeners(this.id)
-        this._resources.splice(resourceIdx, 1, nextContext)
-        this._watchResourceActiveState(nextContext)
-        if (this._resourceSorting.scheme === 'id') {
-            const orderIdx = this._resourceSorting.order.indexOf(previous.id)
-            if (orderIdx >= 0) {
-                this._resourceSorting.order.splice(orderIdx, 1, next.id)
-            } else {
-                this._resourceSorting.order.push(next.id)
-            }
-        }
-        this.dispatchPayloadEvent('replace-resource', payload, 'after')
-        Log.debug(`Replaced ${previous.name} with ${next.name} in dataset resources.`, SCOPE)
-        this.dispatchPropertyChangeEvent('resources', this.resources, prevState)
-        if (previous.isActive || next.isActive) {
-            this.dispatchPropertyChangeEvent('activeResources', this.activeResources)
-        }
-        return nextContext
     }
 
     setOutputConflictResolution (options: ConnectorWriteFileOptions) {

@@ -62,15 +62,6 @@ export interface BaseDataset extends BaseAsset {
      */
     removeResource (resource: DataResource | string | number): DatasetResourceContext | null
     /**
-     * Put `next` in the place `previous` holds in this dataset: the same position in `resources` and in the sorting
-     * order, with the active-state watch moved over. `previous` is not unloaded or destroyed.
-     * @param previous - The resource to replace.
-     * @param next - The resource to put in its place.
-     * @returns The context now holding `next`, or null if `previous` is not in this dataset.
-     * @emits `replace-resource` with `{ previous, next }` contexts as payload.
-     */
-    replaceResource (previous: DataResource, next: DataResource): DatasetResourceContext | null
-    /**
      * Set the output conflict resolution strategy. This will determine what is done if a file of the same name already
      * exists on the output data source.
      * @param value - The conflict resolution strategy.
@@ -118,32 +109,6 @@ export interface DatasetLoader {
      * @return A promise that fulfills when the dataset has been fully loaded.
      */
     loadDataset (dir: FileSystemItem, callback: (study: StudyContext) => Promise<void>, config?: unknown): Promise<void>
-}
-/**
- * A study listed in a dataset before it is loaded, and the instructions for loading it when it is opened.
- *
- * Loading reads the study from `source` with the importer named in `loader`, exactly as `loadStudy` would; nothing
- * here takes part in it except those two and `options`. `properties` are shown in listings until then and are never
- * read for loading, so whoever builds the descriptor decides whether the values are trustworthy enough to show.
- */
-export type DeferredStudy = {
-    /** Name of the study importer to load the study with. */
-    loader: string
-    /** Name to list the study under. */
-    name: string
-    /** URL(s) or file system item to load the study from. */
-    source: string | string[] | File | FileSystemItem
-    /** Modality to list the study under, if not the importer's resource modality. */
-    modality?: string
-    /**
-     * Called with the loaded resource once it has taken the study's place in its dataset and finished preparing.
-     * Errors are logged and do not undo the load.
-     */
-    onLoaded?: (resource: DataResource) => void | Promise<void>
-    /** Options passed to the importer, as in `loadStudy`. */
-    options?: ConfigStudyLoader
-    /** Properties to show in listings before the study is loaded, as returned by `getMainProperties`. */
-    properties?: [string, MainProperty][]
 }
 /**
  * A study a host lists in a dataset without reading it, and the instructions for reading it when it is loaded.

@@ -14,7 +14,6 @@ import {
     BiosignalCache,
     BiosignalMutex,
     BiosignalStudyLoader,
-    DeferredResource,
     DirectSynthesizer,
     ErrorResource,
     FileSystemDirectory,
@@ -73,7 +72,6 @@ export {
     BiosignalCache,
     BiosignalMutex,
     BiosignalStudyLoader,
-    DeferredResource,
     DirectSynthesizer,
     ErrorResource,
     FileSystemDirectory,
@@ -165,7 +163,6 @@ import type {
     ContextMenuAction,
     DataResource,
     DatasetResourceContext,
-    DeferredStudy,
     EpicurrentsApp,
     EventWithPayload,
     FileSystemItem,
@@ -187,7 +184,6 @@ import type {
 } from '#types'
 import * as util from '#util'
 export { util }
-const { isDeferredResource } = util
 
 import { Log } from 'scoped-event-log'
 
@@ -199,10 +195,6 @@ export class Epicurrents implements EpicurrentsApp {
      * Master event bus.
      */
     #eventBus = new EventBus()
-    /**
-     * Loads of deferred resources in progress, by the deferred resource's id.
-     */
-    #deferredLoads = new Map<string, Promise<DataResource | null>>()
     /**
      * Has the user added, edited or removed an annotation in this document. Sticky, and deliberately
      * outlives the resource it was made on: the viewer has no notion of a submitted or saved state,
@@ -294,15 +286,14 @@ export class Epicurrents implements EpicurrentsApp {
      * Read live from the datasets rather than counted, so closing a resource is reflected without a
      * second piece of bookkeeping to keep in step. A resource that failed to load or has been
      * destroyed is not something anyone can return to, so neither counts; one still loading does,
-     * since the user set it going and would have to set it going again. A listed or deferred resource
+     * since the user set it going and would have to set it going again. A listed resource
      * is a listing, not something opened, so it counts only once the user has set its load going. A
      * resource's children are held by it rather than by a dataset, and each counts by the same rules
      * whatever the state of its parent.
      */
     #hasOpenResources () {
         const isOpen = (resource: DataResource): boolean => {
-            const listed = resource.isListed || (isDeferredResource(resource) && resource.state === 'added')
-            if (!listed && resource.state !== 'destroyed' && resource.state !== 'error') {
+            if (!resource.isListed && resource.state !== 'destroyed' && resource.state !== 'error') {
                 return true
             }
             return (resource.childResources ?? []).some(isOpen)
@@ -336,19 +327,14 @@ export class Epicurrents implements EpicurrentsApp {
     /**
      * Watch the annotations of every resource that enters a dataset.
      *
-     * The runtime is the funnel every dataset member enters through, so its two events cover
-     * resources added by a host, by a study loader and by a session restore alike, and a study
-     * loaded into the place of its listing, which is replaced rather than added. A resource listed
-     * under a parent enters no dataset and passes neither event; `listStudy` watches it where it
-     * lists it.
+     * The runtime is the funnel every dataset member enters through, so its add event covers
+     * resources added by a host, by a study loader and by a session restore alike. A resource listed
+     * under a parent enters no dataset and does not pass it; `listStudy` watches it where it lists it.
      */
     #watchAnnotationChanges () {
         this.#runtime.addEventListener(DatasetEvents.ADD_RESOURCE, (event) => {
             const payload = (event as EventWithPayload<DataResource | DatasetResourceContext>).detail.payload
             this.#watchAnnotations('resource' in payload ? payload.resource : payload)
-        }, SCOPE)
-        this.#runtime.addEventListener('replace-resource', (event) => {
-            this.#watchAnnotations((event as EventWithPayload<{ next: DataResource }>).detail.payload.next)
         }, SCOPE)
     }
 
@@ -396,62 +382,6 @@ export class Epicurrents implements EpicurrentsApp {
         } catch (e) {
             failed(e)
         }
-    }
-
-    /**
-     * Load the study a deferred resource lists and put the result in its place. Never rejects: every failure is logged
-     * and answered with null.
-     */
-    async #loadDeferred (placeholder: DataResource & { study: DeferredStudy }): Promise<DataResource | null> {
-        const study = placeholder.study
-        const dataset = this.#runtime.APP.datasets.find(
-            ds => ds.resources.some(ctx => ctx.resource.id === placeholder.id)
-        )
-        if (!dataset) {
-            Log.error(`Could not open deferred resource ${placeholder.name}: no dataset holds it.`, SCOPE)
-            return null
-        }
-        // The dataset option places a resource and is not an importer's to read; it need not be clonable either.
-        const { dataset: _target, ...studyOptions } = study.options ?? {}
-        const options = { ...studyOptions, name: studyOptions.name ?? study.name }
-        placeholder.state = 'loading'
-        let built: { loaded: boolean, modality: string, resource: DataResource }
-        try {
-            built = await this.#queueOnLoader(
-                study.loader,
-                () => this.#buildStudyResource(study.loader, study.source, options)
-            )
-        } catch (e) {
-            Log.error(`Loading the study ${study.name} failed.`, SCOPE, e as Error)
-            built = { loaded: false, modality: placeholder.modality, resource: new ErrorResource(study.name, 'error') }
-        }
-        if (!this.#runtime.replaceResource(placeholder, built.resource, dataset)) {
-            // The placeholder left its dataset while the study loaded, so nothing is waiting for the result; a loaded
-            // resource is destroyed rather than left holding a reader nobody can reach.
-            try {
-                await built.resource.destroy()
-            } catch (e) {
-                Log.error(`Destroying the unused resource of study ${study.name} failed.`, SCOPE, e as Error)
-            }
-            return null
-        }
-        placeholder.destroy()
-        if (!built.loaded) {
-            return null
-        }
-        const resource = built.resource
-        if (!await resource.load(options)) {
-            Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
-            return null
-        }
-        if (study.onLoaded) {
-            try {
-                await study.onLoaded(resource)
-            } catch (e) {
-                Log.error(`The loaded callback of study ${study.name} failed.`, SCOPE, e as Error)
-            }
-        }
-        return resource
     }
 
     /**
@@ -553,22 +483,6 @@ export class Epicurrents implements EpicurrentsApp {
         } catch (e) {
             Log.error(`The load hook of study ${listing.name} failed.`, SCOPE, e as Error)
         }
-    }
-
-    addDeferredStudy (study: DeferredStudy, options: { dataset?: MediaDataset } = {}) {
-        const context = this.#runtime.APP.studyImporters.get(study.loader)
-        if (!context) {
-            Log.error(`Could not list study ${study.name}, loader ${study.loader} was not found.`, SCOPE)
-            return null
-        }
-        const modality = study.modality || context.loader.resourceModality
-        if (!this.#runtime.MODULES.get(modality)) {
-            Log.error(`Could not list study ${study.name}, no loaded module matches its modality ${modality}.`, SCOPE)
-            return null
-        }
-        const resource = new DeferredResource(study, modality)
-        this.#runtime.addResource(modality, resource, { dataset: options.dataset })
-        return resource
     }
 
     addResource (resource: DataResource, modality?: string) {
@@ -797,24 +711,6 @@ export class Epicurrents implements EpicurrentsApp {
             }
         })
         return resource
-    }
-
-    openDeferredResource (resource: DataResource) {
-        if (!isDeferredResource(resource)) {
-            return Promise.resolve(resource)
-        }
-        const pending = this.#deferredLoads.get(resource.id)
-        if (pending) {
-            return pending
-        }
-        const load = this.#loadDeferred(resource)
-        this.#deferredLoads.set(resource.id, load)
-        // Settled either way: an entry left behind would answer every later open with the same failure.
-        const forget = () => {
-            this.#deferredLoads.delete(resource.id)
-        }
-        load.then(forget, forget)
-        return load
     }
 
     notifySessionRestored () {

@@ -525,70 +525,18 @@ describe('GenericDataset', () => {
             expect(mockWriteFile).toHaveBeenCalledWith('/test.txt', 'data', { overwrite: true })
         })
     })
-    describe('replaceResource', () => {
-        const makeResource = (id: string, isActive = false) => ({
-            id,
-            name: id,
-            modality: 'test',
-            isActive,
-            activeChildResource: null,
-            onPropertyChange: vi.fn(),
-            removeAllEventListeners: vi.fn(),
-        })
-
-        it('puts the new resource in the same position and sorting slot', () => {
-            const dataset = new TestDataset('Test')
-            const first = makeResource('first')
-            const middle = makeResource('middle')
-            const last = makeResource('last')
-            dataset.addResource({ resource: first } as any, { resource: middle, name: 'Shown name' } as any)
-            dataset.addResource({ resource: last } as any)
-            const next = makeResource('next')
-            const context = dataset.replaceResource(middle as any, next as any)
-            expect(context?.resource).toBe(next)
-            expect(context?.name).toBe('Shown name')
-            expect(dataset.resources.map(ctx => ctx.resource.id)).toEqual(['first', 'next', 'last'])
-            expect(dataset.resourceSorting.order).toEqual(['first', 'next', 'last'])
-            expect([...dataset.sortedResources.keys()]).toEqual(['first', 'next', 'last'])
-        })
-
-        it('moves the active-state watch to the new resource', () => {
-            const dataset = new TestDataset('Test')
-            const previous = makeResource('previous')
-            dataset.addResource({ resource: previous } as any)
-            const next = makeResource('next')
-            dataset.replaceResource(previous as any, next as any)
-            expect(previous.removeAllEventListeners).toHaveBeenCalledWith(dataset.id)
-            expect(next.onPropertyChange).toHaveBeenCalledWith('isActive', expect.any(Function), dataset.id)
-        })
-
-        it('announces the replacement before and after', () => {
-            const dataset = new TestDataset('Test')
-            const previous = makeResource('previous')
-            dataset.addResource({ resource: previous } as any)
-            mockEventBus.dispatchScopedEvent.mockClear()
-            dataset.replaceResource(previous as any, makeResource('next') as any)
-            const phases = mockEventBus.dispatchScopedEvent.mock.calls
-                .filter((call: any[]) => call[0] === 'replace-resource')
-                .map((call: any[]) => call[2])
-            expect(phases).toEqual(['before', 'after'])
-        })
-
-        it('returns null for a resource the dataset does not hold', () => {
-            const dataset = new TestDataset('Test')
-            expect(dataset.replaceResource(makeResource('absent') as any, makeResource('next') as any)).toBeNull()
-            expect(dataset.resources).toHaveLength(0)
-        })
-    })
-
     describe('studies listed by the input data source', () => {
-        it('loads up to the eager load limit and lists the rest deferred', async () => {
+        it('lists every study and loads up to the eager load limit', async () => {
             const { default: SETTINGS } = await import('../../src/config/Settings')
             const limit = SETTINGS.app.eagerStudyLoadLimit
             SETTINGS.app.eagerStudyLoadLimit = 2
             try {
-                mockApp.loadStudy = vi.fn().mockResolvedValue({})
-                mockApp.addDeferredStudy = vi.fn().mockReturnValue({})
+                const listed = [] as { load: ReturnType<typeof vi.fn>, name: string }[]
+                mockApp.listStudy = vi.fn((listing: { name: string }) => {
+                    const resource = { load: vi.fn().mockResolvedValue(true), name: listing.name }
+                    listed.push(resource)
+                    return resource
+                })
                 const files = ['a', 'b', 'c', 'd'].map(n => ({ name: `${n}.eeg.edf`, url: `https://x/${n}` }))
                 const inputConnector = {
                     type: 'filesystem',
@@ -597,16 +545,46 @@ describe('GenericDataset', () => {
                     listContents: vi.fn().mockResolvedValue({ files }),
                 }
                 const dataset = new TestDataset('Test', { input: inputConnector as any })
-                await vi.waitFor(() => expect(mockApp.addDeferredStudy).toHaveBeenCalledTimes(2))
-                expect(mockApp.loadStudy.mock.calls.map((call: any[]) => call[1])).toEqual(['https://x/a', 'https://x/b'])
-                expect(mockApp.addDeferredStudy.mock.calls.map((call: any[]) => call[0])).toEqual([
-                    expect.objectContaining({ loader: 'eeg/edf-file', name: 'c.eeg.edf', source: 'https://x/c' }),
-                    expect.objectContaining({ loader: 'eeg/edf-file', name: 'd.eeg.edf', source: 'https://x/d' }),
-                ])
-                expect(mockApp.addDeferredStudy.mock.calls[0][1]).toEqual({ dataset })
+                await vi.waitFor(() => expect(mockApp.listStudy).toHaveBeenCalledTimes(4))
+                expect(mockApp.listStudy.mock.calls.map((call: any[]) => call[0])).toEqual(['a', 'b', 'c', 'd'].map(n =>
+                    expect.objectContaining({ loader: 'eeg/edf-file', name: `${n}.eeg.edf`, source: `https://x/${n}` })
+                ))
+                expect(mockApp.listStudy.mock.calls[0][1]).toEqual({ dataset })
+                expect(listed.map(resource => resource.load.mock.calls.length)).toEqual([1, 1, 0, 0])
             } finally {
                 SETTINGS.app.eagerStudyLoadLimit = limit
             }
+        })
+
+        it('logs a study it could not list and goes on to the next', async () => {
+            const loaded = { load: vi.fn().mockResolvedValue(true), name: 'b.eeg.edf' }
+            mockApp.listStudy = vi.fn().mockReturnValueOnce(null).mockReturnValueOnce(loaded)
+            const files = [{ name: 'a.eeg.edf', url: 'https://x/a' }, { name: 'b.eeg.edf', url: 'https://x/b' }]
+            const inputConnector = {
+                type: 'filesystem',
+                mode: 'r',
+                authHeader: 'Bearer t',
+                listContents: vi.fn().mockResolvedValue({ files }),
+            }
+            new TestDataset('Test', { input: inputConnector as any })
+            await vi.waitFor(() => expect(mockApp.listStudy).toHaveBeenCalledTimes(2))
+            expect(Log.error).toHaveBeenCalledWith('Failed to list study from file a.eeg.edf.', 'GenericDataset')
+            expect(mockApp.listStudy.mock.calls[1][0].options).toEqual({ name: 'b.eeg.edf', authHeader: 'Bearer t' })
+            expect(loaded.load).toHaveBeenCalledTimes(1)
+        })
+
+        it('logs a study whose load fails', async () => {
+            mockApp.listStudy = vi.fn().mockReturnValue({ load: vi.fn().mockResolvedValue(false), name: 'a.eeg.edf' })
+            const inputConnector = {
+                type: 'filesystem',
+                mode: 'r',
+                authHeader: null,
+                listContents: vi.fn().mockResolvedValue({ files: [{ name: 'a.eeg.edf', url: 'https://x/a' }] }),
+            }
+            new TestDataset('Test', { input: inputConnector as any })
+            await vi.waitFor(() => expect(Log.error).toHaveBeenCalledWith(
+                'Failed to load study from file a.eeg.edf.', 'GenericDataset'
+            ))
         })
     })
 })

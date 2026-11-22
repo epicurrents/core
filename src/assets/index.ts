@@ -43,9 +43,6 @@ import {
     MixedMediaDataset,
 } from './dataset'
 import {
-    DeferredResource,
-} from './deferred'
-import {
     GenericDocumentResource,
 } from './document'
 import {
@@ -96,7 +93,6 @@ export {
     getSynthesizer,
     listSynthesizers,
     registerSynthesizer,
-    DeferredResource,
     ErrorResource,
     FileSystemDirectory,
     FileSystemFile,
