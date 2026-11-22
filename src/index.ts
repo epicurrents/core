@@ -295,53 +295,60 @@ export class Epicurrents implements EpicurrentsApp {
      * second piece of bookkeeping to keep in step. A resource that failed to load or has been
      * destroyed is not something anyone can return to, so neither counts; one still loading does,
      * since the user set it going and would have to set it going again. A listed or deferred resource
-     * is a listing, not something opened, so it counts only once the user has set its load going.
+     * is a listing, not something opened, so it counts only once the user has set its load going. A
+     * resource's children are held by it rather than by a dataset, and each counts by the same rules
+     * whatever the state of its parent.
      */
     #hasOpenResources () {
+        const isOpen = (resource: DataResource): boolean => {
+            const listed = resource.isListed || (isDeferredResource(resource) && resource.state === 'added')
+            if (!listed && resource.state !== 'destroyed' && resource.state !== 'error') {
+                return true
+            }
+            return (resource.childResources ?? []).some(isOpen)
+        }
         for (const dataset of this.#runtime.APP.datasets) {
-            for (const context of dataset.resources) {
-                if (isDeferredResource(context.resource) && context.resource.state === 'added') {
-                    continue
-                }
-                if (context.resource.isListed) {
-                    continue
-                }
-                if (context.resource.state !== 'destroyed' && context.resource.state !== 'error') {
-                    return true
-                }
+            if (dataset.resources.some(context => isOpen(context.resource))) {
+                return true
             }
         }
         return false
     }
 
     /**
-     * Note every annotation edit a user makes, so leaving the document can be confirmed with them.
+     * Note every annotation edit a user makes on `resource`, so leaving the document can be confirmed with them.
      *
-     * The runtime is the single funnel every resource enters through, so its two events cover
-     * resources added by a host, by a study loader and by a session restore alike, and a study
-     * loaded into the place of its listing, which is replaced rather than added. The annotations a
-     * recording arrives with are applied with a `'system'` source and an edit in the interface with
+     * The annotations a recording arrives with are applied with a `'system'` source and an edit in the interface with
      * a `'user'` one, which is what separates work worth confirming from a file's own contents.
      */
-    #watchAnnotationChanges () {
-        const watch = (resource: DataResource) => {
-            for (const property of ['events', 'labels']) {
-                resource.addEventListener(`property-change:${property}`, (change) => {
-                    // An omitted source means `'user'`, so anything but an explicit `'system'`
-                    // counts — an interface action that forgets the context should over-warn rather
-                    // than quietly let the edit go.
-                    if ((change as PropertyChangeEvent<unknown>).detail.source !== 'system') {
-                        this.#hasAnnotationChanges = true
-                    }
-                }, SCOPE)
-            }
+    #watchAnnotations (resource: DataResource) {
+        for (const property of ['events', 'labels']) {
+            resource.addEventListener(`property-change:${property}`, (change) => {
+                // An omitted source means `'user'`, so anything but an explicit `'system'` counts — an interface
+                // action that forgets the context should over-warn rather than quietly let the edit go.
+                if ((change as PropertyChangeEvent<unknown>).detail.source !== 'system') {
+                    this.#hasAnnotationChanges = true
+                }
+            }, SCOPE)
         }
+    }
+
+    /**
+     * Watch the annotations of every resource that enters a dataset.
+     *
+     * The runtime is the funnel every dataset member enters through, so its two events cover
+     * resources added by a host, by a study loader and by a session restore alike, and a study
+     * loaded into the place of its listing, which is replaced rather than added. A resource listed
+     * under a parent enters no dataset and passes neither event; `listStudy` watches it where it
+     * lists it.
+     */
+    #watchAnnotationChanges () {
         this.#runtime.addEventListener(DatasetEvents.ADD_RESOURCE, (event) => {
             const payload = (event as EventWithPayload<DataResource | DatasetResourceContext>).detail.payload
-            watch('resource' in payload ? payload.resource : payload)
+            this.#watchAnnotations('resource' in payload ? payload.resource : payload)
         }, SCOPE)
         this.#runtime.addEventListener('replace-resource', (event) => {
-            watch((event as EventWithPayload<{ next: DataResource }>).detail.payload.next)
+            this.#watchAnnotations((event as EventWithPayload<{ next: DataResource }>).detail.payload.next)
         }, SCOPE)
     }
 
@@ -374,6 +381,21 @@ export class Epicurrents implements EpicurrentsApp {
             return { loaded: false, modality, resource: new ErrorResource(study.name, study.modality, study) }
         }
         return { loaded: true, modality, resource }
+    }
+
+    /**
+     * Destroy a resource that was created and then found to have no place, so nothing it holds outlives the refusal.
+     * Never throws or rejects: a failing destroy is logged.
+     */
+    #discardResource (resource: DataResource) {
+        const failed = (e: unknown) => {
+            Log.error(`Destroying the unused resource ${resource.name} failed.`, SCOPE, e as Error)
+        }
+        try {
+            Promise.resolve(resource.destroy()).catch(failed)
+        } catch (e) {
+            failed(e)
+        }
     }
 
     /**
@@ -680,6 +702,10 @@ export class Epicurrents implements EpicurrentsApp {
             )
             return null
         }
+        if (options.parent?.state === 'destroyed') {
+            Log.error(`Could not list study ${listing.name}, its parent ${options.parent.name} is destroyed.`, SCOPE)
+            return null
+        }
         // Registered before the factory runs, as a read registers it, so a module resource that keeps the manager it
         // is created with has it whether or not this loader has read a study yet.
         if (this.#memoryManager) {
@@ -699,6 +725,21 @@ export class Epicurrents implements EpicurrentsApp {
                 `the resource is ${resource.modality}.`,
                 SCOPE
             )
+            this.#discardResource(resource)
+            return null
+        }
+        // The runtime refuses a second resource under an id its dataset holds, and a resource it refused is listed
+        // nowhere. Checked before the resource is given its listing, so a factory that handed back a resource already
+        // listed leaves that one as it was.
+        const siblings = options.parent
+            ? options.parent.childResources
+            : (options.dataset ?? this.#runtime.APP.activeDataset)?.resources.map(ctx => ctx.resource) ?? []
+        const holder = siblings.find(sibling => sibling.id === resource.id)
+        if (holder) {
+            Log.error(`Could not list study ${listing.name}: a resource with its id is already listed.`, SCOPE)
+            if (holder !== resource) {
+                this.#discardResource(resource)
+            }
             return null
         }
         // The dataset option places a resource and is not an importer's to read; it need not be clonable either. The
@@ -721,6 +762,8 @@ export class Epicurrents implements EpicurrentsApp {
         })
         if (options.parent) {
             options.parent.childResources = [...options.parent.childResources, resource]
+            // A child passes neither runtime event the annotation watch hangs on.
+            this.#watchAnnotations(resource)
         } else {
             this.#runtime.addResource(modality, resource, { dataset: options.dataset })
         }
@@ -738,13 +781,17 @@ export class Epicurrents implements EpicurrentsApp {
         // resource landed in the active dataset instead.
         const { dataset, ...loaderOptions } = options
         const built = await this.#queueOnLoader(loader, () => this.#buildStudyResource(loader, source, loaderOptions))
-        this.#runtime.addResource(built.modality, built.resource, { dataset })
         if (!built.loaded) {
+            this.#runtime.addResource(built.modality, built.resource, { dataset })
             return null
         }
         const resource = built.resource
-        // Start loading the resource, but return it immediately.
-        resource.load(loaderOptions).then(success => {
+        // The load is started before the resource is added, so it runs with these options: a listener of the add that
+        // activates the resource would otherwise start a load without them, which this one would only join. The
+        // resource is therefore `loading` when it is added. It is returned at once, without waiting for the load.
+        const load = resource.load(loaderOptions)
+        this.#runtime.addResource(built.modality, resource, { dataset })
+        load.then(success => {
             if (!success) {
                 Log.error(`Preparing the resource ${resource.name} failed.`, SCOPE)
             }
@@ -837,15 +884,16 @@ export class Epicurrents implements EpicurrentsApp {
             return
         }
         const setResources = this.#runtime.APP.activeDataset.resources.map(ctx => ctx.resource)
-        if (typeof resource === 'string') {
-            for (const sr of setResources) {
-                if (sr.id === resource && (sr.isReady || sr.isListed)) {
-                    this.#runtime.setActiveResource(sr, true)
-                }
-            }
-        } else if (setResources.includes(resource) && (resource.isReady || resource.isListed)) {
-            this.#runtime.setActiveResource(resource, true)
+        const target = typeof resource === 'string'
+            ? setResources.find(sr => sr.id === resource)
+            : setResources.includes(resource) ? resource : undefined
+        // Whatever state the resource is in is the runtime's to handle: it loads one that has not been set loading,
+        // retries one whose load failed and leaves one that is loading or ready as it is. Only a destroyed resource has
+        // nothing to select.
+        if (!target || target.state === 'destroyed') {
+            return
         }
+        this.#runtime.setActiveResource(target, true)
     }
 
     setActiveDataset (dataset: MediaDataset | null) {

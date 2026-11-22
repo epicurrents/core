@@ -24,6 +24,10 @@ export default class ErrorResource extends GenericResource implements DataResour
         this.state = 'error'
     }
 
+    /** Always false: there is no resource behind the failure to load again. */
+    get canRetryLoad () {
+        return false
+    }
     get reason () {
         return this._reason
     }

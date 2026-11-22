@@ -606,6 +606,25 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     /**
+     * Unload, which gives the buffers back, and then let the service go as well: after a failure its worker is in a
+     * state nothing here can vouch for, so the retry's `_load` creates a new one. The shutdown is not awaited, since
+     * it waits on an answer from a worker that may be the thing that failed.
+     */
+    protected async _releaseFailedLoad (): Promise<void> {
+        await super._releaseFailedLoad()
+        const service = this._service
+        this._cacheProps = null
+        this._mutexProps = null
+        if (!service) {
+            return
+        }
+        this._service = null
+        Promise.resolve(service.destroy()).catch((e: unknown) => {
+            Log.warn(`Shutting down the service of ${this.name} after a failed load failed: ${String(e)}`, SCOPE)
+        })
+    }
+
+    /**
      * Resolve the materialised cache-slot sizing for each `SetupDerivation` declared on the
      * active setup. Each returned entry corresponds to one additional cache slot that the SAB
      * allocator must reserve alongside source channels.
@@ -892,6 +911,8 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async destroy (): Promise<void> {
+        // Before anything is awaited: a load still running must not finish its setup on what is released below.
+        this._supersedeLoad()
         // The buffers go back first, while the montages and the memory manager are still held: the release walks the
         // montages and hands every range to the manager in one call. A failed release still lets the workers go.
         try {
@@ -1622,7 +1643,10 @@ export default abstract class GenericBiosignalResource extends GenericResource i
     }
 
     async unload () {
+        // The load in progress is superseded in the call itself, ahead of the release awaited below.
+        const superseded = super.unload()
         this.dispatchEvent(ResourceEvents.UNLOAD, 'before')
+        await superseded
         await this.releaseBuffers()
         this.dispatchEvent(ResourceEvents.UNLOAD, 'after')
     }

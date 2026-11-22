@@ -377,6 +377,12 @@ export interface BaseAsset {
     /** Currently active child resource, if any. */
     activeChildResource: DataResource | null
     /**
+     * Can a failed load be tried again with `retryLoad`: the resource is in `error` and still holds the listing or the
+     * study a load sets up from. False in every other state, and for a resource that stands in for a failure with
+     * nothing to load behind it.
+     */
+    canRetryLoad: boolean
+    /**
      * Resources listed under this one rather than in a dataset of their own, such as a study attached to a recording.
      * They belong to this resource and are destroyed with it.
      */
@@ -388,8 +394,10 @@ export interface BaseAsset {
     /** Dependencies of this resource that are ready to use. */
     dependenciesReady: string[]
     /**
-     * Is the resource listed and not yet set loading: it holds what a listing shows and the instructions for reading
-     * its study, and nothing has been read. Set by `setListing` and cleared when `load` starts.
+     * Is the resource listed and not set loading: it has been given a listing with `setListing` and its state is
+     * `added`. It holds what the listing shows and the instructions for reading its study, with no worker or service
+     * behind it. False from the moment `load` starts, and true again once the resource is unloaded back to `added`,
+     * when it may still hold the study it read.
      */
     isListed: boolean
     /** Is the resource ready for use. */
@@ -441,9 +449,12 @@ export interface BaseAsset {
      * Finish setting up the resource on itself: read its study if it was listed without one, then set up what it needs
      * to show the study, such as its worker and service. The state goes from `added` through `loading` to `ready`, and
      * a failure leaves `error` and `errorReason` on this same resource. Calls made while a load runs share it, and a
-     * call on a ready resource resolves at once.
+     * call on a ready resource resolves at once. A load is superseded when the resource is unloaded or destroyed while
+     * it runs: it resolves false and sets nothing more, and a `load` called after the unload starts afresh. A resource
+     * in `error` is not loaded by this method, which resolves false for it; `retryLoad` is what loads it again, and a
+     * call made while a retry runs shares the retry.
      * @param options - Options to load with, over those given with the listing.
-     * @returns Promise resolving true once the resource is ready, false if it failed or was destroyed.
+     * @returns Promise resolving true once the resource is ready, false if it failed, was superseded or the resource is in `error` or destroyed.
      */
     load (options?: ConfigStudyLoader): Promise<boolean>
     /**
@@ -454,7 +465,21 @@ export interface BaseAsset {
      */
     prepare (...args: unknown[]): Promise<boolean>
     /**
-     * Unload the resource, releasing any reserved memory.
+     * Load a resource whose load failed. On a resource in `error` that `canRetryLoad` holds for, the reason is cleared
+     * with an `errorReason` property change and the state goes to `loading` within the call; what the failed attempt
+     * left behind is then released, a worker or service it created included, and the load runs again as `load`
+     * describes. The listing and a study already read are kept across a failure, so a retry reads the study again only
+     * if the read is what failed, and the listing's `onLoad` runs again with that read. Calls made while a retry runs
+     * share it, `load` among them. In any other state this is `load`: it loads a resource not yet loaded, joins a load
+     * in progress and resolves true for a ready one. It resolves false for a resource in `error` that cannot be
+     * retried and for a destroyed one.
+     * @param options - Options to load with, over those given with the listing.
+     * @returns Promise resolving true once the resource is ready, false if the load failed again, was superseded or cannot be retried.
+     */
+    retryLoad (options?: ConfigStudyLoader): Promise<boolean>
+    /**
+     * Unload the resource, releasing any reserved memory. A load in progress is superseded, and the state it left at
+     * `loading` goes back to `added`.
      */
     unload (): Promise<void>
     /**
@@ -629,7 +654,8 @@ export interface EpicurrentsApp {
      */
     launch (config?: ApplicationConfig): Promise<boolean>
     /**
-     * Load a study from the given file, folder or URL.
+     * Load a study from the given file, folder or URL. The resource's load is started with `options` before the
+     * resource is added to the dataset, so it is in state `loading` when `add-resource` is dispatched.
      * @param loader - Name of the loader to use for loading the study.
      * @param source - URL(s) to study data file(s) or a file system item.
      * @param options - Optional study and access options.
@@ -650,10 +676,10 @@ export interface EpicurrentsApp {
      * modality, leaves the resource in `error`.
      *
      * Given a `parent`, the study is listed as one of its `childResources` instead of a dataset member, and belongs to
-     * it: it is opened in the parent's context and destroyed with it.
+     * it: it is opened in the parent's context and destroyed with it. A child destroyed on its own leaves the list.
      * @param listing - The study to list and the instructions for reading it.
      * @param options - Optional dataset to list the study in (default the active dataset, or a new one if none), or parent resource to list it under, which takes precedence.
-     * @returns The listed resource, or null if no importer or module matches the study or its loader cannot list one.
+     * @returns The listed resource, or null if no importer or module matches the study, its loader cannot list one, the parent is destroyed or a resource with the same id is already listed there.
      */
     listStudy (listing: StudyListing, options?: { dataset?: MediaDataset, parent?: DataResource }): DataResource | null
     /**
@@ -719,8 +745,10 @@ export interface EpicurrentsApp {
      */
     registerStudyImporter (name: string, label: string, mode: ReaderMode, loader: StudyLoader): void
     /**
-     * Select the `resource` in current dataset as active. This will deactivate other possibly active resources. Only a
-     * ready or a listed resource is selected; a listed one loads in place, as `setActiveResource` describes.
+     * Select the `resource` in current dataset as active. This will deactivate other possibly active resources. A
+     * resource in any state but `destroyed` is selected, as far as `setActiveResource` accepts it: one that has not
+     * been set loading loads in place, as that method describes, one still loading stays so, one whose load failed is
+     * retried, and a deferred resource is refused.
      * @param resource - The resource to select or its unique ID.
      */
     selectActiveResource (resource: DataResource | string): void
@@ -1144,7 +1172,11 @@ export interface StateManager extends RuntimeState, BaseAsset {
     setActiveDataset (dataset: MediaDataset | null): void
     /**
      * Set the given resource active. A resource that has not been set loading (state `added` or `loaded`), a listed
-     * one among them, starts loading in place; it is active, and not ready, until the load settles.
+     * one among them, starts loading in place; it is active, and not ready, until the load settles. A resource in
+     * `error` that can be retried is retried as it is activated, through its `retryLoad`. An active dataset member
+     * that enters `error`, by a failed load or by a failure after it, is deactivated as `deactivateResource` does it,
+     * so a failed resource is never left active; one activated while already in `error` with nothing to retry stays
+     * active, showing its failure.
      * @param resource - New resource to set as active or null to deactivate currently active resource.
      * @param deactivateOthers - Deactivate other active resources before activating this (default true). This method can also be used to deactivate other resources while only leaving the given `resource` active.
      * @emits `set-active-resource` with the new resource as payload.

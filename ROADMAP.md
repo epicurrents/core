@@ -150,7 +150,7 @@ Unloading becomes the reverse step: release the worker, the service and the cach
 
 - No `Worker` is constructed while a resource is listed, for either producer.
 - The object activated is the object listed.
-- A failed load leaves `error` on that object.
+- A failed load leaves `error` on that object, which the runtime deactivates and `retryLoad` loads again.
 - A worker's header comes from the file even when the listing carried one.
 - A read whose modality disagrees with the listing ends in `error`.
 

@@ -36,13 +36,32 @@ export default abstract class GenericResource extends GenericAsset implements Da
     protected _datasetId: string | null = null
     protected _dependenciesMissing: string[] = []
     protected _dependenciesReady: string[] = []
+    /**
+     * The `errorReason` listeners last heard of. A reason written to `_errorReason` directly differs from it, which is
+     * how a failed load knows the reason still has to be announced.
+     */
+    protected _errorReasonAnnounced = ''
     protected _labels: AnnotationLabel[] = []
     /** What the resource was listed with, kept after loading so an unloaded resource can be loaded again. */
     protected _listing: ResourceListing | null = null
     /** Is this record selected as active in the UI. */
     protected _loaded = false
+    /**
+     * Identifies the current load run. `_supersedeLoad` moves it on, so a run that started under an earlier value has
+     * been superseded; `_isLoadSuperseded` is the check.
+     */
+    protected _loadGeneration = 0
     /** The load in progress, shared by every call to `load` made while it runs. */
     protected _loadRun: Promise<boolean> | null = null
+    /** The resource holding this one among its `childResources`, so a child destroyed on its own leaves that list. */
+    protected _parentResource: GenericResource | null = null
+    /**
+     * Set while `retryLoad` releases what the failed attempt left behind. The release goes through `unload`, which
+     * supersedes the load in progress; under this flag that leaves the retry itself standing.
+     */
+    protected _releasingFailedLoad = false
+    /** The retry in progress, shared by every call to `retryLoad` and `load` made while it runs. */
+    protected _retryRun: Promise<boolean> | null = null
     protected _source: StudyContext | null = null
 
     constructor (name: string, modality: string, source?: StudyContext) {
@@ -62,11 +81,28 @@ export default abstract class GenericResource extends GenericAsset implements Da
     set activeChildResource (value: DataResource | null) {
         this._setPropertyValue('activeChildResource', value)
     }
+    get canRetryLoad () {
+        return this._state === 'error' && (this._listing !== null || this._source !== null)
+    }
     get childResources () {
         return this._childResources
     }
     set childResources (value: DataResource[]) {
+        const previous = [...this._childResources]
         this._setPropertyValue('childResources', value)
+        for (const child of previous) {
+            if (
+                child instanceof GenericResource && child._parentResource === this
+                && !this._childResources.includes(child)
+            ) {
+                child._parentResource = null
+            }
+        }
+        for (const child of this._childResources) {
+            if (child instanceof GenericResource) {
+                child._parentResource = this
+            }
+        }
     }
     get datasetId () {
         return this._datasetId
@@ -85,6 +121,13 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
     set dependenciesReady (value: string[]) {
         this._setPropertyValue('dependenciesReady', value)
+    }
+    get errorReason () {
+        return this._errorReason
+    }
+    set errorReason (value: string) {
+        super.errorReason = value
+        this._errorReasonAnnounced = this._errorReason
     }
     get isListed () {
         return this._listing !== null && this._state === 'added'
@@ -111,15 +154,34 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
 
     /**
-     * Leave the resource in `error`, keeping a reason the load already gave.
+     * Leave the resource in `error`, keeping a reason the load already gave. The reason is announced with a property
+     * change before the state is, whether it is given here or was written to `_errorReason` directly during the load,
+     * so a listener of either finds the other in place.
      */
     protected _failLoad (reason: string) {
         if (!this._errorReason) {
             this._errorReason = reason
         }
+        if (this._errorReason !== this._errorReasonAnnounced) {
+            const announced = this._errorReasonAnnounced
+            this._errorReasonAnnounced = this._errorReason
+            this.dispatchPropertyChangeEvent('errorReason', this._errorReason, announced)
+        }
         if ((this._state as string) !== 'error') {
             this.state = 'error'
         }
+    }
+
+    /**
+     * Has the load run that started under `generation` been superseded: the resource was unloaded or destroyed while
+     * the run was awaiting something. `_runLoad` checks after the study read and around `_load`; a `_load` that awaits
+     * more than once reads `_loadGeneration` before its first await and checks after each, resolving false without
+     * setting anything more up on a resource that has been released under it.
+     * @param generation - The value of `_loadGeneration` read when the run started.
+     * @returns True if the run must stop without touching the resource.
+     */
+    protected _isLoadSuperseded (generation: number) {
+        return generation !== this._loadGeneration || this._state === 'destroyed'
     }
 
     /**
@@ -135,15 +197,32 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
 
     /**
-     * Run one load: read the study of a listed resource that has none, then finish the setup through `_load`.
+     * Release what a failed load, or a setup that failed after it, left on the resource, so that `_load` can run again
+     * from the `_source` and the listing the resource keeps. The default unloads the resource, which is where a module
+     * releases what it holds; a subclass whose `unload` keeps something a fresh load must not find, such as a service
+     * whose worker is in an unknown state, overrides this, calls `super` and lets that go as well. It is called with
+     * the resource in `loading`, and must leave `_source` and `_listing` alone.
+     */
+    protected async _releaseFailedLoad (): Promise<void> {
+        await this.unload()
+    }
+
+    /**
+     * Run one load: read the study of a listed resource that has none, then finish the setup through `_load`. A run
+     * superseded by an unload or a destroy resolves false and leaves the state to whatever superseded it.
      */
     protected async _runLoad (options?: ConfigStudyLoader): Promise<boolean> {
+        const generation = this._loadGeneration
         const loadOptions = { ...this._listing?.options, ...options }
         try {
-            this.state = 'loading'
+            this._errorReasonAnnounced = this._errorReason
+            // A retry has announced `loading` already.
+            if (this._state !== 'loading') {
+                this.state = 'loading'
+            }
             if (!this._source && this._listing) {
                 const study = await this._listing.readStudy()
-                if (this._state === 'destroyed') {
+                if (this._isLoadSuperseded(generation)) {
                     return false
                 }
                 if (!study) {
@@ -155,12 +234,17 @@ export default abstract class GenericResource extends GenericAsset implements Da
                 }
                 this.source = study
             }
-            const loaded = await this._load(loadOptions)
-            // The state is read back rather than narrowed: `_load` may destroy the resource or fail it itself.
-            const state = this._state as string
-            if (state === 'destroyed') {
+            // Checked on the path without a read as well: a listener of the `loading` state runs before this line and
+            // may have unloaded or destroyed the resource.
+            if (this._isLoadSuperseded(generation)) {
                 return false
             }
+            const loaded = await this._load(loadOptions)
+            if (this._isLoadSuperseded(generation)) {
+                return false
+            }
+            // The state is read back rather than narrowed: `_load` may fail the resource itself.
+            const state = this._state as string
             if (!loaded || state === 'error') {
                 this._failLoad('Loading the study failed')
                 return false
@@ -171,10 +255,82 @@ export default abstract class GenericResource extends GenericAsset implements Da
             return true
         } catch (e) {
             Log.error(`Loading resource ${this.name} failed.`, SCOPE, e as Error)
-            if ((this._state as string) !== 'destroyed') {
+            if (!this._isLoadSuperseded(generation)) {
                 this._failLoad('Loading the study failed')
             }
             return false
+        }
+    }
+
+    /**
+     * Run one retry: let go of what the failed attempt left behind, then load. The reason is cleared and `loading`
+     * announced before the release is awaited, so the resource never reads as listed, or as failed, while the retry
+     * is under way.
+     */
+    protected async _runRetry (options?: ConfigStudyLoader): Promise<boolean> {
+        const reason = this._errorReason
+        this._errorReason = ''
+        this._errorReasonAnnounced = ''
+        if (reason) {
+            this.dispatchPropertyChangeEvent('errorReason', '', reason)
+        }
+        this.state = 'loading'
+        this._releasingFailedLoad = true
+        try {
+            // A teardown started by a deactivation is releasing the same buffers.
+            await this.awaitDeactivation()
+            await this._releaseFailedLoad()
+        } catch (e) {
+            Log.error(`Releasing the failed load of ${this.name} failed.`, SCOPE, e as Error)
+        } finally {
+            this._releasingFailedLoad = false
+        }
+        // Whatever state the release left is `_startLoad`'s to answer: a resource destroyed meanwhile resolves false.
+        return this._startLoad(options)
+    }
+
+    /**
+     * Start a load run, or join the one in progress; see `load`, which answers with a retry in progress first.
+     */
+    protected _startLoad (options?: ConfigStudyLoader) {
+        if (this._loadRun) {
+            return this._loadRun
+        }
+        if (this._state === 'ready') {
+            return Promise.resolve(true)
+        }
+        if (this._state === 'error' || this._state === 'destroyed') {
+            return Promise.resolve(false)
+        }
+        // Held before the run starts: its first step dispatches the `loading` state synchronously, and a listener that
+        // calls `load` from that dispatch has to find this load rather than start a second one.
+        let settle = (_loaded: boolean) => {}
+        const load = new Promise<boolean>(resolve => {
+            settle = resolve
+        })
+        this._loadRun = load
+        this._runLoad(options).then(settle, () => settle(false))
+        // Cleared whatever the outcome, so an unloaded resource can be loaded again; a later load is guarded by state.
+        load.then(() => {
+            if (this._loadRun === load) {
+                this._loadRun = null
+            }
+        })
+        return load
+    }
+
+    /**
+     * Supersede the load in progress, if there is one: its run stops at its next check, and the next `load` starts a
+     * run of its own. `unload` and `destroy` call this first. A subclass whose `unload` or `destroy` awaits before it
+     * reaches `super` calls it before that await, or the run finishes its setup on a resource being released. A retry
+     * in progress is superseded with its load, except by the unload the retry itself runs to release the failed
+     * attempt.
+     */
+    protected _supersedeLoad () {
+        this._loadGeneration++
+        this._loadRun = null
+        if (!this._releasingFailedLoad) {
+            this._retryRun = null
         }
     }
 
@@ -192,20 +348,44 @@ export default abstract class GenericResource extends GenericAsset implements Da
     }
 
     destroy () {
-        // Children belong to the resource they are listed under.
-        for (const child of this._childResources) {
-            if (child.state !== 'destroyed') {
-                child.destroy()
+        this._supersedeLoad()
+        // A child destroyed on its own leaves its parent's list; a parent being destroyed has let go of it already.
+        const parent = this._parentResource
+        this._parentResource = null
+        if (parent && parent._state !== 'destroyed') {
+            if (parent._activeChildResource === this) {
+                parent.activeChildResource = null
+            }
+            if (parent._childResources.includes(this)) {
+                parent.childResources = parent._childResources.filter(child => child !== this)
             }
         }
+        // Children belong to the resource they are listed under.
+        const children = this._childResources
         this._activeChildResource = null
         this._childResources = []
+        for (const child of children) {
+            if (child instanceof GenericResource && child._parentResource === this) {
+                child._parentResource = null
+            }
+            if (child.state === 'destroyed') {
+                continue
+            }
+            try {
+                Promise.resolve(child.destroy()).catch((e: unknown) => {
+                    Log.error(`Destroying child resource ${child.name} of ${this.name} failed.`, SCOPE, e as Error)
+                })
+            } catch (e) {
+                Log.error(`Destroying child resource ${child.name} of ${this.name} failed.`, SCOPE, e as Error)
+            }
+        }
         this._dependenciesMissing.length = 0
         this._dependenciesReady.length = 0
         this._errorReason = ''
         this._listing = null
         this._loaded = false
         this._loadRun = null
+        this._retryRun = null
         this._source = null
         super.destroy()
     }
@@ -245,30 +425,8 @@ export default abstract class GenericResource extends GenericAsset implements Da
         return props
     }
     load (options?: ConfigStudyLoader) {
-        if (this._loadRun) {
-            return this._loadRun
-        }
-        if (this._state === 'ready') {
-            return Promise.resolve(true)
-        }
-        if (this._state === 'error' || this._state === 'destroyed') {
-            return Promise.resolve(false)
-        }
-        // Held before the run starts: its first step dispatches the `loading` state synchronously, and a listener that
-        // calls `load` from that dispatch has to find this load rather than start a second one.
-        let settle = (_loaded: boolean) => {}
-        const load = new Promise<boolean>(resolve => {
-            settle = resolve
-        })
-        this._loadRun = load
-        this._runLoad(options).then(settle, () => settle(false))
-        // Cleared whatever the outcome, so an unloaded resource can be loaded again; a later load is guarded by state.
-        load.then(() => {
-            if (this._loadRun === load) {
-                this._loadRun = null
-            }
-        })
-        return load
+        // A retry in progress is the load in progress.
+        return this._retryRun ?? this._startLoad(options)
     }
     async prepare (..._args: unknown[]) {
         // Override this in a child class.
@@ -296,6 +454,30 @@ export default abstract class GenericResource extends GenericAsset implements Da
         }
         return removed
     }
+    retryLoad (options?: ConfigStudyLoader) {
+        if (this._retryRun) {
+            return this._retryRun
+        }
+        if (this._state !== 'error') {
+            return this.load(options)
+        }
+        if (!this.canRetryLoad) {
+            return Promise.resolve(false)
+        }
+        // Held before the run starts, for the reason given in `_startLoad`: the run's first step dispatches.
+        let settle = (_loaded: boolean) => {}
+        const retry = new Promise<boolean>(resolve => {
+            settle = resolve
+        })
+        this._retryRun = retry
+        this._runRetry(options).then(settle, () => settle(false))
+        retry.then(() => {
+            if (this._retryRun === retry) {
+                this._retryRun = null
+            }
+        })
+        return retry
+    }
     setDependenciesReady (...dependencies: string[]) {
         const depsReady = this.removeDependencies(...dependencies)
         this._setPropertyValue('dependenciesReady', [...this._dependenciesReady, ...depsReady])
@@ -304,6 +486,12 @@ export default abstract class GenericResource extends GenericAsset implements Da
         this._listing = listing
     }
     async unload () {
-        // Override this in a child class.
+        // A subclass releases what it holds and calls this first, before anything it awaits. An interrupted load
+        // leaves nothing set up, so the state goes back to where a load can start again.
+        const wasLoading = this._loadRun !== null
+        this._supersedeLoad()
+        if (wasLoading && this._state === 'loading') {
+            this.state = 'added'
+        }
     }
 }

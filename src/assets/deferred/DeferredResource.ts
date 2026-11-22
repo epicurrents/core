@@ -7,6 +7,7 @@
 
 import GenericResource from '#assets/GenericResource'
 import type { DataResource } from '#types/application'
+import type { ConfigStudyLoader } from '#types/config'
 import type { DeferredStudy } from '#types/dataset'
 
 /**
@@ -49,5 +50,13 @@ export default class DeferredResource extends GenericResource implements DataRes
             return new Map(this._study.properties)
         }
         return super.getMainProperties()
+    }
+    /**
+     * A deferred resource holds no study to set up from and is never loaded on itself, so this resolves false and
+     * leaves the state alone. Open it with the application's `openDeferredResource`, which loads the study and puts
+     * the loaded resource in this one's place.
+     */
+    load (_options?: ConfigStudyLoader) {
+        return Promise.resolve(false)
     }
 }

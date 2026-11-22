@@ -164,9 +164,11 @@ export type StudyListing = {
     /**
      * Called with the listed resource when its load reads the study, alongside the read; the load goes on to the
      * resource's setup only once both have settled. It is where a host gives a resource what its setup has to find
-     * there, such as a table the worker must hold before anything is read. Called once per read, so a resource
-     * unloaded and loaded again, which sets up from the study it kept, does not call it again. Errors are logged and
-     * do not fail the load.
+     * there, such as a table the worker must hold before anything is read. Called once per read, not once per
+     * resource: a resource unloaded and loaded again sets up from the study it kept and does not call it again, while
+     * every load that has to read the study does, such as one started after an unload interrupted the first read, or
+     * a `retryLoad` after a read that failed.
+     * Errors are logged and do not fail the load.
      */
     onLoad?: (resource: DataResource) => void | Promise<void>
     /** Options passed to the importer and to the resource's load, as in `loadStudy`. */

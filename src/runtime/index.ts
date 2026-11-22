@@ -96,6 +96,8 @@ export const state: RuntimeState = {
  * @emits `set-service` - A new service has been set (usually added) to the manager.
  */
 export default class RuntimeStateManager extends GenericAsset implements StateManager {
+    /** The resources `_watchForFailure` has subscribed to, so each is watched once. */
+    protected _failureWatched = new WeakSet<DataResource>()
     /** Has the manager been initialized. */
     protected _isInitialized = false
 
@@ -139,6 +141,26 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
     }
     set isInitialized (value: boolean) {
         this._setPropertyValue('isInitialized', value)
+    }
+
+    /**
+     * Deactivate `resource` whenever it enters `error` while active, so a resource whose load, setup or caching failed
+     * is never left as the active one. This is the one place a failure deactivates: it covers a load started by
+     * activation, one already running when the resource was activated, and a failure after the load. The reason is
+     * left on the resource, which can be retried from where it is listed.
+     * @param resource - A dataset member; subscribed to once, however often it is passed.
+     */
+    protected _watchForFailure (resource: DataResource) {
+        if (this._failureWatched.has(resource)) {
+            return
+        }
+        this._failureWatched.add(resource)
+        resource.onPropertyChange('state', (state) => {
+            if (state === 'error' && resource.isActive) {
+                Log.debug(`Deactivating resource ${resource.name}, which failed while active.`, SCOPE)
+                this.deactivateResource(resource)
+            }
+        }, `${SCOPE}:failure-watch`)
     }
 
     addConnector (
@@ -221,6 +243,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
             }
         }
         this.dispatchPayloadEvent('add-resource', resourceContext, 'before')
+        this._watchForFailure(resourceContext.resource)
         targetSet.addResource(resourceContext)
         this.dispatchPayloadEvent('add-resource', resourceContext)
         if (targetSet.isActive && options.setAsActive) {
@@ -361,6 +384,7 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
         if (!replaced) {
             return false
         }
+        this._watchForFailure(next)
         this.dispatchPayloadEvent('replace-resource', payload)
         return true
     }
@@ -414,18 +438,31 @@ export default class RuntimeStateManager extends GenericAsset implements StateMa
                     }
                 }
             }
+            this._watchForFailure(resource)
+            // A resource whose load failed is retried rather than activated as it stands. The retry is started before
+            // the activation, so the resource is `loading` when its activation is announced and a listener that loads
+            // on activation joins the retry. One that failed while active is deactivated first, so that the activation
+            // is announced again.
+            const retry = resource.state === 'error' && resource.canRetryLoad
+            if (retry && resource.isActive) {
+                resource.isActive = false
+            }
+            let load = retry ? resource.retryLoad() : null
             if (!resource.isActive) {
                 resource.isActive = true
             }
             // A listed resource, or one created but never set loading, loads in place on activation; a view holding
-            // it shows its loading state until it is ready. A resource already loading, ready or failed is left alone.
-            if (resource.state === 'added' || resource.state === 'loaded') {
-                resource.load().then(loaded => {
-                    if (!loaded) {
-                        Log.error(`Loading the activated resource ${resource.name} failed.`, SCOPE)
-                    }
-                })
+            // it shows its loading state until it is ready. A resource already loading or ready is left alone, and so
+            // is a failed one that has nothing to retry. A load that fails deactivates the resource through the watch
+            // set above.
+            if (!load && (resource.state === 'added' || resource.state === 'loaded')) {
+                load = resource.load()
             }
+            load?.then(loaded => {
+                if (!loaded) {
+                    Log.error(`Loading the activated resource ${resource.name} failed.`, SCOPE)
+                }
+            })
         } else {
             for (const res of activeSet.activeResources) {
                 res.isActive = false

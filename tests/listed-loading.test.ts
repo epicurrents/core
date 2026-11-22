@@ -21,13 +21,16 @@ import type { StudyContext } from '../src/types/study'
 
 /** A module resource that, like the real ones, creates its worker only when it loads. */
 class ListedResource extends GenericResource {
-    static failLoad: 'false' | 'throw' | null = null
+    static failLoad: 'false' | 'reason' | 'throw' | null = null
+    /** Held open by a test that needs the setup to be under way when something else happens. */
+    static setupGate: Promise<void> | null = null
     loadCalls = [] as { options?: ConfigStudyLoader, source: StudyContext | null }[]
     worker = null as Worker | null
     constructor (name: string, modality: string) {
         super(name, modality)
     }
     protected async _load (options?: ConfigStudyLoader) {
+        const generation = this._loadGeneration
         this.loadCalls.push({ options, source: this._source })
         if (ListedResource.failLoad === 'throw') {
             throw new Error('setup failed')
@@ -35,13 +38,33 @@ class ListedResource extends GenericResource {
         if (ListedResource.failLoad === 'false') {
             return false
         }
+        if (ListedResource.failLoad === 'reason') {
+            this._errorReason = 'No file worker'
+            return false
+        }
+        if (ListedResource.setupGate) {
+            await ListedResource.setupGate
+            if (this._isLoadSuperseded(generation)) {
+                return false
+            }
+        }
         this.worker = new Worker('worker.js')
         return true
     }
     async unload () {
+        await super.unload()
         this.worker = null
         this.state = 'added'
     }
+}
+
+/** A promise and the function that resolves it. */
+const gate = () => {
+    let open = () => {}
+    const closed = new Promise<void>(resolve => {
+        open = resolve
+    })
+    return { closed, open }
 }
 
 /**
@@ -115,6 +138,7 @@ describe('listed studies', () => {
         app.registerModule('test', { runtime: {}, settings: {} } as never)
         app.registerModule('other', { runtime: {}, settings: {} } as never)
         ListedResource.failLoad = null
+        ListedResource.setupGate = null
         loader = makeLoader()
         app.registerStudyImporter('test/url', 'Test', 'url', loader as never)
         dataset = app.createDataset('dataset', true)
@@ -371,6 +395,213 @@ describe('listed studies', () => {
         expect(app.unloadNeedsConfirmation).toBe(true)
         await load
         expect(app.unloadNeedsConfirmation).toBe(true)
+    })
+
+    it('leaves an unload made while the study is read standing, and loads afresh afterwards', async () => {
+        const listed = list('a')
+        const first = listed.load()
+        await listed.unload()
+        expect(listed.state).toBe('added')
+        expect(await first).toBe(false)
+        expect(listed.state).toBe('added')
+        expect(listed.isListed).toBe(true)
+        expect(listed.source).toBeNull()
+        expect(listed.loadCalls).toHaveLength(0)
+        // The next load is a run of its own, not the superseded one.
+        const second = listed.load()
+        expect(second).not.toBe(first)
+        expect(await second).toBe(true)
+        expect(listed.state).toBe('ready')
+        expect(listed.loadCalls).toHaveLength(1)
+    })
+
+    it('leaves an unload made during the setup standing, and tells the setup so', async () => {
+        const setup = gate()
+        ListedResource.setupGate = setup.closed
+        const listed = list('a')
+        const first = listed.load()
+        await vi.waitFor(() => expect(listed.loadCalls).toHaveLength(1))
+        await listed.unload()
+        // A load asked for after the unload does not join the run the unload superseded.
+        const second = listed.load()
+        expect(second).not.toBe(first)
+        setup.open()
+        expect(await first).toBe(false)
+        expect(await second).toBe(true)
+        expect(listed.state).toBe('ready')
+        // The superseded setup stopped at its own check, so only the second run made a worker.
+        expect(listed.loadCalls).toHaveLength(2)
+        expect(WorkerStub).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not bring back a resource destroyed during its setup', async () => {
+        const setup = gate()
+        ListedResource.setupGate = setup.closed
+        const listed = list('a')
+        const load = listed.load()
+        await vi.waitFor(() => expect(listed.loadCalls).toHaveLength(1))
+        listed.destroy()
+        setup.open()
+        expect(await load).toBe(false)
+        expect(listed.state).toBe('destroyed')
+        expect(WorkerStub).not.toHaveBeenCalled()
+    })
+
+    it('runs no setup on a resource the loading state change unloaded or destroyed', async () => {
+        const unloaded = list('a')
+        await unloaded.load()
+        await unloaded.unload()
+        unloaded.onPropertyChange('state', (value) => {
+            if (value === 'loading') {
+                unloaded.unload()
+            }
+        }, 'test')
+        expect(await unloaded.load()).toBe(false)
+        expect(unloaded.loadCalls).toHaveLength(1)
+        expect(unloaded.state).toBe('added')
+        const destroyed = list('b')
+        await destroyed.load()
+        await destroyed.unload()
+        destroyed.onPropertyChange('state', (value) => {
+            if (value === 'loading') {
+                destroyed.destroy()
+            }
+        }, 'test')
+        expect(await destroyed.load()).toBe(false)
+        expect(destroyed.loadCalls).toHaveLength(1)
+        expect(destroyed.state).toBe('destroyed')
+    })
+
+    it('selects a resource again while it is still loading', async () => {
+        const a = list('a')
+        const b = list('b')
+        app.selectActiveResource(a)
+        app.selectActiveResource(b)
+        expect(a.state).toBe('loading')
+        expect(a.isActive).toBe(false)
+        app.selectActiveResource(a.id)
+        expect(a.isActive).toBe(true)
+        expect(b.isActive).toBe(false)
+        await vi.waitFor(() => expect(a.state).toBe('ready'))
+        expect(a.loadCalls).toHaveLength(1)
+    })
+
+    it('selects a resource that has no listing and has not been set loading, but not a destroyed one', async () => {
+        const plain = new ListedResource('plain', 'test')
+        app.addResource(plain)
+        app.selectActiveResource(plain)
+        expect(plain.isActive).toBe(true)
+        await vi.waitFor(() => expect(plain.state).toBe('ready'))
+        const gone = list('gone')
+        gone.destroy()
+        app.selectActiveResource(gone)
+        expect(gone.isActive).toBe(false)
+    })
+
+    it('counts a loaded child as open, and watches its annotations', async () => {
+        const parent = list('parent')
+        const nested = app.listStudy({ loader: 'test/url', name: 'child', source: 'child' }, { parent })!
+        const deeper = app.listStudy({ loader: 'test/url', name: 'deep', source: 'deep' }, { parent: nested })!
+        expect(app.unloadNeedsConfirmation).toBe(false)
+        await deeper.load()
+        expect(app.unloadNeedsConfirmation).toBe(true)
+        await deeper.unload()
+        expect(app.unloadNeedsConfirmation).toBe(false)
+        nested.labels = [{ id: 'label' } as never]
+        expect(app.unloadNeedsConfirmation).toBe(true)
+    })
+
+    it('does not load a deferred resource on itself', async () => {
+        const deferred = app.addDeferredStudy({ loader: 'test/url', name: 'deferred', source: 'd' }, { dataset })!
+        expect(await deferred.load()).toBe(false)
+        expect(deferred.state).toBe('added')
+        expect(deferred.isReady).toBe(false)
+    })
+
+    it('destroys the resource of a listing it refuses', () => {
+        const mismatched = new ListedResource('x', 'other')
+        loader.createListedResource.mockReturnValueOnce(mismatched)
+        expect(list('a')).toBeNull()
+        expect(mismatched.state).toBe('destroyed')
+        const first = list('b')
+        const duplicate = new ListedResource('y', 'test')
+        ;(duplicate as unknown as { _id: string })._id = first.id
+        loader.createListedResource.mockReturnValueOnce(duplicate)
+        expect(list('c')).toBeNull()
+        expect(duplicate.state).toBe('destroyed')
+        // A factory handing back the resource already listed loses nothing by the refusal.
+        loader.createListedResource.mockReturnValueOnce(first)
+        expect(list('d')).toBeNull()
+        expect(first.state).toBe('added')
+        expect(first.isListed).toBe(true)
+        expect(dataset.resources.map(ctx => ctx.resource)).toEqual([first])
+    })
+
+    it('lists nothing under a destroyed parent', () => {
+        const parent = list('parent')
+        parent.destroy()
+        expect(app.listStudy({ loader: 'test/url', name: 'a', source: 'a' }, { parent })).toBeNull()
+        expect(loader.createListedResource).toHaveBeenCalledTimes(1)
+    })
+
+    it('takes a child destroyed on its own out of its parent', () => {
+        const parent = list('parent')
+        const first = app.listStudy({ loader: 'test/url', name: 'a', source: 'a' }, { parent })!
+        const second = app.listStudy({ loader: 'test/url', name: 'b', source: 'b' }, { parent })!
+        parent.activeChildResource = first
+        first.destroy()
+        expect(parent.childResources).toEqual([second])
+        expect(parent.activeChildResource).toBeNull()
+        expect(parent.state).toBe('added')
+    })
+
+    it('survives a child whose destroy rejects', async () => {
+        const parent = list('parent')
+        const child = app.listStudy({ loader: 'test/url', name: 'a', source: 'a' }, { parent })!
+        child.destroy = () => Promise.reject(new Error('destroy failed'))
+        const unhandled = vi.fn()
+        process.on('unhandledRejection', unhandled)
+        parent.destroy()
+        await new Promise(resolve => setTimeout(resolve, 5))
+        process.off('unhandledRejection', unhandled)
+        expect(unhandled).not.toHaveBeenCalled()
+        expect(parent.state).toBe('destroyed')
+    })
+
+    it('announces the reason a setup wrote for itself', async () => {
+        ListedResource.failLoad = 'reason'
+        const listed = list('a')
+        const seen = [] as string[]
+        listed.onPropertyChange('errorReason', value => seen.push(`reason:${value}`), 'test')
+        listed.onPropertyChange('state', (value) => {
+            if (value === 'error') {
+                seen.push(`state:${listed.errorReason}`)
+            }
+        }, 'test')
+        expect(await listed.load()).toBe(false)
+        expect(seen).toEqual(['reason:No file worker', 'state:No file worker'])
+        // A reason set through the setter has been announced and is not announced again.
+        ListedResource.failLoad = 'false'
+        const second = list('b')
+        const announced = vi.fn()
+        second.onPropertyChange('errorReason', announced, 'test')
+        expect(await second.load()).toBe(false)
+        expect(announced).toHaveBeenCalledTimes(1)
+        expect(announced.mock.calls[0][0]).toBe('Loading the study failed')
+    })
+
+    it('loads an opened study with its options when a listener of the add activates it', async () => {
+        const opened = new ListedResource('opened', 'test')
+        loader.getResource.mockResolvedValueOnce(opened as never)
+        app.runtime.addEventListener('add-resource', () => {
+            app.runtime.setActiveResource(opened)
+        }, 'test')
+        const result = await app.loadStudy('test/url', 'c', { authHeader: 'given', dataset })
+        expect(result).toBe(opened)
+        expect(opened.isActive).toBe(true)
+        await vi.waitFor(() => expect(opened.state).toBe('ready'))
+        expect(opened.loadCalls).toHaveLength(1)
+        expect(opened.loadCalls[0].options?.authHeader).toBe('given')
     })
 })
 
