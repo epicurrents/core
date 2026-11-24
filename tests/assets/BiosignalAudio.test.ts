@@ -245,6 +245,15 @@ describe('BiosignalAudio', () => {
             return audio
         }
 
+        it('plays at a gain set before playback and kept across a new buffer', async () => {
+            installAudioContext()
+            const audio = primedAudio()
+            audio.setGain(0.5)
+            audio.setBuffer({ duration: 1, length: 1000, numberOfChannels: 1, sampleRate: 1000 } as AudioBuffer)
+            await audio.play()
+            expect((audio as any)._volume.gain.value).toBe(0.5*32_768/10)
+        })
+
         it('attaches exactly one ended listener per source', async () => {
             const { source } = installAudioContext()
             const audio = primedAudio()

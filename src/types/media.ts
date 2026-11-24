@@ -100,7 +100,8 @@ export interface AudioRecording extends BaseAsset {
      */
     setBuffer (buffer: AudioBuffer, loop?: boolean): void
     /**
-     * Set the audio gain to account for display scale.
+     * Set the audio gain to account for display scale. A gain set before playback, or before a new buffer is set, is
+     * the gain playback starts at.
      * @param gain - Gain factor, which is the reciprocal of sensitivity (vertical uV/D value).
      * @example
      * sensitivity = 50 // uV/D

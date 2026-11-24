@@ -162,7 +162,6 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
                 cb()
             }
         })
-        this._previousGain = 1.0
     }
 
     async loadFile (fileBuffer: ArrayBuffer) {
@@ -248,17 +247,18 @@ export default class BiosignalAudio extends GenericAsset implements AudioRecordi
         this._setPropertyValue('sampleCount', buffer.length)
         this._setPropertyValue('samplingRate', buffer.sampleRate)
         this._setPropertyValue('duration', buffer.duration)
-        this._previousGain = 1.0
     }
 
     setGain (gain: number) {
-        if (!this._volume) {
-            return
-        }
         if (gain < 0) {
             gain = 0
         }
+        // Kept before the gain node exists and across buffers, so a gain set before the first play or a new buffer
+        // still applies when playback starts.
         this._previousGain = gain
+        if (!this._volume) {
+            return
+        }
         // We need to tone the volume down a bit (TODO: Allow user-defined scaling).
         this._volume.gain.value = gain*SAMPLE_MAX_VALUE/10
     }
